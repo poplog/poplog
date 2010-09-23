@@ -1,0 +1,466 @@
+REF XlibTypes                                     A.Schoter, August 1991
+
+        COPYRIGHT University of Sussex 1991. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<      XLIB  DATA  TYPES      >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This REF file describes the  various datatypes introduced by the  Poplog
+Xlib interface libraries. In addition  it provides some useful hints  on
+how best to pass data into procedures and how to access data returned by
+procedures.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Data Pointers
+      1.1   The Simple Case
+      1.2   Simple Pointers to Other Data Types
+      1.3   Complex Data Pointers
+
+  2   Data Types
+      2.1   General Convenience Data Types
+      2.2   Pointers to General Data Types
+      2.3   Pointers to Xlib Specific Structures
+      2.4   Xlib Specific Data Types
+
+
+
+----------------
+1  Data Pointers
+----------------
+
+Many of the C functions in the  Xlib package take pointers and use  them
+to return values from calls. In Pop-11 this has be done by using  vector
+class objects and exacc.
+
+
+
+1.1  The Simple Case
+--------------------
+
+The simplest  cases of  using pointers  to  get results  in and  out  of
+procedure calls is  using a pointer  to return an  integer value  from a
+call, and using a  pointer to return  a single string  from a call.  One
+procedure  that  does  this  is  XFetchBytes  from  LIB * XBuffers.  The
+following code shows how this works:
+
+         uses Xbuffers;
+         XStoreBytes(XptDefaultDisplay,'Testing',7);
+         vars string, len = initintvec(1);
+         XFetchBytes(XptDefaultDisplay,len) -> string;
+         len(1) =>
+         string =>
+         exacc_ntstring(string) =>
+
+
+
+1.2  Simple Pointers to Other Data Types
+----------------------------------------
+
+The next most complex case involves pointers to non-compound data  types
+other than integers. This  is made complicated by  the fact that  Pop-11
+does not have built-in procedures  for creating vectors of these  types.
+The procedure shown below can be used to do this:
+
+         define make_unit_vec(key);
+             lvars key, l;
+             1.class_init(
+                 conskey(
+                     consword((destword(key) -> l;`v`;`e`;`c`),l+3),
+                     key
+                 ))
+         enddefine;
+
+Thus a  call  of make_unit_vec("uint")  will  return a  unit  vector  of
+capable of holding an object of type uint.
+
+         make_unit_vec("uint") =>
+
+Clearly a  call  of make_unit_vec("int")  is  equivalent to  a  call  of
+initintvec(1). This procedure can be used to make vectors for passing as
+arguments where  the  documentation  specifies  that  an  argument  is a
+pointer to an unusual datatype, for example ulongPtr. Although they  are
+not all required by Xlib,  REF * DEFSTRUCT/Basic lists all the  possible
+values that  can  be passed  to  make_unit_vec (with  the  exception  of
+bitfield specifiers which are not supported by make_unit_vec).
+
+
+
+1.3  Complex Data Pointers
+--------------------------
+A more complex  case of  data pointer  is that  described by  CharPtrPtr
+below. A CharPtrPtr is  a pointer to a  contiguous area of memory  which
+contains pointers to strings. An  example of a procedure that  returns a
+CharPtrPtr is XListExtensions in  LIB * XExtensions. Load the  following
+code:
+
+         uses XExtensions;
+         vars extns, exnum = initintvec(1);
+         XListExtensions(XptDefaultDisplay,exnum) -> extns;
+         exnum(1) =>
+         extns =>
+
+Now, exnum tells you how many strings have been returned in extns. Since
+extns is a <pointer> we must use  exacc to get at its contents.  Suppose
+that exnum(1) = 4. First we must define a typespec to allow us to access
+extns as an array of pointers:
+
+         p_typespec CharPtrPtr :exptr[];
+
+It is now possible to access the individual strings:
+
+         exacc_ntstring(exacc :CharPtrPtr extns[1]) =>
+         exacc_ntstring(exacc :CharPtrPtr extns[2]) =>
+         exacc_ntstring(exacc :CharPtrPtr extns[3]) =>
+         exacc_ntstring(exacc :CharPtrPtr extns[4]) =>
+
+
+
+
+-------------
+2  Data Types
+-------------
+
+The following  sections describe  the various  new data  types that  are
+introduced by Xlib.
+
+
+2.1  General Convenience Data Types
+-----------------------------------
+These data types are  introduced simply to  make the Xlib  documentation
+more informative.
+
+
+BYTE                                                          [datatype]
+        This data type is used for single characters. It appears in  the
+        Xlib documentation where C  would put char. See  REF * KEYS/byte
+        for more details.
+
+
+UINT                                                          [datatype]
+        This data  type  is  represented  by Pop-11  as  an  INT  -  the
+        specification is used in the Xlib documentation to make it clear
+        to the reader that the argument should be in the range 0 <=  I <
+        2**32. See REF * KEYS/uint for more details.
+
+
+ULONG                                                         [datatype]
+        This data  type  is  represented  by Pop-11  as  an  INT  -  the
+        specification is used in the Xlib documentation to make it clear
+        to the reader that the argument should be in the range 0 <=  I <
+        2**32. See REF * KEYS/ulong for more details
+
+
+
+2.2  Pointers to General Data Types
+-----------------------------------
+These data types are used to allow Xlib procedures to return results  in
+arguments passed in. See the section on Data Pointers above for details.
+
+
+uintPtr                                                       [datatype]
+        This datatype is a pointer  to a data item  of type uint. It  is
+        used by many Xlib procedures to return results. See the  section
+        Data Pointers  above  for  details on  how  to  construct  these
+        objects in Pop-11.
+
+
+ulongPtr                                                      [datatype]
+        This datatype is a pointer to a  data item of type ulong. It  is
+        used by many Xlib procedures to return results. See the  section
+        Data Pointers  above  for  details on  how  to  construct  these
+        objects in Pop-11.
+
+
+
+2.3  Pointers to Xlib Specific Structures
+-----------------------------------------
+These data types represent pointers  to special data structures used  by
+Xlib. Where ever  such a data  type appears in  the documentation it  is
+referring to an object of type <pointer> - the various subtypes are used
+in the documentation to make  it clear to the  user what type of  object
+the pointer is pointing to.
+
+
+CharPtr                                                       [datatype]
+        This is a pointer to an array of characters. This differs from a
+        simple string in that it must be exacc'd to get at the contents.
+        See REF * exacc_ntstring  for details.  It is  usually the  case
+        that when passign arguments into an Xlib procedure one may  pass
+        a simple  string,  but  returned strings  will  be  returned  as
+        CharPtr's.
+
+
+CharPtrPtr                                                    [datatype]
+        This is a pointer to a contiguous area of memory which  contains
+        pointers to strings. When specified  as an input argument it  is
+        sufficient to  pass  a vector  of  strings. However,  when  this
+        datatype appears as an output it  must be handled in the  manner
+        described in the Data pointers section above.
+
+
+DspPtr                                                        [datatype]
+        This is a pointer to a Display structure (see REF * Display  for
+        details of the internal  organisation of such structures).  Most
+        of the Xlib procedures require a Display pointer as an argument.
+        The  default  display  in  Pop-11   is  held  in  the   variable
+        XptDefaultDisplay, this is suitable for passing as a DspPtr.
+
+
+GCPtr                                                         [datatype]
+        This data type specifies  a pointer to  structure of type  _XGC.
+        This structure stores information  about graphics contexts.  See
+        REF *_XGC  for  details of  the  internal organisation  of  this
+        structure.
+
+
+SCmapPtr                                                      [datatype]
+        This  is  a  pointer  to  a  XStandardColormap  structure   (see
+        REF * XStandardColormap for details of the internal organisation
+        of this structure).
+
+
+ScrNum                                                         [integer]
+        This data type  speifies an  index into the  screens field  of a
+        Display structure (see REF * Display). It is used as an argument
+        to many of the procedures in LIB * XlibMacros.
+
+
+ScrPtr                                                        [datatype]
+        This data  type  specifies a  pointer  to a  structure  of  type
+        Screen.  For  details  of  the  internal  organisation  of  this
+        structure see REF * Screen.
+
+
+TablePtr                                                      [datatype]
+        This  datatype  is  used  by  the  many  of  the  procedures  in
+        LIB * XAssociationTables. It  is  a pointer  to  an  association
+        table. See REF * XAssocTable and REF * XAssoc for details of the
+        structure of such tables.
+
+
+VisPtr                                                        [datatype]
+        This data type is a pointer  to a Visual structure which  occurs
+        as a  subpart  of the  Screen  structure (see  REF * Visual  for
+        details of the internal organisation of this structure).
+
+
+VertexPtr                                                     [datatype]
+        This data type specifies a pointer  to a data structure of  type
+        Vertex, as used by  the procedures in  LIB * XDrawingPrimitives.
+        For details of the internal  organisation of this structure  see
+        REF * Vertex.
+
+
+XArcPtr                                                       [datatype]
+        This data type specifies a pointer  to a data structure of  type
+        XArc, as  used by  procedures in  LIB * XDrawingPrimitives.  For
+        details of  the  internal  organisation of  this  structure  see
+        REF * XArc.
+
+
+XChar2bPtr                                                    [datatype]
+        This data type specifies a pointer to a XChar2b type  structure.
+        This is used by some procedures in LIB * XText to represent text
+        strings composed  of 2  byte  charaters. See  REF * XChar2b  for
+        details of the internal organisation of the structure.
+
+
+XCharStructPtr                                                [datatype]
+        This data type  is used to  specify a pointer  to a  XCharStruct
+        structure, as used by some of the procedures in LIB * XText. For
+        details of  the  internal  organisation of  this  structure  see
+        REF * XCharStruct.
+
+
+XClassHintPtr                                                 [datatype]
+        This data  type  specifies a  pointer  to a  structure  of  type
+        XClassHint, as used by some procedreus in  LIB * XWindowManager.
+        For details of the internal  organisation of this structure  see
+        REF * XClassHint.
+
+
+XColorPtr                                                     [datatype]
+        This datatype specifies a  pointer to a  data structure of  type
+        XColor, as used by many of the procedures in  LIB * XColorcells.
+        For details of the XColor structure see REF * XColor.
+
+
+XCompStatPtr                                                  [datatype]
+        This data  type  specifies a  pointer  to a  structure  of  type
+        XComposeStatus,  as   used  by   some  of   the  procedures   in
+        LIB * XKeyboard. For  details of  the internal  organisation  of
+        this structure see REF * XComposeStatus.
+
+
+XEventPtr                                                     [datatype]
+        This data type specifies a pointer  to a data structure of  type
+        XEvent, as used by the procedures in LIB * XEvents. For  details
+        of the internal  organisation of the  various XEvent  structures
+        see REF * XEvents.
+
+
+XFontStructPtr                                                [datatype]
+        This data type specifies a pointer  to a data structure of  type
+        XFontStruct, as  used by  the  procedures in  LIB * XFonts.  For
+        details  of  the  internal   organisation  of  the   XFontStruct
+        structure see REF * XFontStruct.
+
+
+XFontStructPtrPtr                                             [datatype]
+        This data  types specifies  a pointer  to a  contiguous area  of
+        memory containing XFontStructPtr's.
+
+
+XGCValPtr                                                     [datatype]
+        This data  type  specifies a  pointer  to a  structure  of  type
+        XGCValues,   as   used   by   some   of   the   procedures    in
+        LIB * XGraphicsContext. For details of the internal organisation
+        of this structure see REF * XGCValues.
+
+
+XHostAddPtr                                                   [datatype]
+        This data type specifies a pointer to a XHostAddress  structure.
+        See REF * XHostAddress for details of the internal  organisation
+        of this structure.
+
+
+XIconSizePtr                                                  [datatype]
+        This data  type  specifies a  pointer  to a  structure  of  type
+        XIconSize,  as   used   by  the   procedure   XSetIconSizes   in
+        LIB * XWindowManager. For details  of the internal  organisation
+        of this structure see REF * XIconSize.
+
+
+XIconSizePtrPtr                                               [datatype]
+        This data  type specifies  a  pointer to  a contiguous  area  of
+        memeory containing XIconSizePtr's.
+
+
+XImagePtr                                                     [datatype]
+        This data type  specifies a  pointer to a  XImage structure,  as
+        used by the  procedures in LIB * XImages.  See REF * XImage  for
+        details of the internal organisation of this structure.
+
+
+XKeybControlPtr                                               [datatype]
+        This  data  type  specifies  a  pointer  to  a  XKeyboardControl
+        structure, as used  by the  procedure XChangeKeyboardControl  in
+        LIB * XUserPreferences. For details of the internal organisation
+        of this structure see REF * XKeyboardControl.
+
+
+XKeybStatePtr                                                 [datatype]
+        This  data  type  specifies   a  pointer  to  a   XKeyboardState
+        structure, as  used  by  the  procedure  XGetKeyboardControl  in
+        LIB * XUserPreferences. For details of the internal organisation
+        of this structure see REF * XKeyboardState.
+
+
+XModKeymapPtr                                                 [datatype]
+        This  data  type  specifies  a  pointer  to  a   XModifierKeymap
+        structure as used by some of the procedures in  LIB * XKeyboard.
+        For details of  the internal organisation  of the structure  see
+        REF * XModifierKeymap.
+
+
+XPointPtr                                                     [datatype]
+        This data type specifies a pointer  to a data structure of  type
+        XPoint, as used by  the procedures in  LIB * XDrawingPrimitives.
+        For details of  the internal organisation  of XPoint  structures
+        see REF * XCoords.
+
+
+XRectPtr                                                      [datatype]
+        This data type specifies a pointer  to a data structure of  type
+        XRectangle,     as     used     by     the     procedures     in
+        LIB * XDrawingPrimitives.   For   details   of   the    internal
+        organisation of XRectangle structures see REF * XCoords.
+
+
+XSegPtr                                                       [datatype]
+        This data type specifies a pointer  to a data structure of  type
+        XSegement,     as     used     by     the     procedures      in
+        LIB * XDrawingPrimitives.   For   details   of   the    internal
+        organisation of XSegement structures see REF * XSegment.
+
+
+XSetWinAttPtr                                                 [datatype]
+        This data  type  specifies a  pointer  to a  structure  of  type
+        XSetWindowAttributes    as     used     by     the     procedure
+        XChangeWindowAttributes in LIB * XWindowAttributes. For  details
+        of   the   internal   organisation   of   this   structure   see
+        REF * XSetWindowAttributes.
+
+
+XSizeHintsPtr                                                 [datatype]
+        This data type specifies a pointer to a XSizeHints structure  as
+        used  by   the  XSetStandardProperties   procedure  defined   in
+        LIB * XProperties. For details of  the internal organisation  of
+        this structure see REF * XSizeHints.
+
+
+XTextItemPtr                                                  [datatype]
+        This data type  specifies a  pointer to  a XTextItem  structure.
+        This is used to specifiy the  text string to be printed by  some
+        of  the  procedures  in  LIB * XText.  See  REF * XTextItem  for
+        details of the internal organisation of this structure.
+
+
+XTextItem16Ptr                                                [datatype]
+        This data type  is used to  specify a pointer  to a  XTextItem16
+        structure. This is the same as a XTextItem structure except that
+        it is used to specify a string compose of 2 byte characters. See
+        REF * XTextItem16 for details  of the  internal organisation  of
+        this structure.
+
+
+XTimeCoordPtr                                                 [datatype]
+        This data type specifies a pointer  to a data structure of  type
+        XTimeCoord,  as  used  by  the  procedure  XGetMotionEvents   in
+        LIB * XEvents. For details of  the internal organisation of  the
+        XTimeCoord structure see REF * XTimeCoord.
+
+
+XVisInfoPtr                                                   [datatype]
+        This data type specifies a pointer  to a data structure of  type
+        XVisualInfo as  used by  the procedures  in LIB * XVisuals.  For
+        details of the  internal organisation of  this structure  please
+        see REF * XVisualInfo.
+
+
+XWinAttPtr                                                    [datatype]
+        This data  type  specifies a  pointer  to a  structure  of  type
+        XWindowAttributes, as used by the procedure XGetWindowAtrributes
+        in  LIB * XWindowAttributes.   For  details   of  the   internal
+        organisation of this structure see REF * XWindowAttributes.
+
+
+XWinChangePtr                                                 [datatype]
+        This data  type  specifies a  pointer  to a  structure  of  type
+        XWindowChanges, as  used by  the procedure  XConfigureWindow  in
+        LIB * XWindowManipulation.   For   details   of   the   internal
+        organisation of this structure see REF * XWindowChanges.
+
+
+XWMHintsPtr                                                   [datatype]
+        This data  type  specifies a  pointer  to a  structure  of  type
+        XWMHints,   as   used   by    some   of   the   procedures    in
+        LIB * XWindowManager. For details  of the internal  organisation
+        of this structure see REF * XWMHints.
+
+
+
+2.4  Xlib Specific Data Types
+-----------------------------
+REGION                                                        [datatype]
+        This is an opaque Xlib data structure.
+
+
+
+
+--- C.x/x/pop/ref/XlibTypes
+--- Copyright University of Sussex 1991. All rights reserved.

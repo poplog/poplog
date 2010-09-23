@@ -1,0 +1,162 @@
+HELP XptVaArgList                           Jonathan Meyer, Nov 1990
+
+
+    XptVaArgList(list) -> args -> nargs
+
+        simplified varargs interface for X Toolkit routines
+
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Overview
+ -- Resource Types
+ -- Argument Processing
+ -- Examples
+
+-- Overview -----------------------------------------------------------
+
+-XptVaArgList- is a convenience procedure for generating X Toolkit
+resource argument lists that use the "vararg" interface. These X Toolkit
+procedures are indicated using a naming convenction XtVa<name> where
+<name> is the name of a toolkit procedure. Commonly used vararg toolkit
+procedures are:
+
+    XtVaAppCreateShell
+    XtVaCreatePopupShell
+    XtVaCreateManagedWidget
+    XtVaCreateWidget
+    XtVaSetValues
+
+-XptVaArgList- simplifies the process of generating arglists. It takes a
+Pop-11 list structure,  extracts each name/value pair (and also type
+specifications where indicated), and leaves them on the stack in the
+correct format for a call to one of the X toolkit vararg procedures.
+-XptVaArgList- is useful for two reasons:
+
+    1) it makes it easy to specify resource names/values and types for
+        use in toolkit vararg procedures.
+
+    2)  it allows Pop-11 datastructures to be used in programs to
+        specify toolkit resource lists but without the requirement for
+        an XptArgList. This means that -XptVaArgList- is usually less
+        demanding on the storage allocator and hence the garbage
+        collector than -XptArgList-.
+
+-- Resource Types -----------------------------------------------------
+
+When specifying resource lists consisting of name/value pairs, the X
+Toolkit assumes that the value field contains data in the correct
+representation for the resource. For example, fonts should be specified
+as a pointer to an XFontStruct structure returned by a call to the Xlib
+-XLoadQueryFont- procedure.
+
+Calling the low-level Xlib functions is obviously not what is usually
+wanted in applications written using the X Toolkit. Since X11 Release 4,
+the toolkit has supported a "varargs" interface to all toolkit
+procedures that take name/value arguments lists. This interface allows
+not only name/value pairs to be passed, but also "typed" name/value
+pairs, which contain extra information specifying the representation
+used for the data in the value field. The toolkit uses this additional
+information to call "resource convertors" to translate between the
+specified representation type and the desired representation type for
+the resource.
+
+These "typed" name/value pairs are actually specified using the special
+-XtVaTypedArg- string in a name location of a varargs list, followed by
+four arguments:
+
+    Resource name - a string holding the resource name
+    Representation type - a  string such as 'Pixmap' or 'String'
+    Value - data for the named resource, in the specified representation
+    Size - the length in bytes of the data in the -Value- field.
+
+This allows applications to specify fonts, colours, translation tables
+etc. using strings, rather than by using structures returned by a call
+to Xlib or Xt.
+
+-- Argument Processing ------------------------------------------------
+
+-XptVaArgList- takes a list of elements, each of which can be a LIST, an
+XptArgList, an XptArgPtr or a VECTOR. -XptVaArgList- effectively
+flattens all of the datastructures it is passed, producing a collection
+of resource names and values on the stack, and returning the number of
+things that were left on the stack.
+
+The details of how each type of element is processed are:
+
+    LIST        -XptVaArgList- will recursively call itself with any
+                LIST elements that it is passed. LISTS can be nested to
+                any depth. Each element of the LIST is processed and
+                any results are left on the stack.
+
+    XptArgList  The name/value pair held in each XptArgPtr in an
+                XptArgList is placed on the stack.
+
+    XptArgPtr   The name/value pair held in a single XptArgPtr is placed
+                on the stack.
+
+    VECTOR      -XptVaArgList- accepts full vectors of length 2,3 or 4.
+
+                If the vector is of length 2, it should contain a single
+                name/value pair. If the -value- element is a string,
+                then an -XtVaTypedArg- is generated, consisting of
+
+                    (-name-, XtR String, -value-, length(-value-))
+
+                For other -value- elements, the name/value pair is
+                placed onto the stack as for an  XptArgPtr. This is
+                useful since the most common representation type used to
+                specify resources is the String type.
+
+                If a vector of length 3 is provided, it should contain
+                the name/representation/value for the resource, where
+                name and representation are strings. An -XtVaTypedArg-
+                is generated, consisting of:
+
+                    (-name-, -representation-, -value-, length(-value-))
+
+                For a vector of length 4, the vector should contain a
+                full -XtVaTypedArg- specification for the resource,
+                consisting of name/representation/value/size fields.
+
+
+Note that XptVaArgList will "null terminate" any strings that are passed
+without a 0 as their last character. It will also convert booleans into
+the correct representation for the toolkit.
+
+
+-- Examples -----------------------------------------------------------
+
+    ;;; simple vararg lists using 2 element vectors:
+    XptVaArgList([
+        {width 100}
+        {height 200}
+    ])
+
+    ;;; using nested lists:
+    XptVaArgList([
+        {width 100}
+        [{allowResize ^true}]
+        ;;; [^^user_args]
+        {height 200}
+    ])
+
+    ;;; embedded XptArgLists and XptArgPtrs:
+    vars arglist = nc_consXptArgList(XtN width, 100, XtN height, 200, 2);
+    XptVaArgList([
+        ^arglist
+        %consXptArgPtr(XtN allowResize, true)%
+        {borderWidth 2}
+    ])
+
+    ;;; typed args, using 2,3 or 4 element vectors:
+    XptVaArgList([
+        {foreground 'red'}
+        {font String '6x10'}
+        {background Pixel 1 4}
+    ])
+
+
+--- C.x/x/pop/help/XptVaArgList
+--- Copyright University of Sussex 1990. All rights reserved. ----------

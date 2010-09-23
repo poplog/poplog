@@ -1,0 +1,556 @@
+HELP PLOGNEWS.V14
+
+Prolog news for Poplog Version 14.0.
+
+For more recent news, see HELP * PLOGNEWS.
+
+
+1990 ==================================================================
+
+October (Simon Nichols) ----------------------------------------------
+
+--- The Prolog error printer has been changed to use print/1 to print
+    culprits, thereby making use of any portray/1 clauses which have
+    been defined.
+
+--- The evaluable predicate functor/3 has been changed to fail if its
+    third (arity) argument is a negative integer. Similarly, arg/3 now
+    fails if its first argument is an integer which is negative or
+    greater than the arity of the Term which is its second argument.
+    Previously, both functor/3 and arg/3 raised errors in these cases.
+    The new behaviour is more logically correct and is compatible with
+    other major Prolog systems.
+
+--- The evaluable predicate print/1 has been fixed so that it now tries
+    portray/1 at each level of the term being printed. Previously, if
+    the call to portray/1 failed at the top-level of the term, write/1
+    was invoked immediately. See PLOGHELP * PRINT.
+
+--- The names read/2 and write/2 have been made synonyms for vread/2 and
+    vwrite/2, respectively, for compatibility with other Prolog systems.
+    See PLOGHELP * READ, * WRITE.
+
+--- The functionality of the evaluable predicate save/2 has been
+    considerably enhanced. It now accepts as its second argument a
+    (possibly empty) list of attributes, which give control over whether
+    the Prolog saved image is created as a locked system (and if so
+    whether the nonwriteable area should be made shareable) and whether
+    standard Prolog system initialisation should be performed when the
+    image is restored. See PLOGHELP * SAVE for details.
+
+
+August (Simon Nichols) -----------------------------------------------
+
+--- The evaluable predicate predicate_info/2 has been made more
+    informative: it will now report on whether a predicate has been
+    declared but not defined and also whether a user-defined predicated
+    was defined in a language other than Prolog.
+    See PLOGHELP * PREDICATE_INFO for details.
+
+
+July (Simon Nichols) -------------------------------------------------
+
+--- A new command, pop11, has been added which switches subsystem to
+    POP-11. This is similar to the POP11 command defined by loading
+    LIBRARY * LANGUAGES, but is available without having to load a
+    library.
+
+--- Commands (e.g. ved, help, teach, cd, etc.) are no longer macros.
+    They have been re-implemented in such a way that they are
+    recognised either:
+
+        (1) at top-level, in place of a query;
+        (2) in a file being (re)consulted, in place of a clause or
+            directive.
+
+    The effect is that commands names may be freely used as atoms in
+    terms, hopefully fixing a long-standing complaint.
+    See PLOGHELP * COMMANDS for details.
+
+
+April (Simon Nichols) ------------------------------------------------
+
+--- A new facility has been added which allows the pre-processing of
+    clauses read when consulting or reconsulting a file. The user may
+    define transformations to be applied to each clause by asserting
+    clauses for the predicate term_expansion/2.
+    See PLOGHELP * EXPAND_TERM for details.
+
+
+February (Simon Nichols) ---------------------------------------------
+
+--- The new LIBRARY * EDINSYNT provides full Edinburgh (or DEC-10)
+    syntax in POPLOG Prolog. To get full Edinburgh syntax, type:
+
+        ?- library(edinsynt).
+
+    followed by:
+
+        ?- prolog_syntax(edinburgh).
+
+    See PLOGHELP * EDINSYNT for details.
+
+
+1989 ==================================================================
+
+September (John Gibson) -----------------------------------------------
+
+--- The system's handling of list structures in various contexts has
+    been improved, by replacing recursive processing of list members with
+    iterative processing. This means that certain programs using large
+    lists will no longer require an increased -pop_callstack_lim- to
+    allow them to run.
+
+
+August (Robert Duncan) ------------------------------------------------
+
+--- The module system has now been incorporated into the standard Prolog
+    system rather than being a library. Library MODULES has been
+    temporarily changed to print a warning when loaded, and will
+    eventually be deleted. Improvements have been made to the modules in
+    terms of error checking and reporting, and there are several new
+    features defined:
+
+        endmodule Name
+            like 'endmodule/0', but unifies Name with the name of the
+            current module;
+
+        prolog_module(Name)
+            unifies Name with the name of the current module; fails if
+            not in a module;
+
+        current_module(Name)
+            unifies Name in turn with the name of each module
+            currently defined;
+
+        Name$-Goal
+            invokes Goal inside module Name;
+
+        $-Goal
+            invokes Goal outside of any module.
+
+    See HELP * MODULES.
+
+--- Two new predicates 'vread/2' and 'vwrite/2' have been added. These
+    behave like 'read/1' and 'write/1' except that the second argument
+    is an environment associating variables with atomic names.
+    See PLOGHELP * READ, * WRITE.
+
+--- The method by which the standard Prolog saved image is built has
+    been changed. Users who are familiar with the old method, i.e. with
+    the files "mkplog" in $POPCOM and "prolog.p" in $USEPOP/pop/plog/src
+    may like to look at the new versions of these to see what has
+    changed.
+
+
+August (Andrew Casson) ------------------------------------------------
+
+--- It is now possible to do
+
+        X -> Y.
+
+    instead of
+
+        X -> Y ; fail.
+
+    i.e. the "else" part of the conditional is optional.
+
+
+March (Robert Duncan) -------------------------------------------------
+
+--- The predicates 'setof/3' and 'bagof/3' have been modified to allow
+    quantification over arbitrary terms. For example, the goal:
+
+        bagof(X, (Y,Z)^p(X,Y,Z), S).
+
+    is now equivalent to
+
+        bagof(X, Y^Z^p(X,Y,Z), S).
+
+    This can be useful where the set of bound variables has to be passed
+    in as an argument.
+
+--- LIBRARY * FINDALL has been rewritten in POP-11 so as not to use
+    assert and retract; as a consequence it now runs *much* faster.
+
+--- Expansion of grammar rules has been improved to allow meta-calls on
+    the right-hand side of rules. For example, the rule:
+
+        ident(X) --> X.
+
+    now expands correctly, where previously it would cause the compiler
+    to loop indefinitely. The meta-call expands to a call to phrase/3,
+    and this has now been exported from the Prolog system.
+
+
+1988 ==================================================================
+
+September (Robert Duncan) ---------------------------------------------
+
+Some minor improvements and fixes:
+
+--- The default definition of prolog_error/2 has been simplified so that
+    calls to unknown predicates now just fail, without having dummy
+    clauses asserted for them as in the past. This gives more standard
+    Prolog behaviour. A new option has been added to LIBRARY * UNKNOWN
+    which re-establishes the old behaviour for those who want it. See
+    PLOGHELP * PROLOG_ERROR, * UNKNOWN.
+
+--- A new predicate prolog_abolish/2 has been introduced. This behaves
+    like the standard abolish/2, except that it also works on system
+    predicates. This makes it possible to redefine system predicates,
+    although there are caveats -- see PLOGHELP * PROLOG_ABOLISH.
+
+--- The VED command <ENTER> POPHELP, which accesses POP help files from
+    Prolog, has been fixed.
+
+--- The predicate prolog_evaltrue/1 has now been properly exported from
+    section prolog and so can be called anywhere (it would previously
+    work in some contexts but fail in others).
+    See PLOGHELP * PROLOG_EVALTRUE
+
+--- Operator declarations for the predicates dynamic/1, no_clauses/1,
+    system_predicate/1 and their relatives have been added into
+    LIBRARY * DEC10.
+
+
+February (Robert Duncan and Simon Nichols) ----------------------------
+
+--- New predicate declarations have been implemented. Predicates which
+    are to be asserted and retracted can now be declared "dynamic". The
+    global attributes "prolog_syspredicates" and "prolog_no_clauses" can
+    now be applied on a per-predicate basis by means of the declarations
+    "system_predicate" and "no_clauses". The predicate predicate_info/2
+    gives information about how a particular predicate has been
+    declared.
+
+    See PLOGHELP * DYNAMIC, * SYSTEM_PREDICATE, * NO_CLAUSES
+        PLOGHELP * PREDICATE_INFO
+
+--- The predicates see/1 and tell/1 have been modified so that they will
+    accept a POP-11 character repeater (or consumer) as argument. This
+    should simplify mixed-language programs which call Prolog from
+    contexts in which input and output streams have been specially
+    constructed (e.g in window-based applications). See PLOGHELP * I_O
+    for details.
+
+
+January (Robert Duncan and Simon Nichols) -----------------------------
+
+--- Improvements have been made to the database handling mechanism. The
+    predicates assert/1, retract/1 and clause/2 (and their derivatives)
+    now all work substantially faster than previously. Certain
+    inconsistencies in behaviour have also been removed.
+
+--- Many of the frequently-used system predicates (such as functor/3,
+    =../2 etc.) have been re-written and now run faster.
+
+--- The error reporting mechanism has been changed. A wider range of
+    error messages is now produced and the format has been smartened up.
+    When errors arise from POP-11 procedures (for example, on the right
+    hand side of an "is") their names now also appear in the backtrace
+    in the DOING line of the error message.
+
+--- The library POPSETQ has been withdrawn. The predicates defined in
+    it, prolog_setq/2 and prolog_val/2, are now part of the system. For
+    the time being, an empty library file "popsetq.pl" has been kept so
+    that existing calls to load the library will still succeed, but this
+    will be removed in due course. See PLOGHELP * PROLOG_SETQ.
+
+--- A new predicate float/1 has been introduced to complement the
+    existing integer/1. See PLOGHELP * FLOAT.
+
+--- A bug which allowed uninstantiated variables to be asserted and
+    called has been fixed. This is now an error.
+
+--- New documentation has been added:
+    PLOGHELP * PROLOG_SETQ, * PROLOG_VAL
+    PLOGHELP * FLOAT
+    PLOGHELP * APPEND, * LOAD, * MEMBER, * ONCE, * USES
+
+
+1987 ==================================================================
+
+Nov 10 (Simon Nichols)
+    --- A bug whereby the operands to the relational operators </2,
+    <=/2, >/2 and >=/2 were not always evaluated has been fixed. The
+    symptom of this bug would have an error message such as:
+
+        ;;; PROLOG ERROR - NUMBER(S) NEEDED
+        etc.
+
+Jul 1 (Robert Duncan)
+    --- Please note that enhancements planned for POPLOG Prolog
+    necessitate the withdrawal of the BASEPROLOG library from version 14
+    onwards.
+
+Jun 1  (Simon Nichols)
+    --- A new VED command, <ENTER> POPHELP <topic> is now available from
+    Prolog only. It looks for a POP11 HELP file on the specified topic,
+    rather than looking first for a Prolog HELP file.
+
+May 29 (Robert Duncan and Simon Nichols)
+    --- The VED commands to mark and load the current procedure
+    (<ENTER> MCP and <ENTER> LCP, usually bound to ESC-C) and to search
+    for the start of a procedure definition (<ENTER> F) now work with
+    Prolog. The MCP and LCP facilities interpret "procedure" as a
+    sequence of clauses surrounding the current cursor position and
+    having the same functor and arity. The <ENTER> F command will search
+    either for a particular predicate, specified as name/arity, or for
+    any predicate whose functor name has a given prefix.
+    See PLOGHELP * VED.
+
+May 29 (Robert Duncan and Simon Nichols)
+    --- Some new macros have been made available from Prolog top-level:
+        im  - to go into VED immediate mode
+        pwd - to print the current directory
+        cd  - to change directory
+
+May  1 (John Williams)
+    --- Some new facilities for mixed language programming have been
+    added. These are:
+
+        POP11 libraries:        LIB PLOG_GOALS     LIB PLOGINPOP
+        Prolog libraries:       LISPINPLOG
+        Lisp modules:           PROLOG
+
+    See HELP * PLOG_GOALS, HELP * PLOGINPOP, PLOGHELP * LISPINPLOG and
+    the Lisp help file PROLOG.
+
+Apr 23 (Robert Duncan and Simon Nichols)
+    --- SPY has been changed to work correctly in conjunction with
+    modules - SPY output is produced only for predicates visible in the
+    current module. See PLOGHELP * MODULES, PLOGHELP * SPY.
+
+Mar 15 (John Gibson)
+    --- A further enhancement to V13 POPLOG Prolog means that compiled
+    predicates containing large numbers of unit clauses will now occupy
+    only a fraction of the space they previously occupied (on average,
+    about one quarter). This should help considerably in reducing the
+    memory load of the system.
+
+Mar 6 (Simon Nichols)
+    --- LIBRARY CHARTYPE has been created to allow character class
+    numbers to be examined and changed from inside Prolog. See
+    PLOGHELP * CHARTYPE.
+
+Feb 26 (Robert Duncan and Simon Nichols)
+    --- A new Prolog parser/itemiser has been implemented in Version 13.
+    This fixes the known Prolog parsing bugs, particularly those
+    concerned with the treatment of operators and punctuation
+    characters, and provides better error reporting.
+
+    The parser now differentiates correctly between "x" and "y"
+    arguments in operator types so that, for example, an operator of
+    type "xfx" is taken to be non-associative. Some operators have had
+    their precedences changed accordingly, particularly the directive
+    introducer "?-" and all those defined in LIBRARY MODULES, but this
+    should not affect existing programs. [Note: some existing programs
+    which rely on the previous, slacker, interpretation of operator
+    types may no longer compile.] See PLOGHELP * OP for details.
+
+    The parser now also forbids the use of the punctuation symbols "|"
+    and "," as atoms unless quoted.
+
+    A new HELP file, PLOGHELP * SYNTAX, describes the syntax of POPLOG
+    Prolog.
+
+Feb 26 (Robert Duncan and Simon Nichols)
+    --- Improvements and bug fixes for POPLOG Prolog V13:
+
+      * The I/O channel 'user' has been fixed to always connect with the
+        terminal (i.e. the standard input/output), even when loading a
+        marked range from VED; this has improved the interaction between
+        VED and SPY, BREAK etc.
+
+      * The I/O predicates (CONSULT, SEE etc.) have been improved and
+        made more robust. There is less danger of errors resulting from
+        reading on closed devices; filename meta-characters are handled
+        consistently; filenames given to CONSULT and RECONSULT can omit
+        the '.pl' extension.
+
+        * A bug in RECONSULT which meant that nested RECONSULTS acted like
+        CONSULTS has been fixed; this means, for example, that programs
+        which load the same library (directly or indirectly) more than
+        once will now get just a single definition of the predicates in
+        the library file.
+
+      * The directives ?- and :- can now be used from Prolog top-level
+        and a new HELP file, PLOGHELP * DIRECTIVES, has been introduced
+        to describe their use.
+
+      * The POP11 macros ?- and :- which read and evaluate single Prolog
+        goals have been improved: there is no longer a danger of losing
+        characters, and the switch to and from Prolog itemisation is
+        handled correctly. These macros are now documented in
+        PLOGHELP * POPTOPLOG.
+
+      * The POP11 procedure -prolog_readterm-, which reads a Prolog
+        term, now uses Prolog (rather than POP11) itemisation.
+
+      * A bug in the ASSERT and RETRACT mechanism has been fixed.
+
+      * A bug which prevented non-integer numbers from unifying
+        correctly in head matches has been fixed.
+
+1986 -------------------------------------------------------------------
+
+Oct 31 (Kathryn Seifert and A.Sloman)
+
+    --- Major changes to the Prolog Help file system.  A new format has
+    been introduced,  some files have been renamed, and some files have
+    been removed.  PLOGHELP * HELP_CHANGES summarises changes.
+
+    See PLOGHELP * HELPFILES and PLOGHELP * PROLOG for an overview of
+    the structure of the new Prolog Help file system.
+
+    --- VED-based access to Prolog library and documentation files when
+    Prolog not loaded has been simplified by provision of:
+        * PLOGHELP  * PLOGTEACH  * PLOGSHOWLIB
+
+    These can now be used for cross-references in files, invoked by
+    <ESC> h (see HELP * VEDGETSYSFILE). E.g. PLOGSHOWLIB * MODULES
+
+Oct 27 (John Gibson_
+    --- Bug in library(modules) fixed.
+
+May 11 (John Gibson)
+    --- Two further Prolog bugs fixed. The first was introduced in the
+    earliest Version 12 (unfortunately), and under certain conditions
+    could cause the system to crash while creating a new Prolog variable.
+        The second was much older (3 years or more), and caused the garbage
+    collector to crash when it happened to be called inside -suspend- (while
+    suspending a Prolog process). In particular, this could happen when a
+    Prolog program was being run in Ved 'immediate mode' and requesting input
+    (thus necessitating the suspension of the program).
+
+
+Apr 22 (John Gibson)
+    --- A bug concerned with numbering of prolog variables (_1, _2, etc) has
+    been fixed. This occasionally caused the system to crash inside a garbage
+    collection while -spy- was being used.
+
+April 20th (John Gibson)
+    --- In Version 12, Prolog performance has been substantially increased, on
+    average around 30-35%. Prolog compilation has also been speeded up to a
+    certain extent -- it is hoped that more improvements will follow.
+
+March/April (Sak Wathansin)
+    --- Bug fixes for V12 release:
+        a) functor changed to behave as in DEC-10 Prolog
+        b) ?- available from any file (not just .pl files as before)
+        c) missing trailing "." when compiling from a Ved buffer (with CTRL-D)
+           now gives a sensible error message (used to mishap with "Stack
+           empty")
+        d) Calling conjuction/disjunction of undefined goals now gives
+           "Unknown predicate" error which can be trapped with LIBRARY
+            * UNKOWN
+
+1985 ----------------------------------------------------
+
+August 21 (Mark Rubinstein)
+    --- Prolog code can be compiled inside Prolog documentation files,
+    thanks to changed format for vedhelplist et cetera.
+    (see HELP * SYSEARCHPATH, *VEDSYSFILE).
+
+July 22 (Jonathan Laventhol)
+    POPLOG PROLOG VERSION 10.4
+    -- New Representation of Prolog Terms
+        See HELP NEWPLOGTERMS, HELP OLDPLOGTERMS
+        In summary:
+            Prolog complex terms (other than pairs) now have their datatype,
+            "prologterm".
+            Uninstantiated Prolog variables now are represented by variables
+            whose contents point to themselves.
+            Uninstantiated Prolog variables print their underscore number in
+            POP11.
+    -- More code is now in the main POPLOG system
+        This includes basic term manipulators and other utilities.
+    -- Closer DEC10 Functionality
+        functor/3 behaves properly.
+        X = undef works.
+
+February 28 (Jonathan Laventhol)
+    ProGram version 5. See ProGram help file *CHANGES for full details.
+
+1984 ------------------------------------------------------
+December 5 (Mark Rubinstein)
+    Bugs in LIB TRACER now fixed.  Previously it couldn't handle disjunction
+    and couldn't be swithched off properly.
+
+August 8
+    ProGram version 4. See ProGram help file *CHANGES for full details.
+
+March 29 (Jonathan Laventhol)
+        *** VERSION 9 ***
+    Many enhancements and bug fixes have been made.
+    Please see PLOGNEWS CHANGES for full details
+
+
+*** version 8.2.1 Prolog ***
+*** version 8.1 prolog ***
+
+
+September 20 1983 --------------------------------------------------------
+
+Minor Bug fixed:
+    ?- '[]' = [].
+    now succeeds, in accordance with PDP11 and DEC10 Prolog systems.
+
+September 5 1983 ---------------------------------------------------------
+
+Bugs fixed:
+
+    ?- help
+        as the first goal of a prolog session now works with no argument.
+
+    ?- atom([]).
+        now succeeds, in accordance with PDP-11 and DEC10 Prologs.
+
+    ?- functor(A, [], 0).
+    ?- functor([], A, 0).
+        now work, giving A = []
+
+    ?- rename(Old, New).
+        now works when renaming files
+
+    ?- X = foo(1,2), X.
+        now works
+
+    ?- library/1 fixed to fail on backtrack
+
+Documentation altered to specify:
+    that cuts don't work in top level
+    that conditionals don't work in top level
+
+Library Additions:
+    "log" added to library
+    "module" added to the autoloadable directory.
+    "undefs" added to autoloadable library.
+
+*** version 8 prolog ***
+
+    Many new features.  Please see PLOGHELP Changes.
+    The help system has been altered so that from within Prolog you get a
+    different set of help files.  Use PLOGHELP from POP11 for the same files.
+    The file structures is now like this:
+        [pop.plog.src]      the source files
+        [pop.plog.help]     the help files
+        [pop.plog.lib]      the library files
+        [pop.plog.auto]     autoloadable library files
+
+28 June 1983 -------------------------------------------------------------
+    abolish/2 is now in the library file USEFUL.PL, and will be in
+    the new system.
+
+13 June 1983 -------------------------------------------------------------
+    library(findall) added.  from programming in prolog, page 152.
+
+10 june 1983 -------------------------------------------------------------
+    PLOGHELP and ENTER PLOGHELP added as temporary fix.
+    HELP PROLOGBUILT split into separate files, accessable via PLOGHELP.
+    see PLOGHELP AAAREAD.ME and PLOGHELP INDEX.
+
+
+--- C.all/help/plognews.v14
+--- Copyright University of Sussex 1993. All rights reserved.

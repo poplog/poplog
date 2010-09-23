@@ -1,0 +1,175 @@
+HELP XPW                                       Jonathan Meyer, Jan 1990
+
+Poplog Widget Set for X11, revision 5.
+
+
+This document provides an overview of the Poplog Widget Set. For more
+information on individual widgets, see the Related Documentation listed
+below.
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- The Poplog Widget Tree
+ -- The XpwCore Widgets
+ -- Loading Xpw in Poplog
+ -- Associated Documentation
+
+-- Introduction -------------------------------------------------------
+
+The X Toolkit provides a C-based object orientated library. The library
+is based around two things:
+
+    1. The Intrinsics
+    2. Widgets
+
+1. Intrinsics
+
+These are a set of procedures for manipulating and controlling the
+toolkit. They contain procedures to initialize the toolkit, create
+toolkit objects (called widgets), control the widgets during their
+lifetime, and destroy them.
+
+2. Widgets
+
+Widgets are the graphics objects that are manipulated by the Toolkit.
+They each belong to a class, and have a set of properties. Widget
+properties include resources, actions, translation tables, and a set of
+procedures for performing other operations on the widget (such as
+resizing it, or destroying it). Typical widgets are text editors,
+scrollbars, buttons, menus etc. A Widgetset is a collection of widgets
+that all have the same "look and feel" and similar programmer
+interfaces. Widgetsets are available from the OSF (Motif), Sony,
+Hewlett Packard (Xw), Sun, AT&T and others. See REF *XT_LIBS for
+details about accessing widgetsets in Poplog.
+
+-- The Poplog Widget Tree ---------------------------------------------
+
+The Poplog Widget Set was designed to provide an interface between X
+Windows and Poplog. It is written in C and externally loaded into
+Poplog. It contains two types of widgets: (1) the XpwCore widget class
+and its descendants, and (2) additional widget classes which are
+subclasses of other intrinsics widgets.
+
+1) The XpwCore widget tree contains a number of widgets which are at a
+"medium" level. They are at a higher level than the fundamental toolkit
+widgets, or raw X Windows, but they are at a much lower level than
+widgets like ScrollBar or Text, since they are not designed for a
+specific purpose. They have a large number of resources, which the user
+can specify. Each widget responds to a set of methods, and uses
+callbacks - a mechanism allowing the programmer to "trap" events that he
+is interested in. This interface is much easier to program than raw
+Xlib.
+
+2) There is currently one additional widget class in the Poplog Widget
+Set: XpwComposite. XpwComposite inherits all of the behaviour of its
+superclasses (Composite and Core) but adds additional callback actions.
+These callbacks are used to notify applications of events such are the
+widget being resized, or a button being pressed.
+
+The Poplog widgets are arranged in a hierarchy. For example, the
+XpwGraphic widget class is below the XpwPixmap widget class, which is in
+turn below the XpwCore widget class in the hierarchy. Because of this,
+any graphics widgets will inherit all the properties of XpwPixmap
+Widgets and XpwCore widgets. The graphics widget uses the XpwPixmap
+widgets properties (ie. the pixmap) to store a copy of the contents of
+the graphics window.
+
+The Widget Hierarchy is broken into three parts: The XpwCore part is the
+stem of the main Poplog widget set. The XpwComposite widget is just just
+a specialisation of an already existing widget class. The XpwTransparent
+widget is a special "invisible" widget, which can be used to trap user
+events.
+
+The Hierarchy looks like this:
+
+
+              Composite --------> XpwComposite
+            /                     ^^^^^^^^^^^^
+           /
+          /                     / XpwScrollText
+         /                     /  ^^^^^^^^^^^^^
+Core ---{-- XpwCore   --------{
+         \  ^^^^^^^            \
+          \                     \ XpwPixmap    --------> XpwGraphic
+           \                      ^^^^^^^^^              ^^^^^^^^^^
+            \
+              XpwTransparent
+              ^^^^^^^^^^^^^^
+
+
+The Poplog Widgets in this hierarchy are designed to be used in addition
+to other widgets, such as OpenLook or Motif widgets.
+
+-- The XpwCore Widgets ---------------------------------------------------
+
+Methods
+
+The XpwCore widget and its descendants have a special interface
+mechanism called 'methods' that allows relevant procedures for those
+widgets to be accessed from a single C procedure. This reduces the
+number of external procedures that have to be loaded within Poplog. For
+more information about the method system, see REF *XpwMethods.
+
+Naming Conventions
+
+The XpwCore widgets follow the Athena Widget Set naming conventions,
+except that all of the procedures relating to the widget set start with
+the root 'Xpw' instead of 'Xt' or 'Xaw'. For example, the method access
+procedure is called XpwCallMethod. Method Identifiers are called
+XpwM<name>.
+
+
+-- Loading Xpw in Poplog ----------------------------------------------
+
+The Poplog Widgets are identical to any other X Toolkit widgets as far
+as Poplog is concerned. You should first do
+
+    uses Xpw;
+
+to make the Xpw library directory available, and then
+
+    uses <widgetclass-name>;
+
+to load each widget and its associated procedures. Ie. to load the
+XpwGraphic widget:
+
+    uses XpwGraphic;
+
+The whole Poplog Widget Set can be loaded with
+
+    uses XpwAllWidgets;
+
+
+-- Associated Documentation -------------------------------------------
+
+There are two main sources of documentation regarding the Poplog Widget
+Set:
+
+1) A set of REF files describes each of the widgets in the Xpw:
+
+    REF *XpwCore
+    REF *XpwPixmap
+    REF *XpwGraphic
+    REF *XpwScrollText
+    REF *XpwComposite
+    REF *XpwTransparent
+
+2) Additional files describing other details of the Poplog Widget Set:
+
+    REF *XpwMethods         - list of methods in Xpw widgets
+    REF *XpwResources       - list of resources of Xpw widgets
+    REF *XpwCallMethod      - synopsis for XpwCallMethod and each method
+
+    TEACH *Xpw              - example tutorial demonstrating Xpw
+
+Also see:
+
+    HELP *X                 - overview of Poplog X interface
+    HELP *RC_GRAPHIC        - graphics library written on top of Xpw
+    HELP *RC_GRAPHPLOT      - Pop-11 library for drawing graphs
+
+
+--- C.x/x/pop/help/Xpw
+--- Copyright University of Sussex 1990. All rights reserved. ----------

@@ -1,0 +1,284 @@
+REF COMPLEARN                                    David Young  Dec 1988
+                                          Updated J. Clinton  Aug 1992
+
+       Copyright University of Sussex and Integral Solutions Ltd.
+                           All Rights Reserved
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<    FUNCTIONS & VARIABLES    >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<      IN LIB COMPLEARN       >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Before Loading The Library
+ -- Creating A Network
+ -- Network Parameters
+ -- Network Response
+ -- Winning Units
+ -- Training Networks
+ -- Printing Information
+ -- Saving And Loading Networks
+
+
+-- Before Loading The Library -----------------------------------------
+
+All the libraries available in Poplog-Neural make use of a number of
+environment variables. These are:
+
+1. HOST_TYPE
+
+Set to be the name of the machine being used e.g. sun3, sun4, bobcat,
+vax etc.
+
+2. NEURAL_F77
+
+Specifies whether a Fortran 77 compiler is available. This should be set
+accordingly to "yes" or "no".
+
+
+These should be defined in your .login (UNIX) or LOGIN.COM (VMS) file.
+
+
+-- Creating A Network -------------------------------------------------
+
+make_clnet(NIN, NUNITS, GW, GL, RW, RL) -> NETWORK           [procedure]
+        This sets up a competitive learning network for subsequent  use.
+        Here NIN is the no of input units, NUNITS is a vector giving the
+        structure of each  layer above  that, starting  with the  lowest
+        hidden layer (if  there is  one) and finishing  with the  output
+        layer. Each entry in  NUNITS is a vector  of integers, with  one
+        integer for each cluster  in the layer;  each integer gives  the
+        number of units in the cluster. The example below will make this
+        clearer.
+
+        GW is  the learning  rate  for winning  units (usually  a  small
+        positive number). GL is the  learning rate for losing units,  in
+        order to do 'leaky learning', if  used should be a small  number
+        less than GW. Leaky learning is computationally very  expensive;
+        to switch off leaky learning  and avoid this cost, give  <false>
+        for GL.
+
+        RW and RL  implement 'sensitivity  equalisation': winning  units
+        become less sensitive  and losing units  more sensitive on  each
+        iteration in order  to make sure  that each unit  gets an  equal
+        chance to learn.  This is  implemented by  means of  a bias:  in
+        effect an extra input to the  unit which can vary between 0  and
+        1. When a  unit wins, its  bias decays towards  0 by a  fraction
+        equal to RW; when a unit  loses, its bias climbs towards 1  by a
+        fraction equal to RL. Sensitivity equalisation can be turned off
+        by giving <false> for RW and RL.
+
+        For example:
+
+            make_clnet(72, { {4 4} {2} }, 0.02,false,0.02,0.001) ->
+                network;
+
+        returns a network with 72 input  units, a hidden layer with  two
+        clusters of 4  units each,  and an  output layer  with a  single
+        cluster of 2 units. The learning rate for winning units is 0.02,
+        it does no leaky learning, and the sensitivity change rates  are
+        0.02 and 0.001 for winning and losing units respectively.  (This
+        network can  solve the  vertical/horizontal line  discrimination
+        problem in Rumelhart & McClelland.)
+
+        The learning rates can be changed at any time:
+
+            0.05 -> network.clgw;       ;;; increase learning rate
+            0.02 -> network.clgl;       ;;; do leaky learning
+            etc.
+
+
+-- Network Parameters -------------------------------------------------
+
+clgw                                                         [procedure]
+        This accessor controls the learning rate for winning units  i.e.
+        the increase in  connection strength  from the  winning unit  in
+        each group to the winning units in the previous layer. Since the
+        weights to a unit  are normalized to  1, this involves  reducing
+        the connection strength from units  in the previous layer  which
+        did not win. For example:
+
+            0.05 -> network.clgw;
+
+
+clgl                                                         [procedure]
+        This accessor controls the learning rate of losing units. To try
+        and prevent a  single unit dominating  a group, the  connections
+        from losing units in the previous layer to a losing unit in  the
+        next are  strengthened  (at  the  expense  of  connections  from
+        winning units  in  the previous  layer).  This is  called  leaky
+        learning and is computationally expensive. The value should be a
+        single precision real or <false> to switch off leaky learning.
+
+
+clrw                                                         [procedure]
+        This accessor controls the change in sensitivity of the  winning
+        unit. To prevent a unit dominating a group, the winning unit has
+        its sensitivity (a "resting" level of activation) reduced.  This
+        value should be a single precision real or <false> to switch  it
+        off.
+
+
+clrl                                                         [procedure]
+        This accessor controls the change  in sensitivity of the  losing
+        units in a group. While the winning units become more sensitive,
+        changing this value  causes losing  units to  be more  sensitive
+        (have a  higher "resting"  activation).  The value  should  be a
+        single precision real or <false>.
+
+
+clweights                                                    [procedure]
+clbiases                                                     [procedure]
+clactivs                                                     [procedure]
+cloutvec                                                     [procedure]
+        These all take a competitive  learning network as arguments  and
+        return the weights,  biases, activation and  output arrays.  The
+        first three are structured  like the output of  -cl_activunits-,
+        that is by cluster. The last is simply an array mapped onto  the
+        top layer activations array.
+
+
+
+You cannot use the updaters of  these procedures to change the  network,
+nor  can  you  update  the  lists  they  return.  The  results  will  be
+meaningless if you try.
+
+To change the  weights and  biases in the  network, you  can update  the
+elements of the arrays individually.
+
+
+-- Network Response ---------------------------------------------------
+
+cl_response(INVEC, NETWORK, OUTVEC)                          [procedure]
+        Like -cl_learn-,  but no  weights are  changed: the  activations
+        only get set. Arguments are as for -cl_learn-.
+
+
+cl_response_set(INPUT_SET, NETWORK, OUTVECS)                 [procedure]
+cl_response_set(STEPSIZE, INPUT_SET, NETWORK, OUTVECS)
+        Like -cl_response-,  but  here INPUT_SET  is  the set  of  input
+        vectors or stimuli.
+
+        In the first form, INPUT_SET is a 2-dimensional array. If  there
+        are NIN  input  units  and  you want  to  have  NSTIM  different
+        stimuli, then its  boundslist should  be [1 ^NIN  1 ^NSTIM]  and
+        INPUT_SET(I,J) is the I'th element of the J'th stimulus.
+
+        In the  second  form,  INPUT_SET is  a  1-dimensional  array  of
+        stimuli, which  may  be  stored  successively,  with  spaces  in
+        between,  or  overlapping  one   another.  STEPSIZE  gives   the
+        separation between the start  points of the individual  stimuli.
+        Each stimulus must  be a  contiguous set  of NIN  values in  the
+        array, starting at  element 1 +  (I-1) * STEPSIZE  for the  I'th
+        stimulus in the  array. If STEPSIZE  is equal to  NIN, then  the
+        stimuli do not overlap and there is no real difference from  the
+        first way to  call the  procedure. If  STEPSIZE is  1, then  the
+        input is treated as a time  series onto which the network  has a
+        moving window which samples every possible sub-sequence.
+
+        OUTVECS is an array such that OUTVECS(I,J) will receive the I'th
+        element of the J'th output vector, and its boundslist will be [1
+        ^NOUT 1 ^NSTIM] if  there are NOUT output  units in the  network
+        and NSTIM stimuli to process.
+
+        If the procedure is called with a 2-dimensional INPUT_SET,  then
+        the second dimensions of INPUT_SET and OUTPUT_SET must match. If
+        the procedure is called with a 1-dimensional INPUT_SET, then the
+        length of INPUT_SET  must be  at least  (NSTIMS-1) *  STEPSIZE +
+        NIN, where NSTIMS is obtained from the boundslist of OUTVECS.
+
+
+-- Winning Units ------------------------------------------------------
+
+cl_activunits(NETWORK) -> ACTIVLIST                          [procedure]
+        This returns a list  specifying the active  units in a  network.
+        The list  has  the same  structure  as the  second  argument  to
+        -make_clnet-: that is the winning units are reported by cluster,
+        and the clusters are  grouped by layer. Eg  if NETWORK had  been
+        set up as in  the example for -make_clnet-  above, and had  then
+        been shown a stimulus, then this  might be the result of a  call
+        to -cl_activunits-:
+
+            cl_activunits(network)=>
+            ** [[2 4] [2]]
+
+        this means that  in the hidden  layer, unit 2  in cluster 1  and
+        unit 4 in cluster 2 won; in the output layer, unit 2 in the only
+        cluster won.
+
+
+-- Training Networks --------------------------------------------------
+
+cl_learn(INVEC, TARGVEC, NETWORK)                            [procedure]
+        This makes a  network go through  one learning iteration  with a
+        single input. Activations get set and weights get changed.  Here
+        INVEC is the input vector  and NETWORK is something returned  by
+        -make_clnet-.INVEC must  be an  array of  real numbers,  created
+        using -array_of_real-,  not -newarray-.  (-array_of_real-  takes
+        the same arguments as -newarray- - a boundslist and an  optional
+        initialiser - but makes a Fortran compatible array.) INVEC  must
+        be at least  as big  as the  no of  input units  stated for  the
+        network. TARGVEC  is a  dummy  argument for  compatibility  with
+        other learning functions.
+
+
+cl_learn_set(STIMS, TARGS, NITER, CYCLE, NETWORK, OUTVEC)    [procedure]
+cl_learn_set(STEPSIZE, STIMS, TARGS, NITER,
+             CYCLE, NETWORK, OUTVEC)
+        This allows a  number of cycles  of learning to  be done in  one
+        call. (It is more efficient  than repeated calls to  -cl_learn-,
+        which is effectively what it  does.) The arrays must be  created
+        using -array_of_real-.
+
+        In the first form, STIMS is a 2-dimensional array of stimuli; if
+        there are NIN input units and  you want to have NSTIM  different
+        stimuli, then its  boundslist should  be [1 ^NIN  1 ^NSTIM]  and
+        STIMS(I,J) is the I'th element of the J'th stimulus.
+
+        In the  second form,  STIMS is  a 1-dimensional  array which  is
+        useful  when  the  input  is  effectively  a  time  series.  See
+        -cl_response_set- for the meaning of STEPSIZE in this case.  The
+        length of STIMS must be at least as large as NIN in this case.
+
+        NITER is the no of iterations to carry out; it can be greater or
+        less than the no of stimuli in the array. If CYCLE is true, then
+        the stimuli are  presented cyclically, going  through the  STIMS
+        array in sequence; if CYCLE is false the stimuli are picked  out
+        at  random.  NETWORK  is  a  network  set  up  as  before  using
+        -make_clnet-. TARGS and OUTVEC  are dummy arguments to  maintain
+        compatibility with other learning procedures.
+
+
+-- Printing Information -----------------------------------------------
+
+pr_clweights(NETWORK)                                        [procedure]
+        This simply prints out all the weights of a network.
+
+
+pr_clactivs(NETWORK)                                         [procedure]
+        After a call to -cl_response- or -cl_learn_set-, this prints out
+        all the activations of a network. After a call to -cl_learn-, it
+        prints out all the error signals.
+
+
+-- Saving And Loading Networks ----------------------------------------
+
+cl_save(FILENAME, NETWORK) -> RESULT                         [procedure]
+        Saves NETWORK (a competitive  learning network record) to  disk.
+        The filename should have a '.net' suffix. Returns <true> if  the
+        network was saved ok or false otherwise.
+
+
+cl_load(FILENAME) -> NETWORK                                 [procedure]
+        This procedure takes a filename (a string) or a device and reads
+        the file from that  file/device. A competitive learning  network
+        record is returned if the  file was successfully read  otherwise
+        <false> is returned.
+
+
+--- $popneural/ref/complearn
+--- Copyright University of Sussex 1988. All rights reserved. ----------

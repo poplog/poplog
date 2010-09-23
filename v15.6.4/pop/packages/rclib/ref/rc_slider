@@ -1,0 +1,229 @@
+REF rc_slider                                   JLCunningham, 3 Sep 2002
+                              (Slightly revised by A.Sloman 10 Sep 2002)
+
+(This REF file is based on information gleaned from ____HELP_ _*_ _________RC_SLIDER,
+and some experimentation. I have also resorted to reading the source
+of _______SHOWLIB_ _*_ _________rc_slider, but this does not guarantee completeness of
+the options described here.)
+
+Three procedures for creating sliders are described:
+
+    ____proc :== rc_slider, rc_opaque_slider, rc_square_slider
+
+Each of these three procedures draws a slider plus, by default, an
+abominable numeric indicator, even though you may only want the slider,
+except possibly in cases where the slider does not give you adequate
+precision. (See how to get rid of it using rc_slider_value_panel,
+rc_slider_value_panel_def, or rc_draw_slider_value explained later in
+this file.)
+
+The three slider-creation procedures differ only in the appearance of
+the slider. Optional arguments are marked by a ? after the argument
+name.
+
+    ____proc(__x1, __y1, __x2, __y2,
+         _____range,
+         __________half_width,
+         ____col1, ____col2,
+         _____label_s,
+         ___________featurespec ?
+         ____type ?
+         ________variable ?
+         )                                         -> ______slider
+
+The optional arguments are independently optional, and can occur in any
+combination as long as the order is preserved (except
+as otherwise noted in their description, below).
+
+EXAMPLES
+
+;;; If you wish to try the examples, first create a window, e.g. using
+;;; this format:
+vars win1 = rc_new_window_object("right", "top", 400, 300, true, 'win1');
+
+vars my_thermometer =
+    rc_slider(-100, 80, 100, 80, {32 212 98 2}, 6, 'red', 'black', []);
+
+vars my_opaque_thermometer =
+    rc_opaque_slider(-100, 25, 100, 25, {32 212 98 2}, 6, 'red', 'black', []);
+
+vars my_square_thermometer =
+    rc_square_slider(-100, -25, 100, -25, {32 212 98 2}, 6, 'red', 'black', []);
+
+Argument list
+
+    __x1, __y1, __x2, __y2
+        Coordinates of end-points of slider. Any orientation is
+        permitted. NB the slider will go beyond the end-points,
+        typically by a distance equal to __________half_width.
+
+    _____range
+        Either a single number, or a vector (___not a list) of
+        two, three or four numbers. These are:
+
+        _________min_value, _________max_value, _____________initial_value and ____step
+
+        In the case of a single number, it acts as _________max_value,
+        otherwise the numbers are assigned to these parameters
+        in order. A vector with only one number is not permitted.
+
+        _________min_value
+            the smallest value possible on the slider, defaults
+            to 0 in case of single number.
+
+        _________max_value
+            the largest value possible on the slider, no default
+            since always present in a valid _____range argument.
+
+        _____________initial_value
+            the value indicated when the slider is first shown,
+            defaults to _________min_value.
+
+        ____step
+            the slider can only be set to values which are a
+            multiple of ____step greater than _________min_value, defaults
+            to false, i.e. continuous movement.
+
+        __NB_ __if_ _________min_value_ _=_ __________max_value,_ ___the_ _______library_ ____will_ ______mishap
+        ____when_ __it_ _____tries_ __to_ _______display_ ___the_ _______slider.
+
+    ____col1, ____col2
+        Two colours (see ____HELP_ _*_ ________XCOLOURS) used for the moveable
+        and fixed parts of the slider. For rc_opaque_slider these
+        should be different. They can ___not be defaulted to false.
+
+    __________half_width
+        Determines the width of the slider. There is no simple
+        relationship: it depends on the kind of slider. Typically,
+        the slider will have a width twice the value of this
+        parameter (e.g. 'my_thermometer' in the example above will
+        have a width of 12) but may be more for slider types which draw
+        an extra outline. The relationship between the half_width
+        and the width of the bar is explained in
+            HELP * RC_SLIDER/radius
+
+    ______labels
+        A list of label specifications. This can be [], otherwise
+        is an optional font specification followed by either (1) any
+        number of label elements or (2) exactly two lists.
+
+        I can't find any useful documentation on font specifications
+        in Poplog, but you may get some clues in ___REF_ _*_ ____FONT, and on
+        Linux systems the shell command xlsfonts will list
+        installed fonts, although some of the (over 3000) on my
+        system I have been unable to use with rclib windows. I am
+        not sure if this is because I don't know how to specify them
+        or because there are different kinds of font (bitmap, TrueType
+        etc.) and not all of them work with Poplog.
+
+        Case (1):
+
+        Each label element is a vector of three components in the form:
+
+        {___lx1 ___ly1 ______string}
+
+        where these are printed using rc_print_at, except that the
+        lx1, ly1 coordinates are relative to the position of
+        of the slider, rather than absolute positions on the window.
+
+        Case (2):
+
+        The first list is treated as for case 1, the second is the
+        same but positioned relative to the other end of the slider.
+        (Further information is in HELP * RC_SLIDER)
+
+    ___________featurespec
+        See ____HELP_ _*_ ___________FEATURESPEC.
+
+    ____type
+        A class name, key or procedure for constructing the slider.
+        This argument is not permitted for rc_square_slider or
+        rc_opaque_slider. Passing newrc_square_slider as the ____type
+        argument to rc_slider is equivalent to calling rc_square_slider.
+
+    ________variable
+        This is a word or identifier, which is set by any changes to
+        the slider and represents its current value. NB. It is
+        not an active variable, and assigning to it does not update
+        the slider.
+
+rc_draw_slider_value
+    This is the method that draw the value box. A possible way
+    to safely get rid of the obnoxious value box is by redefining this
+    method to do nothing, although some might think it more logical if
+    rc_slider inherited from a more basic class with a "do nothing"
+    value for this method which rc_slider overrode.
+    The method prototype is
+        define :method rc_draw_slider_value(______slider:rc_slider_frame, ___val);
+            ;;; compile it with an enddefine, to rid of the value box
+        enddefine;
+
+    There are several other ways to avoid the value box:
+        o Define a sub-class of rc_slider for the default value of the
+          slot rc_slider_value_panel is just false
+
+        o Define a sub-class for which the method rc_draw_slider_value
+          does nothing.
+
+        o Change the value of the variable rc_slider_value_panel_def to
+          be false (locally using dlocal or globally), since by default
+          its value is what determines the value of the
+          rc_slider_value_panel slot.
+
+    The default value of rc_slider_value_panel_def is defined to be a
+    vector of 11 components:
+
+    vars rc_slider_value_panel_def =
+    ;;; {endnum bg     fg     font   places px py length ht fx fy}
+        {2   'grey80' 'black' '8x13' 2      10  0  55    15 2  -4};
+        where
+            endnum
+                1 or 2, determining at which end the value box
+                is attached
+            bg
+                the background colour (a string)
+            fg
+                the foregraound colour (a string)
+            font
+                the font (a string)
+            places
+                species the number of decimal places to be shown
+            px py
+                give coordinates of the left end of the box relative
+                to the specified end if the slider
+            length ht
+                specify the length and height of the box.
+            fx fy
+                are integers specifying how the location of the
+                numbers in the panel should be located relative to the
+                centre of the left end of the panel
+
+    In the future, I expect the value box will be avilable as a mixin.
+
+SEE ALSO
+    HELP * RC_SLIDER
+    HELP * RCLIB
+    HELP * RC_CONTROL_PANEL
+   TEACH * RCLIB_DEMO.P/'Making sliders'
+            and the following sections
+    HELP * RCLIB/rc_constrained_mover
+   TEACH * RC_LINEPIC/rc_constrained_mover
+    HELP * RC_DIAL
+   TEACH * RC_DIAL
+
+NOTE 1: All but the 'opaque' slider depend on the use of a nasty hack
+for drawing moving objects, which causes bits of the object to turn an
+unpredictable colour when they move over other coloured objects or
+backgrounds. This problem is explained in HELP * RCLIB_PROBLEMS
+
+NOTE 2: The copyright notices on this and other poplog documentation
+files can be considered merely part of a documentation convention used
+by some of te documentatin tools. The real copyright notice is
+    http://www.cs.bham.ac.uk/research/poplog/copyright.html
+
+Basically you can do what you like with Poplog code and documentation,
+provided that it is at your own risk.
+
+/* End of File */
+--- $poplocal/local/rclib/ref/rc_slider
+--- Copyright University of Birmingham 2002. All rights reserved.

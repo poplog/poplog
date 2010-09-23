@@ -1,0 +1,260 @@
+REF XT_APPINIT                                    Adrian Howard Jun 1991
+                                           Updated Jason Handby Aug 1991
+
+       COPYRIGHT University of Sussex 1990. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<< CONVENIENCE INITIALISATION  >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<       OF APPLICATIONS       >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This REF  file details  the  procedures that  are  supplied by  the  two
+library  packages  LIB * XT_APPINIT   and  LIB * FAST_XT_APPINIT   which
+provide the  Pop-11  interface  to the  various  X  Toolkit  convenience
+routines for initialising an application.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   LIB XT_APPINIT
+
+  3   LIB FAST_XT_APPINIT
+
+
+
+---------------
+1  Introduction
+---------------
+
+Various initialisation actions need to be performed when an  application
+is started. The  Toolkit internals must  be initialised, an  application
+context needs to  be created,  a connection must  be established  with a
+display server, and a  shell widget must be  created (which will be  the
+parent widget of the application).
+
+The library  LIB * XT_APPINIT  provides  the  Pop-11  interface  to  the
+various X Toolkit convenience routines for initialising an  application.
+The library LIB * FAST_XT_APPINIT (loaded by LIB * XT_APPINIT)  provides
+a non-type checking interface to the same procedures.
+
+The procedures provided allow the following functions to be performed in
+a single procedure call:
+
+  o The initialisation of the X Toolkit Internals
+  o The creation of a default application context
+  o The opening and the initialisation of a display
+  o The creation of an initial application shell instance
+
+The  exact  structure  of  arguments  and  results  for  the   following
+procedures is as discussed in REF * XPT_TYPES.
+
+For full details see section 2.4.4 of:
+
+               X Toolkit Intrinsics - C Language Interface
+                             X Window System
+                         X Version 11, Release 4
+
+        Copyright (C)  1985,  1986,  1987,  1988,  Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+
+
+-----------------
+2  LIB XT_APPINIT
+-----------------
+
+XptAppContextPtr                                  [shadowclass typespec]
+        This  declaration  provides  support  for  the  XptAppContextPtr
+        shadowclass structure  containing  a single  XptACPValue  field,
+        pointing to an XptAppContext record. Its external_ptr_props  are
+        set to the  constant XDT_VALUEPTR  (see REF * XPT_CONSTANTS)  to
+        enable "weak" type  checking (See  REF * XptDescriptor for  more
+        details).
+
+             shadowclass XptAppContextPtr [props ^XDT_APPCONTEXTPTR]
+                 {XptACPValue     :XptAppContext};
+
+
+XptACPValue(appcontextptr) -> appcontext                     [procedure]
+appcontext -> XptACPValue(appcontextptr)
+        Access or update the application context appcontext referred  to
+        by  the  XptAppContextPtr  shadowclass  record  appcontextptr. A
+        value of  false  can  be returned/passed  to  the  procedure  to
+        indicate a null application context.
+
+
+isXptAppContextPtr(item) -> bool                             [procedure]
+        Checks to see whether item is an instance of an XptAppContextPtr
+        shadowclass record, and returns true or false accordingly.
+
+
+initXptAppContextPtr() -> appcontextptr                      [procedure]
+        Creates a new instance of an XptAppContextPtr shadowclass record
+        with a false XptACPValue field.
+
+
+fillXptAppContextPtr(appcontext, appcontextptr)              [procedure]
+                     -> appcontextptr
+        Fills an existing XptAppContextPtr record appcontextptr with the
+        application context  appcontext,  and returns  the  newly-filled
+        object. appcontext  being  false indicates  a  null  application
+        context.
+
+
+consXptAppContextPtr(appcontext) -> appcontextptr            [procedure]
+        Constructs an instance of the XptAppContextPtr shadowclass  with
+        an XptACPValue field of appcontext. A value of false indicates a
+        null application context.
+
+
+destXptAppContextPtr(appcontextptr) -> appcontext            [procedure]
+        Given an  instance of  an XptAppContextPtr  shadowclass  record,
+        stacks its  XptACPValue  field.  appcontext is  false  when  the
+        application context pointed to by appcontextptr is null.
+
+
+importXptAppContextPtr(exptrclass) -> appcontextptr          [procedure]
+        Given an external pointer  class record exptrclass, that  points
+        to the address of an application context, the procedure  returns
+        an  XptAppContextPtr  shadowclass  record  appcontextptr   whose
+        XptACPValue field  is the  application  context referred  to  by
+        exptrclass.
+
+
+refreshXptAppContextPtr(appcontextptr) -> appcontextptr      [procedure]
+        Refresh   the   contents   of   the   XptAppContextPtr    object
+        appcontextptr from the  external copy,  returning the  refreshed
+        object.
+
+
+XptAppContextPtr_shadowkey -> shkey                           [constant]
+        Holds the shadowkey for the shadowclass XptAppContextPtr.
+
+
+XtAppInitialize(appcontextptr, app_class,                    [procedure]
+                optiondesclist, num_options,
+                argc_io, argv_io,
+                fallback_resources,
+                args, num_args) -> widget
+        This procedure initialises the  toolkit, creates an  application
+        context, opens  a display  connection,  and creates  an  initial
+        application shell widget widget. If appcontextptr is false  then
+        the  application  context  created  by  the  procedure  is   not
+        returned. Otherwise, appcontextptr will  be altered to point  to
+        the   newly-created   application    context.   The    procedure
+        refreshXptAppContextPtr should be  used to update  appcontextptr
+        to reflect the amended value.
+
+        app_class  is  a  string  specifying  the  class  name  of   the
+        application (see REF * XPT_TYPES).
+
+        optiondesclist is an XptOptionDescList structure that  specifies
+        how  the  command   line  arguments  are   to  be  parsed.   See
+        REF * XPT_GENERALTYPES for a full  explanation of the format  of
+        the structure.  num_options is  a  CARDINAL that  specifies  the
+        number of options in optiondesclist.
+
+        argv_io is  an XptStringList  structure containing  the  command
+        line arguments  ('-display', '-geometry',  etc). argc_io  is  an
+        XptCardinalPtr pointing to the number of command line  arguments
+        that are stored in argv_io.
+
+        After    the    call    to    XtAppInitialize    the    variable
+        XptUnprocessedArgs will  contain  a  list of  any  command  line
+        arguments that  were not  successfully parsed.  If some  of  the
+        command line arguments  were not parsed  successfully the  usual
+        response would be for the  caller of XtAppInitialize to  display
+        the unparsed arguments along  with a list  of the legal  command
+        line options.
+
+        NOTE:   if    you    refresh   argc_io    and    argv_io    with
+        refreshXptCardinalPtr and  refreshXptStringList they  will  also
+        contain any command  line arguments that  were not parsed,  plus
+        (on Unix systems) the command used to invoke the program.
+
+        fallback_resources   is    a    null-terminated    XptStringList
+        shadowclass structure containing resource  values to be used  if
+        the application class resource file cannot be read. Each  string
+        in  STRINGLIST  should  form  a  name-value  pair  of  the  form
+        'NAME:VALUE'. For example, to set  the fallback geometry of  the
+        application  'Foo'   to   '100x100+2+3'  you   could   use   the
+        XptStringList returned by:
+
+            consXptStringList(#| 'Foo.geometry:100x100+2+2', false |#)
+
+        If fallback_resources is  false then no  fallback resources  are
+        available.
+
+        Finally, the XptArgList  shadowclass structure  args, of  length
+        num_args, contains resource values that will override any  other
+        resource specifications for the  created shell widget. The  args
+        and num_args arguments can be replaced by a single Pop11 list or
+        vector which will be coerced  into an XptArgList structure  (and
+        length), using the XptArgList procedure.
+
+        The procedure-XtAppInitialize- calls several Toolkit routines in
+        order to perform  the appropriate  initialization actions.  They
+        are:
+
+            XtToolkitInitialize
+                see REF * XT_INIT.
+
+            XtCreateApplicationContext
+                see REF * XT_APPCON
+
+            XtAppSetFallbackResources
+                (if FALLBACKRESOURCES was non-false) see REF * XT_APPCON
+
+            XtOpenDisplay
+                (with a NULL display string and application name)
+                 see REF * XT_DISPLAY
+
+            XtAppCreateShell
+                (with a NULL application name, and a widget_class of
+                 applicationShellWidgetClass) see REF * XT_WIDGET
+
+        Compare with XptDefaultSetup.
+
+
+XtVaAppInitialize(appcontextptr_return, app_class,           [procedure]
+                  options, num_options,
+                  argc_io, argv_io,
+                  fallback_resources, varargs) -> widget
+        This procedure performs the same  function as the previous  one,
+        but expects its final resource list arguments in varargs format.
+        (See REF * XPT_TYPES/varargs for a more detailed description  of
+        varargs.) The procedure  XptVaArgList provides a  simple way  of
+        creating varargs lists (REF * XT_LIBS/XptVaArgList).
+
+
+
+
+----------------------
+3  LIB FAST_XT_APPINIT
+----------------------
+
+fast_XtAppInitialize(appcontextptr_return, app_class,        [procedure]
+                     options, num_options,
+                     argc_io, argv_io,
+                     fallback_resources,
+                     args, num_args) -> widget
+fast_XtVaAppInitialize(appcontextptr_return, app_class,      [procedure]
+                      options, num_options,
+                      argc_io, argv_io,
+                      fallback_resources, varargs) -> widget
+        As for the  procedures in LIB * XT_APPINIT,  but without  checks
+        for valid arguments.  Also, note that  no automatic coercion  of
+        Pop11 lists/vectors to XptArgList structures will be  performed.
+        These procedures should only be used in fully debugged programs.
+        See REF * XTOOLKIT  for  full details  of  the Poplog  X  naming
+        conventions for non-checking and checking procedures.
+
+
+
+--- C.x/x/pop/ref/xt_appinit
+--- Copyright University of Sussex 1990. All rights reserved.

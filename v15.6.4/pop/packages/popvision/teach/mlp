@@ -1,0 +1,1164 @@
+TEACH MLP                                       David Young
+                                                August 1998
+
+                         MULTI-LAYER PERCEPTRONS
+
+This teach file describes facilities in LIB * MLP, which implements
+multi-layer perceptrons, a class of artificial neural network
+popularised by the book "Parallel Distributed Processing" (D.E.
+Rumelhart, J.L. McClelland & the PDP Research Group, MIP Press, 1986),
+Vol. 1, Chapter 8 (referred to below as the PDP book). The
+back-propagation algorithm is used to carry out gradient descent
+training.
+
+For a more systematic description, see HELP * MLP.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   Loading the library
+
+  3   A simple example
+      3.1   Creating a net
+      3.2   A note on momentum
+      3.3   Creating an input array
+      3.4   Converting the input array to MLP format
+      3.5   Creating targets
+      3.6   Training the net
+      3.7   Testing the net
+      3.8   Printing the net
+      3.9   Untraining the net
+
+  4   Some further basic facilities
+      4.1   Updating and non-updating procedures
+      4.2   The error results
+      4.3   Changing net and data parameters
+      4.4   Batch learning
+      4.5   Access to weights and biases
+      4.6   Training and testing on single examples
+
+  5   Examples using different data formats
+      5.1   Time series data
+      5.2   Image data
+      5.3   Saving space with large data sets
+
+  6   More facilities
+      6.1   Saving and restoring nets on disc
+      6.2   Different transfer functions
+      6.3   Clamping weights and biases
+      6.4   Accessing and updating weight and bias arrays
+      6.5   Back propagation between networks
+      6.6   Calculation precision
+      6.7   Repeatable training runs
+
+---------------
+1  Introduction
+---------------
+
+The basic computational unit of a perceptron takes data from an input
+vector and computes a single number. The unit's internal data consists
+of a weight vector and a bias. It forms the dot product of the weights
+and the inputs and adds the bias. A function, usually nonlinear, is then
+applied to this value to give the output. In classical perceptrons, the
+nonlinear function is the step function, but in perceptrons trained
+using gradient descent a smooth sigmoidal function is used.
+
+Multi-layer perceptrons are feedforward (i.e. nonrecurrent) artificial
+neural networks made of layers of these computational units. Supervised
+learning can be carried out through gradient descent implemented via the
+backpropagation algorithm.
+
+LIB * MLP provides a procedural interface to an implementation of
+multi-layer perceptrons. The training algorithm is the standard
+backpropagation algorithm with no frills other than momentum and weight
+decay, with a choice of continuous or batch mode. There is a small
+choice of output functions and weights can be trained at differential
+rates. A particular strength of the library is the set of facilities for
+operating on time series and image data.
+
+This file introduces the library through examples. These can be run by
+marking them in Ved and then loading them (usually with <CTRL-D>). They
+are intended to be executed in order. They can be modified for
+incorporation into your own programs, usually by building your own
+procedures round these fragments rather than by using them at top level.
+Inside procedures, variables which are here declared as "vars" should
+probably be declared "lvars".
+
+----------------------
+2  Loading the library
+----------------------
+
+You should have the popvision libraries available on your machine. To
+load mlp, use the commands
+
+    uses popvision         ;;; access to the popvision directories
+    uses mlp
+
+You will also need a library for creating arrays of floating point
+numbers, loaded with
+
+    uses newsfloatarray
+
+-------------------
+3  A simple example
+-------------------
+
+3.1  Creating a net
+-------------------
+
+A net is initially built using mlp_makenet by specifying:
+
+    o The number of input units.
+    o The number of units in each of the higher layers, from the first
+        hidden layer to the output, as a vector.
+    o The range of the initial weights, wtrange. The weights are
+        intially set at random, and are uniformly distributed from
+        -wtrange/2 to +wtrange/2.
+    o The learning rate, eta.
+    o The momentum, alpha.
+
+Thus to create a little network with 2 inputs, one hidden layer of two
+units, and a single output unit, the following call can be given:
+
+    vars net;
+    mlp_makenet(2, {2 1}, 2.0, 1.4, 0.6) -> net;
+
+Here the weights and biases range from -1 to +1, the learning rate is
+1.4 and the momentum 0.6.
+
+3.2  A note on momentum
+-----------------------
+
+The arguments to mlp_makenet correspond to eta and alpha as used in the
+PDP book, p. 330. It is worth noting that a nonzero value for the
+momentum alpha increases the effective value of the learning rate eta.
+On a smooth error surface, the effective learning rate is given by
+eta/(1-alpha). For the net created above, the effective rate is 3.5. You
+may wish to specify the effective learning rate eta_eff and use
+eta_eff*(1-alpha) as the argument to mlp_makenet.
+
+3.3  Creating an input array
+----------------------------
+
+The input data must be initially stored in an array. The array should
+normally be created using *newsfloatarray (or some other procedure that
+produces packed floating point arrays), though other array types will be
+copied if necessary. Arrays are needed for the inputs, the targets, and
+the outputs of the network.
+
+There are various ways to lay out the data in the array. The simplest is
+to use a 2-D array, with one column for each example and one row for
+each input unit.
+
+For example, suppose we wish to set up four input patterns, like this:
+
+    input pattern 1:   0  0
+    input pattern 2:   0  1
+    input pattern 3:   1  0
+    input pattern 4:   1  1
+
+The input array should look like:
+
+        col 1   col 2   col 3   col 4
+row 1     0       0       1       1
+row 2     0       1       0       1
+
+So there's a column for each pattern and a row for each input unit.
+
+The convention used in the program is that the first index of an array
+identifies the row, the second index the column, of the data as laid out
+on the page. (This is the same as for mathematical matrix notation.
+Unfortunately in image processing the opposite convention is adopted, so
+you should always check which one is being followed.)
+
+So to actually create a suitable array and fill it, do:
+
+    vars inputs;
+    newsfloatarray([1 2 1 4]) -> inputs; ;;; array with 2 rows, 4 cols
+    0 -> inputs(1,1); 0 -> inputs(1,2); 1 -> inputs(1,3); 1 -> inputs(1,4);
+    0 -> inputs(2,1); 1 -> inputs(2,2); 0 -> inputs(2,3); 1 -> inputs(2,4);
+
+Of course, you may be able to find neater ways to fill this array with
+these patterns, and for most applications you will wish to write a
+specialised program to generate the arrays, or use a higher-level
+interface.
+
+3.4  Converting the input array to MLP format
+---------------------------------------------
+
+To provide flexibility for other formats, the array just created cannot
+be used directly with the net, but must first be incorporated into an
+MLP data record. This is done with a call to mlp_makedata, thus:
+
+    vars input_rec;
+    mlp_makedata(inputs) -> input_rec;
+
+Note that a new copy of the array has not been made. It was simply
+incorporated into the record, because having been created with
+newsfloatarray it was already of the right type.
+
+3.5  Creating targets
+---------------------
+
+The process for creating the targets for supervised learning is similar.
+The target array needs one column for each example, and must have one
+row for each output unit.
+
+For the XOR test the targets go 0, 1, 1, 0 for the four input patterns
+respectively, and so can be set up as follows:
+
+    vars targets;
+    newsfloatarray([1 1 1 4]) -> targets; ;;; array with 1 row, 4 cols
+    0->targets(1,1); 1->targets(1,2); 1->targets(1,3); 0->targets(1,4);
+
+The array now needs to be incorporated into an MLP record. This will
+also include information about how to train the net. It is necessary to
+specify how many presentations of the patterns to give, and also whether
+to select examples randomly from the set of patterns, or whether to
+cycle through them.
+
+Suppose we wish to train for 2000 presentations of individual patterns
+and to select patterns randomly. This is set up as follows:
+
+    vars target_rec;
+    mlp_makedata(targets, 2000, true) -> target_rec;
+
+The number of iterations and whether to apply random selection can be
+changed later if necessary.
+
+3.6  Training the net
+---------------------
+
+One procedure, mlp_learn, is used to train the network.  As it updates
+values inside the network structure, it is called as an updater. It
+needs the inputs, the targets, and the net, and is used like this:
+
+    (input_rec, target_rec) -> mlp_learn(net) -> (,);
+
+Loading this line will cause the network to be trained on the examples
+above, updating its weights and biases. Loading it again will do another
+2000 presentations, and so on.
+
+The procedure also returns two results.  As these are not important now,
+they are assigned to an empty expression (i.e. they are ignored).
+
+There is a short cut to creating and training new networks with one
+procedure call - see below.
+
+3.7  Testing the net
+--------------------
+
+We now wish to see how the trained network behaves. We can apply it to
+each of the set of input patterns, using mlp_response.  This creates and
+returns a data record containing the responses of the net to each
+pattern.
+
+    vars output_rec;
+    mlp_response(input_rec, net) -> output_rec;
+
+Outputs is one of the special data records, and as such the results are
+not immediately accessible. We need, in effect, to reverse mlp_makedata.
+This is done with mlpdata_data (an odd name, but it is one of a family of
+mlpdata_ routines).
+
+    vars outputs;
+    mlpdata_data(output_rec) -> outputs;
+
+Now outputs is just an array with the same layout as the targets (one
+row for the single output unit and 4 columns for the 4 examples):
+
+    outputs =>      ;;; this prints ** <array [1 1 1 4]>
+
+and printing its contents gives the results of applying the trained net
+to each of the 4 input patterns:
+
+    outputs(1, 1) =>        ;;; normally you would use a loop for this
+    outputs(1, 2) =>
+    outputs(1, 3) =>
+    outputs(1, 4) =>
+
+which when this file was produced gave
+
+    ** 0.032794             ;;; see below if your results look
+    ** 0.960624             ;;; different!
+    ** 0.97033
+    ** 0.028014
+
+We see that the network has learnt the rule on the occasion this teach
+file was produced - the outputs correspond closely to the targets. If
+you try running these examples yourself (as you should), you will find
+that the results are different each time, as the random initialisation
+of the weights affects the success of the learning. In particular, the
+net will quite often get stuck in a local minimum of the error, and the
+result will not look at all like the targets. It is well worth creating
+and training a network several times over to see how the behaviour
+varies. It gets stuck less often if you use -1 instead of 0 as the "off"
+value on the inputs, although this cannot be produced as an output using
+the default activation function.
+
+3.8  Printing the net
+---------------------
+
+The procedure mlp_printweights allows you to inspect the biases and
+weights of the network:
+
+    mlp_printweights(net);
+
+which printed
+
+    WEIGHTS
+               bias     1     2
+    Level 2
+    unit   1:   3.75 -8.00  8.20
+
+    Level 1
+    unit   1:   2.54  5.33 -5.13
+    unit   2:  -3.37  6.16 -6.41
+
+This shows the network trained when this file was created. Your network
+will have different values. Level 1 is the hidden layer, and level 2 is
+the output layer. The value -8.00, for example, is the weight from unit
+1 in the hidden layer to the output unit, whilst -5.13 is the weight
+from the second input to the first hidden unit.
+
+Incidentally, we can easily see how this particular net has learnt to do
+the task. If we call the inputs A and B, then in the hidden layer unit 1
+is biased on, and turns off for A=0 and B=1, and for no other
+combination of inputs, so it implements (A or not B). Hidden unit 2 is
+biased off, and comes on only for A=1 and B=0, that is (A and not B).
+The output unit is biased on, and turns off only if hidden unit 1 is on
+and hidden unit 2 is off, that is it does (not H1 or H2). Thus overall
+the net implements
+
+    output = not (A or not B) or (A and not B)
+
+which is just a formula for XOR. On other training runs different
+schemes might be found, for example
+
+    output = (A and not B) or (B and not A)
+
+It is also possible to look at the current state of the activations
+using mlp_printactivs. This must be used after a call to mlp_response, and
+not right after a call to mlp_learn, as at that point the activations
+are replaced by error values.
+
+3.9  Untraining the net
+-----------------------
+
+To start again, you can simply create a new network with mlp_makenet -
+as the inputs and targets have not been updated, you can re-use them. If
+you do not want to change the architecture, you can reset the existing
+net to a new random state with a call like this
+
+    2.0 -> mlp_resetnet(net);
+
+The value assigned to this updater sets the range of the random weights
+and biases, like the third argument in mlp_makenet. If you now return to
+the call to mlp_response above, and look at the results, you will find
+that the net no longer works, and you need to call mlp_learn again to
+train it.
+
+--------------------------------
+4  Some further basic facilities
+--------------------------------
+
+4.1  Updating and non-updating procedures
+-----------------------------------------
+
+We have seen an updating version of mlp_learn.  There is a non-updating
+version, which creates a network from scratch and then trains it. It
+needs all the information given to mlp_makenet, so to create and train a
+net as we did above, the following call will work:
+
+    mlp_learn(input_rec, target_rec, {2 1}, 2.0, 1.4, 0.6) -> (net,,);
+
+Again, there are a couple of extra results, which we are ignoring. The
+variable net receives the trained net. More training on this net could
+be done using the updater of mlp_learn, described above.
+
+We have seen a non-updating version of mlp_response.  There is a version
+which updates an existing record to avoid creating new arrays and
+records. To demonstrate it at this point, we could re-use the output
+record returned from the earlier call to mlp_response. However, we start
+from scratch and make a new structure, by creating an array the right
+size and using mlp_makedata.
+
+    newsfloatarray([1 1 1 4]) -> outputs;
+    mlp_makedata(outputs) -> output_rec;
+
+Normally we would do this once, then re-use the output record many
+times. Here is the updater of mlp_response in use:
+
+    (input_rec, net) -> mlp_response(output_rec);
+
+and the outputs can then be inspected. There is no need to call
+mlpdata_data to get the output array, because we already have a
+reference to it, and output_rec has a pointer to it, not a copy of it.
+
+    outputs(1,1) =>     ;;; which prints, for example,  ** 0.051058
+
+etc.
+
+4.2  The error results
+----------------------
+
+The two mysterious results returned by mlp_learn, and so far thrown away,
+are actually the mean error over the training session, and its variance.
+These can be useful in assessing the progress of training.
+
+The error is defined as half the sum of the squares of the differences
+between the net's outputs and the targets, averaged over all the
+examples presented during the call to mlp_learn. (For a net with a
+single output unit, of course, there is just one output-target
+difference, and so the error is just half the average square of this.)
+
+We can see the use of these variables if we train the small network as
+before, but this time we do the training in smaller bursts, looking at
+the error each time. First, the number of presentations per call to
+mlp_learn needs to be reduced, say to 100. This is done like this:
+
+    100 -> target_rec.mlpdata_niter;
+
+Now create a new network, and train it with 100 examples at a time,
+printing out the error and its variance each time.
+
+    vars err errvar;
+    mlp_makenet(2, {2 1}, 2.0, 1.4, 0.6) -> net;     ;;; new network
+
+    repeat 12 times
+        (input_rec, target_rec) -> mlp_learn(net) -> (err,errvar);
+        [error is ^err, with variance ^errvar] =>
+    endrepeat;
+
+which prints for example
+
+    ** [error is 0.140667 , with variance 0.008352]
+    ** [error is 0.130057 , with variance 0.008421]
+    ** [error is 0.090799 , with variance 0.013267]
+    ** [error is 0.104345 , with variance 0.014969]
+    ** [error is 0.108968 , with variance 0.012709]
+    ** [error is 0.072952 , with variance 0.014788]
+    ** [error is 0.078096 , with variance 0.010277]
+    ** [error is 0.043794 , with variance 0.004719]
+    ** [error is 0.019029 , with variance 0.000763]
+    ** [error is 0.006743 , with variance 0.000031]
+    ** [error is 0.003847 , with variance 0.000003]
+    ** [error is 0.002659 , with variance 0.000002]
+
+Note how the mean error and the error variance decrease (mostly) as
+training proceeds over the 2000 trials.  This can be useful in deciding
+when to stop training and how to set eta and alpha.
+
+4.3  Changing net and data parameters
+-------------------------------------
+
+We have already seen how to change the number of presentations built
+into the targets data structure, with the call
+
+    100 -> target_rec.mlpdata_niter;
+
+The decision as to whether to select examples at random or to cycle
+through them can also be changed. For example, to switch to cyclic
+sampling, do
+
+    false -> target_rec.mlpdata_ransel;
+
+You can look at the current values with the same procedures, e.g.
+
+    target_rec.mlpdata_niter =>         ;;; which prints ** 100
+
+The network's alpha and eta parameters can likewise be inspected
+and changed.
+
+    net.mlp_eta =>          ;;; which prints  ** 1.4
+    net.mlp_alpha =>        ;;; which prints  ** 0.6
+
+    0.2 -> net.mlp_eta;
+    0.9 -> net.mlp_alpha;
+
+or if you prefer to use the effective learning rate
+
+    0.9 -> net.mlp_alpha;
+    2.0*(1-net.mlp_alpha) -> net.mlp_eta;
+
+4.4  Batch learning
+-------------------
+
+So far, continuous training has been used - that is, the weights have
+been updated immediately after every example has been presented to the
+net. Batch training, in which the weight adjustments from a set of
+examples are combined before being applied, can be done by modifying the
+target record creation, thus:
+
+    mlp_makedata(targets, {500 ^true}, false) -> target_rec;
+
+The new argument "{500 ^true}" means that the net should carry out 500
+iterations through the whole training set (in this case, the 4
+examples). The weights will be updated once on each iteration, after
+averaging the weight changes from the different examples. Since all 4
+examples should be included in each batch, the final argument is <false>
+to indicate that cyclical rather than random selection should be used.
+
+As the averaged changes are more reliable, we can increase eta when the
+net is created, which we will do along with training it:
+
+    mlp_learn(input_rec, target_rec, {2 1}, 2.0, 12.0, 0.0) -> (net,,);
+
+and the results are obtained as before with
+
+    (input_rec, net) -> mlp_response(output_rec);
+    arrayvector(outputs) =>  ;;; quick alternative to printing elements
+
+which when run twice during creation of this file gave
+
+    ** <mlpsvec 0.041527 0.964095 0.964338 0.036901>
+    ** <mlpsvec 0.109748 0.643585 0.643633 0.650122>
+
+where the second result shows the network getting stuck in the wrong
+place.
+
+4.5  Access to weights and biases
+---------------------------------
+
+You can access and update specific weights and biases using mlp_weight.
+This requires you to specify the level of the net, with level 1
+referring to the weights from the inputs to the lowest hidden layer, the
+unit where the connection starts, and the unit where the connection
+ends. Units are numbered starting at 1 within each layer. So to get the
+weight from input 1 to hidden unit 2, you would do
+
+    mlp_weight(1, 1, 2, net) =>
+
+and for the weight from hidden unit 2 to the output unit, you would do
+
+    mlp_weight(2, 2, 1, net) =>
+
+To update these weights, simply use the updater, e.g.
+
+    -7 -> mlp_weight(2, 2, 1, net);
+
+Biases are specified by giving the unit from which the signal is coming
+as 0 or <false>. So this gets the bias for the first unit in the hidden
+layer:
+
+    mlp_weight(1, false, 1, net) =>
+
+For another method of accessing weights and biases, which is more
+efficient if you need to access or update many at one time, see the
+section on access to weight and bias arrays below.
+
+4.6  Training and testing on single examples
+--------------------------------------------
+
+If you wish to generate patterns one at a time to test or train a
+network, you can do so simply by applying mlp_makedata to a 1-D array.
+This will give a data record containing a single example, rather than a
+set as above. If you update the original array, the contents of the
+record will also be updated, provided that the array was created using
+*newsfloatarray or a similar procedure. For example, to test the net
+developed above on two particular examples, you could do this:
+
+    vars input_array, output_array;
+    newsfloatarray([1 2]) -> input_array;
+    newsfloatarray([1 1]) -> output_array;
+    mlp_makedata(input_array) -> input_rec;
+    mlp_makedata(output_array) -> output_rec;
+
+    ;;; set up a pattern
+    0 -> input_array(1);   1 -> input_array(2);
+    (input_rec, net) -> mlp_response(output_rec);
+    output_array(1) =>
+
+    ;;; and another
+    1 -> input_array(1);   1 -> input_array(2);
+    (input_rec, net) -> mlp_response(output_rec);
+    output_array(1) =>
+
+Note that whilst the arrays are being updated and accessed, it is the
+data records are passed to mlp_response. This works because the data
+records contain pointers to the arrays. Clearly care is needed in
+keeping track of the variables if you use this technique.
+
+It is generally much less efficient to generate individual patterns and
+call mlp_response or mlp_learn for each one, than it is to generate a
+whole set of patterns at once and call the routines to process the whole
+set, as was done in the earlier sections.
+
+----------------------------------------
+5  Examples using different data formats
+----------------------------------------
+
+5.1  Time series data
+---------------------
+
+The mlp_makedata procedure allows data to be passed to a net in a
+greater variety of ways than the format used above. For full details see
+HELP * MLP. This section gives one example, and the next section
+another.
+
+Suppose you have a time series, and you wish to train a network to
+predict each point in it from the N preceding points. If you used the
+2-D format above, each example would contain much the same data as the
+preceding one, only shifted slightly.  This would use a lot of memory
+for a large series. You can avoid this with a different way of using
+mlp_makedata, in which you provide a 1-D array, and some further
+information about how it should be handled.
+
+As an example, we will first generate a time series consisting of a sine
+wave plus random noise (not very interesting, but it will do).
+
+    vars data;
+    false -> popradians;            ;;; just to be sure
+    newsfloatarray([1 1000],
+        procedure(i);
+            0.45 + 0.25 * sin(3*i) + random(0.1)
+        endprocedure) -> data;
+
+If you are operating in an X-windows environment you can use
+*rc_graphplot to look at this as follows:
+
+    uses rc_graphplot
+    uses rci_show
+    1 -> rci_show_scale;
+    rci_show([1 500 1 300]) -> rc_window;
+    rc_graphplot(1, 1, 1000, 't', data, 'f(t)') -> rcg_usr_reg;
+
+Click on the graph if you want to get rid of the graphics window.
+
+Now suppose we want to predict each point from the preceding 10 points.
+The first chunk of input data will be points 1-10, the next will be
+points 2-11, and the last chunk will be points 990-999 in the array. We
+set up the inputs record by specifying the number of inputs, the start
+point of the first chunk, the step to move to get to the next data
+chunk, and the start point of the last chunk.
+
+    mlp_makedata(data, 10, 1,1,990) -> input_rec;
+
+Note the order of the last 3 arguments - it's like the from...by...to
+...do sequence in a Pop-11 numerical for loop.
+
+For the targets, we use the same data array, but now there is only one
+unit. The first point we want to predict is the 11th and the last is the
+1000th.
+
+    mlp_makedata(data, 1, 11,1,1000) -> target_rec;
+
+And as this example is about data formats and not networks, we will just
+have the simplest possible network, which has just one unit above the
+inputs. (Putting in a hidden layer would make no difference to the rest
+of the example, but the network has to have 10 inputs and 1 output.) We
+set the weight range to -0.005 to +0.005, eta to 0.01 and alpha to 0.9.
+
+    mlp_makenet(10, {1}, 0.01, 0.01, 0.9) -> net;
+
+And train it!
+
+    2000 -> target_rec.mlpdata_niter;
+    true -> target_rec.mlpdata_ransel;
+
+    repeat 8 times
+        (input_rec, target_rec) -> mlp_learn(net) -> (err, errvar);
+        err =>
+    endrepeat;
+
+which prints something like
+
+    ** 0.007553
+    ** 0.002451
+    ** 0.001488
+    ** 0.00125
+    ** 0.001173
+    ** 0.00101
+    ** 0.000977
+    ** 0.000936
+
+The error has decreased satisfactorily. If we take the square root of
+the last value, we obtain the root mean square error as about 0.03.
+Since random noise uniformly distributed between 0 and 0.1 was added,
+and this has a standard deviation of about 0.03 and is clearly
+unpredictable, the result is about as good as we can expect. We can see
+the results if we create a suitable data record and put the responses
+into it.
+
+    newsfloatarray([1 1000]) -> outputs;
+    mlp_makedata(outputs, 1,11,1,1000) -> output_rec;
+
+Note that the arguments are as for the targets. Now fill it.
+
+    (input_rec, net) -> mlp_response(output_rec);
+
+If you plot the results with *rc_graphplot, you will get a smoothed
+version of the original data, as expected:
+
+    false -> rcg_newgraph;
+    'red' -> rc_window("foreground");
+    rc_graphplot(1, 1, 1000, false, outputs, false) -> ;
+
+An interesting exercise is to get this "network" to predict a point some
+distance ahead of the input region, by changing the start points in the
+calls to mlp_makedata.
+
+The inputs to the net do not have to be sequences of consecutive points
+- they could be every second point, for instance.  For how to set this
+and more complex inputs and targets up, see HELP * MLP.
+
+5.2  Image data
+---------------
+
+The second example of more complex data is in 2-D pattern recognition.
+The problem is to train a network to recognise a fragment of a straight
+lines in a binary image, given a 3x3 patch of the image as input. In
+other words, the network will have 9 input units, which we imagine as
+laid out in a square, and it is to respond with 1 whenever it is
+presented with one of these four patterns:
+
+        010     000     100     001
+        010     111     010     010
+        010     000     001     100
+
+and with 0 for any other pattern. We will train the net by presenting it
+with a binary image as input, and another image in which the points
+corresponding to the patterns above are marked as target.  There will be
+considerable preliminaries setting all this up, before we can train the
+network, so you can go quickly through the procedures that follow, as
+for any real application you will have your own way of establishing the
+input and target arrays.
+
+For the inputs, we create an array with a pattern that happens to
+contain a lot of lines, so there are plenty of positive and negative
+examples for the net to learn from. We throw in a little random noise
+for variety, and load a useful library first.
+
+    uses boundslist_utils
+
+    vars arrsize = 70;
+    newsfloatarray([1 ^arrsize 1 ^arrsize],
+        procedure(x,y) -> result;
+            if x mod 8 == 0 or
+                y mod 8 == 0 or
+                (x+y) mod 8 == 0 or
+                (x-y) mod 8 == 0 then
+                1.0
+            else
+                0.0
+            endif -> result;
+            if random(1.0) < 0.05 then 1.0 - result -> result endif
+        endprocedure) -> inputs;
+
+If you are working in an X-windows environment you can inspect this
+image with:
+
+    3 -> rci_show_scale;        ;;; see HELP *rci_show
+    rci_show(inputs) -> ;
+
+To set up the targets, we start from a mechanical way of doing the task.
+The following procedure does the work, taking as arguments a 2-D array
+and the coordinates of a position in it, and returning 1 if the position
+is at the centre of one of the patterns above, and 0 otherwise. We allow
+the data arrays to be floating point rather than integer arrays, and
+round in case the values are not exact.
+
+    define isonline(x, y, arr) -> result;
+        lconstant
+            patts = [{0 0 0   1 1 1   0 0 0}  ;;; each pattern on one line
+                     {0 1 0   0 1 0   0 1 0}
+                     {1 0 0   0 1 0   0 0 1}
+                     {0 0 1   0 1 0   1 0 0}],
+            arrpatt = initv(9),
+            reglist = initl(4);
+        (x-1, x+1, y-1, y+1) -> explode(reglist);
+        lvars d;
+        for d in_array arr in_region reglist do round(d) endfor
+            -> explode(arrpatt);
+        if member(arrpatt, patts) then 1 else 0 endif -> result
+    enddefine;
+
+To generate a targets array, we simply apply this procedure (which our
+net is going to try to learn) to each position of the input array. It is
+convenient to make the target array slightly smaller than the input
+array, as the 3x3 region of interest means that we cannot usefully
+define a target adjacent to the edge of the input array. This is easily
+done with an adjustment to the boundslist. A closure of the answer
+procedure given above provides initialisation.
+
+    newsfloatarray(region_expand(inputs, -1), isonline(%inputs%) ) -> targets;
+
+This can be inspected with
+
+    rci_show(targets) -> ;
+
+While we're creating arrays, we can make an output array too.
+
+    newsfloatarray(boundslist(targets)) -> outputs;
+
+Now we need to convert the arrays into records using mlp_makedata. This
+is really the point of the example; everything so far has just been
+setting up some arrays to work with, and that could have been done in a
+large variety of ways.
+
+To do the conversion, we need to specify what part of the array the net
+is to be presented with on each example. This is done using lists of
+vector offsets, relative to some arbitrary point in the array. For the
+3x3 region we want to use for each input, the mask is defined like this:
+
+    vars inmask;
+    [   {-1 -1}     { 0 -1}     { 1 -1}
+        {-1  0}     { 0  0}     { 1  0}
+        {-1  1}     { 0  1}     { 1  1} ] -> inmask;
+
+Each vector gives an offset relative to the centre of the region of
+interest.  The corresponding mask for the targets is simpler, as there
+is only one output from the net in this case, and it is at the centre of
+the region of interest.
+
+    vars outmask;
+    [ {0 0} ] -> outmask;
+
+Now we can pass these masks to mlp_makedata to build the records. We will
+also set the number of iterations and choose random selection, by
+passing extra arguments at this stage.
+
+    mlp_makedata(inputs, inmask) -> input_rec;
+    mlp_makedata(targets, outmask, 10000, true) -> target_rec;
+    mlp_makedata(outputs, outmask) -> output_rec;
+
+And at last, a network to work on it all. It has to have 9 inputs and
+one output; we will try using one hidden layer of 3 units.
+
+    mlp_makenet(9, {3 1}, 0.1, 0.25, 0.9) -> net;
+
+And train it:
+
+    repeat 5 times
+        (input_rec, target_rec) -> mlp_learn(net) -> (err, errvar);
+        err =>
+    endrepeat;
+
+and check it out:
+
+    (input_rec, net) -> mlp_response(output_rec);
+
+Did it work? A simple visual check suggests the trained net works
+correctly on the training data. There is no need to call mlpdata_data to
+get the output array, because we already have a reference to it.
+
+    rci_show(outputs) -> ;
+
+We can test it further with a simple procedure, which just counts
+the number of times the net was on the correct side of 0.5 (a rather
+weak criterion).
+
+    define binary_check(out_arr, targ_arr) -> no_correct;
+        0 -> no_correct;
+        lvars output, target;
+        for output, target in_array out_arr, targ_arr do
+            if (output-0.5) * (target-0.5) > 0 then
+                no_correct + 1 -> no_correct
+            endif
+        endfor
+    enddefine;
+
+    binary_check(outputs, targets) =>
+
+which on the occasion this file was made printed
+
+    ** 4606
+
+Since there are 4624 possible targets, the net didn't do too badly.
+Training it some more might make it perfect. You could try different
+numbers of hidden units, and different eta and alpha to try to speed it
+up.
+
+Note that the input mask can define any set of offsets into the image,
+so you are not restricted to looking at square regions. And the method
+is not restricted to 2-D arrays - it generalises naturally to 1-D and to
+higher dimensions. All you have to worry about are the offsets, and the
+boundslists of the arrays.
+
+More complex sampling patterns are possible - see HELP * MLP.
+
+5.3  Saving space with large data sets
+--------------------------------------
+
+By default, mlp_makedata builds special index arrays that point to all
+the starting points of patterns in the data array. For a densely sampled
+array like the one above, the index array will be almost as large as the
+data array itself. If this is a problem, you can avoid this behaviour,
+at a small cost in speed, by changing the variable mlp_fullindex to
+<false>:
+
+    false -> mlp_fullindex;
+
+You need to do this before calling mlp_makedata, and it must not be
+changed between creating the input, target and output records for a set
+of patterns. However, a given network does not mind whether the data it
+is passed for training or responding has been created with mlp_fullindex
+true or false - indeed the format can be changed in mid-training, as
+long as the targets are consistent with the inputs.
+
+------------------
+6  More facilities
+------------------
+
+6.1  Saving and restoring nets on disc
+--------------------------------------
+
+Nets and data records can be saved and restored using the * DATAINOUT
+library.
+
+6.2  Different transfer functions
+---------------------------------
+
+It is possible to specify alternative transfer functions when the net is
+set up. The default is the "logistic" function 1/(1+exp(-x)). For a list
+of the functions currently available, load the following line:
+
+    appproperty(mlp_transfuncs, erase <> npr);
+
+which will print their names. The transfer function can be specified in
+the list of units passed to mlp_makenet, either by level or by
+individual unit. The following example sets up a network with a hidden
+layer of 4 logistic function units, and an output layer of 2 linear
+units (which simply pass out the dot product of their weights and
+inputs):
+
+    mlp_makenet(9, {{4 logistic} {2 identity}}, 0.1, 0.25, 0.9) -> net;
+
+To specify the functions by individual unit, the word for a level is
+replaced by a vector equal in length to the number of units for that
+level, with a word for each unit. For instance to have 2 linear and 2
+logistic units in the hidden layer, we could do:
+
+    mlp_makenet(9, {{4 {logistic logistic identity identity}}
+                        {2 identity}}, 0.1, 0.25, 0.9) -> net;
+
+6.3  Clamping weights and biases
+--------------------------------
+
+Weights and biases can be protected from training. To do this, update
+the network by assigning <true> to mlp_clamp applied to a particular
+weight, specified as in mlp_weight above. For example, to clamp the
+bias for the third unit in the lowest hidden layer, do:
+
+    true -> mlp_clamp(1, false, 3, net);
+
+To unclamp it again, assign false to this:
+
+    false -> mlp_clamp(1, false, 3, net);
+
+You can clamp and unclamp as many weights as you wish at any stage of
+training. This may be particularly useful when weights have been set
+explicitly using mlp_weight. For instance, you can effectively remove a
+connection by setting a weight to zero and clamping it.
+
+See the next section for another way of clamping weights and biases.
+
+6.4  Accessing and updating weight and bias arrays
+--------------------------------------------------
+
+It may sometimes be more efficient to get hold of the array which
+contains the weights or biases for a whole layer. The procedures
+mlp_weights and mlp_biases return vectors containing such arrays. Each
+entry in the vector relates to one level of the network. Thus for the
+last net created,
+
+    net.mlp_weights =>
+
+shows that the weights vector contains 2-D arrays
+
+    ** <mlp_arrvec <array [1 9 1 4]> <array [1 4 1 2]>>
+
+and
+
+    net.mlp_biases =>
+
+shows that the biases vector contains 1-D arrays
+
+    ** <mlp_arrvec <array [1 4]> <array [1 2]>>
+
+The first entry in the weights vector is an array of the weights from
+the input units to the first hidden layer. Within this array, the first
+index refers to position in the input layer, the second to position in
+the hidden layer. So
+
+    (net.mlp_weights)(1)(1,2) = mlp_weight(1, 1, 2, net) =>
+
+prints
+
+    ** <true>
+
+The second array in the vector contains the weights from the hidden
+layer to the output layer.
+
+The bias list is similar, except that it contains 1-D arrays.
+
+You can update the weights in the net by updating elements of the arrays
+in the vector. You can do this even if you have assigned the array to
+another variable, because assigning an array to a variable does not copy
+it. However, there are no updaters for mlp_weights and mlp_biases
+themselves, and you cannot assign arrays to the elements of the weights
+and biases vectors.
+
+You should not try referring to the arrayvector of the weights and
+biases arrays (unless you are careful to check the arrayvector bounds).
+It will not be what you probably expect, since the arrays that appear in
+the vectors all share a single *arrayvector, which is passed out to
+external procedures.
+
+If you use mlp_weights and mlp_biases rather than mlp_weight to access the
+net's parameters, you may wish also to access the clamping control
+arrays explicitly in the same way. You can do this with the procedures
+mlp_etas and mlp_etbs, which return vectors of weight and bias learning
+rates in the same format as the weight and bias lists themselves. If you
+assign a negative value to an element of an array in this vector, the
+corresponding weight or bias will be clamped. To unclamp it, assign the
+current value of eta to the array element. If you use this method, then
+after clamping a weight or bias you should assign <true> to mlp_clamped
+applied to the net (unless you know it is already true); if you unclamp
+all the weights and biases assign <false> to this field; and if you
+unclamp a weight or bias but don't know if any others are clamped or
+not, assign "maybe" to this field, e.g.
+
+    "maybe" -> net.mlp_clamped;
+
+If you do not do this, updating eta using mlp_eta may result in a change
+to the clamped status of the weights.
+
+You can assign individual learning rates to weights and biases by
+assigning positive values to the elements of the arrays in the vectors
+returned by mlp_etas and mlp_etbs, but using this flexibility to good
+effect is well beyond the scope of this teach file. At the time of
+writing, the momentum alpha must be set globally for the network.
+
+6.5  Back propagation between networks
+--------------------------------------
+
+Occasionally, you may wish to stack one network above another, and train
+the lower one on the basis of errors back propagated through the upper
+one. This is useful, for example, if you wish to set up an architecture
+where two networks feed into a single upper layer, or vice versa. The
+routine mlp_target allows you to do this, though with some cost in speed
+and an increase in programming complexity.
+
+mlp_target updates an input vector with new values which would have
+produced a lower error at the output of the net. If the input to the
+higher net is the output from the lower net, then the updated input
+provides a suitable target for training the lower net. mlp_target must
+be called after mlp_learn, and never right after mlp_response.
+
+As an example, a network which is split into separate lower and upper
+parts will be trained on the XOR problem. This is a complex example and
+uses some slightly obscure constructs to set up the data records
+concisely. The crucial line is "net2 -> mlp_target(intermediate)", where
+the intermediate data record is updated to provide a target for the
+lower network.
+
+    /* Set up individual data records for each pattern. Note number of
+        iterations for each target is 1 */
+
+    vars input_recs, intermediate, output_rec, target_recs;
+    {%
+        mlp_makedata(newanyarray([1 2], {0 0})),
+        mlp_makedata(newanyarray([1 2], {0 1})),
+        mlp_makedata(newanyarray([1 2], {1 0})),
+        mlp_makedata(newanyarray([1 2], {1 1}))
+    %} -> input_recs;
+    {%
+        mlp_makedata(newanyarray([1 1], {0}), 1, false),
+        mlp_makedata(newanyarray([1 1], {1}), 1, false),
+        mlp_makedata(newanyarray([1 1], {1}), 1, false),
+        mlp_makedata(newanyarray([1 1], {0}), 1, false)
+    %} -> target_recs;
+
+    /* Set up a single data record for the middle output/input.
+        Note no. of iterations is false - this gives a backward pass
+        only */
+
+    mlp_makedata(newsfloatarray([1 2]), false, false) -> intermediate;
+    mlp_makedata(newsfloatarray([1 1])) -> output_rec;
+
+    /* Two networks */
+
+    vars net1 net2;
+    mlp_makenet(2, {2}, 2.0, 1.4, 0.6) -> net1;     ;;; lower net
+    mlp_makenet(2, {1}, 1.0, 1.4, 0.6) -> net2;     ;;; upper net
+
+    /* Train one example at a time */
+
+    vars eg;        ;;; the no of the current pattern
+
+    repeat 2000 times
+        random(4) -> eg;
+        ;;; forward through net1
+        (input_recs(eg), net1) -> mlp_response(intermediate);
+        ;;; forward and back through net2
+        (intermediate, target_recs(eg)) -> mlp_learn(net2) -> (,);
+        ;;; provide a target for net1
+        net2 -> mlp_target(intermediate);
+        ;;; back through net1
+        (input_recs(eg), intermediate) -> mlp_learn(net1) -> (,);
+    endrepeat;
+
+    /* Check the results */
+
+    for eg from 1 to 4 do
+        (input_recs(eg), net1) -> mlp_response(intermediate);
+        (intermediate, net2) -> mlp_response(output_rec);
+        (output_rec.mlpdata_data)(1) =>
+    endfor;
+
+This is, of course, slower than training the combined net with a single
+call to mlp_learn, so the method should only be used when the
+architecture demands it.
+
+At present, propagation across networks assumes continuous rather than
+batch training.
+
+6.6  Calculation precision
+--------------------------
+
+The current version uses single precision floating point arithmetic. A
+change to double precision requires editing and recompilation of the C
+sources, as well as modification of the Pop-11 code.
+
+6.7  Repeatable training runs
+-----------------------------
+
+The routines all generate their random numbers from an externally loaded
+pseudo-random number generator (see LIB * MLP.C for details). This is
+initialised from varying system variables such as the real-time clock
+after loading LIB MLP. You can obtain the current state of the generator
+by accessing mlp_random_seed, an active variable which returns 3
+integers, and you can set the generator to a given state by assigning 3
+integers to the same variable. (Note that the generator runs
+independently of the one used by *array_random, and they have separate
+seeds.)
+
+This example creates a net with random weights, then a second net with
+new random weights, then recreates the first net by resetting the state
+of the random number generator.
+
+    vars (s1, s2, s3) = mlp_random_seed;        ;;; save current state
+    mlp_makenet(2, {2 1}, 0.1, 0.25, 0.9) -> net;
+    mlp_printweights(net);                      ;;; random weights
+    mlp_makenet(2, {2 1}, 0.1, 0.25, 0.9) -> net;
+    mlp_printweights(net);                      ;;; different weights
+
+    (s1, s2, s3) -> mlp_random_seed;            ;;; restore state
+    mlp_makenet(2, {2 1}, 0.1, 0.25, 0.9) -> net;
+    mlp_printweights(net);                      ;;; original net recreated
+
+If the creation of each net was followed by some training, then this
+would still result in identical results for the first and final nets,
+since all random variability is obtained from the same generator.
+
+Although assigning 3 <false> values to mlp_random_seed will in fact set
+the seed using values from system variables such as the real-time clock,
+do not do this to try to make the tests "more random" - it will actually
+make the results less well distributed. The only sensible reason to
+access or update mlp_random_seed is to get repeatable results.
+
+
+--- $popvision/teach/mlp
+--- Copyright University of Sussex 1998. All rights reserved.

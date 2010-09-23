@@ -1,0 +1,212 @@
+HELP XLIB                                        Gareth Palmer, Dec 1989
+                                                    Ian Rogers, Jan 1991
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Overview
+ -- Some Examples
+ -- See also
+ -- Complete Xlib file list
+ -- Known Bugs
+
+-- Overview -----------------------------------------------------------
+
+LIB * XLIB allows the user access to a number of files which provide a
+Pop-11 interface to the Xlib layer of the X Window system (written in
+C).
+
+The function groups, as listed in appendix A of the Xlib Reference
+manual (O'Reilly & Associates, volume 2), are each defined in a separate
+file. The "Drawing Primitives" group, for example, is defined in
+LIB * XDrawingPrimitives but these individual files cannot be accessed
+until LIB * XLIB has been loaded.
+
+In most cases, the mapping from the function group name to the library
+name is as above.  There are a few exceptions:
+
+    Display Specifications           : included in LIB * XlibMacros
+    Macros, Display                  : included in LIB * XlibMacros
+    Macros, Image Format             : included in LIB * XlibMacros
+    Macros, Keysym Classification    : not implemented
+    Output Buffer                    : included in LIB * XHouseKeeping
+    Resource Manager and DataBase    : not implemented
+    Tile, Pixmap, Stipple and Bitmap : LIB * XTile
+    Window Manager Hints             : LIB * XWindowManager
+
+-- Some Examples ------------------------------------------------------
+
+As you work through these  examples, you must load  each bit of code  as
+later bits will depend on it.
+
+These are the libraries you'll need to run the following examples.
+
+    uses xlib;
+    uses XHouseKeeping;
+    uses XDrawingPrimitives;
+    uses XlibMacros;
+    uses XWindowExistence;
+    uses XWindowMapping;
+    uses XGraphicsContext;
+
+First we create a display connection
+
+    vars dpy = XOpenDisplay('\(0)');
+
+Now we can  use the functions  defined in  LIB * XlibMacros  to look  at
+attributes of the display e.g. the width and the height
+
+    DisplayWidth(dpy, DefaultScreen(dpy)) =>
+    DisplayHeight(dpy, DefaultScreen(dpy)) =>
+
+
+More usefully, we need to know what pixels the server uses for black and
+white
+
+    vars
+        W = WhitePixel(dpy, 0),
+        B = BlackPixel(dpy, 0),
+        size = 200,
+        ;
+
+
+Before we can draw anything, we'll  need a window. If you are  running a
+Window Manager you may  have to place the  window with the mouse,  other
+wise it will appear near the top-left corner of the screen.
+
+    vars win = XCreateSimpleWindow(dpy, dpy #-> screens #-> root,
+                    100, 100, size, size, 2, B, W);
+    XMapWindow(dpy, win);
+    XFlush(dpy);
+
+
+We're going  to  need  a  Graphics Context  as  well,  so  we'll  need a
+XGCValues structure too.
+
+    vars vals = initXGCValues(false);
+    GXset -> vals #: function;
+    vars gc = XCreateGC(dpy, win, GCFunction, vals);
+
+
+This procedure draws  a parabola (ie  x = ay^2  + by +  c) It takes,  as
+argument, the three constants a b & c.
+
+    define parabola(a, b, c);
+    lvars   a b c x y
+            dx = 5,
+            s2 = size div 2,
+            s3 = size - 20,
+            left = [], right = [],
+        ;
+        define fiddle(list);
+            lvars n;
+            consshortvec(#| explode(ncrev(list)) |# ->> n), n div 2,
+        enddefine;
+
+        XClearWindow(dpy, win);
+
+        GXset -> vals #: function;
+        XChangeGC(dpy, gc, GCFunction || GCForeground, vals);
+
+        XDrawLine(dpy, win, gc, 20, s3, s3, s3);
+        XDrawLine(dpy, win, gc, s2, 20, s2, s3);
+
+        ;;; Now we're going to make up the two halves of the curve (to the left
+        ;;; and right of the y axis) by stepping along the x axis in steps of
+        ;;; dx pixels and recalculating y
+
+        for x from 0 by dx to s3 do
+            intof((a * x + b) * x + c) -> y;
+
+            nextif(y > s3 - 20);
+            ;;; we're putting the x & y coords into the list backwards
+            ;;; because the whole list is backwards and we're going to
+            ;;; reverse it at the end of the loop.
+            ;;; The expression (s3 - y) is to convert between computer graphs
+            ;;; (origin at top left) and human graphs (origin at bottom left)
+            (s3 - y) :: ((s2 + x) :: left) -> left;
+            (s3 - y) :: ((s2 - x) :: right) -> right;
+        endfor;
+
+        XDrawLines(dpy, win, gc, fiddle(left), CoordModeOrigin);
+        XDrawLines(dpy, win, gc, fiddle(right), CoordModeOrigin);
+
+        XFlush(dpy);
+
+    enddefine;
+
+
+This example produces a curve which fits the window nicely. Try  varying
+the arguments to  see how the  curve changes.  It may take  a while  the
+first time, but it will quick after that.
+
+    parabola(0.015, 0.1, 10);
+
+
+-- See also -----------------------------------------------------------
+
+    LIB * LOAD_XLIB     - Loads all the Xlib procedures in one go
+                          (You must load LIB * XLIB first)
+    HELP * NEWC_DEC
+
+
+-- Complete Xlib file list --------------------------------------------
+
+These library files can only been seen after LIB * XLIB has been loaded.
+You may also need to load LIB * VED_SHOWINCLUDE before <ESC> h will work
+for the "include" files.
+
+    LIB     * XAssociationTables
+    LIB     * XBuffers
+    LIB     * XClientConnections
+    LIB     * XColor
+    LIB     * XColorcells
+    LIB     * XColormaps
+    LIB     * XConstants
+    INCLUDE * XConstants
+    LIB     * XContextManager
+    LIB     * XCoords
+    INCLUDE * XCoords
+    LIB     * XCursors
+    LIB     * XDrawingPrimitives
+    INCLUDE * XDrawingPrimitives
+    LIB     * XErrors
+    LIB     * XEvents
+    LIB     * XExtensions
+    LIB     * XExtent
+    LIB     * XFonts
+    LIB     * XGrabbing
+    LIB     * XGraphicsContext
+    LIB     * XHostAccess
+    LIB     * XHouseKeeping
+    LIB     * XImages
+    LIB     * XKeyboard
+    LIB     * XPointers
+    LIB     * XProperties
+    LIB     * XRegions
+    LIB     * XSaveSet
+    LIB     * XScreenSaver
+    LIB     * XSelections
+    LIB     * XSizeHints
+    LIB     * XStandardGeometry
+    LIB     * XText
+    LIB     * XTile
+    LIB     * XUser
+    LIB     * XUserPreferences
+    LIB     * XVisuals
+    LIB     * XWindowAttributes
+    LIB     * XWindowConfiguration
+    LIB     * XWindowConstants
+    LIB     * XWindowExistence
+    LIB     * XWindowManager
+    LIB     * XWindowManipulation
+    LIB     * XWindowMapping
+    LIB     * XlibMacros
+
+
+-- Known Bugs ---------------------------------------------------------
+
+1. Poplog does not currently garbage collect any structures created by
+   the Xlib routines.
+
+--- C.x/x/pop/help/xlib
+--- Copyright University of Sussex 1989. All rights reserved. ----------

@@ -1,0 +1,86 @@
+#!/bin/csh
+# TARCP -- Aaron Sloman. 24 Jan 1988
+# Copy files to remote machine preserving date
+# Format:   tarcp <machine> [-d directory] <files...>
+# Use "." to mean on this machine
+# Documentation: man tarcp  (tarcp.l)
+
+alias err 'echo "tarcp <machine> [-d <directory>] <files>"; exit'
+
+if ("$1" == "") then
+    err
+else if ("$1" == "-d") then
+    echo "Machine first"
+    err
+endif
+
+set host_type=`arch`
+
+if ($host_type == "bobcat") then
+    set RSH="remsh"
+else
+    set RSH="rsh"
+endif
+
+set machine=$1
+# Remove first arg.
+shift
+
+if ($machine == ".") then
+    echo "Copying to this machine"
+endif
+
+# Set arguments for tar - may be different for different machines
+# (Redundant bits left in case needed for other machines later)
+#
+if ($host_type == "bobcat") then
+    set tararg = "oxf -"
+else
+    set tararg = "xfbBp - 20"
+endif
+
+if ("$1" == "-d") then
+    goto dirset
+else if ("$1" == "") then
+    echo "What files?"
+    err
+endif
+
+
+if ($machine == ".") then
+    echo "If on current machine, directory must be specified"
+    err
+#    tar cfb - 20 $* | tar $tararg
+else
+    echo "Copying files to home directory on $machine"
+    tar cfb - 20 $* | $RSH $machine "tar $tararg"
+endif
+
+echo "Copied" ; exit
+
+dirset:
+# Here if directory specified. Get rid of "-d"
+shift
+if ("$1" == "") then
+    echo "Directory?"
+    err
+endif
+set dir = "$1"
+# get rid of directory argument
+shift
+if ("$1" == "") then
+    echo "What files?"
+    err
+endif
+
+if ($machine == ".") then
+    echo "Copying to $dir"
+    tar cfb - 20 $* | ( cd $dir ; tar $tararg )
+else
+    echo "Copying files to directory $dir on $machine"
+    tar cfb - 20 $* | $RSH $machine "cd $dir ; tar $tararg"
+endif
+echo "Copied"
+
+# --- Revision History ---------------------------------------------------
+# --- Aaron Sloman, Jun 16 1991 allowed "." as machine spec

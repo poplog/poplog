@@ -1,0 +1,70 @@
+HELP RANDOM_ORDER                               David Young
+                                                May 2000
+
+LIB * RANDOM_ORDER reorders a list, vector or sequence of integers
+randomly. It makes user of erandom - see HELP * ERANDOM for details, and
+for how to initialise the orderings repeatably.
+
+
+random_order(input, output) -> order_rep
+        Returns an "order repeater": a procedure which when called
+        returns a new random ordering of the input.
+
+        input is a vector or a list in which the entities to be ordered
+        are stored. Its elements are not updated, unless the same vector
+        or list is used as output. Alternatively it may be a positive
+        integer N, which is equivalent to [1 2 ... N].
+
+        output is a vector or list which will be used to store the new
+        orderings. It must have the same length as input (or have length
+        N if input is an integer N). Its contents will be updated on
+        each call to order_rep. It may be the same vector or list as
+        input. Alternatively, it may be <false>, in which case a new
+        vector or list (depending on input) is created and returned each
+        time order_rep is called. If input is an integer and output is
+        <false>, the results are (arbitrarily) lists. Note that giving
+        output as <false> will create more garbage, which may matter if
+        order_rep is called many times.
+
+        order_rep is a procedure of no arguments and one result:
+
+            order_rep() -> result
+
+        which returns a vector or list containing a new random ordering
+        of the elements of input each time it is called.
+
+
+Examples (your output will differ):
+
+    ;;; Simplest case: random integer order, new list each time
+    vars procedure rep;
+    random_order(5, false) -> rep;
+    rep() =>        ;;; ** [2 1 3 5 4]
+    rep() =>        ;;; ** [4 1 3 2 5]
+
+    ;;; Simple reordering of a vector, new vector each time
+    random_order({horse goat dog cow}, false) -> rep;
+    rep() =>        ;;; ** {cow dog horse goat}
+    rep() =>        ;;; ** {horse cow goat dog}
+    rep() =>        ;;; ** {dog goat horse cow}
+
+    ;;; Reordering of a list, reusing a vector for the output - note
+    ;;; that it gets updated.
+    vars outvec = initv(6);
+    vars rep = random_order([12.3 3 zz spqr puffin neuron], outvec);
+    rep() =>        ;;; ** {spqr zz 12.3 3 puffin neuron}
+    rep() =>        ;;; ** {3 neuron zz puffin spqr 12.3}
+    outvec =>       ;;; ** {3 neuron zz puffin spqr 12.3}
+    rep() -> ;      ;;; discard result but outvec still updated ...
+    outvec =>       ;;; ** {spqr 3 neuron 12.3 puffin zz}
+
+Note:
+
+To randomly order many different sets of things, all the same length,
+it is most efficient to store them as vectors and index them using
+randomly-ordered integers, rather than generating a new order_rep
+procedure for each case.
+
+
+--- $popvision/help/random_order
+--- Copyright University of Sussex 2000. All rights reserved.

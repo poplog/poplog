@@ -1,0 +1,1837 @@
+
+TEACH RIVER2
+                                                   Aaron Sloman NOV 1982
+                       Completely revised August 1994 then 24th Oct 1994
+                         Modified to use "!" with patterns,  12 Oct 1996
+
+
+          USING THE POP-11 DATABASE TO REPRESENT A SIMPLE WORLD
+
+
+This file introduces techniques for simulating a simple world in the
+computer. States of the world are represented in propositions, which are
+stored in the database. Changes in the world are represented by removing
+and adding propositions. The 'laws' of the world are represented by
+procedures which alter the database. Questions can be answered by
+searching in the database. Commands are taken as instructions to change
+the database.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Prerequisites
+ -- Objectives
+ -- -- The "riverworld" domain.
+ -- The "ontology" of the river world
+ -- Objective
+ -- Procedures to be designed
+ -- -- Action procedures:
+ -- -- Query procedures
+ -- Generic behaviour specification
+ -- -- Action procedures
+ -- -- Query procedures
+ -- How factual information is represented
+ -- -- Note on representing lists in Pop-11
+ -- -- Options for representing information in lists
+ -- -- Trade-offs
+ -- -- Exercise on representation
+ -- A more "logical" representation
+ -- Other options
+ -- -- Representing objects as lists
+ -- Exercise on explicitness
+ -- The initial state of the river world
+ -- Defining a procedure to set up test situations
+ -- -- riv_setup
+ -- -- Exercise: re-define riv_start
+ -- Defining query procedures
+ -- -- Note on "vars" and "lvars"
+ -- -- riv_whereis
+ -- -- Exercise: fix the bug in riv_whereis
+ -- -- riv_is_at
+ -- -- riv_is_in
+ -- -- riv_will_eat
+ -- -- Preparing for riv_which_at
+ -- -- -- Using percent symbols to build a list
+ -- -- -- Putting "for ... endfor" between percents in a list
+ -- -- -- Using foreach in a list
+ -- -- riv_which_at
+ -- -- riv_which_in
+ -- Defining the "action" procedures
+ -- Preconditions
+ -- -- Exercise: formulate remaining preconditions
+ -- Consequences of actions
+ -- Defining riv_putin
+ -- -- riv_exists
+ -- -- riv_putin
+ -- Defining riv_getin
+ -- -- What - no eating?
+ -- Improving riv_putin
+ -- Defining riv_getout
+ -- Some revision questions
+ -- Add the remaining procedures
+ -- Defining riv_takeout
+ -- Defining riv_cross
+ -- Optional: defining riv_view()
+ -- Exercise: reporting on your program
+ -- Optional exercise: use "unless"
+ -- Further reading
+ -- Index of procedures described in this file
+
+-- Prerequisites ------------------------------------------------------
+
+It is assumed that you are familiar with the use of the editor for
+creating and testing procedures (TEACH VEDPOP, TEACH VEDNOTES) and that
+you have played with the LIB RIVER package (see TEACH RIVER).
+
+You should be familiar with techniques for defining procedures, the use
+of variables and the pattern matcher, and the use of conditionals.
+Revision TEACH files are:
+
+    TEACH DEFINE, TEACH VARS, TEACH MATCHES, TEACH RESPOND,
+    TEACH DATABASE gives a more detailed introduction to the Pop-11
+    database.
+
+You will also need to know how to construct multi-branch conditionals
+as explained in HELP IF.
+
+-- Objectives ---------------------------------------------------------
+
+The objective of this teach file is to show you how to produce a
+"package" of procedures, using the Pop-11 database, to represent a
+changing world in such a way that:
+
+
+    (a) questions about the world can be answered by interrogating a
+    database
+
+    (b) changes in the world can be represented by removing and adding
+    items in the database.
+
+
+In the course of doing this you will learn to use the Pop-11 database
+facilities, such as
+
+    add, remove, present, allpresent, lookup,
+    foreach ... endforeach,
+
+
+and others. These are library procedures, and those that search for
+items in the database are defined to make use of the Pop-11 pattern
+matcher, so that they can be given patterns, which they will match
+against items in the Pop-11 database. These procedures allow you to add
+items to the database, remove items, search for items, and perform some
+action for each item in the database that satisfies some condition.
+
+These mechanisms suffice in order to represent a simulated world, about
+which we can have conversations and within which we can simulate events
+and processes.
+
+-- -- The "riverworld" domain.
+
+This teach file introduces these ideas via the "riverworld" domain of
+TEACH RIVER. If you have not yet worked through that file you should do
+so. The basic idea is that there is a man on a river bank, with a boat
+that can hold at most himself and one other thing, and three objects, a
+fox, a chicken and some grain. If the fox is ever on a bank with the
+chicken while the man is not on the bank it eats the chicken, and if the
+chicken is ever on the bank with the grain, and the man is not there, it
+eats the grain. (Note: the man may be on the same side of the bank, but
+in the boat. Thus eating is triggered only by the man getting into
+the boat.)
+
+The problem is to get everything across intact, from the left bank to
+the right bank. LIB RIVER provides a set of procedures that can be
+invoked to simulate this process. This file shows you how to define a
+similar set of procedures, in a more structured way so as to be able not
+only to perform actions that change the database but also to
+provide answers to questions about the current state of the database.
+
+As you create the procedures described below, you should store them all
+in a file called river2.p. (Note the '.p' on the end tells VED that it
+is a Pop-11 program file.
+
+Each procedure definition should be preceded by a brief comment,
+explaining what the procedure is for, using either the form
+
+    /* this is a comment
+       which can go over several lines
+    */
+
+or the form
+
+    ;;; this is an end of line comment
+
+Each procedure definition should be followed by some test examples,
+which can be re-run if ever the procedure is changed. However the tests
+should be embedded in /* ... */ comments, so that they are not run every
+time the file is compiled.
+
+
+-- The "ontology" of the river world ----------------------------------
+
+"Ontology" is concerned with which objects exist, what properties they
+can have, how they can be related, what events and processes can occur.
+
+In the world of LIB RIVER the ontology has the following components:
+
+1. There are five moveable objects which we represent as
+
+    man, fox, chicken, grain, boat
+
+2. There is a static object, the river, with two banks which we shall
+represent as
+
+    left, right
+
+3. We shall use only two relations
+
+    at, in
+
+All the above objects will actually be represented as Pop-11 words. For
+example the movable objects are "man", "fox", etc, and the relations
+are "at", "in". Inside Pop-11 list expressions, the quote marks
+indicating words are not needed, e.g. the following contains five words:
+
+    [man in boat at left]
+
+4. The following ACTION-TYPES are possible:
+
+    a. man puts some object in the boat
+    b. man takes some object out of the boat
+    c. man gets into the boat
+    d. man gets out of the boat
+    e. man rows boat across river
+    f. something eats something else
+
+Each of these actions has some preconditions (described below) and some
+consequences, such as something changing its location, or something no
+longer existing.
+
+5. The following query types should be supported:
+
+    a. Where is X (e.g. the man, the fox, the chicken, the grain, the
+       boat).
+
+    b. Is X in Y?
+
+    c. Is X at Y?
+
+    d. Which things are at X (e.g. the left bank)?
+
+    e. Which things are in the boat
+
+An exercise might be to add extra query types, concerning whether the
+conditions for some action are satisfied, such as:
+
+    f. Can the man put X in the boat?
+
+    g. Can the man row across the river?
+
+    h. Can the man get out?
+
+    i. Will X eat Y?
+
+and so on.
+
+
+-- Objective ----------------------------------------------------------
+
+We wish to define a collection of procedures that simulate events in the
+river world, using the Pop-11 database to represent the world, and
+changes in the database to represent changes in the world. We also wish
+to define some procedures that answer questions about the current state
+of the world.
+
+It will also be useful to have a procedure that draws a picture of the
+current state of the world, and various other utility procedures.
+
+-- Procedures to be designed ------------------------------------------
+
+The procedures will include the following, together with any extra
+procedures required to make these work. Some of the procedures take no
+inputs (arguments). Some do not produce a result, some do. The result
+will be the word "ok" or a list giving the explanation for failure.
+
+All the procedures defined here have names starting with the prefix
+"riv_" so that they are unlikely to clash with procedures defined for
+other purposes. (It would be possible to use the Pop-11 "section"
+mechanism instead.)
+
+
+-- -- Action procedures:
+
+    riv_start()
+        Set up the initial state of the river.
+
+    riv_putin(thing) -> result
+        Man puts the thing into the boat
+
+    riv_takeout(thing) -> result
+        Man takes the thing out of the boat onto the river bank
+
+    riv_getin() -> result
+        Man gets into the boat
+
+    riv_getout() -> result
+        Man gets out of the boat
+
+    riv_cross() -> result
+        Man rows the boat across the river
+
+    riv_eat(thing1, thing2)
+        Something eats something else. (This produces no result because
+        its preconditions will always be satisfied when it is invoked.)
+
+-- -- Query procedures
+
+    riv_whereis(thing) -> place
+
+    riv_is_at(thing, place) -> boolean      (true or false result)
+
+    riv_is_in(thing1, thing2) -> boolean
+
+    riv_will_eat(thing1, thing2) -> boolean
+
+    riv_which_at(place) -> list of things
+
+    riv_which_in(thing) -> list of things
+
+-- Generic behaviour specification ------------------------------------
+
+-- -- Action procedures
+Invoking any of the action procedures should produce the following
+actions:
+
+    1. Check that the arguments given (if any) are of the right type,
+        and if not produce an error message (a mishap).
+
+    2. Check that the preconditions for the action are correct.
+
+        2.a. If the preconditions are satisfied then perform the action,
+             changing the facts in the database accordingly. When
+             finished, return the word "ok" as result.
+
+        2.b. If the preconditions are not satisfied, then make no
+             changes, but (possibly) print out a "trace" message saying
+             that the action cannot be performed, and return a list
+             giving the reason for failure as result.
+
+[Note for more experienced readers:
+    It is quite common to make a procedure return the result false (a
+special Pop-11 object) if it is unsuccessful, and something else (e.g.
+true, or something created by the procedure) if it is successful. Using
+the result false for failed procedures makes it slightly easier and more
+efficient to use the procedures in conditional instructions. However, we
+shall use the more explicit results for clarity, with a slight loss of
+efficiency and slightly more cumbersome program code. The clarity is
+worth it.]
+
+-- -- Query procedures
+
+Invoking any of the query procedures will not change the database.
+
+Instead the query will
+
+    a. Examine the database, using appropriate Pop-11 procedures or
+       syntax words, such as: present, lookup, foreach, forevery.
+
+    b. Return an appropriate result, depending on the type of query.
+
+        If it is a yes/no type query, the result will be one of the two
+        boolean objects: true, false
+
+        If it is query asking which objects satisfy some condition (e.g.
+        which are on the left bank) it will return a list of the
+        objects, or the empty list [] if there are none.
+
+        If it is a query asking about one object it will return that
+        object, e.g. "At which bank is the boat?" might return the
+        object "left".
+
+-- How factual information is represented -----------------------------
+
+We shall use lists containing words to represent information about the
+river world.
+
+
+-- -- Note on representing lists in Pop-11
+
+This teach file assumes that you have at least a rough idea
+what lists are and that you know how to represent them using square
+brackets, e.g.
+
+    [1 3 99 this is a list of words and numbers 99 33 2]
+
+NB: when a word occurs in a list expression like the above, Pop-11
+treats it as quoted, i.e. referring to itself. So the above list
+contains the words
+
+    "this", "is", "a", etc.
+
+If you wish a word in a list to be treated as a variable with a value,
+you can precede it with the "uparrow" or "caret" symbol: "^", e.g.
+
+    add([in ^thing1 boat])
+
+If you wish to insert a list of things into another list, use "^^", e.g.
+
+    [^^newdata ^^olddata] -> database;
+
+This use of "^^" should be familiar from TEACH RESPOND, and the use of
+"^" will be illustrated below.
+
+These things are explained more fully in TEACH LISTS and TEACH ARROW,
+though most students should find that they can pick up enouch
+information from the examples in this file. (There is a vast amount of
+information about lists in online Pop-11 documentation. Ambitious
+students may wish to explore the cross references in HELP LISTS, and to
+read REF LISTS. There is a summary in TEACH POPCORE (handed out in
+printed form) and Chapter 6 of the Pop-11 Primer, available online as
+TEACH PRIMER)
+
+-- -- Options for representing information in lists
+
+There are always many different ways in which information can be
+represented using lists of words (or lists of lists of words, etc.). For
+example, assuming the fox and grain are at the left bank and the
+chicken, man and boat are at the right bank, with the man in the boat
+and the chicken on the bank, here are some ways the information could be
+represented:
+
+Method 1:
+    Have two lists, one for everything at the left bank, and one for
+    everything at the right bank, plus another list stating what is in
+    the boat. The database might then be something like
+
+    [[at left fox grain]
+     [at right chicken man boat]
+     [man in boat]] -> database;
+
+A disadvantage of this method is that changing the location of the man
+requires reconstructing both lists. If there were many objects in the
+problem this could mean building two new long lists. It also seems to
+treat the representation of the "at" relation differently from the "in"
+relation.
+
+Method 2:
+    For each object have one list stating where that object is. Then the
+    complete database would contain a larger number of smaller lists:
+
+    [[fox at left]
+     [grain at left]
+     [chicken at right]
+     [man at right]
+     [boat at right]
+     [man in boat]] -> database;
+
+This has the advantage that all relationships are represented the same
+way, i.e. by a list containing three items, in the format:
+
+    [object1 relation object2]
+
+It also has the advantage that using the "add" and "remove" procedures
+it is easy to change the location of some object. E.g.
+
+    remove([boat at right]);
+    add([boat at left]);
+
+It has the disadvantage that because so much is made explicit, if you
+change something you have to make sure that other things are changed
+accordingly. For example, if the man is in the boat, and the boat moves
+from the right bank to the left bank, then the man must also move from
+the right bank to the left bank. This is known as "The Frame Problem".
+
+Method 3:
+
+    It would be possible to overcome this by having a more compact
+    representation, since if something is in the boat it must be at the
+    same side as the boat. The database would then become something
+    like this:
+
+    [[fox at left]
+     [grain at left]
+     [chicken at right]
+     [boat at right]
+     [man in boat]] -> database;
+
+The disadvantage of this is that if we want to know whether the man is
+at the right we cannot simply use the following test:
+
+    if present([man at right]) then ....
+
+We have to do something like
+
+    if present([man at right])
+    or ( present([boat at right]) and present([man in boat]) )
+    then ....
+
+I.e. where a fact is not represented explicitly we have to be prepared
+to do some INFERENCE, and deduce it from other facts, like deducing that
+something is at the right from the fact that it is in the boat and the
+boat is at the right.
+
+-- -- Trade-offs
+
+The analysis of advantages and disadvantages of more or less explicit
+databases reveals a "trade-off". There are many kinds of trade-offs to
+be found in the design of programs. For example, very often making a
+program more general makes it less efficient. In the example just given
+the format that makes it easier to check facts, by making the database
+more redundant, also makes it harder to change facts while maintaining
+consistency. Design is full of such tradeoffs.
+
+
+-- -- Exercise on representation
+
+Can you think of any other way to represent the items in the river
+world?
+
+For example, suppose every item can only be in one of two places at the
+left or at the right, and the complete list of items is known. Then if
+you simply list the objects at the left you don't need to list the items
+at the right: they will be all the remaining objects. Then changing an
+object from left to right would be a simple addition or a simple
+removal, instead of requiring both a removal and an addition.
+
+
+-- A more "logical" representation ------------------------------------
+
+In logic there are many different notations which are very similar in
+their power, though some are harder than others for people to read. It
+is common in logical notation to use the name of a relation or property
+in front of the objects referred to rather than between or two the
+right. Thus, instead of writing things like
+
+    man in boat
+    ball blue
+    tower big
+
+a logician might write:
+
+    in(man, boat)
+    blue(ball)
+    big(tower)
+
+In preparation for learning logic and also the logic programming
+language Prolog, it will be useful from now on to have the predicate
+(i.e. relation name, or property name) first. But because we use lists
+of words, we don't need to use the parentheses "(" and ")": we simply
+use lists, such as these:
+
+    [in man boat]
+    [blue ball]
+    [big tower]
+
+We could use the following forms:
+
+    [in(man,boat)]
+    [blue(ball)]
+    [big(tower)]
+
+which Pop-11 would split up into the equivalent of:
+
+    [in ( man , boat )]
+    [blue ( ball )]
+    [big ( tower )]
+
+However the extra parentheses and commas would add no useful information
+to the contents of the lists, and would take up extra space in the
+database.
+
+-- Other options ------------------------------------------------------
+
+It would be possible to distinguish different kinds of properties
+and relations and have even more explicit representations, thus:
+
+    [location man in boat]
+    [location boat at right]
+    [colour ball blue]
+    [size tower big]
+
+corresponding to logical expressions like
+
+    location(man, in, boat)
+    colour(ball,blue)
+
+and so on.
+
+The introduction of words like "location", "colour", "size" to indicate
+the type of fact explicitly, has the disadvantage that lists in the
+database become larger. But in some contexts it might be useful to have
+information like this, e.g. if you wished quickly to find all the facts
+concerning location, or all the facts concerning colour, or size.
+
+If the extra words are not added, then the type of fact is left
+implicit, and one would have to make sure that the programs treat "blue"
+as a colour word, and "big" as a size word, for example.
+
+Having the type of fact explicit makes it easier to answer questions
+like:
+
+    Do you know anything about the size of the ball?
+
+e.g. by doing something like this:
+
+    if present([size ball ?x]) then ....
+
+Using the previous representations, where size is not mentioned
+explicitly in assertions about objects, you would need to have
+information recorded somewhere that "blue" does not specify size whereas
+"big", and and "small" and "medium" do.
+
+How we should assess the tradeoffs between recording this information
+about "types" of predicates in one place and deducing its consequences,
+or adding it to every factual assertion, depends on how the information
+is to be used.
+
+-- -- Representing objects as lists
+
+Sometimes it is convenient to represent an object not by a single
+word but by a more complex description. E.g. if there are two foxes, one
+big and one small, then to distinguish them it may be useful to add size
+information. Then the information in the database might be something
+like this:
+
+    [at [big fox] left]
+    [in [small fox] boat]
+
+and so on. These are still three element lists, like [at fox left],
+except that the former have a list of two words as their second element.
+This sort of representation might be useful for a program storing
+information about people known by their first name and surname, e.g.
+
+    [in [john smith] boat]
+    [at [suzie jones] right]
+    etc.
+
+For the purposes of this teach file it is not necessary to represent
+individual objects as lists: each will be represented by one word, e.g.
+"man", "fox", "boat", "left", "right", etc.
+
+-- Exercise on explicitness -------------------------------------------
+
+Think about possible ways of making the following information more
+explicit, so that facts of the same type are represented using an extra
+word indicating that type:
+
+    [dog fido]
+    [cat mickey]
+    [oak tree1]
+    [elm tree2]
+    [boy tommie]
+    [girl suzie]
+    [teacher fred]
+    [brother tommie suzie]
+    [father fred tommie]
+    [tommie 4]
+    [suzie 6]
+    [fred 35]
+
+E.g. some facts are about animals, some about plants, some about jobs,
+some about family relations, some about age, etc. How could the type of
+fact be made explicit? Would it be a good thing to do?
+
+There is no right answer to the question of selecting a form of
+representation -- it depends on your problem!
+
+
+-- The initial state of the river world -------------------------------
+
+Let us now return to the world of LIB RIVER (described above in the
+Ontology section).
+
+If we wish to start off everything at the left bank we can define a
+procedure that sets up the Pop-11 database. You should put the following
+procedure in your file 'river2.p', and precede it with a brief comment
+saying what it does, and end it with a little test that can be run to
+check that it has worked.
+
+;;; Tell Pop-11 that you are using the database library:
+
+uses database
+
+;;; Now define the procedure riv_start
+
+define riv_start();
+
+    ;;; empty the database
+    [] -> database;
+
+    ;;; Use "alladd" to add a lot of items at once to the database
+    ;;; Alladd takes a list of lists, to be added to the database.
+    alladd(
+     [
+        [at boat left]
+        [at man left]
+        [at fox left]
+        [at chicken left]
+        [at grain left] ]);
+
+enddefine;
+
+You could add the following test after the procedure definition.
+
+/*
+;;; Testing riv_start
+
+    riv_start();  ;;; set up database
+    database ==>    ;;; print out the database
+
+*/
+
+-- Defining a procedure to set up test situations ---------------------
+
+It will often be useful to have a different version of the database set
+up in order to test some of the procedures introduced below. For this
+purpose we define a procedure that is given three lists as input
+
+    1. A list of things at the left bank.
+
+    2. A list of things at the right bank.
+
+    3. A list of things in the boat.
+
+It clears the database then adds the appropriate items.
+
+-- -- riv_setup
+
+Put the following in your file river2.p and test it. (You can copy it in
+without retyping it if you mark the procedure (ENTER mcp) then go to the
+appropriate place in your own file and do ENTER ti (transcribe in).
+(See TEACH VEDNOTES).
+
+define riv_setup(left_things, right_things, boat_things);
+
+    ;;; first clear the database
+    [] -> database;
+
+    ;;; then for each item in the left_things list, put it at the
+    ;;; left bank
+    lvars item;
+    for item in left_things do
+        add([at ^item left]);
+    endfor;
+
+    ;;; now do the same for the right bank, re-using the variable item
+    for item in right_things do
+        add([at ^item right]);
+    endfor;
+
+    ;;; now put things in the boat
+    for item in boat_things do
+        add([in ^item boat]);
+    endfor;
+
+enddefine;
+
+/*
+    ;;; some test examples for riv_setup
+    riv_setup([man fox chicken boat],[grain],[]);
+    database ==>
+
+    riv_setup([man chicken boat],[grain],[fox]);
+    database ==>
+*/
+
+-- -- Exercise: re-define riv_start
+
+Try defining riv_start in terms of riv_setup.
+
+Notice that, as far as the Pop-11 database procedures are concerned, it
+will not matter (most of the time) in what order items are stored in the
+Pop-11 database. (Sometimes it will affect speed of running.)
+
+
+-- Defining query procedures ------------------------------------------
+
+-- -- Note on "vars" and "lvars"
+ NB. in the following procedures there are some variables whose values
+are set by the Pop-11 database procedures using the pattern matcher,
+like the pattern variables in TEACH RESPOND. These variables are
+indicated by the prefixes "?" and "??" used in lists representing
+patterns.
+
+In older versions of Pop-11 those variables need to be declared using
+"vars", but since version 15.0 of Poplog it has been possible to use a
+new pattern prefix "!" available at Birmingham, which makes the vars
+declarations unnecesary for pattern variables. Instead they can be
+declared as lvars, which reduces the risk of bugs because vars variables
+can sometimes interact with other procedures in unexpected ways. So in
+the examples below "!" is used for all patterns containing variables,
+and the variables are declared as lvars.
+
+There are other variables that are given by the input to the procedure,
+or are set in some other way. Those are declared using "lvars", so that
+they are treated as "lexical" variables. However input and output
+variables on the procedure header line no longer need to be declared,
+since Poplog version 15.0.
+
+Advanced readers can look at HELP LEXICAL or read the Pop-11 primer to
+find out more about lexical and dynamic variables.
+
+-- -- riv_whereis
+
+Here is our first query procedure, which given a thing returns a place
+where the thing is. It uses the Pop-11 procedure present which takes a
+pattern and will return the first matching item in the database if it
+finds one, otherwise it returns false.
+
+Put the following definition into your file river2.p, and then test it.
+Note that the value of the "local output" variable place should always
+be a word, namely one of "left", "right" or "nowhere". If the database
+is set up correctly that is what will happen when you test. it. Notice
+also that "!" is used to make it unnecesary to include "vars place;" to
+declare the pattern variable.
+
+define riv_whereis(thing) -> place;
+
+    ;;; thing and place are automatically declared as lexical variables.
+    ;;; thing represents the input, which should be a word, and the
+    ;;; value of place, set by present, below, will be returned as the
+    ;;; result of the procedure.
+
+    ;;; declare pattern variable
+    lvars place;
+
+    ;;; Here "^" means "use the value of", "?" means "set the value of"
+    if present( ! [at ^thing ?place ] ) then
+        ;;; no need to do anything, as the variable place has a value
+    else
+        "nowhere" -> place
+    endif
+enddefine;
+
+/*
+;;; Here are some tests for riv_whereis. If necessary first do
+    riv_start();
+
+;;; Now test riv_whereis. Note the need to use "..." to quote the
+;;; words outside the context of a list expression.
+
+    riv_whereis("man")==>
+    riv_whereis("boat")==>
+    riv_whereis("grain")==>
+    riv_whereis("left")==>
+    riv_whereis("elephant")==>
+    riv_whereis("fox") ==>
+
+Try the above again after something like:
+    riv_setup([man fox chicken boat],[grain],[]);
+    riv_setup([chicken],[grain man boat],[fox]);
+*/
+
+-- -- Exercise: fix the bug in riv_whereis
+
+If you do the following
+
+    riv_setup([chicken],[grain man boat],[fox]);
+
+then
+
+    riv_whereis("fox") ==>
+
+You'll get the result "nowhere". To see the explanation do
+
+    database ==>
+
+The database has the assertion [in fox boat] but not [at fox right],
+even though the boat is at the right bank and the fox is in it.
+
+You can extend the procedure riv_whereis by adding an extra condition,
+using "or" after "if", as follows.
+
+In the definition of riv_whereis replace
+
+    if present( ! [at ^thing ?place ] ) then
+
+with the following three lines:
+
+    if present( ! [at ^thing ?place ] )
+    or allpresent( ! [ [in ^thing boat] [at boat ?place] ])
+    then
+
+Notice that allpresent takes a list of patterns and checks to see if
+they can all be matched consistently with items in the database, so
+that if the variable thing has the value "fox" and the database has the
+assertions
+
+    [in fox boat]
+    [at boat right]
+
+then this test will come out true:
+
+    allpresent( ! [ [in ^thing boat] [at boat ?place] ])
+
+and the pattern variable place will have its value set to "right". This
+is an example of a program doing some "inference".
+
+After revising your procedure riv_whereas, as above, do some testing
+to ensure that it always makes the right deductions.
+
+-- -- riv_is_at
+
+The next procedure uses riv_whereis. Check it out, using the tests
+suggested. It does not need any pattern variables. Why not?
+
+define riv_is_at(thing, place) -> boolean;
+    ;;; This one gives a yes/no answer to a question
+
+    ;;; find the bank containing the thing and compare it with place.
+    ;;; assign the result of the comparison to the output local variable
+    riv_whereis(thing) == place -> boolean
+
+enddefine;
+
+/*
+;;; Tests for riv_is_at
+    riv_is_at("man", "left") ==>
+    riv_is_at("man", "boat") ==>
+    riv_is_at("man", "right") ==>
+    riv_is_at("boat", "right") ==>
+    riv_is_at("boat", "left") ==>
+    riv_is_at("moon","left") ==>
+    riv_is_at("moon","right") ==>
+
+*/
+
+You could add some extra tests of your own, using riv_setup to vary
+the conditions.
+
+Note: instead of defining riv_is_at in terms of riv_whereis, we could
+have defined it directly using present and allpresent, with a
+construction something like
+
+    if present([at ^thing ^place])
+    or allpresent([ [at boat ^place] [in ^thing boat] ])
+    then true
+    else false
+    endif -> boolean
+
+This would make the procedure slightly faster because it avoids an extra
+"procedure call and return". The advantage of using the procedure
+riv_whereis is that we can leave it to that procedure to do the
+deduction necessary to work out which bank is on. Then if the deduction
+has to be changed because we change the world, then only one procedure
+will need to be altered, even if it is used  in several different places
+in the whole program.
+
+-- -- riv_is_in
+
+Try completing the definition of the following procedure, which can be
+used to check whether something is in "boat" or not, and then add some
+tests to make sure that the procedure works properly. Put the procedure
+and your tests in the file 'river2.p'
+
+define riv_is_in(thing1, thing2) -> boolean;
+    ....complete this....
+enddefine;
+
+/*
+;;; Some possible tests
+    riv_start();
+    riv_is_in("man", "boat") =>
+    add([in man boat]);
+    riv_is_in("man", "boat") =>
+*/
+
+You could add more tests. Notice that this procedure would work in a
+world with a richer ontology, i.e. a world where there are more types of
+objects that can contain other objects. E.g. in a different problem
+there might be two boats, boat1 and boat2, or a car, or a house, etc.
+
+-- -- riv_will_eat
+
+The procedure riv_will_eat will be given two words, e.g. "chicken" and
+"grain" or "fox" and "chicken", and should return the result true if the
+item named by the first word can eat the item named by the second word,
+false otherwise.
+
+Basically we have to ensure that the two things are both on the same
+bank (not in the boat) and that the man is not at the bank (he may be in
+the boat). Also we have to check that the first thing can eat the
+second. So it will be helpful to have the following procedure to check
+that:
+
+define riv_can_eat(thing1, thing2) -> boolean;
+    (thing1 == "fox" and thing2 == "chicken")
+    or
+    (thing1 == "chicken" and thing2 == "grain")  -> boolean;
+enddefine;
+
+Copy that, with suitable comments and some test commands into your
+river2.p file.
+
+Now try completing this nearly complete definition of the procedure
+riv_will_eat (replace the dots):
+
+define riv_will_eat(thing1, thing2) -> result;
+    ;;; check if conditions are right for thing1 to eat thing2.
+
+    lvars place;    ;;; pattern variable, used below
+
+    ;;; check all the conditions
+
+    ;;; first make sure thing1 can eat thing2
+    if not( riv_can_eat(thing1, thing2) ) then
+        [^thing1 cannot eat ... ] -> result
+
+    ;;; They are of the right types, so check the location conditions,
+    ;;; i.e. find if thing1 is on a bank and set the value of place
+    elseif not( present( ! [at ^thing1 ?place]) )then
+        [^thing1 not on a bank] -> result;
+
+    ;;; If that condition failed thing1 was at some ?place.
+    ;;; Use the value of place and check location of thing2
+    elseif not( present( ! [at ^thing2 ^place]) ) then
+        [^thing1 and ^thing2 not at same place] -> result
+
+    ;;; make sure man isn't there
+    elseif present( [at man ^place] )  then
+        [man guarding ... ] -> result
+    else
+        ;;; all preconditions satisfied, so thing1 will eat thing2
+        "ok" -> result
+    endif;
+
+enddefine;
+
+/*
+;;; Some tests for riv_will_eat
+    riv_will_eat("grain", "chicken")=>
+    riv_start();
+    riv_will_eat("fox", "chicken")=>
+    riv_setup([man boat], [fox chicken], [grain]);
+    database ==>
+    riv_will_eat("fox", "chicken")=>
+    riv_setup([man fox boat], [grain chicken], []);
+    database ==>
+    riv_will_eat("fox", "chicken")=>
+    riv_will_eat("chicken", "grain")=>
+    riv_will_eat("grain", "chicken")=>
+
+*/
+
+You may find the way the variable ?place gets set a little confusing. If
+you don't understand it, ask for help.
+
+-- -- Preparing for riv_which_at
+
+In order to find all the things that are at a particular location we
+need to use the database looping construct:
+
+    foreach <pattern> do <actions> endforeach
+
+This tries to match the <pattern> against each assertion in the
+database, and every time it matches (setting the pattern variables) the
+set of <actions> will be performed, using those variables. For example
+you can use foreach to investigate which things are at a particular
+bank, and make a list of them. In order to do this it is useful to use
+the "%" (percent) symbol in list brackets.
+
+-- -- -- Using percent symbols to build a list
+
+Between percent symbols in a list expression you can insert any Pop-11
+instructions, and if they produce results (which are left on the Pop-11
+stack) the results will be made into a list, as follows:
+
+    [% 1, 2, 6 + 11, [a list], 11 * 5 %] =>
+
+this makes a list of five items (one of them a list) and prints them out
+thus:
+
+    ** [1 2 17 [a list] 55]
+
+-- -- -- Putting "for ... endfor" between percents in a list
+
+Instead of explicitly constructing each item between the percent signs
+you can have a loop instruction that constructs several items, for
+example:
+
+    vars item;
+    [% for item from 5 by 6 to 40 do item endfor %] =>
+
+Here the variable item initially takes the value 5, then 6 is added to
+it repeatedly, giving the numbers 5, 11, 17, etc. Each time a new value
+is found for item it is left on the Pop-11 stack, until its value is
+bigger than 40, when the loop stops. All the numbers on the stack are
+then made into a list. So the following list of numbers is printed out.
+
+    ** [5 11 17 23 29 35]
+
+-- -- -- Using foreach in a list
+
+Suppose we set up the river world thus, using the procedure riv_setup
+defined previously.
+
+    riv_setup([man boat chicken], [fox grain], []);
+
+Print out the database
+
+    database ==>
+
+Now lets make a list of the things on the left bank:
+
+    lvars item;  ;;; this will now be used as a pattern variable
+
+    [% foreach ! [at ?item left] do item endforeach %] =>
+
+This finds three things and makes a list of the words found:
+
+    ** [chicken boat man]
+
+Now try the right bank:
+
+    [% foreach ! [at ?item right] do item endforeach %] =>
+    ** [grain fox]
+
+Now try things in the boat:
+
+    [% foreach ! [in ?item boat] do item endforeach %] =>
+    ** []
+
+There is nothing in the boat, so the list is empty.
+
+-- -- riv_which_at
+
+Now try to define a procedure riv_which_at which will take either the
+word "left" or the word "right" and return a list of things at the
+specified river bank. Add this to your file, and test it.
+
+define riv_which_at(place) -> list;
+    ;;; Make a list of everything that is at place
+
+    lvars item;
+
+    [%foreach ! [at ?item ^place] do item endforeach%] -> list
+
+enddefine;
+
+/*
+;;; first set up a database then test it:
+riv_which_at("left") =>
+riv_which_at("right") =>
+
+*/
+
+-- -- riv_which_in
+
+Using the above as a guide, define a procedure which can be applied to
+the word "boat" and will return a list of the things that are in the
+boat. Remember we represent something being in the boat using a list
+of the form
+
+    [in ... boat]
+
+Complete and test the following definition. You will need one pattern
+variable, and will need to use "foreach ... endforeach" inside a pair of
+percent signs between list brackets
+
+    [% .... %].
+
+The resulting list can be assigned to the output local variable list, as
+in the previous procedure. That will ensure that it is used as the
+result of the procedure, i.e. left on the Pop-11 stack when the
+procedure has run.
+
+define riv_which_in(thing) -> list;
+    ... complete this procedure definition
+enddefine;
+
+Put the completed definition into your file river2.p, then put some
+tests inside comment brackets and run the tests to make sure it works.
+
+-- Defining the "action" procedures -----------------------------------
+
+In order to simulate the process of solving the puzzle we are going to
+define some procedures to represent actions which the man can perform.
+These procedures will make changes to the world. The procedures, listed
+previously, are
+
+    riv_putin,  riv_takeout, riv_getin riv_getout
+    riv_cross, riv_eat
+
+They take various inputs, but each should have one output. The output is
+the word "ok" if the procedure was successful. Otherwise the output is
+a list giving reasons for failure. (This could be used by an
+"explanation" facility.)
+
+The world has certain 'laws' which restrict the use of these actions. Each
+action has certain preconditions and certain effects.
+
+-- Preconditions ------------------------------------------------------------
+Here are some of the preconditions
+
+1.  riv_putin(thing) -> result
+    1.a The object must exist
+    1.b There must not be another object in the boat (not even the man)
+    1.c The boat must be at the same location as the object
+    1.d The man must be at the same location as the object
+
+2.  riv_takeout(thing) -> result
+    2.a. The object must exist
+    2.b. The object must be in the boat
+    2.c. The man must not be in the boat
+
+3.  riv_getin() -> result
+
+4.  riv_getout() -> result
+
+5.  riv_cross() -> result
+
+6.  riv_eat(thing1, thing2)
+
+-- -- Exercise: formulate remaining preconditions
+
+For actions 3, 4, 5, and 6 write down the preconditions.
+
+Hint: for the last one the preconditions have already been included in
+the definition of the procedures riv_can_eat and riv_will_eat
+(which uses riv_can_eat).
+
+It would be a good idea to list at the top of your file river2.p the
+complete ontology for the river world, and also the preconditions and
+effects of the actions. The effects are described below.
+
+Think about how you would express all the preconditions in terms of the
+query procedures defined previously.
+
+
+-- Consequences of actions --------------------------------------------
+
+Each action is defined by certain changes which it brings about. In
+addition there may be unintended consequences in some cases. For
+example, here are the intended consequences of riv_getout:
+
+    remove([in man boat])
+
+and, depending where the boat is, either
+
+    add([at man left])  or  add([at man right])
+
+Can you specify the consequences of each of the follows, in terms of
+remove and add. List them neatly.
+
+    1.  riv_putin(thing) -> result
+    2.  riv_takeout(thing) -> result
+    3.  riv_getin() -> result
+    4.  riv_getout() -> result
+    5.  riv_cross() -> result
+    6.  riv_eat(thing1, thing2)
+
+One of these action procedures may, in certain cases, have the
+side-effect that something gets eaten. Which one, and in what cases?
+We'll return to that later.
+
+We turn now to designing the procedures to manipulate the world: the
+action procedures.
+
+-- Defining riv_putin -----------------------------------------------
+
+We now have to define a procedure which takes a thing (a word) as input,
+checks that it exists still (i.e. hasn't been eaten), checks that it is
+not in the boat, finds which bank it is on, checks that it is at the
+same place as the man, then removes the assertion that the thing is
+there and puts it into the boat. Make sure that this specification
+matches your ideas about the preconditions and effects of riv_putin.
+
+It is useful to have a procedure to check that an object actually
+exists, i.e. is mentioned in the database. Add this to your river2.p
+file, with brief comment and some tests.
+
+-- -- riv_exists
+
+define riv_exists(thing) -> boolean;
+
+    ;;; see if there is some assertion about the object
+    present([ == ^thing ==]) -> boolean
+
+enddefine;
+
+We can now use this to define riv_putin.
+
+-- -- riv_putin
+
+Try something like this:
+
+define riv_putin(thing) -> result;
+    ;;; put the thing into the boat, after checking
+
+    ;;; put the man in the boat, and do suitable checks
+    ;;; if eating occurs, put the information into result
+
+    ;;; declare pattern variable
+    lvars place;
+
+    ;;; make sure the thing exists
+    if not( riv_exists(thing) ) then
+        [^thing does not exist] -> result
+
+    ;;; insert a test whether thing == "man", and if so
+    ;;; return [man cannot put himself in boat]
+    elseif .... then ....
+
+    ;;; if something is in the boat, return that information
+    elseif present( .... ) then ....
+
+    ;;; now check that man and thing are on the same bank
+    elseif not( allpresent( ! [[at man ?place] [at ^thing ?place]]) ) then
+        [man and ^thing not on same bank] -> result;
+    else
+        ;;; preconditions all satisfied, now manage the effects
+        remove([at ^thing ^place]);
+        ;;; You should complete the next line
+         add( ...... );
+        "ok" -> result
+    endif
+enddefine;
+
+Type or copy this into your file. Complete the procedure definition.
+Compile it then test it:
+
+/*
+    riv_start();
+    riv_putin("dog")=>    ;;; should complain -- non-existent object
+    riv_putin("fox")=>    ;;; should be OK
+    database ==>            ;;; check
+    riv_putin("fox")=>    ;;; second attempt should fail
+
+*/
+
+Have you forgotten anything? What about
+
+    riv_putin("man");
+
+-- Defining riv_getin -----------------------------------------------
+
+Let's look at how the procedure to put the man into the boat might be
+defined. It takes no inputs and produces no results (leaves nothing on
+the stack), but it does change the database.
+
+First we have to find where the man is, left or right bank, and remove
+that. We can use the procedure REMOVE to do that. Next we add the
+information that the man is in the boat. For now, let us disregard the
+indirect consequences of the man getting into the boat -- e.g. something
+getting eaten.
+
+Here is a first draft:
+
+define riv_getin() -> result;
+    ;;; put the man in the boat, and do suitable checks
+    ;;; if eating occurs, put the information into result
+
+    lvars place;
+
+    ;;; check that the man is at some bank
+    if present( ! [at man ?place]) then
+        ;;; get man off whichever bank he's on
+        remove(it);     ;;; remove the item found
+
+        ;;; and into the boat
+        add([in man boat]);
+        "ok" -> result
+    else
+        [man not on the bank] -> result;
+    endif
+enddefine;
+
+Since the line (with PRESENT) has a pattern variable "?place", we must
+declare PLACE as a local pattern variable, using "lvars".
+
+Put that procedure in your river2.p file, compile it, and test it:
+
+/*
+    ;;; tests for riv_getin
+    trace add remove present;
+    riv_start();
+    database ==>
+    riv_getin() =>
+    database ==>
+    riv_getin() =>
+
+    untrace add remove present;
+*/
+
+-- -- What - no eating?
+
+There's a bug in riv_getin.
+
+Does riv_getin() cause the database to change in the right way?
+
+No, because it does not yet handle all the consequences of the man
+getting into the boat. In particular, it does not lead to something
+being eaten in appropriate circumstances.
+
+We need to add some side effects of the procedure -- after the call
+of add([ ... ]);
+
+Try to fix the procedure using this procedure described above:
+
+    riv_will_eat(thing1, thing2)
+
+For example we can define the following procedure to "do the eating".
+
+    riv_eat(thing1, thing2)
+
+E.g. try completing the following definition
+
+define riv_eat(thing1, thing2) -> result;
+
+    riv_will_eat(thing1, thing2) -> result;
+
+    if result == "ok" then
+        remove([at ^thing2 =]);
+    endif
+enddefine;
+
+Note that if the result is not "ok" then the result will be the
+explanation of why riv_will_eat did not return an OK result. This
+result will then be passed on as the result of riv_eat.
+
+
+Now you can use riv_eat to fix riv_getin. E.g. you could add
+something like this after the changes to the database in riv_getin:
+
+        if riv_eat("fox", "chicken") == "ok" then
+            [fox has eaten the chicken] =>
+        elseif riv_eat("chicken", "grain") == "ok" then
+            [chicken has eaten the grain] =>
+        endif
+
+Check carefully through your revised definition of riv_getin to make
+sure that it now has all the preconditions of getting in checked, and
+all the consequences are made to happen.
+
+
+-- Improving riv_putin ----------------------------------------------
+
+Are all the preconditions for riv_putin checked? What if you type
+
+    riv_start();
+    riv_getin();
+    riv_putin("fox");
+
+It depends whether it is safe to put in an object when you are already
+in the boat. Let's assume that is not allowed, so you could add the
+following two lines to the conditions for riv_putin:
+
+    elseif present([in man boat]) then
+        [man already in boat] -> result
+
+(or you could use "it -> result;" )
+
+Put these tests into your river2.p file and run them.
+
+/*
+    riv_start();
+    riv_putin("fox") =>
+    riv_putin("chicken") =>       ;;; this should fail
+    database ==>
+
+    riv_start();
+    riv_getin()=>
+    riv_putin("fox") =>       ;;; this should fail
+    database ==>
+*/
+
+
+-- Defining riv_getout ----------------------------------------------
+
+The man needs to be able to get out also. The procedure to do this must
+first check that the preconditions are satisfied (the man is in the
+boat). What happens after that is a little tricky. We can remove the
+information that the man is in the boat, easily enough. But we have to
+add that he is at the LEFT or the RIGHT bank. How?
+
+We can use LOOKUP to find where the boat is, and use the same place
+to locate the man as the effect of getting out. Try to complete the
+following schematic procedure definition.
+
+define riv_getout() -> result;
+
+    ... check that man is in the boat, and if not assign
+    ... [man not in boat] to result
+    ... otherwise
+    ...     remove the assertion that the man is in the boat
+    ...     lookup( ! [at boat ?place])
+    ...     add([ ... ])
+    ...     set the result "ok"
+
+enddefine;
+
+So, put that into your file, compile it and try it out, using tests
+something like these (also to be put into your river2.p file.
+
+/*
+    riv_start();
+    database ==>
+    riv_getout()=>
+    riv_getin()=>
+    database ==>
+    riv_getout()=>
+    database ==>
+*/
+
+The procedures riv_getin and riv_getout should reverse each other's
+effects, except that riv_getout cannot undo eating!
+
+
+-- Some revision questions -------------------------------------------
+
+Just to make sure you are ready for the remaining exercises, you should
+make sure that you can answer the following.
+
+1. What is the database? (See TEACH DATABASE)
+
+2. What do each of the following do:
+
+    ADD, REMOVE, LOOKUP, ALLADD, PRESENT, ALLPRESENT, FOREACH ?
+    They all have help files. To get a help file, put the VED cursor
+    immediately to the left of the name and do "ESC h"
+
+3. Which of those can use pattern variables?
+
+4. What are the input variables of a procedure?
+
+5. What are the output variables of a procedure (sometimes referred to
+    as "output locals")?
+
+    See the section in TEACH DEFINE headed
+        So you thought you understood "->" ?
+
+6. What is the difference between "vars" and "lvars"?
+
+    See the section above headed: Note on "vars" and "lvars"
+    Why have many "vars" declarations of pattern variables been
+    replaced by "lvars" declarations.
+
+7. What is a precondition for an action?
+
+8. What is a consequence for an action, and how are consequences
+   represented in procedures like riv_getin and riv_getout?
+   (Hint: the answer should mention the database, and add and remove.)
+
+9. How do the procedures defined so far represent the fact that they
+   have succeeded?
+
+10. How do they represent the fact that they have failed?
+
+
+NB Students who feel they are struggling to keep up could stop here
+for now, or simply copy the procedures in TEACH RIVER2.p
+
+A possible end of term mini-project if you are finding things difficult
+would be to come back and finish off this teach file add a few frills
+and write a report.
+
+------------------------------------------------------------
+
+-- Add the remaining procedures ---------------------------------------
+
+We so far have the following query procedures:
+
+    riv_whereis(thing) -> place
+    riv_is_at(thing, place) -> boolean
+    riv_is_in(thing1, thing2) -> boolean
+    riv_can_eat(thing1, thing2) -> boolean
+    riv_will_eat(thing1, thing2) -> result
+    riv_which_in(thing) -> list
+    riv_exists(thing) -> boolean
+
+And the following action procedures:
+
+    riv_putin(thing) -> result
+    riv_getin() -> result
+    riv_eat(thing1, thing2) -> result
+    riv_getout() -> result
+
+We still need more procedures to get things across the river. In
+particular, we need
+
+    riv_takeout(thing) -> result
+        Man takes the thing out of the boat onto the river bank
+
+and
+
+    riv_cross() -> result
+        Man rows the boat across the river
+
+Before reading on, see if you can define these, with suitable test
+examples.
+
+For each procedure you need to think very clearly about its
+preconditions and its effects (both described above).
+
+
+-- Defining riv_takeout ---------------------------------------------
+
+You can base your definition of this procedure roughly on the definition
+for riv_putin. In both cases the thing must exist, and the man must
+not be in the boat. I.e. the man must be on the bank. The main
+difference is that the thing must be in the boat.
+
+The main steps would be something like this:
+
+        <check that the thing exists>
+        <check that it is_in_boat>
+        <check that the man is not_in_boat>
+        <remove the object from the boat>
+        <put the object on the appropriate bank>
+
+You can decide whether you need to check that the man is at the same
+bank as the boat.
+
+Make sure that all the relevant preconditions are checked for. Make sure
+that all the required effects are produced. You can look at the
+definition of riv_getout to see how it works out which side of the
+river to use when it adds the new location information.
+
+When you have completed that procedure, you should compile it and then check
+that it works. Devise a suitable set of test instructions.
+
+
+-- Defining riv_cross -----------------------------------------------
+
+Try defining this procedure, checking that the man is in the boat
+as the main precondition.
+
+Think very clearly about its effects. It must remove something, and it
+must add something. How can it decide what to add? The answer is that
+the command
+
+    remove( ! [at boat ?place])
+
+will set the value of place to either "left" or right. You will need
+to write instructions to change  the location of the boat to the
+opposite of the value of place.
+
+See if you can turn that into a definition of riv_cross. Then test it,
+making sure that each time it moves the boat OK:
+
+    riv_start();
+    database ==>
+    riv_getin()=>
+    riv_cross()=>
+    riv_getout()=>
+    database ==>
+
+By now the boat and the man should be at the RIGHT. If you repeat the
+riv_getin, then riv_cross then riv_getout sequence, then test the
+database again, man and boat should be back at the LEFT.
+
+Try doing the same tests again with the main procedures traced:
+
+    trace add remove lookup ;
+
+That will produce a lot of extra printing when your programs run. Try to
+READ the printing and see what it is telling you about when the
+procedures start, when they finish, and what arguments (inputs) they are
+given. At the end, turn off tracing like this:
+
+    untrace add remove lookup ;
+
+Also try the effect of cross with something in the boat (use riv_putin
+to get something into the boat).
+
+
+-- Optional: defining riv_view() ------------------------------------
+
+We can use the procedures riv_which_at and riv_which_in to make
+lists of the things at the left and right banks and in the boat.
+
+This can be used to provide a more pictorial way of showing the state of
+the world than simply printing out the database thus:
+
+    database ==>
+
+Try defining a procedure riv_view, which makes pictures like this:
+Initial state:
+
+    ** [grain chicken fox man ---\ \_ _/ _________________ /---]
+
+Man gets in and fox eats chicken
+
+    ** [grain fox ---\ \_ man _/ _________________ /---]
+
+Man gets out, puts in fox, gets in
+
+    ** [grain ---\ \_ man fox _/ _________________ /---]
+
+Man crosses to opposite bank
+
+    ** [grain ---\ _________________ \_ man fox _/ /---]
+
+Hints:
+
+You can make a list of the things on the left thus
+
+    riv_which_at("left") -> lefts;
+
+You can remove the word "boat" from the lefts list thus:
+
+    delete("boat", lefts) -> lefts;
+
+You can make a list of the things in the boat thus:
+
+    riv_which_in("boat") -> inboat;
+
+You can use present to check whether the boat is at the left or right
+bank, and then make a picture of the scene between the left and right
+banks thus:
+
+    if present([at boat left]) then
+        [ \_ ^^inboat  _/  ^water ]
+    else
+        [ ^water \_ ^^inboat _/ ]
+    endif -> water_picture;
+
+Note that in the above, the words "\_" and "_/" are included in the two
+lists. But "^" and "^^" are not included: rather they say: "use the
+value of the following variable."
+
+Then you can assemble the whole picture and print it out with a Pop-11
+instruction something like this (containing the words "---\" and
+"/---"):
+
+    [   ^^lefts ---\ ^^water_picture /--- ^^rights ] =>
+
+Try creating a procedure to do all that. If you prefer you can
+copy the procedure riv_view from TEACH RIVER2.P
+
+
+-- Exercise: reporting on your program ---------------------------------
+
+(If requested by your tutor.)
+
+Using TRACE judiciously, make a river2.log file which shows all your
+procedures at work, then incorporate it into a file called RIVER2.doc
+which explains what is going on and states what all the procedures do.
+
+TEACH REPORTS may give you some ideas on how to explain things.
+
+
+-- Optional exercise: use "unless" ------------------------------------
+
+Many of the conditional expressions above use
+
+    if not( ... ) then
+
+and
+
+    elseif not( ... ) then
+
+These can be expressed as
+
+    unless ... then
+
+and
+
+    elseunless ... then
+
+except that if you start with "unless" you must replace "endif" with
+"endunless". See HELP UNLESS, HELP IF, and HELP CONTROL
+
+If you wish to develop fluency with the more compact forms try
+converting all conditions that use not( ... ) to use unless or
+elseunless instead.
+
+-- Further reading ----------------------------------------------------
+
+If you have not already done so, you should look at TEACH * DATABASE, to
+ensure that you understand how the database procedures and syntax
+constructs work, e.g.
+
+    add, remove, present, and lookup work.
+
+Others that you may find useful include:
+
+    flush, foreach, forevery, which.
+
+TEACH * INFECT
+    Shows how to write a forward chaining program that propagates
+    information around the database to simulate the spread of
+    an infectious disease.
+
+HELP * DATABASE
+    Summarises Pop-11 database facilities
+
+TEACH * SCHEMATA
+    - Tutorial on schemas ("scripts" and "frames")
+    LIB * SOMESCHEMATA gives some examples.
+
+HELP * SUPER
+    Describes an extended version of the database providing Prolog-like
+    backward chaining facilities.
+
+Documentation on basic database facilities can be found in
+HELP * ADD * PRESENT, * LOOKUP, * REMOVE, * FLUSH, * MATCHES, * IT,
+    * ISIN, *AREIN * WHICH * FOREACH * ALLPRESENT * FOREVERY.
+
+HELP * MATCHESONEOF
+    matchesoneof is an infix operator which takes a list and a list of
+    patterns as arguments, and returns <true> if (and only if) the list
+    matches at least one of the patterns. Otherwise it returns <false>.
+    (It's a bit like PRESENT)
+
+HELP * MATCHESALLOF
+    matchesallof is an infix operator which takes a list and a list of
+    patterns as arguments, and returns <true> if (and only if) <list>
+    matches all of the patterns. Otherwise it returns <false>.
+
+TEACH * STACK
+    Explains the use of the stack in Pop-11. This is essential for a
+    full understanding of how list constructors work.
+
+TEACH * PRIMER
+    Gives an overview of Pop-11 including facilities used above. A
+    printed version is available.
+
+TEACH * POPCORE
+    Summary of the most useful basic facilities in Pop-11. A printed
+    version is also available.
+
+TEACH * LISTSUMMARY
+    Overview of list processing facilities. Useful for revision.
+
+TEACH * POPNOTES
+    Short primer of Pop-11 facilities including lists and the database.
+
+TEACH * RIVERCHAT
+    How to extend the programs described here into a package based on
+    English-like interactions instead of Pop-11 commands. Describes a
+    possible project to add a "natural language" interface to this
+    package.
+
+HELP * NEWPSYS
+    Introduces a forward chaining expert system building tool based on
+    facilities similar to the Pop-11 database.
+
+TEACH * PSYSRIVER
+    Shows how to use LIB NEWPSYS to develop a mini-expert system to
+    make plans to solve problems.
+
+TEACH * EXPERTS
+    Gives an introduction to three early expert system shells.
+
+TEACH * RIVER2.P
+    Gives sample versions of all the procedures mentioned in this
+    teach file.
+
+-- Index of procedures described in this file -------------------------
+
+[Created using "ENTER indexify define" ]
+ define riv_start();
+ define riv_setup(left_things, right_things, boat_things);
+ define riv_whereis(thing) -> place;
+ define riv_is_at(thing, place) -> boolean;
+ define riv_is_in(thing1, thing2) -> boolean;
+ define riv_can_eat(thing1, thing2) -> boolean;
+ define riv_will_eat(thing1, thing2) -> result;
+ define riv_which_at(place) -> list;
+ define riv_which_in(thing) -> list;
+ define riv_exists(thing) -> boolean;
+ define riv_putin(thing) -> result;
+ define riv_getin() -> result;
+ define riv_eat(thing1, thing2) -> result;
+ define riv_getout() -> result;
+
+--- $poplocal/local/teach/river2
+--- Copyright University of Birmingham 1999. All rights reserved. ------

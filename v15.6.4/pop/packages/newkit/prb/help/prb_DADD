@@ -1,0 +1,315 @@
+HELP prb_DADD                                      Aaron Sloman Feb 1998
+                                              (Suggested by Brian Logan)
+                                                     Updated 29 Aug 2003
+
+LIB * prb_DADD
+LIB * prb_DDEL
+
+The two autoloadable procedures prb_DADD and prb_DDEL are used to extend
+poprulebase with a simple mechanism for maintaining dependencies between
+items in the database.
+
+Although the procedures are autoloadable if invoked directly, they are
+not autoloaded if used in the format described next. So it is essential
+to include at the beginning of the program, one of these:
+
+    uses prb_DADD;
+    uses prb_DDEL;
+
+
+[DADD ...]
+This format is used to insert a new database datum along with information
+about which other database items it depends on. It allows multiple
+sufficient justifications for the same thing to be recorded.
+
+[DDEL ...]
+This format is used to remove a database datum, which will also
+automatically remove any items which depend on it if they no longer
+have a justification remaining.
+
+
+CONTENTS
+
+ -- More precise explanations
+ -- -- DADD actions
+ -- -- DDEL actions
+ -- Warning: non-existent justifiers
+ -- The procedural interface
+ -- -- prb_DADD(rule_instance, action);
+ -- -- prb_DDEL prb_DDEL(rule_instance, action);
+ -- An example
+ -- Another example
+
+-- More precise explanations ------------------------------------------
+
+-- -- DADD actions
+
+These have the form:
+
+[DADD <datum> <j1> <j2> <j3> ...]
+
+    where j1, j2, ... are database items or patterns which can match
+    database items.
+
+The first time such a justification for <datum> is recorded it creates a
+new database assertion of the form:
+
+    [justified <datum> [<j1> <j2> <j3> ...]]
+
+Where j1, j2, etc. are existing items in the database on which <datum>
+now depends.
+
+If such a record with a justification for <datum> already exists, e.g.
+using a list of justifiers [<k1> <k2>...] then the new list of
+justifiers is added separately, producing a multiple justification
+record of the form:
+
+    [justified <datum> [<j1> <j2> <j3> ...]  [<k1> <k2>...] ... ]
+
+So <datum> may end up with a list of alternative justifications each of
+which is treated as a conjuction. I.e. the complete justification record
+is interpreted as an assertion that:
+
+    <datum> is justified
+        IF
+            <j1> AND <j2> AND <j3> ...
+        OR
+            <k1> AND <k2>...
+        OR
+        ...
+
+Later if a DDEL action [DDEL J] deletes any individual fact J, then
+every conjunction including J is removed from the set of alternative
+justifications for <datum>, but any remaining alternative justifications
+which do not include J, will be left.
+
+If no alternative justification for <datum> remains after that deletion,
+then the whole justification record will be removed, and the process
+will then be recursively applied to <datum>, i.e. it is deleted and also
+anything that depends solely on justifications including it.
+
+-- -- DDEL actions
+[DDEL <datum>]
+    This deletes <datum> and also anything which depends on it and has
+    no other remaining justification list, as explained above.
+
+NOTE: <datum> can be identified by a pattern. However only the first
+matching database item will be removed (along with things which depend
+on it). If requested a version will be provided which removes all
+matching items and things which depend on them.
+
+-- Warning: non-existent justifiers -----------------------------------
+
+Under some circumstances a [DADD ...] action will not create or extend a
+justification. The action
+
+    [DADD <datum> <item1> <item2> ...]
+
+is interpreted in such a way that as long as at least one of the items
+matches (or is = to) something already in the database a new
+justification conjunction is formed for the datum.
+
+But it is possible for a situation to occur where no itemi matches
+anything already in the database. So in such cases [DADD ...] will not
+add any justification.
+
+
+-- The procedural interface -------------------------------------------
+
+There are two procedures used to implement these action types, prb_DADD
+and prb_DDEL
+
+-- -- prb_DADD(rule_instance, action);
+
+    rule_instance
+        will be the instantiation of the rule containing the DADD
+        action. It is ignored
+
+    action
+        will be a list of the form [DADD ...] described above.
+
+-- -- prb_DDEL prb_DDEL(rule_instance, action);
+
+    rule_instance
+        will be the instantiation of the rule containing the DADD
+        action. It is ignored
+
+    action
+        will be a list of the form [DDEL ...] described above.
+
+-- An example ---------------------------------------------------------
+
+;;; Set up the library
+uses poprulebase;
+uses prb_DADD;
+
+;;; NOTE: the examples below use the procedural interface because it
+;;; would be more complex to demonstrate with a running ruleset. So we
+;;; use the following procedure for our test examples.
+
+define prb_test(action);
+    if action(1) = "DADD" then
+        prb_DADD([], action)
+    elseif action(1) = "DDEL" then
+        prb_DDEL([], action)
+    else
+        mishap('Unkown action type', [^action])
+    endif
+enddefine;
+
+
+;;; Create a database.
+prb_newdatabase(20, []) -> prb_database;
+
+;;; Simulate an action of this sort
+;;;     [ADDALL [fred eats soup] [fred eats meat][ fred eats cheese]]
+
+applist(
+    [[fred eats soup] [fred eats meat] [ fred eats cheese]],
+    prb_add);
+
+prb_print_database();
+** DATABASE
+   [[fred eats cheese] [fred eats meat] [fred eats soup]]
+
+;;; Now simulate an action setting up a dependency between a new
+;;; assertion: [fred is greedy] and all previous assertions about
+;;; things fred eats:
+;;;     [DADD [fred is greedy] [fred eats =]]
+
+prb_test([DADD [fred is greedy] [fred eats =]]);
+
+prb_print_database();
+** DATABASE
+   [[fred is greedy] [fred eats cheese] [fred eats meat] [fred eats soup]]
+   [[justified [fred is greedy]
+               [[fred eats cheese] [fred eats meat] [fred eats soup]]]]
+
+;;; And something which depends on that. Simulate
+;;;     [DADD [fred is sinful] [fred is greedy]]
+
+prb_test([DADD [fred is sinful] [fred is greedy]]);
+prb_print_database();
+** DATABASE
+   [[fred is sinful]
+    [fred is greedy]
+    [fred eats cheese]
+    [fred eats meat]
+    [fred eats soup]]
+   [[justified [fred is sinful] [[fred is greedy]]]
+    [justified [fred is greedy]
+               [[fred eats cheese] [fred eats meat] [fred eats soup]]]]
+
+;;; Try to add fred's dishonesty as a new alternative justification for
+;;; fred's being sinful. Note that there is nothing in the database
+;;; saying that fred is dishonest.
+prb_test([DADD [fred is sinful] [fred is dishonest]]);
+prb_print_database();
+
+;;; Because [fred is dishonest] was not a fact already, the DADD action
+;;; had no effect. We now put in that fact and repeat the action.
+
+prb_add([fred is dishonest]);
+
+;;; Record that this is another reason why fred is sinful
+prb_test([DADD [fred is sinful] [fred is dishonest]]);
+prb_print_database();
+** DATABASE
+   [[fred is dishonest]
+    [fred is sinful]
+    [fred is greedy]
+    [fred eats cheese]
+    [fred eats meat]
+    [fred eats soup]]
+   [[justified [fred is sinful] [[fred is dishonest]] [[fred is greedy]]]
+    [justified [fred is greedy]
+               [[fred eats cheese] [fred eats meat] [fred eats soup]]]]
+
+;;; Now simulate deletion of [fred eats meat], which
+;;; should recursively remove things dependent on it, unless
+;;; they have other justifications
+prb_test([DDEL [fred eats meat]]);
+
+prb_print_database();
+** DATABASE
+   [[fred is dishonest] [fred is sinful] [fred eats cheese] [fred eats soup]]
+   [[justified [fred is sinful] [[fred is dishonest]]]]
+
+;;; Note fred is still sinful because he is dishonest, though he is no
+;;; longer greedy.
+;;; But we can remove his sinfulness by removing his dishonesty.
+prb_test([DDEL [fred is dishonest]]);
+
+prb_print_database();
+** DATABASE
+   [[fred eats cheese] [fred eats soup]]
+
+
+-- Another example ----------------------------------------------------
+
+prb_newdatabase(20, []) -> prb_database;
+
+vars
+    b1 = [there is a mat],
+    b2 = [the mat is flat],
+    b3 = [the cat sat on the mat],
+    b4 = [the mat is usable]
+    ;
+
+
+;;; add b3, no dependents,
+prb_add(b3);
+prb_print_database();
+** DATABASE
+   [[the cat sat on the mat]]
+
+;;; Add that b3 depends on b2
+prb_add(b2);
+prb_test([DADD ^b3 ^b2]);
+
+prb_print_database();
+** DATABASE
+   [[justified [the cat sat on the mat] [[the mat is flat]]]]
+   [[the mat is flat] [the cat sat on the mat]]
+
+;;; Now add b4, with no dependencies
+prb_add(b4);
+
+prb_print_database();
+** DATABASE
+   [[justified [the cat sat on the mat] [[the mat is flat]]]]
+   [[the mat is usable] [the mat is flat] [the cat sat on the mat]]
+
+;;; Now add that b4 also depends on b2, which is identified by pattern
+prb_test([DADD ^b4 [the == flat]]);
+
+prb_print_database();
+** DATABASE
+   [[justified [the mat is usable] [[the mat is flat]]]
+    [justified [the cat sat on the mat] [[the mat is flat]]]]
+   [[the mat is usable] [the mat is flat] [the cat sat on the mat]]
+
+;;; b2 depends on b1
+prb_add(b1);
+prb_test([DADD ^b2 ^b1]);
+
+prb_print_database();
+** DATABASE
+   [[there is a mat]]
+   [[justified [the mat is flat] [[there is a mat]]]
+    [justified [the mat is usable] [[the mat is flat]]]
+    [justified [the cat sat on the mat] [[the mat is flat]]]]
+   [[the mat is usable] [the mat is flat] [the cat sat on the mat]]
+
+;;; Now test DDEL on b1
+;;; It should remove everything.
+b1 =>
+** [there is a mat]
+
+prb_test([DDEL [there is = mat]]);
+prb_print_database();
+   []
+
+
+--- $poplocal/local/prb/help/prb_DADD
+--- Copyright University of Birmingham 2003. All rights reserved. ------

@@ -1,0 +1,497 @@
+HELP POPVISION                                          David Young
+                                                        July 1994
+
+POPVISION comprises a set of teach files, help files and libraries to
+provide support for:
+
+1.  teaching an introductory course in computer vision,
+
+2.  writing programs for research in computer vision.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Accessing POPVISION
+
+  2   Directory structure and contents
+
+  3   Teach files
+
+  4   POP-11 libraries
+      4.1   Display
+      4.2   Input-output
+      4.3   Array region manipulation
+      4.4   Geometrical transformations
+      4.5   Pixel-by-pixel operations
+      4.6   Linear algebra
+      4.7   Convolution
+      4.8   Integral transforms
+      4.9   Image structure
+      4.10  Motion
+      4.11  Neural nets
+      4.12  Miscellaneous
+
+-----------------------------------------------------------------------
+1  Accessing POPVISION
+-----------------------------------------------------------------------
+
+If POPVISION is installed correctly, executing the following line (for
+instance by marking it in VED and pressing <CTRL-D>, or by putting it in
+your init.p file) should make POPVISION available to you:
+
+    uses popvision
+
+If this fails (with a 'LIBRARY FILE NOT FOUND' mishap) then it means
+that your system manager has not installed the necessary file in your
+local POPLOG library.  In this case, you need to know the name of the
+directory where POPVISION is installed.  A good guess might be
+$poplocal/local/popvision.  Alternatively, if you have a personal copy
+of POPVISION rather than a publically installed one, the directory might
+be $poplib/popvision. In any case, if the directory is called pv_dir,
+the file you are now reading is pv_dir/help/popvision, so having found
+this file you can work out what pv_dir is. Having established pv_dir,
+you should execute
+
+    load pv_dir/lib/popvision.p
+
+(Putting a file called popvision.p containing this line into your
+$poplib or into your local POPLOG library, usually $poplocal/local/lib,
+will allow the simpler command above to be used.)
+
+Once you have loaded popvision using one of these methods, you can get
+information about POPVISION using the VED commands
+
+    <ENTER> help xxx
+    <ENTER> teach xxx
+    <ENTER> showlib xxx
+    <ENTER> showinclude xxx
+
+where xxx is one of the POPVISION names listed below. In addition, you
+can follow cross-references to POPVISION teach and help files using
+<CTRL-N> and <CTRL-H> as usual.
+
+You should load POPVISION libraries in programs using
+
+    uses xxx
+
+as for other system libraries. The POPVISION libraries are not made
+autoloadable; you have to have a uses command for each library you use.
+
+The variable popvision_data contains a string describing the directory
+for example data; see the teach files for how it is used.
+
+For an introduction to some of the POPVISION facilities, you could now
+try looking at TEACH * VISION1.
+
+-----------------------------------------------------------------------
+2  Directory structure and contents
+-----------------------------------------------------------------------
+
+POPVISION contains POP-11 libraries, C source files, externally-loadable
+object files, include files, help files, teach files, binary object
+files, shell scripts and example data.
+
+As an ordinary user, you do not need to know about the directory
+structure - just access the package using the methods described in the
+last section. In case you want to know, it is as follows. If pv_dir is
+the library where POPVISION is installed (e.g.
+$poplocal/local/popvision), and xxx is the name of a library, help,
+teach or data file, then the files are stored as follows:
+
+    POP-11 libraries: pv_dir/lib/xxx.p
+    C sources:        pv_dir/lib/xxx.c
+    C headers:        pv_dir/lib/xxx.h
+    include files:    pv_dir/include/xxx.ph
+    help files:       pv_dir/help/xxx
+    teach files:      pv_dir/teach/xxx
+    data files:       pv_dir/data/xxx
+    object files:     pv_dir/lib/bin/arch/xxx.ext
+    shell scripts:    pv_dir/com/xxx
+
+For object files, arch is machine-dependent, and ext is "o" for
+statically linked systems and "so" for dynamically linked systems.
+
+The current values of xxx are in the following table. The columns
+indicate whether xxx refers to a POP-11 library (P), an include file
+(I), a help file (H), a teach file (T), an ancillary C source and object
+file (C, or CH if there is also a C header file), or to several of
+these. To get information about any name marked with H or T, put the
+cursor at the start of the line and press <CTRL-H>. For a more
+structured description of the contents, see later in this file.
+
+    Xcolour_to_rgb              P     H
+    appblobs                    P     H
+    appblobs_stats_defs         P
+    appellipse                  P     H
+    appline                     P     H
+    apppolygon                  P     H
+    array_adjoin                P     H
+    array_equalise              P     H
+    array_halfsize              P     H
+    array_hist                  P     H     C
+    array_mxmn                  P     H     C
+    array_peaks                 P     H     C
+    array_random                P     H     C
+    array_reflect               P     H
+    array_rotate                P     H
+    array_transpose             P     H     C
+    array_wrap                  P     H
+    arraylookup                 P     H     C
+    arraysample                 P     H     C
+    arrayset                    P     H     C
+    arrayshift                  P     H
+    arrscan                                 CH
+    arrpack                     P     H     CH
+    bitmapfile                  P     H
+    boundslist_utils            P     H
+    canny                       P     H  T  C
+    convolve_1d                 P     H     C
+    convolve_2d                 P     H     C
+    convolve_gauss_2d           P     H
+    convolve_index              P     H     C
+    convolve_nd                 P     H
+    convolve_nx1d               P     H
+    corners_hs                  P     H
+    display_flow                P     H
+    display_correspondences     P     H
+    erandom                     P     H
+    excall                      P     H
+    ext2d_args                  P     H
+    fft                         P     H     C
+    filesequence                P     H
+    first_order_flow            P     H
+    float_arrayprocs            P     H     C
+    float_byte                  P     H     C
+    gabormask                   P     H
+    gaussmask                   P     H
+    horn_schunck                P     H
+    lapack                      P     H
+    lapop                       P     H
+    logsample                   P     H     C
+    mlp                         P  I  H  T  C
+    mlp_data                    P
+    newbytearray                P     H
+    newintarray                 P     H
+    newsfloatarray              P     H
+    newdfloatarray              P     H
+    newrfloatarray              P     H
+    newcfloatarray              P     H
+    newzfloatarray              P     H
+    objectfile                  P     H
+    oldarray                    P     H
+    pop_radians                 P     H
+    popvision                   P     H
+    random_order                P     H
+    rawarrayfile                P     H
+    rc_array                    P     H  T
+    rc_filledcircle             P     H
+    rc_image                    P     H  T
+    rci_show                    P     H
+    rgb_arrays                  P     H     C
+    snakes                      P     H
+    solve_dilation              P     H
+    straight_hough              P     H  T  C
+    sunrasterfile               P     H
+    vision                               T
+    vision1                              T
+    vision2                              T
+    vision3                              T
+    vision4                              T
+    vision5                              T
+    vision6                              T
+    vision7                              T
+    warp_2d                     P     H     C
+
+In addition, shell scripts compile_popvision and mkpopvision are
+provided for recompiling the C routines and making a saved image.
+
+-----------------------------------------------------------------------
+3  Teach files
+-----------------------------------------------------------------------
+
+POPVISION provides teach files which are intended to be suitable for use
+with an introductory computer vision course. TEACH * VISION provides a
+bibliography for such a course. This is biased towards the interests of
+the author and should probably be modified locally.
+
+The main sequence of teach files is:
+
+    VISION1 - image representation and display
+    VISION2 - introduction to convolution
+    VISION3 - further convolution, Gaussian masks and edge detection
+    VISION4 - the Hough transform
+    VISION5 - perspective projection and stereoscopic vision
+    VISION6 - visual motion
+    VISION7 - active contours
+
+TEACH * VISION1 should be done first. The files should be read online,
+using an X display. They can be used in two ways:
+
+    1. Read the text, and execute the code examples without studying
+    them in detail.  This requires the use of VED, but does not require
+    knowledge of POP-11.  This will give an introduction to some basic
+    ideas in computer vision and image analysis.
+
+    2. In addition, examine the POP-11 code, and wherever possible
+    modify or extend it in some way. This requires some prior knowledge
+    of POP-11, and as well as teaching computer vision, gives an
+    introduction to facilities in the POPVISION package and provides
+    practice in POP-11 programming.
+
+-----------------------------------------------------------------------
+4  POP-11 libraries
+-----------------------------------------------------------------------
+
+The libraries provide a variety of functions. In general, the low-level
+functions which use external code to provide efficient numerical
+computations are likely to be the most generally useful. On a suitable
+terminal, the display libraries are helpful for inspecting images.
+
+For more information, move the cursor to the library name and use
+<CTRL-H>.
+
+4.1  Display
+------------
+
+The display routines assume the use of the * RC_GRAPHIC library to
+provide basic facilities under X.
+
+* rci_show provides simple display of images, one to a window. The
+window is destroyed by clicking on the image.
+
+* rc_array provides image display integrated with the * RC_GRAPHIC
+library. This means that the size and position of an image are
+determined by the user's coordinate system, making it simple to
+correctly integrate image display with other graphics.
+
+* rc_image is obsolete and will be withdrawn.
+
+* rc_filledcircle is a simple addition to the * RC_GRAPHIC facilities.
+
+* Xcolour_to_rgb is a utility for getting numerical colour values from
+colour names under X.
+
+* display_flow is used by TEACH * VISION6.
+
+* display_correspondences is useful for displaying the results of stereo
+matching.
+
+* RGB_ARRAYS converts between different formats for storing colour
+images.
+
+4.2  Input-output
+-----------------
+
+* sunrasterfile reads and writes arrays, using Sun rasterfile format for
+the disc file. (See also * arrayfile, in the main POPLOG distribution.)
+
+* filesequence facilitates reading and writing sequences of images to
+disc files, incrementing a numerical field in the file name to indicate
+sequence number.
+
+* bitmapfile reads and writes arrays, using the ASCII version of the X
+bitmap format for the disc file.
+
+* rawarrayfile reads and writes arrays in a primitive form.
+
+4.3  Array region manipulation
+------------------------------
+
+* BOUNDSLIST_UTILS provides a set of routines to aid manipulations of
+N-dimensional array regions expressed as * boundslist -type lists.
+
+4.4  Geometrical transformations
+--------------------------------
+
+* arraysample allows resizing an N-dimensional array or array region by
+stretching or compressing along the axes. If is also useful (and
+efficient) for simple copying of subregions of arrays.
+
+* arrayshift linearly shifts the data in an array, in fact by creating
+an array which shares the original arrayvector but which has new bounds.
+
+* array_halfsize reduces an array to half its size along each dimension.
+
+* warp_2d applies an affine transformation to a region of a 2-D array.
+
+* array_adjoin adjoins two 2-D arrays (i.e. it puts them next to each
+other in a single array).
+
+* array_wrap fills a region of an array by tiling with translations of
+the original region.
+
+* array_reflect extends a region of an array by tiling, with reflection
+at the region boundaries.
+
+* array_rotate circularly shifts the data in an array.
+
+* array_transpose transposes a region of an array.
+
+* logsample resamples an array uniformly in log-polar coordinates.
+
+4.5  Pixel-by-pixel operations
+------------------------------
+
+* arraylookup applies a function expressed as a lookup table to each
+value in a region of an array. A variety of formats for the table are
+offered, and quantisation of floating-point arrays is efficiently
+supported.
+
+* ARRPACK provides procedures for arithmetic and logical operations on
+arrays, using external procedures for efficiency.
+
+* FLOAT_ARRAYPROCS provides a variety of simple arithmetical operations
+on array elements, including adding and subtracting arrays, multiplying
+by a constant, and so on. Arrays have to be in packed floating-point
+form and the whole of the array is processed. It is now largely
+superseded by * ARRPACK.
+
+* float_byte converts a packed byte array to packed floating point, and
+vice versa.
+
+* array_equalise carries out histogram equalisation on an array (but
+note that rc_array can do this itself for display purposes).
+
+* array_hist returns a histogram of the values in an array region.
+
+* array_mxmn returns the maximum and minimum values in an array region.
+
+* array_random sets a region of an array to random values.
+
+* arrayset sets a region of an array to a constant value.
+
+4.6  Linear algebra
+-------------------
+
+* lapack gives a direct interface to the Lapack linear algebra package,
+which has very wide scope.
+
+* lapop gives a simpler, higher-level interface to some common linear
+algebra functions, including matrix multiplication, linear equations,
+least-squares problems, eigenvalue and singular value decompositions.
+
+4.7  Convolution
+----------------
+
+The convolution routines do not wrap around, and are implemented
+directly, not via the FFT. Results are only produced where they are
+strictly valid - i.e. for output pixels where the mask lies wholly
+within the input region. If extrapolation is needed to make the output
+region the same size as the input region, this can conveniently be done
+using * array_reflect or * array_wrap applied to the input region. The
+routines region_conv_output and region_conv_input in * BOUNDSLIST_UTILS
+are useful here.
+
+* convolve_1d convolves a 1-D array with a 1-D mask.
+
+* convolve_2d convolves a 2-D array with a 2-D mask.
+
+* convolve_nd convolves an N-D array with an N-D mask.
+
+* convolve_nx1d convolves an N-D array with a 1-D mask, the mask being
+oriented parallel to a specified axis.
+
+* convolve_index convolves an N-D array with an N-D sparse mask; that
+is, the mask is specified by explicitly giving the offset vector for
+each weight rather than by storing the weights in an array.
+
+* gaussmask returns an array of weights suitable for Gaussian smoothing
+and smoothing-with-differencing masks.
+
+* GABORMASK provides routines that return 1-D and 2-D Gabor masks.
+
+* convolve_gauss_2d convolves a 2-D array with Gaussian smoothing,
+smoothing-with-differencing, and Difference of Gaussians masks.
+
+* FLOAT_ARRAYPROCS provides some basic procedures for erosion and
+dilation of binary images.
+
+4.8  Integral transforms
+------------------------
+
+* FFT carries out 1-D and 2-D Fast Fourier Transforms.
+
+4.9  Image structure
+--------------------
+
+* appblobs carries out a connected region analysis of binary images.
+
+* array_peaks finds local maxima in an array.
+
+* canny carries out Canny-type edge detection.
+
+* corners_hs implements the Harris-Stephens corner detector.
+
+* snakes implements very simple adaptive contours.
+
+* straight_hough finds straight lines using a Hough transform.
+
+4.10  Motion
+------------
+
+* first_order_flow synthesises flow vectors for specified first-order
+flow parameters.
+
+* horn_schunck estimates flow vectors from an image pair using an
+implementation of the algorithm of Horn and Schunck.
+
+* solve_dilation finds the focus of expansion and rate of dilation for a
+flow field which is assumed to contain not rotatory component.
+
+4.11  Neural nets
+-----------------
+
+* MLP implements multi-layer perceptrons trained using the back
+propagation algorithm, with special facilities for handling image data.
+
+4.12  Miscellaneous
+-------------------
+
+* appellipse applies a procedure to the coordinates of every pixel lying
+in or on a specified ellipse.
+
+* appline applies a procedure to the coordinates of every pixel lying on
+a straight line between two specified points.
+
+* apppolygon applies a procedure to the coordinates of every pixel
+lying in a polygonal region, specified by its vertices.
+
+* erandom provides an alternative to the Pop-11 random number
+generator, using externally-loaded code.
+
+* excall allows external functions to be passed the addresses of
+arbitrary elements of vectors.
+
+* ext2d_args is used internally to facilitate passing array region
+arguments to external routines.
+
+* newbytearray creates packed byte arrays.
+
+* newintarray creates packed integer arrays.
+
+* newsfloatarray creates single-precision packed floating-point arrays.
+
+* newdfloatarray creates double-precision packed floating-point arrays.
+
+* newrfloatarray creates packed floating-point arrays with precision
+depending on popdprecision.
+
+* newcfloatarray creates complex single-precision packed floating-point
+arrays with alternating real and imaginary parts.
+
+* newzfloatarray creates complex double-precision packed floating-point
+arrays with alternating real and imaginary parts.
+
+* objectfile is used internally to provide a convention for finding
+binary object files for external loading.
+
+* oldarray allows array storage to be easily and safely recycled without
+invoking the garbage collector.
+
+* popvision extends POPLOG search lists to make the package available.
+
+* pop_radians defines angular quantities in radians and degrees.
+
+* random_order randomly orders sequences.
+
+--- $popvision/help/popvision
+--- Copyright University of Sussex 1998. All rights reserved.

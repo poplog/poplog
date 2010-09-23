@@ -1,0 +1,183 @@
+REF XAssociationTables                               A.Schoter, Jun 1991
+                                        Revised: Adrian Howard, Jun 1993
+
+        COPYRIGHT University of Sussex 1993. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<     X ASSOCIATION TABLES    >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+Association Tables provides procedures which allow the user to associate
+arbitrary  data  with  X  resource  identifiers  (see  * XptXID  * XID.)
+Association Tables are basically an X version of Pop-11 properties  (see
+REF * PROPERTIES) which allow XIDs to be  used as keys to access data.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   LIB XAssociationTables
+      1.1   XAssoc and XAssocTable Structures
+      1.2   Association Table Management Procedures
+
+
+
+-------------------------
+1  LIB XAssociationTables
+-------------------------
+
+IMPORTANT NOTE: The functionality of this library has been superseded by
+the X Context Manager functions. See REF * XContextManager for  details.
+The library can only be used if the "oldX" library is available on  your
+system. Consult your system manager for details.
+
+To load LIB * XAssociationTables do the following:
+
+    uses xlib, XAssociationTables;
+
+The type definitions and procedures supplied by this library are  direct
+equivalents of the Xlib C types and functions. For information on  the C
+functions see 'Appendix D: Compatibility Functions' in:
+
+                     Xlib - C Language X Interface,
+                       MIT X Consortium Standard,
+                         X Version 11, Release 4
+
+        Copyright (C) 1985, 1986, 1987, 1988, 1989 Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+
+1.1  XAssoc and XAssocTable Structures
+--------------------------------------
+The following structures are provided by LIB * XAssociationTables.  They
+are  created  with  LIB  * NEWC_DEC,   see  HELP  * NEWC_DEC  for   more
+information on how to access them.
+
+
+XAssoc                                                        [typespec]
+        WARNING: This structure is not documented in Xlib. It's internal
+        structure may change at a future date. Use at your own risk.
+
+        This  data  structure   is  used  as   the  basic  elements   of
+        * XAssocTable  entries.  Each  entry  in  an  XAssocTable   is a
+        circular queue (bucket) of XAssocs.
+
+            typedef struct _XAssoc {
+                struct _XAssoc * next;
+                struct _XAssoc * prev;
+                Display * display;
+                XID x_id;
+                char * data;
+            } XAssoc;
+
+        next is a pointer to the  next object in this bucket. prev  is a
+        pointer to  the previous  object in  this bucket.  display  is a
+        pointer  to  the   display  which  owns   x_id  (see   * Display
+        * XptDisplayPtr.) x_id is the X Window ID associated with  data.
+        data is a pointer to an untyped area of memory.
+
+
+consXAssoc(next, prev, display, x_id, data) -> assocptr      [procedure]
+destXAssoc(assocptr) -> (next, prev, display, x_id, data)    [procedure]
+initXAssoc(false or exptrclass) -> assocptr                  [procedure]
+isXAssoc(item) -> bool                                       [procedure]
+        Procedures for constructing  and accessing * XAssoc  structures.
+        See HELP * NEWC_DEC and HELP * EXTERNAL for more information  on
+        their usage.
+
+
+XAssoc_key -> key                                                  [key]
+        The key of * XAssoc structures
+
+
+XAssocTable                                                   [typespec]
+        WARNING:  The  internal  structure  of  this  structure  is  not
+        documented in  Xlib. It's  internal  structure may  change  at a
+        future date. Use at your own risk.
+
+            typedef struct {
+                XAssoc * buckets;
+                int size;
+            } XAssocTable;
+
+        An XAssocTable is an array of * XAssoc structures, each of which
+        is a circular queue header. An XAssocTable consists of a pointer
+        (buckets) to an XAssoc which is  the head of the first queue  in
+        the queue array, and an integer (size) that indicates the number
+        of queues in the array.
+
+
+consXAssocTable(next, prev, display, x_id, data) -> tableptr [procedure]
+destXAssocTable(tableptr) -> (next, prev, display, x_id,     [procedure]
+                data)
+initXAssocTable(false or exptrclass) -> tableptr             [procedure]
+isXAssocTable(item) -> bool                                  [procedure]
+        Procedures  for   constructing   and   accessing   * XAssocTable
+        structures. See  HELP * NEWC_DEC  and HELP  * EXTERNAL for  more
+        information on their usage.
+
+
+XAssocTable_key -> key                                             [key]
+        The key of * XAssocTable structures
+
+
+
+1.2  Association Table Management Procedures
+--------------------------------------------
+XCreateAssocTable(int) -> tableptr                           [procedure]
+        This procedure creates a new * XAssocTable with int buckets.  It
+        returns a pointer tableptr to  the new XAssocTable. If an  error
+        occurs when allocating memory a null pointer is returned.
+
+        For efficiency reasons  it is better  for int to  be a power  of
+        two.
+
+        A value of eight or less objects per bucket is a reasonable  one
+        to aim for when working out the size of table to allocate.
+
+
+XMakeAssoc(displayptr, tableptr, xid, dataptr)               [procedure]
+        Associates the data pointed  to by dataptr with  the XID xid  in
+        the * XAssocTable pointed to by tableptr.
+
+        Data is inserted into the table only once. Redundant inserts are
+        meaningless and cause no problems. The queue in each association
+        bucket is sorted in ascending order of XID.
+
+        As always, care should be taken that any Pop-11 data  structures
+        referred to by dataptr will not move during garbage  collection.
+        See REF * EXTERNAL_DATA and * cons_fixed for more information on
+        fixed data.
+
+
+XLookUpAssoc(displayptr, tableptr, xid) -> dataptr           [procedure]
+        Retrieve the  data  keyed  under  xid which  is  stored  in  the
+        * XAssocTable  pointed  to  by  tableptr.  If  an  appropriately
+        matching xid can be found the  routine will return a pointer  to
+        the associated data. If xid cannot be found in the table a  null
+        pointer is returned.
+
+
+XDeleteAssoc(displayptr, tableptr, xid)                      [procedure]
+        Delete an association keyed on xid in the * XAssocTable  pointed
+        to by tableptr. Redundant  deletes (and deletes of  non-existent
+        xids) are meaningless and cause no errors. Deleting associations
+        in no way reduces the performance of an XAssocTable.
+
+
+XDestroyAssocTable(tableptr)                                 [procedure]
+        This procedure destroys the * XAssocTable pointed to by tableptr
+        and frees all memory associated with it.
+
+        It's use is  to indicate that  the entries in  the table can  be
+        garbage collected. In order for the table itself to be garbaged,
+        it is  necessary for  the  user code  to  lose all  pointers  to
+        tableptr.
+
+
+
+
+--- C.x/x/pop/ref/XAssociationTables
+--- Copyright University of Sussex 1993. All rights reserved.

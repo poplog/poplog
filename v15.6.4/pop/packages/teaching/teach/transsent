@@ -1,0 +1,501 @@
+TEACH TRANSSENT                         Last Modified A. Sloman, Feb 1984
+
+Preliminary note:
+
+This TEACH file follows on from TEACH * PARSESENT in a series that starts
+with TEACH * ISASENT.  It is helpful, but not essential, to have looked at
+these files. ALLPRESENT is used later on. If you have not met this
+procedure, then, HELP * ALLPRESENT will give you a short definition. A
+longer explanation of ALLPRESENT, and its generalisation to FOREVERY, can
+be found in Chapter Nine of Barrett, Ramsay and Sloman's book 'POP-11 A
+PRACTICAL LANGUAGE FOR ARTIFICIAL INTELLIGENCE'.
+
+In what follows, an account of how to translate nounphrases into lists of
+patterns is outlined. It is not a complete analysis of how to translate
+whole sentences.
+
+-- SCENARIO ------------------------------------------------------------
+
+In this file a procedure called TRANSNP (for TRANSlate NounPhrase) is
+described. Given a noun phrase, TRANSNP returns a list of patterns that
+could be given to ALLPRESENT to find the 'referent' for the noun phrase.
+For example, given the noun phrase
+
+    [a big man by a window]
+
+then TRANSNP will return something like:
+
+    [[?x is a man] [?x is big] [?y is a window] [?x is by ?y]]
+
+Given the noun phrase:
+
+    [a man that loves a woman that a dog bit]
+
+TRANSNP will return something like:
+
+    [[?x is a man] [?y is a woman] [?z is a dog] [?z bit ?y] [?x loves ?y]]
+
+This list of patterns can then be used by ALLPRESENT, or FOREVERY to find
+items in the database which simultaneously satisfy all these patterns,
+with consistent values for the variables.
+
+-- BASIC METHOD --------------------------------------------------------
+
+The routine TRANSNP will take two arguments: the noun phrase and a
+symbol (like X or Y) to stand for the 'referent' of the nounphrase.
+TRANSNP will, using ISA procedures break up the noun phrase into its
+constituents (like 'qualified nouns', which might be recognised by a
+procedure called ISAQNOUN). It will use appropriate TRANS procedures for
+these consituents and then collect together their output. The procedure
+will NOT work via a parse tree. This is for pedagogical reasons only.
+
+As implied in PARSESENT, using a parse tree would make the various
+TRANS procedures smaller and faster; in this handout we are interested
+in clarity only.
+
+-- SOME PRELIMINARY PROCEDURES ----------------------------------------
+
+In what follows we shall need procedures for recognising various
+constituents of sentences, e.g. nouns, adjectives, etc. These can be
+defined as in TEACH PARSESENT and TEACH ISASENT. But in case you have
+not met them, here are some examples, from which you should be able to
+generalise.
+
+A procedure to recognise nouns:
+
+    define isanoun(word) -> result;
+        member(word, [cat dog man window computer thought]) -> result
+    enddefine;
+
+You may alter the list of nouns to suit yourself.
+
+Procedures to recognise adjectives, verbs, prepositions can be
+defined similarly: isadj, isaverb, isaprep, etc.
+
+To recognise nouns qualified by any number of adjectives, you could
+define a procedure isaqnoun, as in teach isasent, or more compactly:
+
+    define isaqnoun(list);
+        vars x, y;
+        list matches [?x:isanoun]
+        or
+        list matches [?x:isadj ??y:isaqnoun]
+    enddefine;
+
+This assumes you have defined isanoun and isadj. We now have some
+'recogniser' procedures, and we can use them to define translation
+procedures.
+
+-- A SIMPLE DEFINITION OF TRANSNP --------------------------------------
+
+We start with an extremely simple definition of TRANSNP that allows noun
+phrase to be only of the form 'a noun', such as 'a man' or 'a dog'. This
+makes the code particularly simple. If we invoke TRANSNP with the list of
+words [A MAN] and the symbol X then it will return [[?X IS A MAN]], thus:
+
+    define translate(list, symbol) -> result;
+        vars x;
+        if list matches [a ?x:isanoun] then
+            [[? ^symbol is a ^x]] -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+The "?" is there in the result list, because we want to create a pattern
+which can later be used for searching the database. Be sure to leave the
+space between the '?' and the '^' in the part that goes
+
+    [? ^symbol ....
+
+We have to do this in order that in the final result we get a question
+mark followed by the VALUE of SYMBOL.
+
+Notice that because we want to produce a LIST of patterns, as explained
+above, there are two square brackets in the RESULT. This looks a bit odd
+when there is only one element to the result but eventually there will
+be a whole list of elements.
+
+-- ALLOWING ADJECTIVES -------------------------------------------------
+
+We can easily extend the simple TRANSNP shown above to allow for a
+single adjective, thus:
+
+    define transnp(list, symbol) -> result;
+        vars x, y;
+        if list matches [a ?x:isanoun] then
+            [[? ^symbol is a ^x]] -> result
+        elseif list matches [a ?x:isadj ?y:isanoun] then
+            [[? ^symbol is ^x] [? ^symbol is a ^y]] -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+We can test this (assuming we've defined isadj and isanoun):
+    transnp([a happy man], "x") =>
+    ** [[? x is happy] [? x is a man]]
+
+-- EXERCISE ------------------------------------------------------------
+
+Put that definition of TRANSNP into a file, with suitable definitions of
+ISANOUN and ISADJ, load them, and try the following examples (allowing
+for variations in your definition of ISADJ and ISANOUN):
+
+    transnp([a man], "x") =>
+    ** [[?x is a man]]
+    transnp([a man], "y") =>
+    ** [[?y is a man]]
+    transnp([a big man], "x") =>
+    ** [[?x is big] [?x is a man]]
+    transnp([a big man], "y") =>
+    ** [[?y is big] [?y is a man]]
+
+Notice that the symbol we give to TRANSNP is a word so we must write "X" and
+not [X] or just X. if you are unclear about this do the following:
+
+    vars x; "y" -> x;
+    x =>
+    [x] =>
+    "x" =>
+    [^x] =>
+
+-- USING SUBSIDIARY PROCEDURES -----------------------------------------
+
+Our TRANSNP program will shortly be getting complicated and we would be well
+advised to start breaking it up. We first define a procedure which
+translates qnouns (i.e. nouns qualified by adjectives), starting with a
+version able to cope with only one adjective.
+
+    define transqnoun(list, symbol) -> result;
+        vars x, y;
+        if list matches [?x:isanoun] then
+            [[? ^symbol is a ^x]] -> result
+        elseif list matches [?x:isadj ?y:isanoun] then
+            [[? ^symbol is ^x] [? ^symbol is a ^y]] -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+    define transnp(list, symbol) -> result;
+        vars x;
+        if list matches [a ??x:isaqnoun] then
+            transqnoun(x, symbol) -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+    transnp([a happy man],"x") =>
+    ** [[? x is happy] [? x is a man]]
+but:
+    transnp([a happy old man], "x") =>
+    ** <false>
+
+So far, TRANSQNOUN will work only on QNOUNS with just zero or one
+adjectives. To make it work with any number of adjectives, we will have
+to make it recursive.
+
+-- RECURSIVE QNOUN ALLOWS FOR ANY NUMBER OF ADJECTIVES -----------------
+
+We want to allow noun phrases like
+    [a big happy old man]
+with several adjectives. Given such a list (and a symbol) transqnoun
+should produce a corresponding list of patterns. We don't know how many
+different adjectives there will be, so we need a strategy to cope with
+arbitrarily many adjectives.
+
+The basic approach taken here will be to treat the simple NOUN case as
+before but to break the translation of recursive QNOUNS into two stages,
+thus:
+
+    define transqnoun(list, symbol) -> result;
+        vars x, rest, temp;
+        if list matches [?x:isanoun] then
+            [[? ^symbol is a ^x]] -> result     ;;; simple case
+        elseif list matches [?x:isadj ??rest:isaqnoun] then
+            transqnoun(rest, symbol) -> temp;          ;;; recursion
+            [[? ^symbol is ^x] ^^temp] -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+Notice that the line after the recursive line assumes that the value of
+temp is a list (i.e. a list of patterns), and then it adds another
+pattern to the front of the list. So the recursive call is assumed
+to produce the kind of result that we want transqnoun to produce.
+In other words, if the procedure works, it will work! Or to be more
+precise, if it works on the simpler cases (a smaller list given to the
+recursive call) then it will work on more complex cases.
+
+-- EXERCISE ------------------------------------------------------------
+
+Transfer this recursive definition of TRANSQNOUN and the modified TRANSNP to
+your file. TRACE them both and then try the following examples:
+
+    transqnoun([man], "x") =>
+    ** [[? x is a man]]
+    transqnoun([big man], "x") =>
+    ** [[? x is big] [? x is a man]]
+    transqnoun([big fat man], "x") =>
+    ** [[? x is big] [? x is fat] [? x is a man]]
+    transnp([a big fat man], "y") =>
+    ** [[? y is big] [? y is fat] [? y is a man]]
+    transnp([a big fat man], "x") =>
+    ** [[? x is big] [? x is fat] [? x is a man]]
+
+Try variations of your own, depending on which words you have defined to
+be adjectives or nouns.
+
+-- ADDING PREPOSITIONS -----------------------------------------------
+
+Consider the noun phrase:
+
+    [a man by a window]
+
+The translation of this is going to be something like:
+
+    [[?x is a man] [?y is a window] [?x is by ?y]]
+
+Notice that we need TWO symbols for this translation X (for the man) and Y
+(for the window). There is a procedure in POP11 for 'generating' brand new
+never seen before words called GENSYM. We shall make use of GENSYM to
+translate noun phrases which have embedded prepositions.
+
+-- EXERCISE WITH GENSYM ------------------------------------------------
+
+Try the following:
+
+    gensym("cat") =>
+
+
+What you should get back is a the word CAT with some number (probably one)
+appended, eg:
+
+    ** cat1
+
+Try the SAME command again. This time you get a different number appended,
+for example:
+
+    gensym("cat") =>
+    ** cat2
+    gensym("cat") =>
+    ** cat3
+
+GENSYM 'remembers' how many times it has been called with the same word as
+argument and always produces a brand new word. You can 'reset' its counter
+with a command like:
+
+    1 -> gensym("cat");
+
+This resets the counter for the word CAT so that the next call of
+GENSYM("CAT") will produce CAT1. A subsequent use will produce CAT2 and
+so on until you reset the counter again (or restart the POP11 system in
+which case the counters will all be reset to one).
+
+Try GENSYM on the word X, thus:
+
+    gensym("x") =>
+    gensym("x") =>
+    gensym("x") =>
+    53 -> gensym("x");
+    gensym("x") =>
+    gensym("x") =>
+    1 -> gensym("x");
+    gensym("x") =>
+    gensym("x");
+
+-- BACK TO PREPOSITIONS ------------------------------------------------
+
+To handle prepositions in noun phrases we must modify TRANSNP so that if
+it recognizes a preposition then it uses GENSYM to create a new symbol
+for the 'embedded' nounphrase, thus:
+
+    define transnp(list, symbol) -> result;
+        vars np1, prep, np2, temp1, temp2, newsymbol;
+        if list matches [a ??np1:isaqnoun] then
+            transqnoun(np1, symbol) -> result
+        elseif list matches [??np1:isanp ?prep:isaprep ??np2:isanp] then
+            gensym("x") -> newsymbol;
+            transnp(np1, symbol) -> temp1;
+            transnp(np2, newsymbol) -> temp2;
+            [^^temp1 [? ^symbol is ^prep ? ^newsymbol] ^^temp2] -> result
+        else
+            false -> result
+        endif
+    enddefine
+
+-- EXERCISE ------------------------------------------------------------
+
+Transfer this new definition of TRANSNP to your file. Be sure that there
+is a space between the various '?' and '^'. Make sure you have suitable
+definitions of ISAPREP, ISAQNOUN, and ISANP. (The structure of the
+latter would be very similar to the structure of TRANSNP).
+
+Try TRANSNP on the following noun phrases (suitably modified for your
+definitions of ISADJ, ISANOUN etc):
+
+    transnp([a man by a window], "x") =>
+    transnp([a big man by a open window], "x") =>
+
+-- EXERCISE ------------------------------------------------------------
+
+Extend your program so that it can accept "the" or "an" instead of "a".
+One way would be to define a procedure ISADET which recognises
+'determiners', i.e. words like
+    a, the, each, some, an.
+Then the patterns used to define noun phrases, instead of just having
+the word "a" you could have something like
+    ?first:isadet
+
+-- EXERCISE ------------------------------------------------------------
+
+To demonstrate the effectiveness of this technique, set up a database
+with information about various objects, e.g.
+    [bill is a man]
+    [fred is a man]
+    [bill is big]
+    [fred is big]
+    [bill is by w1]
+    [w1 is a window]
+    [w2 is a window]
+    [w1 is open]
+
+etc.
+
+Then, see what ALLPRESENT does with the translation of a noun phrase:
+First reset GENSYM:
+
+    1 -> gensym("x");
+
+Then declare as variables, the symbols which may be created by
+gensym:
+    vars x1,x2,x3,x4,x5;
+
+    vars trans;
+    transnp([a big man by a open window], "x") ->trans;
+    trans ==>
+    ** [[? x is big]
+        [? x is a man]
+        [? x is by ? x1]
+        [? x1 is open]
+        [? x1 is a window]]
+
+    allpresent(trans) =>
+    ** <true>
+    them ==>
+    ** [[bill is big]
+        [bill is a man]
+        [bill is by w1]
+        [w1 is open]
+        [w1 is a window]]
+
+    x=>
+    ** bill
+    x1 =>
+    ** w1
+
+Write notes explaining what has happened with an example like this.
+
+-- EXERCISE ------------------------------------------------------------
+
+Extend your program to accept relative clauses, ie:
+
+    transnp([the man that loves the cat], "x") =>
+
+-- FURTHER EXERCISES ---------------------------------------------------
+
+The following exercises are for the especially interested only. They may be
+skipped if so desired.
+
+-- EXERCISE ------------------------------------------------------------
+
+Write a version of TRANSSENT that works only on YESNO questions, for example:
+
+    transsent([does a man love a cat]) =>
+    ** [[?x is a man] [?y is a cat] [?x does love ?y]]
+
+Notice that TRANSSENT doesn't need to be given a symbol.
+
+-- EXERCISE ------------------------------------------------------------
+
+Suppose that the DATABASE contained 'silly' assertions of the form:
+
+    [name person1 steve]
+
+Using these database items we can translate nounphrases that are just names,
+for example:
+
+    transnp([steve], "x") =>
+    ** [[name ?x steve]]
+    transsent([does steve like a university]) =>
+    ** [[name ?x steve] [?y is a university] [?x does like ?y]]
+
+-- EXERCISE ------------------------------------------------------------
+
+Suppose that there was a modified version of ALLPRESENT that took
+'flags' saying whether a given pattern was supposed to be PRESENT or
+supposed to be ADDed. Let us call this new procedure PLANNER. This new
+procedure would be such that:
+
+    planner(
+        [[lookup ?x is a man]
+             [lookup ?y is a woman]
+             [lookup ?x does love ?y]])
+
+is completely equivalent to
+
+    allpresent(
+        [[?x is a man]
+            [?y is a woman]
+            [?x does love ?y]])
+
+This might be the meaning of the question:
+
+    does a man love a woman
+
+However, we can use the PLANNER procedure to represent the meanings of
+ASSERTIONS as well, for example:
+
+    transsent([steve does like tarina]) =>
+    ** [[lookup name ?x steve]
+            [lookup name ?y tarina]
+            [add ?x does like ?y]]
+
+Extend your program so that it accepts assertions as well as questions. For
+the moment, make the translation of a THE type nounphrase the same as that
+for an A type nounphrase. This will allow translations such as:
+
+    transsent([the man does love the woman]) =>
+    ** [[lookup ?x is a man]
+            [lookup ?y is a woman]
+            [add ?x does love ?y]])
+
+This is not quite accurate since it does not account for 'presupposition'
+errors (where there is, in fact, no mention of, say, any MAN in the
+DATABASE).
+
+------------------------------------------------------------------------
+
+Ask your course tutor to supply a definition of the PLANNER procedure if you
+want to test your programs.
+
+-- EXERCISE ------------------------------------------------------------
+
+For this one you will need to know about FOREVERY.
+
+Speculate on the additions needed to the PLANNER procedure so that it could
+detect presupposition errors. Consider, also, HOWMANY type questions, eg:
+
+    HOW MANY STUDENTS LIKE AI1
+
+Think also of questions like:
+
+    HOW MANY COURSES ARE LIKED BY AT LEAST TWO STUDENTS
+    DOES EVERY STUDENT THAT STUDIES AI LIKE AI
+    DO MORE STUDENTS LIKE AI THAN LIKE CT
+
+--- C.all/teach/transsent ----------------------------------------------
+--- Copyright University of Sussex 1987. All rights reserved. ----------

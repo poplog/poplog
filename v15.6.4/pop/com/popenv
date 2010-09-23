@@ -1,0 +1,383 @@
+# --- Copyright University of Sussex 2010.  All rights reserved. ---------
+# File:            C.unix/com/popenv
+# Purpose:         Set up environment variables for POPLOG
+# Author:          John Gibson, Jan 16 1986 (see revisions)
+# Documentation:
+# Related Files:   C.unix/com/poplog
+
+if ($?popexternlib) then
+	set OLD_pel = $popexternlib		# save old value
+else
+	set OLD_pel = %%%%%%%%%%%%%%%%	# dummy
+endif
+
+# Host specific parts of POPLOG
+setenv popcom       $usepop/pop/com
+setenv popsrc       $usepop/pop/src
+setenv popsys       $usepop/pop/pop
+setenv popexternlib $usepop/pop/extern/lib
+setenv popobjlib	$usepop/pop/obj
+
+# Standard library directories
+setenv popautolib   $usepop/pop/lib/auto
+setenv popdatalib   $usepop/pop/lib/data
+setenv popliblib    $usepop/pop/lib/lib
+setenv poppwmlib    $usepop/pop/lib/pwm
+setenv popsunlib    $usepop/pop/lib/sun
+setenv popvedlib    $usepop/pop/lib/ved
+
+setenv poppackages    $usepop/pop/packages
+
+# Standard local directories
+if (! $?poplocal)   setenv poplocal $usepop/..
+setenv poplocalauto $poplocal/local/auto
+setenv poplocalbin  $usepop/poplocalbin
+
+# Contrib directory
+if (! $?popcontrib) setenv popcontrib $usepop/pop/packages/contrib
+
+# For system startup
+# Removed AS 10 Sep 2007
+# if (! $?poplib)     setenv poplib ~
+setenv popsavelib   $usepop/pop/lib/psv
+setenv popcomppath  ':$poplib:$poplocalauto:$popautolib:$popliblib'
+setenv popsavepath  ':$poplib:$poplocalbin:$popsavelib'
+
+# Base file for external loading
+if (-f $popsys/basepop11.stb) setenv popexlinkbase $popsys/basepop11.stb
+
+# Commands for system compilation/linking etc (based on corepop)
+setenv pop_popc		+$popsys/popc.psv
+setenv pop_poplibr	+$popsys/poplibr.psv
+setenv pop_poplink	+$popsys/poplink.psv
+
+# Definition of system-specific command symbols (pop_pop11, pop_ved etc.)
+if (-f $popsys/popenv) source $popsys/popenv
+
+# Set up run-time link environment for shared-library systems
+switch ("`uname -s -r`")
+	case "SunOS 5."*:
+	case "unix 4."*:
+	case "UNIX_SV "*:
+	case "OSF1 "*:
+		# SVR4/OSF1
+		if ($?LD_LIBRARY_PATH) then
+			if ( $LD_LIBRARY_PATH =~ *$OLD_pel* ) then
+				setenv LD_LIBRARY_PATH \
+					`echo $LD_LIBRARY_PATH | sed -e s%$OLD_pel%$popexternlib%`
+			else
+				setenv LD_LIBRARY_PATH "${LD_LIBRARY_PATH}:$popexternlib"
+			endif
+		else
+			setenv LD_LIBRARY_PATH $popexternlib
+		endif
+		breaksw
+
+	case HP-UX*:
+		# HP-UX
+		if ($?SHLIB_PATH) then
+			if ( $SHLIB_PATH =~ *$OLD_pel* ) then
+				setenv SHLIB_PATH \
+					`echo $SHLIB_PATH | sed -e s%$OLD_pel%$popexternlib%`
+			else
+				setenv SHLIB_PATH "${SHLIB_PATH}:$popexternlib"
+			endif
+		else
+			setenv SHLIB_PATH $popexternlib
+		endif
+		breaksw
+
+	default:
+		breaksw
+endsw
+
+
+# --- SET UP STANDARD X ENVIRONMENT -----------------------------------------
+
+# Toolkit defaults
+set XT_DIRS
+set XT_FILES = "-lXt -lX11"
+set XT_VER = 5
+
+# OLIT defaults
+if ( $?OPENWINHOME ) then
+	set OpenWinHome = $OPENWINHOME
+else if ( -d /usr/openwin ) then
+	set OpenWinHome = /usr/openwin
+endif
+if ( $?OpenWinHome) then
+	set XOL_DIRS = -L$OpenWinHome/lib
+else
+	set XOL_DIRS
+endif
+set XOL_FILES = "-lXol -lXt -lX11"
+set XOL_VER = 3000
+
+# Motif defaults
+if ( $?MOTIFHOME ) then
+	set MotifHome = $MOTIFHOME
+else if ( $?IXIMOTIFHOME ) then
+	set MotifHome = $IXIMOTIFHOME
+else if ( -d /usr/dt ) then
+	set MotifHome = /usr/dt
+endif
+if ( $?MotifHome ) then
+	set XM_DIRS = -L$MotifHome/lib
+else
+	set XM_DIRS
+endif
+set XM_FILES = "-lXm -lXt -lX11"
+set XM_VER = 3000
+
+# Motif is the toolkit of choice
+set XLINK = XM
+
+# System-specific configuration
+set OS_NAME = `uname -s`
+set OS_RELEASE = `uname -r`
+set MACHINE = `uname -m`
+switch ($OS_NAME)
+
+	case SunOS:
+		if ( $OS_RELEASE =~ 4.* ) then
+			set XT_VER = 4
+			set XLINK = XOL
+			if ( $MACHINE =~ sun3* ) then
+				set XOL_VER = 2000
+			else
+				set XOL_VER = 3000
+			endif
+		else
+			# Solaris
+			if ( $OS_RELEASE =~ 5.[0-2] ) then
+				set XOL_VER = 3001
+			else
+				set XOL_VER = 3003
+			endif
+			# Add standard lib directories to the run-time path
+			if ( "$XOL_DIRS" == "-L/usr/openwin/lib" ) then
+				set XOL_DIRS = "$XOL_DIRS -R/usr/openwin/lib"
+			endif
+			if ( "$XM_DIRS" == "-L/usr/dt/lib" ) then
+				set XM_DIRS = "$XM_DIRS -R/usr/dt/lib"
+			else
+				# Earlier Sun Motif libs tend not to be built properly
+				set XM_FILES = "$XM_FILES -lgen -lsocket"
+			endif
+		endif
+		# Xt and X11 libs are probably still in $OPENWINHOME/lib
+		set XT_DIRS = "$XT_DIRS $XOL_DIRS"
+		set XM_DIRS = "$XM_DIRS $XT_DIRS"
+		if ( $?OpenWinHome) then
+			set X_INCL = $OpenWinHome/include
+		endif
+		breaksw
+
+	case ULTRIX:
+		# special libraries are provided for standard MIT X11R4
+		set XT_FILES = "-lXt-mit -lX11-mit"
+		set XT_VER = 4
+		set XM_VER = 1001
+		breaksw
+
+	case HP-UX:
+		if ( $OS_RELEASE =~ *.09.* || $OS_RELEASE =~ *.10.* ) then
+			# X11R5 + Motif 1.2
+			set XT_DIRS = -L/usr/lib/X11R5
+			set XM_DIRS = "$XM_DIRS -L/usr/lib/Motif1.2 $XT_DIRS"
+			set X_INCL = /usr/include/X11R5
+		else
+			# 11+: Force link against old libraries (X11R5 + Motif 1.2)
+			set XT_DIRS
+			set XT_FILES = "/usr/lib/X11R5/libXt.1 /usr/lib/X11R5/libX11.1"
+			set XM_DIRS
+			set XM_FILES = "/usr/lib/Motif1.2/libXm.1 $XT_FILES"
+			set X_INCL = /usr/include/X11R5
+		endif
+		breaksw
+
+	case OSF1:
+		# X11R5 + Motif 1.2
+		set XT_DIRS = -L/usr/shlib
+		set XM_DIRS = -L/usr/shlib
+		breaksw
+
+	case Linux:
+		set XLINK = XT
+		if ( -d /usr/lib ) then
+			set XT_DIRS = -L/usr/lib
+			set XM_DIRS = -L/usr/lib
+			# libXm sometimes depends on libXext
+			set XM_FILES = "-lXm -lXt -lXext -lX11"
+		else if ( -d /usr/X11R6/lib ) then
+			set XT_DIRS = -L/usr/X11R6/lib
+			set XM_DIRS = -L/usr/X11R6/lib
+			# libXm sometimes depends on libXext
+			set XM_FILES = "-lXm -lXt -lXext -lX11"
+		else if ( -d /usr/X386/lib ) then
+			set XT_DIRS = -L/usr/X386/lib
+			set XM_DIRS = -L/usr/X386/lib
+		endif
+		breaksw
+
+	case AIX:
+		set XM_DIRS
+		breaksw
+
+	case UNIX_SV:
+		# NCR's version of SVR4
+		set XT_FILES = "-lXt -lX11 -lsocket -lnsl"
+		set XOL_FILES = "-lXol $XT_FILES"
+		set XM_FILES = "-lXm $XT_FILES"
+		breaksw
+
+	case dgux:
+		# DG/UX
+		# Note the change in library order: X11 defines a data
+		# symbol used by Xt; the order doesn't matter at link time
+		# but becomes important when doing external load
+		set XT_FILES = "-lX11 -lXt"
+		set XOL_FILES = "-lXol $XT_FILES"
+		set XM_FILES = "-lXm $XT_FILES"
+		breaksw
+
+	case unix:
+		# Vanilla SVR4
+		set XT_DIRS = -L/usr/lib/X11
+		set XOL_DIRS = "$XOL_DIRS $XT_DIRS"
+		set XM_DIRS = "$XM_DIRS $XT_DIRS"
+		set XM_FILES = "$XM_FILES -lgen -lsocket"
+		breaksw
+
+	default:
+		if ( -f /lib/libPW.a || -f /usr/lib/libPW.a ) then
+			# libPW may be needed for regular expression matching in Motif,
+			# BUT it also defines names which shadow those in libc, so libc
+			# must be searched first
+			set XM_FILES = "$XM_FILES -lc -lPW"
+		endif
+		breaksw
+endsw
+
+# Variables used by pglink/poplink options -xm, -xol, -xt
+setenv POP_XM_EXLIBS	"x=motif/${XM_VER}: $XM_DIRS $XM_FILES"
+setenv POP_XOL_EXLIBS	"x=openlook/${XOL_VER}: $XOL_DIRS $XOL_FILES"
+setenv POP_XT_EXLIBS	"x=mit/1100${XT_VER}: $XT_DIRS $XT_FILES"
+
+# Default for X link -- used by pglink/poplink option -xlink (or nothing)
+setenv POP_XLINK_EXLIBS "==POP_${XLINK}_EXLIBS"
+
+# Default include directory for compiling pop X sources
+if ( ! $?X_INCL ) set X_INCL = /usr/include
+setenv POP_X_INCLUDE $X_INCL
+
+
+# --- Revision History ---------------------------------------------------
+# --- Aaron Sloman, 11 Aug 2010
+#		updated to favour /usr/lib for X11 libraries
+# --- Aaron Sloman, 10 Sep 2007
+# 		removed default setting of $poplib
+# --- Aaron Sloman, Jan 16 2005
+#		Changed for V15.6, including introduction of packages dir
+#		New values for poplocal and poplocalbin
+# --- Aaron Sloman, 23 Dec 2004
+#               Changed default XM_VER to 3000
+# --- Aaron Sloman, 21 Aug 2000
+#               Changed default XM_VER to 2002
+# --- Robert Duncan, Apr 21 1999
+#		Set Linux XLINK default to XT
+# --- Robert Duncan, Feb 18 1999
+#		Changes for HP-UX 11.x
+# --- Robert Duncan, Aug 10 1998
+#		Added case for DG/UX
+# --- John Gibson, May 13 1998
+#		Added AIX case
+# --- Robert Duncan, Aug  9 1996
+#		Added cases for NCR UNIX SVR4 MP-RAS (UNIX_SV)
+# --- Robert Duncan, Apr 25 1996
+#		Extended Linux case for alternative X directories
+# --- John Williams, Jul 26 1995
+#		Added some missing " quotes in if statements.
+# --- Robert John Duncan, May  3 1995
+#		Defaults changed to take account of /usr/dt as a possible MotifHome;
+#		references to /usr/openwin included only if it exists.
+#		SunOS case changed to include openwin directories in searchpath for
+#		Xt and X11 libs, and to add standard library directories to the
+#		runpath (using -R); XOL now the XLINK default for SunOS 4.x only.
+#		Set XT_VER to 5 by default.
+# --- John Gibson, Mar  8 1995
+#		Added OSF1 cases
+# --- Poplog System, Jan 18 1995 (Julian Clinton)
+#		Added Linux case.
+# --- John Williams, Sep 22 1994
+#		Added quotes to if ("$XM_DIRS" != "$XT_DIRS")
+# --- John Gibson, Sep 16 1994
+#		Added -lsocket to XM_FILES and set Solaris XLINK to XM
+# --- Robert John Duncan, Jul 20 1994
+#		Removed last reference to IXIM*otifHome
+# --- John Gibson, Apr 28 1994
+#		Now uses MOTIFHOME (if defined) in preference to IXIMOTIFHOME.
+#   	Set XM_VER to 1002 by default
+# --- John Gibson, Nov 15 1993
+#		Changed to switch on uname -s -r in deciding whether shareable
+#		library system or not
+# --- John Gibson, Nov  5 1993  Added -lgen to XM_FILES for Solaris
+# --- John Gibson, Oct 14 1993
+#		Now sets OLD_pel to a dummy value if popexternlib not set
+# --- John Gibson, Sep 21 1993
+#		Stopped it setting OPENWINHOME/IXIMOTIFHOME as local vars --
+#		used OpenWinHome/MotifHome instead.
+# --- Simon Nichols, Aug 18 1993
+#		Changed test for $popexternlib being set to if ... then form
+#		because of stupid C shell bug.
+# --- John Gibson, Jul 23 1993
+#		Added code to substitute old $popexternlib on LD_LIBRARY_PATH
+#		with new value, so old value doesn't override new
+# --- John Gibson, Jul 10 1993  Added popc,poplibr,poplink commands
+# --- John Gibson, Jul  8 1993  Added popobjlib
+# --- Simon Nichols, Jun 29 1993
+#		Removed LOCAL_X.
+# --- Robert John Duncan, Jun  7 1993
+#		Added X setup case for SVR4 and further modified treatment of libPW.
+#		Added code to set up environment for the run-time linker on shared-
+#		library systems (currently SVR4 and HP-UX)
+# --- Simon Nichols, May 25 1993
+#		Set X_INCL (thus POP_X_INCLUDE) to $OPENWINHOME/include on SunOS
+# --- Robert John Duncan, May 25 1993
+#		Modified treatment of libPW: if it's included, libc has to be
+#		searched first to prevent problems with duplicate definitions
+# --- John Gibson, May 12 1993
+#		Added the X setup code
+# --- Robert Duncan, Apr 19 1993
+#		Made the setting of popexlinkbase conditional on the presence of a
+#		.stb file (not needed for dynamically-linked systems).
+#		Got rid of the explicit assignments to "pop_X" command symbols.
+# --- Robert John Duncan, Nov  7 1991
+#		Removed reference to 'pop11.stb' which confused newpop
+# --- Robert John Duncan, Oct 24 1991
+#		Default popexlinkbase renamed basepop11.stb
+# --- Robert John Duncan, May 23 1991
+#		Assignments to "pop_X" variables now come from $popsys/popenv
+#		[Made this conditional for now ...]
+# --- Robert John Duncan, Oct  8 1990
+#		Restored explicit assignments to "pop_X" environment variables,
+#		removing the reference to $popsrc/newpop.links
+# --- Simon Nichols, Oct  5 1990
+#       Removed Xpop directories and pseudonyms for X images.
+#       Moved definition of popexternlib to host specific section.
+# --- John Williams, Sep 28 1990
+#       Added $popcontrib
+# --- John Gibson, May 20 1990
+#       Added $popexternlib
+# --- John Williams, May 11 1990
+#       Now sets Xpop variables unconditionally
+# --- Rob Duncan, Mar 27 1990
+#       Changed POP_PML to use "+" for the saved image rather than "-"
+# --- John Williams, Feb 23 1990
+#       Added $poplocalauto to $popcomppath
+# --- Ian Rogers, Feb 13 1990
+#       Added XPOP variables
+# --- John Williams, Feb 23 1989
+#       Renamed from "poplib".
+#       Assigments to $poplocal and $poplib moved from C.unix/com/poplog
+#       Sets up 'pop_' variables from $popsrc/newpop

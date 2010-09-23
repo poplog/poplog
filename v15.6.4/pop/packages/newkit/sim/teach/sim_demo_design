@@ -1,0 +1,101 @@
+TEACH SIM_DEMO_DESIGN                            Aaron Sloman April 1996
+Last updated  9 Jun 1996
+
+
+These are design notes for the program in TEACH * SIM_DEMO
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Objective of demo
+ -- Ontology of scenario
+ -- Design of a captain.
+ -- Design of a mover
+ -- Design of terrain objects
+ -- Algorithm for obstacle detection
+
+-- Objective of demo --------------------------------------------------
+
+Show how to use the toolkit to develop a scenario involving groups of
+agents that move around on terrain to achieve goals, avoid obstacles,
+communicating to ask for help when necessary.
+
+
+-- Ontology of scenario -----------------------------------------------
+
+    team_agents
+        captains
+            give orders, receive information, make plans
+        movers
+            receive orders, act on orders, move around to
+            achieve goals, report observed terrain_objects
+            avoid bumping into one another and to static objects
+
+    terrain_object
+        has location, maybe diameter
+
+There are two teams, the blue team and the red team. Each has a captain
+and two or more movers. Each is given a goal location, which the captain
+transmits to the movers.
+
+All members of both teams have to move to their target locations without
+collisions, even when the two teams pass throught each other.
+
+It might be possible later to give them different strategies and allow
+some sort of competition.
+
+
+-- Design of a captain. -----------------------------------------------
+
+Currently does not move. Merely sends and receives messages.
+When receiving a message about object blocking line of sight to
+target location, sends instructions to turn left or right.
+(Details in teach file).
+
+-- Design of a mover --------------------------------------------------
+Acknowledges all messages from captain.
+
+Initially does nothing till goal received from captain.
+
+Once goal given, starts moving towards the goal.
+
+If goal reached  stops and informs captain.
+
+If object blocks line of sight to target location, takes evasive
+    action, depending on distance of object and angle between current
+    heading and line of sight to obstacle.
+
+-- Design of terrain objects ------------------------------------------
+
+These are merely objects with a location, shown as squares or circles.
+They do nothing. They exist only to be detected by movers.
+
+-- Algorithm for obstacle avoidance -----------------------------------
+
+Object A wishes to get to target location T, and finds another object O
+which is a potential obstacle, either static or moving
+
+    Compute heading from A to T                 HT
+    (used as current heading by default)
+    Compute distance from A to O                DO
+    Compute heading from A to O                 HO
+    Compute angle between HT and HO             Ang
+
+    Find object for which DO is smallest
+
+    If DO > DT then ignore it.
+
+    Compute new temporary heading which depends on DO and Ang
+        If DO is above a threshold continue with HT
+        Otherwise use DO and Ang to determine new temporary heading
+        (for one step), by determining a "veer" angle to add to
+        HT. Veer should be bigger if DO is smaller. Veer should be
+        bigger if Ang is smaller (obstacle more directly in front).
+        Direction of veer should be the same as the direction of Ang.
+            (I.e. if line of sight to target is to left of line of
+            sight of obstacle veer left and vice versa)
+
+[This file may be extended]
+
+--- $poplocal/local/sim/teach/sim_demo_design
+--- Copyright University of Birmingham 1996. All rights reserved. ------

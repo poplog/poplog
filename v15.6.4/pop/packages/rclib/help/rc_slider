@@ -1,0 +1,1006 @@
+HELP RC_SLIDER                                     Aaron Sloman Nov 1997
+                                                     Updated 23 Jul 2000
+
+[The list of slider label strings can now start with a string giving
+a font to be used.
+Sliders can now have "opaque" movable blobs implemented by using
+the mixin rc_opaque_movable. This class of sliders is created using
+rc_opaque_slider, and is now the default produced by rc_control_panel.
+This overcomes the problems described in HELP * RCLIB_PROBLEMS]
+
+Updated 30 Jul 1999
+(Sliders can have "opaque" movable blobs implemented by using a
+separate small movable X window, contained in the original window
+and constrained to move on the slider bar. The default type of slider
+created by rc_slider is controlled by which value of this variable
+    global vars rc_panel_slider_blob=true;
+    global vars rc_panel_slider_blob=false;
+has been set. )
+
+
+Updated 1 May 1999
+(Sliders now include number input panels, and sliders can be moved by
+clicking.)
+
+LIB * RC_SLIDER
+LIB * RC_SQUARE_SLIDER
+LIB * RC_OPAQUE_SLIDER
+
+These files provide facilities for displaying a slider representing a
+numerical value which can be changed either by a program or by the user
+operating a mouse, or typing a number into a text panel.
+
+Tutorial examples, including sliders created by rc_control_panel, can be
+found below and also in these files
+
+    TEACH * RCLIB_DEMO.P
+    TEACH * RC_CONTROL_PANEL
+    HELP  * RC_CONTROL_PANEL
+    HELP  * RC_CONSTRAINED_PANEL
+    LIB   * RC_POLYPANEL
+
+
+ CONTENTS
+
+ -- Overview
+ -- Some examples of sliders
+ -- -- Example s1: opaque slider
+ -- -- Example s2 non-opaque rectangular slider
+ -- -- Example s3: non-opaque slider with frame
+ -- -- Example s4: a more complex range argument
+ -- -- Example s5: slider with labels and no-input panel
+ -- -- Example s6: a square slider
+ -- -- Example s7: modified square slider
+ -- -- Example s8: switching end1 and end2
+ -- -- Example s9: switching end1 and end2 and moving the number panel
+ -- -- Example s10: a vertical slider
+ -- -- Example s11: a slanted slider
+ -- -- Example s12: another slanted slider, with two labels on left
+ -- -- Example s13: slider without a numeric value panel
+ -- More detailed specification of rc_slider
+ -- The arguments to rc_slider
+ -- -- Position arguments for end1 and end2
+ -- -- The range of values argument
+ -- -- The blob radius argument
+ -- -- The bar and slider colour arguments
+ -- -- The strings argument for specifying labels
+ -- Making a slider with square "blob"
+ -- Orientation of sliders
+ -- Accessing and updating slider values
+ -- Conversion methods
+ -- Reactor method for sliders
+ -- Constrainer method
+ -- Number of decimal places shown
+ -- The numeric value panel
+ -- -- The 8 component vector
+ -- Examples in other files
+ -- Definitions in the library
+ -- Items defined in LIB * RC_SLIDER
+ -- Items defined in LIB * RC_SQUARE_SLIDER
+ -- Items defined in LIB * RC_OPAQUE_SLIDER
+ -- Items defined in LIB * RC_PANEL_SLIDER
+
+-- Overview -----------------------------------------------------------
+
+LIB * RC_SLIDER defines a new class, rc_slider and a procedure for
+creating instances of the class. The slider is represented by a straight
+coloured bar linking two specified points, and a movable indicator,
+sometimes referred to below as a "blob".
+
+Associated with each slider is a current value and an interval within
+which its value can fall. It may also be constrained by a "step" to
+certain numbers within the range. E.g. if the range is from 0 to 10 and
+the step value is 2, then the slider can have only the values
+0,2,4,6,8,10.
+
+Sliders can have any orientation, with a variety of colour combinations,
+labels attached to the left or right end, and a text panel showing the
+current numerical value.
+
+Each slider has a movable indicator, which may be a circular blob (the
+default), a square with "diagonal cross-hairs" (if an instance of
+rc_square_slider) or some other shape specified by the user, as
+illustrated below.
+
+The slider value can be changed by dragging the blob or by typing a
+value in the text panel, or by clicking on the slider bar at the
+location to which the blob should move. It can also be changed by
+program commands.
+
+Creating a slider requires specifying the coordinates of its ends,
+the numerical range, the radius of its blob, the colour of its bar and
+the colour of its blob.
+
+There are also optional items:
+
+o A label in the form of a text string, which can be placed at a
+  specified location determined by the user, using coordinates relative
+  to the slider's "end1".
+
+o A text label placed using coordinates relative to the slider's "end2".
+
+o A text panel displaying the current value of the slider, placed at
+  a location specified by coordinates relative to either end1 or end2
+  of the slider.
+
+The text panel may be either a number input panel (using the facilities
+described in HELP RC_TEXT_INPUT) or an output-only panel, which displays
+the current value of the slider, but cannot be used to alter it.
+
+A slider is an instance of these mixins and classes:
+
+    rc_informant
+        defined in LIB RC_INFORMANT
+    rc_selectable
+        defined in LIB RC_WINDOW_OBJECT
+    rc_point_constrained_mover, which inherits from
+        rc_constrained_mover, defined in LIB RC_CONSTRAINED_MOVER,
+            which inherits from
+        rc_linepic_movable, which inherits from
+            rc_linepic, both of the last two defined in
+                LIB RC_LINEPIC
+
+An opaque slider is also an instance of
+    rc_opaque_movable
+        defined in LIB rc_opaque_mover
+
+-- Some examples of sliders -------------------------------------------
+
+To illustrate the available facilities here are some examples.
+
+;;; First load the required libraries
+uses rclib
+uses rc_window_object
+uses rc_slider
+uses rc_square_slider
+uses rc_opaque_slider
+
+;;; Create a window in which to draw examples of sliders.
+
+vars win1 = rc_new_window_object( 700, 20, 400, 400, true, 'win1');
+
+;;; later, get rid of it using this:
+
+rc_kill_window_object(win1);
+
+-- -- Example s1: opaque slider
+
+Create a simple horizontal slider (of type "opaque") using various
+defaults. It should have end1 at (-100,180) end2 at (100,180), and the
+range from 0 to 200, as indicated by the fifth argument. The slider blob
+should have a radius of 8, its "blob colour" should be red, on a blue
+background, with the numeric display on the right (the default location,
+which can be varied , as explained below).
+
+vars s1 =
+    rc_opaque_slider(-100, 185, 100, 185, 200, 8, 'blue', 'red', []);
+
+Later the empty list will be replaced with a list giving more detailed
+specifications.
+
+The slider has a value that can be changed by dragging or clicking with
+the mouse, or by typing into the number input panel on the right (first
+put the mouse pointer in the panel, alter the number, using backspace or
+delete keys, along with arrow keys, and press RETURN when the new number
+value is complete. Invalid input (e.g. typing a letter) will be rejected
+and
+
+The current value of the slider and the coordinates of the ends are
+shown by printing it:
+
+s1=>
+
+It can also be updated by program commands.
+
+5.7 -> rc_informant_value(s1);
+66 -> rc_informant_value(s1);
+
+;;; try this repeatedly after moving the red blob to the left
+rc_move_by(s1, 3.5, 0, true); rc_slider_value(s1), s1.rc_coords=>
+
+;;; A program can move it continuously
+vars val;
+for val from 0 to 200 do val -> rc_slider_value(s1); syssleep(1) endfor;
+
+-- -- Example s2 non-opaque rectangular slider
+
+Compare what happens if you create a non-opaque slider using the same
+parameters, except for a different vertical coordinate for each end:
+
+vars s2 =
+    rc_slider(-100, 160, 100, 160, 200, 8, 'blue', 'red', []);
+
+rc_slider_barwidth(s2)=>
+
+By default such a non-opaque slider uses a narrower bar for the same
+blob diameter because of the problem of seeing the non-opaque movable
+object if drawn entirely over a colour other than white.
+
+The colour of the portion of the slider that is over the blue bar is
+different from the colour that is over the background. The reason for
+this is described in HELP RCLIB_PROBLEMS, which explains that by default
+movable objects in the RCLIB package use xor, or equiv for drawing. This
+can be very convenient but can also cause problems. If you use an opaque
+movable the problems are overcome, but the movable object must move only
+over a background of uniform colour, which is why the pre-allocated bar
+region for the opaque slider is larger.
+
+An alternative is to use a white bar with a frame
+
+-- -- Example s3: non-opaque slider with frame
+
+As above except that we use an extra "featurespec" argument to specify a
+black frame for the white slider bar, where the frame has thickness 2:
+
+vars s3 =
+    rc_slider(-100, 130, 100, 130, 200, 8, 'white', 'red', [],
+        {rc_slider_barframe ^(conspair('blue', 2))});
+
+The extra featurespec argument can be a two element vector specifying a
+slot name and the value to be used. Alternatively it could be a list
+of such vectors, or a list of featurespecs. This is an example of the
+general facility described in HELP * FEATURESPEC
+
+-- -- Example s4: a more complex range argument
+
+Now create another opaque slider with range from -20 to 20, with default
+value -5 and step value 1, and a slightly bigger blob. The range details
+and default value, are specified by the vector supplied as fifth
+argument.
+
+vars s4
+    = rc_opaque_slider(
+        -100, 105, 100, 105, {-20 20 -5 1}, 10, 'red','black', []);
+
+;;; As before the value of the slider can be displayed or altered
+;;; by program commands, as well as by using the mouse, or typing
+;;; into the number panel.
+
+s4=>
+rc_slider_value(s4) =>
+rc_slider_places(s4)=>
+18 -> rc_slider_value(s4);
+
+Try moving the blobs of the various sliders created so far, to compare
+the effects. Also type numbers into their text panels (and complete the
+number with mouse button 1 or press RETURN). If you type a number above
+or below the range limit it is set to the appropriate range boundary.
+
+Because the latest slider has a bigger blob than the previous ones the
+rectangle in which the slider bar is sensitive to mouse-clicks is
+larger.
+
+Notice that you can move the slider blob to a location by clicking at
+the location: you do not have to drag it.
+
+-- -- Example s5: slider with labels and no-input panel
+
+Now a horizontal slider with a label at each end, one below the bar, the
+other above it, and with a text panel that does not allow direct input.
+Use '6x13bold' as the font for the end labels.
+
+vars s5 =
+    rc_opaque_slider(-100, 70, 100, 70, {-20 20 -5 1}, 6,
+        'green','blue',
+            ['6x13bold' [{-5 -20 'MIN:-20'}][{-40 10 'MAX:20'}]],
+            {rc_slider_textin ^false});
+
+The string giving a font specification at the start of the list of end
+labels is optional.
+
+Note that because the default value (-5) is an integer and also the
+"step" value (1), the slider can have only integer values. The panel
+therefore prints no decimal places.
+
+13.456 -> rc_informant_value(s5);
+s5=>
+-13.656 -> rc_informant_value(s5);
+s5=>
+
+-- -- Example s6: a square slider
+
+A horizontal slider like the above, but with black bar, and a "square
+blob", with diagonals on the square (the default for rc_square_slider).
+
+vars s6 =
+    rc_square_slider(-100, 40, 100, 40, {-20 20 -5}, 8,
+        'brown', 'blue', [[{-5 -20 'MIN:-20'}][{-40 10 'MAX:20'}]]);
+
+-- -- Example s7: modified square slider
+
+From now on change the appearance of the movable square to contain a
+vertical line rather than two diagonals.
+
+;;; Save the default procedure for drawing a square blob, in case
+;;; it is needed later.
+vars old_rc_draw_slider_square = rc_draw_slider_square;
+
+;;; Define and compile a new version, to be used in the next example
+define rc_draw_slider_square(s);
+    ;;; Compare LIB RC_SQUARE_SLIDER
+    lvars r = rc_slider_blobradius(s);
+    rc_draw_centred_square(0, 0, 2*r + 2, 'blue', 2);
+    rc_drawline(0,r,0,-r);
+enddefine;
+
+vars s7 =
+    rc_square_slider(-100, 0, 100, 0, {-20 20 -5 1}, 8,
+        'black', 'blue',
+            ['10x20bold' [{-5 -20 'MIN:-20'}][{-40 10 'MAX:20'}]]);
+
+-- -- Example s8: switching end1 and end2
+
+;;; We can put end1 on the right and end2 on the left, by switching the
+;;; two x coordinates, and see what happens to the labels and the text
+;;; panel.
+vars s8 =
+    rc_square_slider(100, -35, -100, -35, {-20 20 -5 1}, 8,
+        'black','blue',[[{-5 -20 'MIN:-20'}][{-40 10 'MAX:20'}]]);
+
+;;; Note that the text panel by default comes to the right of end2.
+;;; To change this we need to use an extra "featurespec" argument to the
+;;; creation procedure, to give a non-default rc_slider_value_panel slot
+;;; value, specifying that it should be to the LEFT of end2 in this
+;;; case.
+
+-- -- Example s9: switching end1 and end2 and moving the number panel
+
+;;; For the next slider we specify its panel using a vector of 8 elements
+;;; {endnum bg fg font px py len ht}
+;;; where endnum is a number, specifying which end to use
+;;; bg is either a string, or a pair of strings for active and ordinary
+;;;         backgrounds
+;;; fg is the foreground (text) colour
+;;; px and py, are coordinates of the left end of the number panel,
+;;; relative to the slider end where the panel is located.
+;;; len and ht give length and height of the panel.
+;;; (The height will be expanded automatically if the font so requires).
+
+;;; To put the panel to the left of endw, we give px the value -50 in
+;;; the panel specification vector which follows.
+
+vars s9 =
+    rc_square_slider(100, -70, -100, -70, {-20 20 -5 1}, 8,
+        'black','blue',[[{-5 -15 'MIN:-20'}][{-45 10 'MAX:20'}]],
+        {rc_slider_value_panel
+            ;;; Number panel info
+            ;;; {endnum bg      fg      font  px   py len ht}
+                {2    'grey90' 'black' '8x13' -50  0  45  15}});
+
+;;; Define a re-usable panel specification
+vars panelspec =
+;;; {endnum bg                        fg     font   px py len ht}
+    {2   ^(conspair('pink','orange')) 'blue' '8x13' 10  0  65 25};
+
+-- -- Example s10: a vertical slider
+
+;;; We now create a vertical slider by specifying the coordinates of the
+;;; ends. Usually trial and error is then required to find good
+;;; coordinates for the labels. (This will depend on rc_xscale and
+;;; rc_yscale of the window.) We use the above panelspec, and add
+;;; an extra argument to specify that it should use an square opaque
+;;; blob
+
+;;; associate an identifier with the slider
+vars s10val;
+
+
+vars s10 =
+    rc_opaque_slider(-180, 160, -180, -160, 1000, 6,
+        'black','red',[[{-10 10 'MIN: 0'}][{-10 -25 'MAX: 1000'}]],
+            {rc_slider_value_panel ^panelspec},
+                newrc_square_opaque_slider, ident s10val);
+
+Square blobs don't work too well with opaque sliders unless they
+are sloped diagonally, because the corners of the moving square can
+distort the end of the bar. (This may be fixed later.)
+
+After moving the slider blob, or typing a new number into the value
+panel check the value of this variable:
+
+s10val =>
+
+566 -> rc_informant_value(s10);
+
+s10val =>
+
+Besides automatically updating the value of an associated variable,
+sliders can be given a "reactor" procedure, in its rc_informant_reactor
+slot. This procedure is run whenever the value changes. Further
+details are given below.
+
+-- -- Example s11: a slanted slider
+
+;;; We can also create a sloping slider
+vars s11 =
+    rc_opaque_slider(-150, -85, 120, -170, {-100 100 0 5}, 8,
+        'blue','red',
+            [[{-20 -25 'MIN: 0'}][{-10 -25 'MAX: 100'}]],
+            {rc_slider_value_panel ^panelspec});
+
+-- -- Example s12: another slanted slider, with two labels on left
+
+;;; clear the window.
+rc_start();
+
+;;; Now a sloping slider with a different appearance. We specify
+;;; a "framed" bar with black frame and framewidth 2, with circular ends.
+;;; We need to override the default slot value for rc_slider_barframe.
+;;; We ensure that the barwidth is 16, i.e. twice the radius of the blob
+;;; We also specify two labels for end1, and 3 decimal places for
+;;; the numeric panel.
+
+
+vars s12 =
+    rc_slider(-30, -65, 130, -120, 50, 8,
+        'white','red',
+        [[{-20 10 'MIN: 0'}{25 5 '(Age in years)'}][{-20 -25 'MAX: 50'}]],
+        { rc_slider_barframe ^(conspair('black', 2))
+          rc_slider_places 3
+           rc_slider_barwidth 16 } );
+
+s12 =>
+12.3456 -> rc_informant_value(s12);
+s12=>
+rc_informant_value(s12) =>
+12.34 -> rc_informant_value(s12);
+
+
+-- -- Example s13: slider without a numeric value panel
+
+vars s13 =
+    rc_opaque_slider(-120, -65, 135, 120, 50, 8,
+        'white','red',
+        [[{-25 20 'MIN: 0'}{120 60 '(Age in years)'}]
+            [{-20 -35 'MAX: 50'}]],
+        { rc_slider_barframe ^(conspair('black', 2))
+           rc_slider_barwidth 16
+            ;;;  specify no value panel
+            rc_slider_value_panel ^false} );
+
+43-> rc_slider_value(s13);
+s13=>
+
+;;; get rid of the demonstration window
+rc_kill_window_object(win1);
+
+-- More detailed specification of rc_slider ---------------------------
+
+The main procedures for creating sliders are rc_slider,
+rc_opaque_slider, and rc_square_slider which can be invoked thus:
+
+rc_slider(x1, y1, x2, y2, range,
+            radius, linecol, slidercol, strings) -> slider;
+
+rc_opaque_slider(x1, y1, x2, y2, range,
+            radius, linecol, slidercol, strings) -> slider;
+
+rc_square_slider(x1, y1, x2, y2, range,
+            radius, linecol, slidercol, strings) -> slider;
+
+The interpretations of the various arguments are described below.
+
+Three kinds of optional extra arguments are allowed, namely:
+
+    o A featurespec vector or list (or false)
+    o A word or identifier to be associated with the value
+
+    o A type specifier (not permitted for rc_square_slider) which can be
+      word, key, or constructor procedure, e.g.
+      newrc_square_opaque_slider, as illustrated above.
+
+    (The featurespec, if present, must come before the
+    word/identifier argument.)
+
+Thus the following additional formats are also allowed, shown for
+rc_slider, but also permitted for rc_opaque_slider, and most also
+permitted for rc_square_slider.
+
+rc_slider(x1, y1, x2, y2, range,
+            radius, linecol, slidercol, strings, specs) -> slider;
+
+rc_slider(x1, y1, x2, y2, range,
+            radius, linecol, slidercol, strings, wid) -> slider;
+
+rc_slider(x1, y1, x2, y2, range,
+            radius, linecol, slidercol, strings, specs, wid) -> slider;
+
+rc_slider(x1, y1, x2, y2, range,
+            radius, linecol, slidercol, strings, specs, wid, type)
+                -> slider;
+
+rc_slider (or rc_opaque_slider) creates a new slider with ends at the
+position shown, with locations on the slider between the ends mapped
+onto numbers in the range given. The slider is represented by a bar,
+with the colour linecol and thickness determined by the radius (using
+the global variable rc_slider_blob_bar_ratio, as explained below, along
+with a movable blob of radius radius, with colour slidercol. The
+optional specs argument can be used to override various defaults.
+
+The slider is also given an approximately rectangular "invisible" action
+button located over the slider bar which is sensitive to mouse button 1
+clicks. It is created by the method
+        create_slider_button(slider, radius);
+See
+    LIB * RC_SLIDER/create_slider_button
+
+and the role of rc_mouse_limit in
+    HELP * RC_LINEPIC
+
+
+-- The arguments to rc_slider -----------------------------------------
+
+-- -- Position arguments for end1 and end2
+
+x1, y1, x2, y2,
+    The first four arguments specify the locations of end1 and end2
+    of the slider. The locations of the (optional) labels and the number
+    display panel are specified relative to the locations of these ends.
+
+    Because the coordinates are arbitrary, the slider can have any
+    orientation, and end1 can be on the right or the left, at the top
+    or the bottom, as desired.
+
+-- -- The range of values argument
+
+range,
+    The range can be one of the following
+    o A positive number N,
+        The range of values is then 0 to N, with default value = 0.
+    o A vector containing two, three or four numbers.
+        The first two numbers define the beginning and the end of the
+        interval, and the third number, if present, defines the default
+        value. If there is a fourth number it specifies the minimum step
+        value. E.g. {0 100 50 5} specifies a range from 0 to 100, with
+        minimum steps of 5, and an initial value of 50.
+
+-- -- The blob radius argument
+radius,
+    The radius defines the size of the movable indicator. If it is a
+    circular blob, radius is the radius of the blob. If the indicator
+    is a square (created using rc_square_slider) radius is half the side
+    of the square.
+
+    The radius, together with the value of the global variable
+    rc_slider_blob_bar_ratio, determines the width of the bar.
+    rc_slider_blob_bar_ratio defaults to 1.5, but is 1 for
+    opaque sliders. The actual width of the bar for a non-opaque
+    slider is calculated according to this expression:
+
+        round(radius * 2 / rc_slider_blob_bar_ratio)
+
+    I.e. by default the bar is two thirds the diameter of the blob or
+    the square. This can be overridden globally either by changing the
+    global variable or for a particular slider by using the optional
+    specs argument, as described below.
+
+-- -- The bar and slider colour arguments
+
+linecol, slidercol,
+    These two arguments are strings determining the colour used to draw
+    the bar and the colour of the movable indicator. Because instances
+    of rc_linepic_movable are drawn using the GXxor function, the
+    colour specified will not normally be the colour displayed unless it
+    is drawn against a white background. If the slider bar is not white,
+    the region of overlap between the bar and the indicator will not
+    have the colour specified as slidercol.
+        See HELP * RCLIB_PROBLEMS
+
+-- -- The strings argument for specifying labels
+
+strings,
+    This is false or a list which may be empty or contain one list or
+    two lists determining strings to be displayed near end1 and end2.
+
+    If the list is non-empty it may start with a string giving the
+    font to be used for displaying the labels.
+
+    If strings is false or [] no labels are displayed.
+
+    Otherwise possible values are of the forms shown below, where
+    x and y represent numbers and '...' represents an arbitrary string:
+
+    1. false
+
+    2. []
+
+    3. [ [{x y '...'} {x y '...'} ...] ]
+        (A list with one list: strings for end 1)
+
+    4. [ [] [{x y '...'} {x y '...'} ...] ]
+        (A list with an empty and a non-empty list, specifying
+         labels for end 2)
+
+    5. [ [{x y '...'} {x y '...'} ...]  [{x y '...'} {x y '...'} ...] ]
+        (A list with two non-empty lists)
+
+    In formats 1 and 2, no labels are displayed. In format 3 the labels
+    are associated with end1, and in format 4 with end2. In format 5,
+    there are labels associated with both ends.
+
+    Summary:
+    The strings argument can contain one or two lists of strings, with
+    coordinates for placement. Each list is either empty or a list of
+    three element vectors specifying strings to be printed near end1 or
+    end2 of the slider bar. Each vector has two numbers, representing
+    location relative to the end, and a string to be printed at that
+    location, using rc_print_at, defined in HELP RC_GRAPHIC/rc_print_at.
+
+    The first strings list is stored in the rc_slider_end1strings slot
+    of the slider. The second strings list, if present, is stored in the
+    rc_slider_end2strings slot.
+
+    Thus if end1 has location x1,y1, and the first list is of the form:
+        [{dx1 dy1 string1} {dx2 dy2 string1}]
+    this will give rise to two print commands:
+        rc_print_at(x1+dx1, y1+dy1, string1);
+        rc_print_at(x1+dx2, y1+dy2, string2);
+
+    This means that any number of strings can be printed at arbitrary
+    locations relative to the ends of the slider, giving great
+    flexibility, especially as the slider can have any orientation,
+    as illustrated in examples, above.
+
+specs
+    The optional extra featurespec argument specs can be provided to
+    override defaults for the class of sliders, as described in
+        HELP * FEATURESPEC.
+
+    If provided specs can be false (which is ignored) or a vector of
+    length 2*N containing N slot/value specifications, or a list of
+    such vectors or a list of featurespecs.
+
+    E.g. to overcome the effect of rc_slider_blob_bar_ratio (a global
+    variable used to compute the value of the rc_slider_barwidth slot
+    of a new slider), use a featurespec vector like this as the
+    specs argument to rc_slider:
+
+        {rc_slider_barwidth 10}
+
+    This can be used to make the width of the bar more than that of
+    the blob, for example. Likewise the specs argument can be used
+    to control where the number panel is displayed by specifying a
+    non-default value for the rc_slider_value_panel slot.
+    (The example slider s7 above, shows how to put the panel to the
+    left of end2, instead of to the right, the default. It can also
+    be used to associate the display panel with end1.)
+
+wid
+    The optional wid argument is a word or identifier. If present it
+    causes the slider to be created with that word or identifier in
+    its rc_informant_ident slot. As a result the value of the slider
+    (accessed via rc_informant_value(slider) will be assigned to
+    valof(wid) whenever the slider value is changed, either by moving
+    the blob or by typing a new number into the number panel.
+    See LIB RC_INFORMANT , HELP RCLIB/rc_informant
+
+type
+    The optional type argument can be
+    o a key corresponding to an objectclass class, e.g.
+        rc_square_slider_key
+    o a procedure which will create an instance, e.g.
+        newrc_square_opaque_slider
+    o a word naming a class, to which "new" can be prepended to
+        give an instance creator, e.g. "rc_square_opaque_slider"
+
+-- Making a slider with square "blob" ---------------------------------
+
+rc_square_slider(x1, y1, x2, y2, range,
+                radius, linecol, slidercol, strings) -> slider;
+
+This also allows optional specs and wid arguments as described above
+for rc_slider.
+
+It is analogous to the rc_slider procedure except that it creates
+a slider with a square movable indicator, drawn using the method
+rc_draw_slider_square, which is, by default, held in the
+rc_draw_slider_blob slot for rc_square_slider instances.
+
+For more details see
+    LIB * RC_SQUARE_SLIDER
+
+
+-- Orientation of sliders ---------------------------------------------
+
+The freedom to specify coordinates of both ends of the slider means that
+the slider is not constrained to be horizontal or vertical, as
+illustrated in the examples above.
+
+This makes use of the facilities in LIB * RC_CONSTRAINED_MOVER, which
+provides more general facilities that could also be used to provide
+circular sliders, for example.
+
+-- Accessing and updating slider values -------------------------------
+
+To access the current value of a slider use either
+    rc_slider_value(s) -> val
+
+or, the more general
+    rc_informant_value(s) -> val;
+
+The latter can be used for a wide range of RCLIB panel instances,
+whereas rc_slider_value will mishap if applied to anything but a slider.
+
+The updaters can be used to change the value of a slider:
+
+    val -> rc_slider_value(s)
+    val -> rc_informant_value(s)
+
+This will make the slider blob move and update the numeric panel.
+
+If the new value is different from the previous one, it will also
+cause the method rc_information_changed to be applied to the slider.
+That will trigger the slider's reactor method, as outlined below.
+
+-- Conversion methods ----------------------------------------------
+
+Each slider has two slots for procedures used to convert values between
+an external and an internal form, and vice versa.
+
+    slot rc_slider_convert_in;
+    slot rc_slider_convert_out;
+
+Users can provide procedures for converting values before they are
+stored in the slider, e.g. rounding. Likewise a converter can be
+provided for accessing values. This could apply a mathematical
+function (e.g. exponentiation if the slider is to be logarithmic)
+or could convert betwee numerical and symbolic values.
+
+The internal value is used to work out the distance along the slider
+bar of the movable indicator. The external value is the result of
+applying rc_informant_value (or rc_slider_value) to the slider.
+
+
+-- Reactor method for sliders -----------------------------------------
+
+For sliders created as described here, the default value of the slot
+rc_informant_reactor is the method
+
+    rc_slider_reactor(s:rc_slider)
+
+or, more precisely, the word "rc_slider_reactor".
+
+This method is run whenever the slider blob is moved by mouse, or a new
+number is typed in the number panel, or the value is updated as above.
+
+The reactor method can be defined to cause various changes to occur
+elsehwere, whenever the slider gets a new value. Examples can be found
+
+in  TEACH RC_CONSTRAINED_PANEL
+
+The default version of the method does nothing.
+
+-- Constrainer method -------------------------------------------------
+
+When a value is assigned to a slider it may be desirable to constrain
+the value in some way, e.g. to make it an integer, or a multiple of some
+number.
+
+Like all instances of rc_informant, each slider has a slot called
+    rc_constrain_contents
+which by default has the value identfn (a procedure which returns its
+argument).
+
+This can be replaced by a procedure which constrains the value in some
+way, e.g. the procedure round, which constrains the value to be an
+integer.
+
+Instead of the procedure the name of the procedure can be in the slot.
+In that case if the procedure is redefined the existing instances will
+use the new value, which is useful during development and debugging.
+
+When the slider value is updated, the constrainer is applied to the new
+value. It should return a constrained value (or possibly mishap if the
+new value is not a permitted value).
+
+Examples of the use of constrainers can be found in
+    TEACH RC_CONSTRAINED_PANEL
+
+-- Number of decimal places shown -------------------------------------
+
+The numeric panel will show a number in a format which can be controlled
+by means of the value of the slot rc_slider_places. The default value,
+held in the global varibale rc_slider_places_def is 2. If it is set to
+0, no decimal points will be shown. If the rc_constrain_contents slot of
+the slider holds the procedure round or the word "round", this will also
+cause no decimal points to be shown.
+
+
+-- The numeric value panel --------------------------------------------
+
+The numeric value panel is created by default, unless the slot
+rc_slider_value_panel has the value false when the slider is created, in
+which case no panel is created. An example was provided above, using the
+following format in the optional featurespec vector:
+    rc_slider_value_panel ^false
+
+If a numeric value panel is created, whether it admits text input or not
+depends on whether the slot rc_slider_textin has the value true (the
+default) or false, as illustrated in one of the examples above.
+
+A vector value for the rc_slider_value_panel slot can be used to specify
+the location and appearance of the numeric value panel. The vector
+should contain 8 components (though an older format with 11 components
+is still allowed for compatibility with an earlier version.)
+
+The vector can be included in the featurespec argument of rc_slider or
+rc_square_slider using this format
+    { ... rc_slider_value_panel { ... } ...}
+
+where the vector has the 8 components described below.
+
+-- -- The 8 component vector
+The components of the vector are of the following types
+   {endnum bg fg font panelx panely length height }
+
+Where
+   endnum
+    is either 1 or 2, determining which end of the slider has the panel
+
+   bg
+    is either a string or a pair of strings representing colours. If
+    there is only only one string it represents the normal background
+    for the text panel. If there is a pair, the second string is for
+    the background in "active" mode, i.e. when the number in the panel
+    is being edited. If only one background colour is given the default
+    held in the global variable rc_text_input_active_bg_def (normally
+    'grey85') is used for the "active" background.
+        See LIB RC_TEXT_INPUT
+
+   fg
+    is a string representing the colour of the text and the surrounding
+    frame of the text panel.
+
+   font
+    is a string specifying the font to be used for the numeric display
+
+   panelx panely
+    are the coordinates of the middle of the left end of the panel
+    relative to the end of the slider specified by endnum.
+
+   length height
+    are the dimensions of the panel. The height may be expanded if
+    needed to accommodate the font.
+
+Example formats for the panel vector
+
+   {2   'grey80' 'black' '8x13' 5  0  50  15}
+
+   {2   ^(conspair('pink','orange')) 'blue' '9x15' 5  0  50  15}
+
+The default is (on 8 Apr 1999):
+    {endnum bg     fg     font   px py length ht}
+    {2   'grey80' 'black' '8x13' 10  0  55    15},
+
+
+-- Examples in other files --------------------------------------------
+
+Examples of various means of creating sliders including the use of
+rc_control_panel can be found in:
+
+TEACH * RCLIB_DEMO.P
+TEACH * RC_CONTROL_PANEL
+HELP  * RC_CONTROL_PANEL
+
+LIB   * RC_POLYPANEL
+This gives examples showing four sliders controlled by auxilliary action
+buttons close to them.
+
+
+-- Definitions in the library -----------------------------------------
+
+-- Items defined in LIB * RC_SLIDER -----------------------------------
+
+ define :class rc_slider_blob_window; is rc_window_object rc_point_constrained_mover ;
+ define :mixin rc_slider_frame;
+
+ define :class rc_slider;
+ define :class rc_slider_panel; is rc_number_input;
+ define :class rc_slider_panel_noinput; is rc_number_input;
+ define :class rc_slider_bar; is rc_invisible_action_button;
+
+ define :method rc_handle_text_input(
+        pic:rc_slider_panel_noinput, x, y, modifier, key);
+ define :method rc_button_1_down(
+    pic:rc_slider_panel_noinput, x, y, modifiers);
+
+ define -- Methods for creating text input panel and invisible button
+ define :method create_slider_panel(slider:rc_slider_frame, panelinfo) -> numberin;
+
+ define :method rc_button_1_down(pic:rc_slider, x, y, modifiers);
+ define :method rc_sliderbutton_1_down(pic:rc_slider_bar, x, y, modifiers);
+ define :method rc_sliderbutton_1_drag(pic:rc_slider_bar, x, y, modifiers);
+
+ define :method create_slider_button(slider:rc_slider_frame, rad);
+
+ define -- Drawing utilities for sliders and their parts
+ define :method rc_draw_slider_blob_def(s:rc_slider_frame);
+ define :method rc_draw_vert_slider_blob(s:rc_slider);
+ define :method rc_draw_hor_slider_blob(s:rc_slider);
+ define rc_draw_slider_mover(pic);
+
+ define :method rc_setup_slider_barwidth(slider:rc_slider, radius);
+ define :method rc_draw_slider_bar(s:rc_slider_frame);
+
+ define rc_draw_slider_strings(x, y, strings, scaled);
+
+ define :method rc_draw_slider_labels(s:rc_slider_frame);
+ define :method rc_draw_slider_value(slider:rc_slider_frame, val);
+ define :method rc_draw_slider_value_noinput(s:rc_slider_frame, val);
+ define :method rc_draw_slider(s:rc_slider_frame);
+ define :method rc_undraw_linepic(s:rc_slider);
+
+ define -- Some utilities for sliders
+ define rc_slider_ends(slider) /* ->( x1, y1, x2, y2) */;
+ define constrain_between(val, v1, v2) -> val;
+ define slider_value_from_coords(s, x, y) -> val;
+ define slider_value_from_blob_coords(blob, s, x, y) -> val;
+ define slider_blob_coords_from_value(blob, s, val) -> (x, y);
+
+ define -- Printing methods
+ define :method print_instance(s:rc_slider_frame);
+ define :method print_instance(p:rc_slider_panel);
+
+ define -- Methods for getting or updating the value
+ define :method rc_slider_value(s:rc_slider_frame) -> val;
+ define :method updaterof rc_slider_value(newval, s:rc_slider_frame);
+ define :method rc_information_changed(s:rc_slider_frame);
+ define :method updaterof rc_informant_value(val, s:rc_slider_frame);
+ define :method updaterof rc_informant_value(val, numberin:rc_slider_panel);
+
+ define :method rc_slider_reactor(s:rc_slider_frame, val);
+
+ define :method rc_move_to(s: rc_slider, x, y, trail);
+
+ define -- Creating sliders
+ define :method setup_blob(blob:rc_slider_blob_window);
+
+ define create_rc_slider(x1, y1, x2, y2, range, radius, linecol, slidercol, strings, spec, type) -> slider;
+ define create_rc_slider_with_ident(x1, y1, x2, y2, range, radius, linecol, slidercol, strings, spec, type, wid) -> slider;
+
+ define rc_slider(x1, y1, x2, y2, range, radius,
+        linecol, slidercol, strings) -> slider;
+ define rc_panel_slider(x1, y1, x2, y2, range,
+        radius, linecol, slidercol, strings) -> slider;
+
+-- Items defined in LIB * RC_SQUARE_SLIDER ----------------------------
+
+ define :class rc_square_slider; is rc_slider;
+ define :method rc_draw_slider_square(s:rc_square_slider);
+ define rc_square_slider(x1, y1, x2, y2, range,
+            radius, linecol, slidercol, strings) -> slider;
+
+-- Items defined in LIB * RC_OPAQUE_SLIDER ----------------------------
+
+define :class rc_opaque_slider; is rc_slider rc_opaque_movable;
+define :method rc_setup_slider_barwidth(slider:rc_opaque_slider, radius);
+define :method rc_draw_slider_opaque(s:rc_opaque_slider);
+
+define :class rc_square_opaque_slider; is rc_opaque_slider;
+define :method rc_draw_opaque_slider_square(s:rc_opaque_slider);
+
+define rc_opaque_slider(x1, y1, x2, y2, range, radius,
+    linecol, slidercol, strings) -> slider;
+
+-- Items defined in LIB * RC_PANEL_SLIDER -----------------------------
+This is defunct and will be removed, as the facilities are all in
+LIB * rc_slider
+
+define :class rc_slider_panel; is rc_number_input;
+define :method print_instance(p:rc_slider_panel);
+
+define :class rc_panel_slider; is rc_slider;
+define :method print_instance(s:rc_panel_slider);
+
+define :method updaterof rc_informant_value(val, s:rc_panel_slider);
+define :method updaterof rc_informant_value(val, numberin:rc_slider_panel);
+
+define :method create_slider_panel(slider:rc_panel_slider, panelinfo) -> numberin;
+define :method rc_draw_slider(s:rc_panel_slider);
+define :method rc_draw_slider_value(slider:rc_panel_slider, val);
+
+define rc_panel_slider(x1, y1, x2, y2, range, radius, linecol, slidercol, strings) -> slider;
+
+
+--- $poplocal/local/rclib/help/rc_slider
+--- Copyright University of Birmingham 2002. All rights reserved. ------

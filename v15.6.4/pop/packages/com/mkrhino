@@ -1,0 +1,36 @@
+#!/bin/sh
+# --- Copyright University of Sussex 1986.  All rights reserved. ---------
+# File:            $usepop/pop/local/com/mkrhino
+# Purpose:         make a saved image for the Rhino program
+# Author:          Aaron Sloman, Aug 24 1986 (see revisions)
+# Machines:        unix
+# Documentation:   LIB * rhino
+# Related Files:
+
+# Image is stored in $poplocalbin
+
+cd $usepop/pop      # no init.p vedinit.p etc
+poplib=""
+export poplib
+
+$popsys/pop11 << 'xxxx'
+lib rhino;
+false -> popgctrace;
+if syssave('$poplocalbin/rhino.psv') then
+    erase(trycompile('$poplib/init.p') or trycompile('init.p'));
+    erase(trycompile('$poplib/vedinit.p') or trycompile('vedinit.p'));
+    (poppid + systime()) && 2:11111111 -> ranseed;
+    play(
+        if poparglist = [] then
+            1
+        elseif strnumber(poparglist(1)) then
+            strnumber(poparglist(1))
+        else 1
+        endif);
+    sysexit();
+endif;
+sysexit();
+xxxx
+
+rm -f $poplocalbin/rhino.psv-
+echo "rhino.psv done"

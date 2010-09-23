@@ -1,0 +1,171 @@
+HELP FLOAT_ARRAYPROCS                           David Young
+                                                November 1992
+                                                revised Oct 2001
+
+LIB *FLOAT_ARRAYPROCS provides a suite of procedures for carrying out
+some common operations (and one or two less common ones) on arrays. The
+arrays must be packed arrays of single precision floating point values,
+(except where stated) as created by *NEWSFLOATARRAY or -array_of_real-
+(from *FORTRAN_DEC).
+
+Below, ARR as an argument means that an array is required. ARR_FALSE
+means that either an array is required, or <false> or another object may
+be supplied instead. When the argument is called ARR_FALSE any array
+given will have its contents overwritten, and then be returned as the
+result of the procedure; if <false> is given, a new array will be
+created and filled; if some other object is given, it will be used as a
+tag in a call to oldsfloatarray (see *NEWSFLOATARRAY) which will cause a
+recyclable array to be returned.
+
+All the array arguments in one call of one of these routines must have
+the same bounds, and arrays must not be offset in their arrayvectors.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Operations on individual pixels
+ -- Neighbourhood operations
+
+-- Operations on individual pixels ------------------------------------
+
+For these routines, ARR_FALSE can be the same as any other array
+argument, which will be overwritten.
+
+float_arraycopy(ARR, ARR_FALSE) -> ARR_OUT
+    Copy the values in the array. (See *ARRAYSAMPLE for how to copy
+    values from a region of an array.)
+
+byte2float(ARR, ARR_FALSE) -> ARR_OUT
+    Converts a byte array into a float array containing the same
+    numerical values.
+
+float2byte(MIN1, MAX1, ARR, MIN2, MAX2, ARR_FALSE) -> ARR_OUT
+    Converts a float array ARR to a byte array. Values are scaled
+    linearly, with MIN1 in ARR mapping to MIN2 in the output, and
+    likewise MAX1 and MAX2.
+
+float_arrayabs(ARR, ARR_FALSE) -> ARR_OUT
+    Takes the absolute value of each element.
+
+float_arraysqr(ARR, ARR_FALSE) -> ARR_OUT
+    Squares each element.
+
+float_arraysqrt(ARR, ARR_FALSE) -> ARR_OUT
+    Takes the square root of each element.
+
+float_arraylogistic(ARR, ARR_FALSE) -> ARR_OUT
+    Applies the logistic function 1/(1+exp(-x)) to each element.
+
+float_arraysum(ARR1, ARR2, ARR_FALSE) -> ARR_OUT
+    Adds ARR1 and ARR2 element by element.
+
+float_arraydiff(ARR1, ARR2, ARR_FALSE) -> ARR_OUT
+    Subtracts each element of ARR2 from the corresponding element of
+    ARR1.
+
+float_arraymult(ARR1, ARR2, ARR_FALSE) -> ARR_OUT
+    Multiplies ARR1 and ARR2 element by element.
+
+float_complexmult(ARR1R, ARR1I, ARR2R, ARR2I, ARR_FALSE_R, ARR_FALSE_I)
+        -> (ARR_OUT_R, ARR_OUT_I)
+    Multiplies the complex pair (ARR1R, ARR1I) and the complex pair
+    (ARR2R, ARR2I) element by element.
+
+float_arraydiv(ARR1, ARR2, ARR_FALSE) -> ARR_OUT
+    Divides ARR1 by ARR2 element by element. No element of ARR2 may be
+    zero.
+
+float_arraycomb(K1, ARR1, K2, ARR2, ARR_FALSE) -> ARR_OUT
+    Linear array combination: multiplies each element of ARR1 by K1,
+    each element of ARR2 by K2, adds these products and stores the
+    result in ARROUT.
+
+float_arrayhypot(ARR1, ARR2, ARR_FALSE) -> ARR_OUT
+    Stores sqrt(ARR1(I)**2 + ARR2(I)**2) in ARR_OUT(I) (see MAN *HYPOT).
+    (Here I can stand for multiple indices in the POP-11 array.)
+
+float_arrayatan2(ARR1, ARR2, ARR_FALSE) -> ARR_OUT
+    Stores atan2(ARR1(I), ARR2(I)) in ARR_OUT(I) (see MAN *ATAN2).
+    Note that the arguments are the opposite way round to the POP-11
+    arctan2 function.
+
+float_threshold(V1, THRESH, V2, ARR, ARR_FALSE) -> ARR_OUT
+    Each element that is less than THRESH is set to V1, others are set
+    to V2.  If V1 is <false> then elements less than THRESH are set to
+    the original data value; if V2 is <false> then elements greater than
+    or equal to THRESH are set to the original data value.
+
+float_threshold2(V1, THRESH1, V2, THRESH2, V3, ARR1, ARR_FALSE) -> ARR_OUT
+    Each element that is less than or equal to THRESH1 is set to V1;
+    each element that is greater than or equal to THRESH2 is set to V3;
+    all the others are set to V2. If any of V1, V2 and V3 are <false>,
+    the original data is retained wherever they would have been used.
+
+float_arraymean(ARR) -> NUMBER
+    Returns the mean of the elements of ARR.
+
+float_mean_sd(ARR) -> (MEAN, SD)
+    Returns the meand and SD of the values of the elements of ARR.
+
+float_arraymean_mask(ARR, MASK, WHEREZERO) -> NUMBER
+    MASK is an array the same size as ARR; WHEREZERO is a boolean.
+    If WHEREZERO is <true>, returns the mean of those elements of ARR
+    for which there is a zero in the corresponding element of MASK.
+    If WHEREZERO is <false>, returns the means of those elements of ARR
+    for which the corresponding element of MASK is non-zero.
+
+float_arrayhist(ARR, MN, MX, NBINS) -> HIST
+    Returns the histogram of values in ARR. A value V in ARR is counted
+    if MN <= V < MX. There are NBINS equally-spaced bins; HIST is a
+    vector of length NBINS containing the counts. On exit, HIST(I)
+    contains the number of values V in ARR for which (I-1)*BINSIZE + MN
+    <= V < I*BINSIZE + MN where BINSIZE = (MX-MN)/NBINS.
+        For example, if ARR happens to contain integral values from 0 to
+    255, then float_arrayhist(ARR, 0, 256, 256) will return a result
+    such that HIST(I) contains the number of values in ARR equal to I-1.
+        Instead of NBINS, the last argument may be an *INTVEC or an
+    array whose arrayvector is an intvec. In this case, the structure
+    will receive the results and be returned; its length will be the
+    number of bins.
+
+float_setconst(NUMBER, ARR)
+    Sets each element of ARR to NUMBER.
+
+float_multconst(NUMBER, ARR, ARR_FALSE) -> ARR_OUT
+    Multiplies each element of ARR by NUMBER.
+
+float_addconst(NUMBER, ARR, ARR_FALSE) -> ARR_OUT
+    Adds NUMBER to each element of ARR.
+
+float_multconst_mask(NUMBER, ARR, MASK, WHEREZERO, ARR_FALSE) -> ARR_OUT;
+    Multiplies by NUMBER every element of ARR that has a corresponding
+    zero (non-zero) value in MASK if WHEREZERO is <true> (<false>).
+    Other elements are simply copied into ARR_OUT.
+
+float_addconst_mask(NUMBER, ARR, MASK, WHEREZERO, ARR_FALSE) -> ARR_OUT;
+    Adds NUMBER to every element of ARR that has a corresponding zero
+    (non-zero) value in MASK if WHEREZERO is <true> (<false>). Other
+    elements are simply copied into ARR_OUT.
+
+float_arraywtdav_mask(ALPHA1, ALPHA2, ARR1, ARR2, MASK, ARR_FALSE)
+                    -> ARR_OUT
+    If A1 is an element of ARR1 and A2 is an element of ARR2, then the
+    corresponding element of ARR_OUT is set to ALPHA*A1 + (1-ALPHA)*A2,
+    ALPHA is ALPHA1 for any element where the corresponding value of
+    MASK is zero, and ALPHA is ALPHA2 otherwise. This is useful to
+    averaging images selectively.
+
+-- Neighbourhood operations -------------------------------------------
+
+The output array, if supplied, must not the same as any other array
+argument.
+
+float_dilate_nonzero(NUMBER, ARR1, ARR_FALSE) -> ARR_OUT
+    Dilates non-zero areas using a 3x3 structuring element. Dilated
+    regions are set to NUMBER.
+
+float_erode_nonzero(NUMBER, ARR1, ARR_FALSE) -> ARR_OUT
+    Erodes non-zero areas using a 3x3 structuring element. Non-zero
+    regions are set to NUMBER.
+
+--- $popvision/help/float_arrayprocs
+--- Copyright University of Sussex 2001. All rights reserved.

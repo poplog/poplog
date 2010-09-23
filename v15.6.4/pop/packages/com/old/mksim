@@ -1,0 +1,63 @@
+#!/bin/sh
+# $poplocal/local/com/mksim
+# Make image containing ved with lib objectclass poprulebase stuff
+#   sim_agent, and rc_graphic
+# A.Sloman Mon May 22 20:16:13 BST 1995
+
+poplib=""
+export poplib
+
+$popsys/pop11 %nort %noinit << \\\\
+
+false ->> popgctrace -> popsyscall;
+false -> pop_debugging;
+true -> pop_record_writeable ;
+
+load                $usepop/pop/lib/proto/objectclass.p
+lib                prblib.p
+load                ../prb/lib/poprulebase.p
+load                ../prb/lib/prb_extra.p
+load    ../prb/auto/prb_allpresent.p
+load    ../prb/auto/prb_assoc_memb.p
+load    ../prb/auto/prb_delete_rule.p
+load    ../prb/auto/prb_do_all.p
+load    ../prb/auto/prb_foreach.p
+load    ../prb/auto/prb_implies.p
+load    ../prb/auto/prb_interact.p
+load    ../prb/auto/prb_make_rule.p
+load    ../prb/auto/prb_map_action.p
+load    ../prb/auto/prb_menu_interact.p
+load    ../prb/auto/prb_pause_read.p
+load    ../prb/auto/prb_pr_rule.p
+load    ../prb/auto/prb_print_menu.p
+load    ../prb/auto/prb_push_or_pop.p
+load    ../prb/auto/prb_read_info.p
+load    ../prb/auto/prb_remove_all.p
+;;; load    ../prb/auto/prb_replace.p
+load    ../prb/auto/prb_rule_weight.p
+load    ../prb/auto/prb_save_or_restore.p
+load    ../prb/auto/prb_select_action.p
+load    ../prb/auto/prb_show_rules.p
+load    ../prb/auto/prb_trace.p
+load    ../prb/auto/prb_trace_rule.p
+;;;;load    ../prb/auto/prb_truncate.p
+load    ../prb/auto/prb_untrace.p
+load    ../prb/auto/prb_walk_trace.p
+lib                simlib.p
+load                ../sim/lib/sim_agent.p
+
+if sys_lock_system('$poplocalbin/sim.psv', 2:101, 'SIM') then
+
+    printf(pop_system_version,popheader,'%p\n%p\n');
+    setpop -> interrupt;
+    erase(trycompile('$poplib/init.p') or trycompile('init.p'));
+endif;
+
+sysexit();
+
+\\
+
+
+rm -f $poplocalbin/sim.psv-
+
+echo "sim.psv ready"

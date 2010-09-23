@@ -1,0 +1,143 @@
+HELP ARRAYSHIFT                                 David Young, Sep 1994
+
+The procedure arrayshift, loaded from LIB * ARRAYSHIFT, effectively
+shifts or translates the data in an array, without actually copying it
+to new storage. More accurately, arrayshift creates a new array
+procedure which shares the arrayvector (see *ARRAYS) of the original
+array but whose indices have been offset relative to the original
+indices.
+
+-----------------------------------------------------------------------
+1  Shifting data
+-----------------------------------------------------------------------
+
+arrayshift(array, shift) -> newarr
+        If array is an N-dimensional array (i.e. its *boundslist has
+        length 2N), then shift must be a list or vector of length N,
+        containing integers giving a shift (positive, zero or negative)
+        along each dimension in turn. The result newarr shares storage
+        with array, but the individual data elements have, in effect,
+        each been shifted relative to the coordinates. That is, if shift
+        is
+
+                {s1 s2 ... sN}
+
+        then the result satisfies
+
+                newarr(i1 + s1, i2 + s2, ..., iN + sN)
+             == array (i1,      i2,      ..., iN)
+
+        for all (i1, i2, ..., iN) inside the boundslist of array.
+
+        For example, if array is 2-D, and shift is {2 4}, then the datum
+        found at array(100, 100) will also be found at newarr(102, 104).
+
+-----------------------------------------------------------------------
+2  Shifting coordinates
+-----------------------------------------------------------------------
+
+The above use of arrayshift can be pictured as sliding the data around
+under a fixed grid, where the grid is labelled with the array indices
+(or coordinates). Sometimes it is more helpful to think of sliding the
+coordinate grid around over fixed data. An optional third argument can
+be used to effect this:
+
+arrayshift(array, shift, shiftcoords) -> newarr
+        The shiftcoords argument must be a boolean. If it is false, the
+        behaviour is the same as if it is omitted. If it is true, then
+        the shift is in the opposite direction to before, so that the
+        picture of the array coordinate system being shifted relative to
+        the data comes into operation.
+
+        The formal position is that after a call with shiftcoords given
+        as true, we have
+
+              newarr(i1,      i2,      ..., iN)
+            == array(i1 + s1, i2 + s2, ..., iN + sN)
+
+        so, for example, if shift is {2 4}, the datum at newarr(98, 96)
+        will be the same as that at array(100, 100).
+
+-----------------------------------------------------------------------
+3  Miscellaneous notes
+-----------------------------------------------------------------------
+
+As has been mentioned, array and newarr share storage, so updating one
+will also update the other. In general, this approach is much more
+efficient in time and storage than copying the data, but if you really
+want to copy, use *arraysample.
+
+The input and the result will have different boundslists, since the
+bounds are fixed to the data, but are expressed in array coordinates,
+and the procedure changes the relationship of the data to the
+coordinates.
+
+Arrays stored by column, and arrays offset in their arrayvectors (see
+REF * ARRAYS) are handled correctly.
+
+A list may be given instead of an array as the first argument. In this
+case a list is returned; the result is the boundslist of the array that
+would have been created if the first argument had been an array with the
+boundslist specified. In this case the shifts do not have to be
+integers, and if they are not the result will not contain integers, so
+cannot be a real boundslist.
+
+If the shift list or vector has the wrong length, a mishap will occur.
+
+A number may be given as the shift argument; this is equivalent to
+giving a vector of the right length, all of whose elements are equal to
+the number. This is probably most useful for 1-D arrays, when you don't
+want to have to create a list or vector.
+
+-----------------------------------------------------------------------
+4  Convolution example
+-----------------------------------------------------------------------
+
+The kind of use envisaged for arrayshift is in operations like
+convolution, where one wants to access the same array at different
+offsets. For example, a simple vertical edge enhancer might, for each
+pixel, subtract the value one column to the left from the value one
+column to the right of the current position.
+
+This can be done as follows:
+
+    uses arrayshift     ;;; load libraries
+    uses sunrasterfile
+    uses rci_show
+
+    ;;; get an example array to work on
+    vars arr = sunrasterfile(popvision_data dir_>< 'libry.ras');
+    rci_show(arr) -> ;  ;;; display it - see * RCI_SHOW
+
+    ;;; create an output array (must be different from arr) -
+    ;;; initialised to 0 as the far left and right columns cannot
+    ;;; be given values when we difference.
+    vars diff;
+    newarray(boundslist(arr), 0) -> diff;
+
+    ;;; create shifted versions of the input
+    vars left, right;
+    arrayshift(arr, {-1 0}, true) -> left;        ;;; shift coords left
+    arrayshift(arr, { 1 0}, true) -> right;       ;;; shift coords right
+
+    ;;; difference the shifted arrays (see * IN_ARRAY)
+    vars l, r, d;
+    for l, r, d in_array left, right, diff updating_last do
+        r - l -> d
+    endfor;
+
+    ;;; look at the result
+    rci_show(diff) -> ;         ;;; verticalish edges enhanced
+
+Note that we used the third argument to arrayshift to specify shifting
+the coordinate system left or right; this makes sense because the
+in_array loop subtracts values at corresponding coordinates.
+
+This approach can be generalised to other convolution-type operations.
+It can be both neater and more efficient that the conventional
+nested-loop type of code, although with the code above the number of
+pixels involved in each operation has to be known at compile time.
+
+
+--- $popvision/help/arrayshift
+--- Copyright University of Sussex 1994. All rights reserved.

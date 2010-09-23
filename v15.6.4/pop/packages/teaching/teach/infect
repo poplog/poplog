@@ -1,0 +1,361 @@
+TEACH INFECT                             Steve Hardy and A.S. Nov 1982
+
+=== SIMULATING THE SPREAD OF DISEASES!! ==============================
+
+What follows assumes that you have already worked through TEACH
+DATABASE, and understand, at least roughly, how the procedures ADD,
+REMOVE, PRESENT, and LOOKUP work. TEACH RIVER2 gives practice in using
+these procedures.
+
+You should also read TEACH FOREACH to see how FOREACH can be
+used to do something in relation to a whole set of database items.
+
+These ideas can be used to simulate a quite complicated process in which
+the world changes, and as certain changes occur they cause other changes
+to occur. As usual we choose a rather light-hearted example, but the
+principles are general and could be applied to many different problems.
+
+-- THE FIRST VERSION OF INFECT -----------------------------------------
+
+Here is an example of a procedure using the database. Don't worry if you
+don't completely understand the definition - for the moment be content
+to try it and make a guess. The procedure is to be called INFECT and it
+is to be given the name of some person. INFECT will add to the database
+that that person HAS FLU and then will check to see if that person
+KISSES anyone else; if so, INFECT will (recursively) give that person
+flu.
+
+    define infect(person);
+      vars other;
+      add([^^person has flu]);
+      if present([^^person kisses ??other]) then
+          infect(other);
+      endif;
+    enddefine;
+
+-- TRYING IT OUT ------------------------------------------------------
+
+Now try the new procedure:
+
+    : add([mary kisses john]);
+    : add([john kisses jane]);
+    : database ==>
+    : infect([steve]);
+    : database ==>
+    : infect([mary]);
+    : database ==>
+
+-  IF STATEMENTS DON'T HAVE TO HAVE AN 'ELSE ...' PART ---------------------
+
+The INFECT procedure is unusual in that it contains an IF statement with no
+ELSE part. This is because no action is necessary if the infected person
+has no friends.
+
+Notice that using INFECT doesn't cause anything to be printed; INFECT
+alters the DATABASE 'silently'.
+
+
+-- MAKING INFECT INTO A PRINTING PROCEDURE RATHER THAN A SILENT ONE -----
+
+We now have a further discussion of the INFECT procedure given earlier,
+since it illustrates several interesting points. This is what the
+definition was:
+
+    define infect(person);
+      vars other;
+      add([^^person has flu]);
+      if present([^^person kisses ??other]) then
+          infect(other);
+      endif;
+    enddefine;
+
+As mentioned earlier, INFECT is a 'silent' procedure; when you use it
+nothing gets printed. This can make it difficult to follow what is
+happening when the procedure is used. We can 'edit in' some print
+statements to get a better idea of what is happening:
+
+    define infect(person);
+      vars other;
+      [^^person is being infected] =>
+      add([^^person has flu]);
+      [about to see if ^^person kisses anyone] =>
+      if present([^^person kisses ??other]) then
+          [yes -- ^^person kisses ^^other] =>
+          [^^other is to be infected too] =>
+          infect(other);
+          [continuing to infect ^^person having finished with ^^other] =>
+      else
+          [no -- ^^person is chaste] =>
+      endif;
+      [^^person - and friends - all infected now] =>
+    enddefine;
+
+Put this definition into a file (with 'ENTER ved infect.p' if you decide to
+call the file 'infect.p').
+
+If you find it hard to copy from a TEACH file to a VED file you could
+re-read TEACH VEDPOP or else print a copy of this file onto paper. Ask if
+you don't know how to do this.
+
+-- DATABASE SETUP PROCEDURES ARE VERY USEFUL -------------------------------
+
+Add a second procedure to your file to set up an initial value for
+'database'. Remember that ESC-X will switch between two files (say this
+TEACH file and your VED file) for easier editing. The procedure to add is
+shown below:
+
+    define setup();
+      [] -> database;
+      add([john kisses mary]);
+      add([mary kisses bill]);
+      add([bill kisses jane]);
+      add([albert kisses ethel]);
+    enddefine;
+
+-- USING THE TALKATIVE VERSION OF INFECT -----------------------------------
+
+Now that you have both procedures in your file, go to POP-11 (with ENTER-X)
+and try the following commands:
+
+    : setup();
+    : database ==>
+
+This sets up a standard database for experimenting with INFECT. Now try:
+
+    : infect([steve]);
+    : database ==>
+
+-- INFECTING SOMEONE WITH A FRIEND (A CLOSE FRIEND) ------------------------
+
+Since there is no record of whom 'steve' 'kisses', INFECT does very little.
+Now we try infecting 'albert', thus:
+
+    : infect([albert]);
+    : database ==>
+
+-- USING TRACE TO GET MORE PRINTING ----------------------------------------
+
+It is important that you work out exactly what is going on with this
+example. If necessary, repeat the experiment, with INFECT 'traced'. To do
+this add the following line to the END of your file after the definition of
+INFECT:
+
+    : trace infect;
+
+Now go to POP-11 (with ENTER-X) and try the following:
+
+    : setup():
+    : infect([albert]);
+    : database ==>
+
+The 'trace' command tells POP-11 that you want to be told whenever it uses
+the definition of infect. Every time POP-11 starts to use INFECT, it prints
+a little message, like:
+
+    >infect [albert]
+
+and every time it gets to the end of the definition it prints a second
+little message like:
+
+    <infect
+
+As you can see, half way through infecting albert, POP-11 does a
+'recursive call' of infect to infect ethel.
+
+-- CIRCULAR DEFINITONS ARE ACCEPTABLE TO COMPUTERS -------------------------
+
+As you can see, although we have defined 'infect' in terms of itself it
+still works (who ever said circular definitions didn't work?). Try using
+infect to give 'john' flu, thus:
+
+    : setup();
+    : infect([john]);
+    : database ==>
+
+-- THE PROCEDURE HAS FAULTS ------------------------------------------------
+
+If you have clearly understood the INFECT procedure, you will realise that
+it has two serious faults. Firstly, it doesn't cater for the person who
+kisses more than one other person and secondly it doesn't cater for the
+possibility of loops (ie A kisses B, B kisses C and C kisses A). Arguably,
+the program has a third fault in that it doesn't recognize that kissing an
+infected person is as bad for your health as being kissed by one. This last
+fault will be ignored though the other two will be corrected.
+
+-- LOOPS IN THE KISSING NETWORK --------------------------------------------
+
+The second problem (loops in the kissing network) is simpler to correct, so
+that is dealt with first. Modifiy your SETUP procedure so that it creates
+a loop in the kissing network and (say by adding ETHEL KISSES ALBERT) and
+then try infecting ALBERT as follows. Since this leads to an infinite
+computation, you must press CTRL-C to stop it when you are clear what is
+going on.
+
+    : infect([albert]);
+
+
+-- INTRODUCING A CONDITIONAL TO BREAK THE EFFECT OF THE LOOP ---------------
+
+The 'obvious' solution to the looping problem is to have INFECT check if
+the person ALREADY has flu and if so do nothing. This can easily be
+accomplished by making all the existing code of INFECT one arm of a
+conditional, thus:
+
+    define infect(person);
+      if present([^^person has flu]) then
+          [^^person already has flu] =>
+      else
+          <all the old definition of 'infect'>
+      endif;
+    enddefine;
+
+If we were writing a silent version of infect (ie one with no print
+commands within it) we could write:
+
+    define infect(person);
+      if present([^^person has flu]) then
+      else
+          <old definition (without print commands)>
+      endif
+    enddefine;
+
+Notice how here, there is nothing between the THEN and the ELSE so,
+naturally, nothing gets done if the condition (in this a call of PRESENT)
+is true. Many people find conditionals with nothing in the arms a bit
+strange so an alternative, prettier syntax is allowed although the
+alternative syntax has no different meaning, thus:
+
+    define infect(person);
+      unless present([^^person has flu]) then
+          <old definition>
+      endunless;
+    enddefine;
+
+To summarize the new syntax, all three of the following forms have the same
+effect:
+
+    unless CONDITION then ACTIONS endunless;
+    if CONDITION then else ACTIONS endif;
+    if not(CONDITION) then ACTIONS endif;
+
+Modify the definition of INFECT in your file and try it on the modified
+database which includes loops in the kissing network.
+
+-- INFECTING THE PROMISCUOUS -----------------------------------------------
+
+The second problem (what to do if someone kisses TWO (or more) other people)
+is more complicated. To illustrate the problem, assume we have a database
+containing only 'facts' that ARTHUR KISSES ETHEL and ARTHUR KISSES VIOLET.
+When ARTHUR gets infected then both ETHEL and VIOLET ought to get infected
+too. However, the crucial line of INFECT is:
+
+    if present([^^person kisses ??other]) then infect(other) endif;
+
+and this line doesn't cater for there being more than one possible value
+for OTHER. If there are two possible ways of satisfying a call of PRESENT
+then the POP-11 system then one of them is chosen and the other ignored.
+Since PRESENT is defined in terms of MATCHES we can make a similar statement
+about MATCHES: if there is more than one way of satisfying a call of
+MATCHES then the system finds only one of the ways.
+
+-- INTRODUCING 'FOREACH' ---------------------------------------------------
+
+POP-11 provides a solution to this problem, namely the FOREACH command. The
+basic form a FOREACH command is:
+
+    foreach PATTERN do ACTIONS endforeach;
+
+The PATTERN should be something acceptable to PRESENT. The ACTIONS get done
+for each set of possible values for any query variables in the PATTERN. For
+example, the command:
+
+    foreach [albert kisses ??other] do
+      [^^other is lucky to be kissed by albert] =>
+    endforeach;
+
+will print out a message about each person kissed by ALBERT. The command:
+
+    if present([albert kisses ??other]) then
+      [^^other is lucky to be kissed by albert] =>
+    endif;
+
+will print out a message for only one of the possible values of OTHER.
+
+We can use FOREACH to find out who has flu, for example:
+
+    foreach [??person has flu] do
+      [i hope ^^person gets well soon] =>
+    endforeach;
+
+Try these examples now.
+
+-- MODIFYING INFECT TO USE FOREACH -----------------------------------------
+
+Using FOREACH we can now write a more effective versionof INFECT. The
+version shown below is a silent version; to make it talkative either insert
+some print commands (TRACE can also be used to add some talking to a silent
+procedure):
+
+    define infect(person);
+      vars other;
+      unless present([^^person has flu]) then
+          add([^^person has flu]);
+          foreach [^^person kisses ??other] do
+              infect(other);
+          endforeach;
+      endunless;
+    enddefine;
+
+-- SUMMARY -----------------------------------------------------------------
+
+Three procedures (ADD, REMOVE and PRESENT) have been introduced as has a
+new syntactic construction (FOREACH). These are used to manipulate a set of
+'facts' stored as a list in the variable DATABASE. The 'facts' describe
+some features of a small world (in which people kiss others and can have
+flu). A procedure INFECT has been written to modify the 'world description'
+when events in the 'real world' occur (like one person falling ill).
+
+-- A NOTE ON REPRESENTATION ------------------------------------------------
+
+So far, double-up-arrows have been used in the examples. This allows us,
+for example, to ADD things like [JOHN SMITH KISSES MARY] and retrieve them
+with PRESENT and the pattern [??X KISSES MARY] since ??X will match any
+number fo words and make them into a list (in this case, two words and the
+list [JOHN SMITH]).
+
+Suppose, however, we ADDed the 'fact' that:
+
+    [EVERY PERSON WHO KISSES MARY GETS FLU]
+
+We certainly don't want this retrieved by a pattern of the form [??X KISSES
+??Y] since then X would be set to [EVERY PERSON WHO] and Y would be set to
+[GETS FLU].
+
+To get over this problem, it is usual to always 'name' entities (like JOHN
+or MARY) with SINGLE WORDS. Then we can do:
+
+    : present([?x kisses ?y]) =>
+
+(using a SINGLE query) and be sure PRESENT won't be confused by statements
+like that above. Naturally, we would have to make more use of single
+UP-ARROWS than is done in the examples in this help file.
+
+If you want to represent the fact that, say, 'THE MOTHER OF JOHN' kisses
+'THE FATHER OF JOHN' then don't do:
+
+    : add([the mother of john kisses the father of john])
+
+but instead do:
+
+    : add([[the mother of john] kisses [the father of john]]);
+
+This can be retrieved with PRESENT([?X KISSES ?Y]).
+
+TEACH DATATHINK (suggested further reading if you are feeling ambitious)
+provides many examples of using single up-arrows and querys.
+
+-- WHAT TO DO NEXT -----------------------------------------------------
+
+Suggested further reading is TEACH DATATHINK and TEACH BLOCKS.
+
+For a brief summary of database facilities, see HELP DATABASE.

@@ -1,0 +1,487 @@
+HELP NEWS.V14_1                                  John Williams, Jul 1993
+
+For the most recent news, please see HELP * NEWS.
+
+1991
+
+Dec 13 (John Gibson)
+    --- A new active variable -pop_prolog_size- now enables the size of
+        the Prolog trail/continuation area to be set explicitly.
+        See REF *PROLOG. (There is also a corresponding Prolog predicate
+        -prolog_area_size-.)
+
+Nov 5 (Jon Meyer & John Williams)
+        The <ENTER> MAN command has been extended so that it is possible
+        to access manual page files which aren't included in $MANPATH.
+        See HELP * MAN.
+
+Nov 4 (Adrian Howard)
+        A non-upward compatible change has been made to shadowclass.
+        The typespecs created by the shadowclass command were
+        incorrect. For example, the declaration:
+
+                shadowclass foo {a:int, b:int};
+
+        would create a typespec "foo" that is the equivalent of
+
+                p_typespec foo {a:int, b:int};
+
+        This is incorrect since the shadowclass is NOT a "foo"
+        structure, but a POINTER to a "foo" structure. This meant
+        that the two declarations
+
+                shadowclass foo {a:int, b:int};
+                shadowclass foo_ptr {a_foo: foo};
+
+        Produced identical structures (from the external point of
+        view) with different access procedures.
+
+        To overcome this shadowclass has been changed so that it
+        does not assign typespecs by default. See the "Examples"
+        section of REF *SHADOWCLASS for more details.
+
+Oct 25 (Ian Rogers)
+        --- LIB * NEWFORTRAN_DEC has been deleted. It was deemed too
+        erroneous to have been used by anybody.
+
+        See HELP * EXTERNAL/Fortran for details of the original.
+
+Oct 18 (John Gibson)
+    --- The efficiency of the procedure -delete- has been considerably
+        improved, and the result list will now share the largest
+        possible trailing sublist with the original list (rather than
+        necessarily being a complete copy). In addition, -delete-,
+        -ncdelete- and -fast_ncdelete- now all take the same arguments,
+        i.e. as well as the item to delete and the list they allow
+        optional arguments to specify (a) the equals-procedure to use
+        when comparing items, and (b) the number of occurrences of the
+        item to delete. See REF *LISTS.
+
+    --- Fixed a bug which caused floating-point operations done
+        inside user procedures run after a garbage collection (e.g.
+        -pop_after_gc- or destroy actions) to corrupt the results of
+        float operations that were already in progress outside the GC
+        (that is, where the GC was caused by attempting to construct a
+        "ddecimal").
+
+Oct 10 (John Williams)
+    --- The ENTER HELPFOR command now searches the HELP files belonging
+        to the current subsystem before searching the POP-11 HELP
+        directory.
+
+Sept 14 (John Gibson)
+    --- As from Version 14.07, all POPLOG strings are guaranteed to be
+        null-terminated, i.e. to have a 0 byte following the last byte
+        of the string. This means that strings can be passed directly
+        to external C functions without modification.
+
+Sept 9 (Adrian Howard)
+    --- A recogniser for shadowclass  records, -isshadow-, added to  LIB
+        *SHADOWKEY, see REF *SHADOWCLASS.
+
+Sept 9 (Andreas Schoter)
+    --- The variable -popliblist- has been changed to -popautolist-
+
+Sept 6 (Jonathan Meyer)
+    --- The DEF macro can now test for sectionised identifiers. eg.
+
+            #_IF DEF $-foo$-baz
+
+Sept 5 (Julian Clinton)
+    --- The 'Poplog User Interface' for X Windows has been installed
+        in C.all/x/ui. See REF *POP_UI. LIB *POPLOG_UI loads it.
+
+Aug 30 (Adrian Howard)
+        Added -shadow_=-  to LIB  *SHADOWKEY (see  REF *SHADOWCLASS)  to
+        test for equality between  shadowclass records. Made  -shadow_=-
+        the -class_=- procedure of shadowclass records.
+
+Aug 23 (Robert Duncan)
+    --- A new saved image -- startup.psv -- is now included in the main
+        saved image directory, $popsavelib.
+
+        This "startup" image is loaded automatically by all Poplog
+        commands, including the base pop11 command. This is contrived by
+        redefining all the command symbols to include the startup image
+        in the initial argument list. For example, on Unix a new
+        environment variable $pop_pop11 is defined, with value
+
+            "-$popsavelib/startup.psv"
+
+        and on VMS, the pop11 symbol has been changed to have value
+
+            $popsys:pop11/popsavelib:startup.psv
+
+        The purpose of the startup image is to allow additional features
+        to be included by default with all Poplog commands. The actual
+        content of the image will vary from site to site, since it can
+        be modified whenever a new Poplog system is built with *NEWPOP.
+
+        Because the pop11 command now includes the restoration of a
+        saved image, the Poplog executable binary has been renamed
+        "basepop11" to avoid confusion, i.e. on Unix, the executable is
+        now:
+
+            $popsys/basepop11
+
+        and on VMS:
+
+            popsys:basepop11.exe
+
+        The symbol table and map files have been renamed accordingly.
+
+        You can execute the basepop11 command directly if you wish to
+        avoid the startup saved image.
+
+Aug 01 (Adrian Howard)
+    --- The  procedures  -vednextpara-   and  -vedprevpara-  have   been
+        improved     considerably.     The     associated     procedures
+        -vednextparaend- and -vedprevparaend-, used  to find the end  of
+        paragraphs, have also been added. See REF *VEDPROCS for details.
+
+July 31 (Adrian Howard)
+    --- The  procedures  -vednextsent-   and  -vedprevsent-  have   been
+        improved     considerably.     The     associated     procedures
+        -vednextsentend- and -vedprevsentend-, used  to find the end  of
+        sentences, have also been added. See REF *VEDPROCS for details.
+
+July 26 (Robert Duncan)
+    --- The default file used for output from LMR (vedlmr_print_in_file)
+        has been renamed 'output.p' for consistency across all language
+        subsystems. For details of how to change the output destination
+        see HELP * LMR.
+
+        The 'output.p' file is now also used as the default for
+        immediate mode compilation in place of 'interact.p'.
+
+July 12 (Aaron Sloman)
+    --- VED ENTER indexify, and ENTER g extended to allow an argument.
+        So that different header formats are more easily coped with,
+        and it is easier to produce an index of procedure definitions.
+        See HELP * VED_INDEXIFY
+
+July 2 (Ian Rogers)
+    --- Made significant speed improvements to the compilation of
+        Flavours code (ie. rationalising the autoloading behaviour).
+
+        An upshot of this is that it is no longer possible to to use
+        macro constructs within either the superclass and metaclass part
+        of a flavour header or within the ivars, divars and method name
+        declaration headers.
+
+        Although this change is not upwardly compatible, it should
+        affect only few, if any, programs.
+
+June 30 (Aaron Sloman)
+    --- Documentation on vedhardtabs in REF * VEDVARS was wrong (behaviour
+        when true and when false switched). Now fixed
+
+    --- Bug in * VEDCUTBLOCK and related procedures described in
+        HELP * VEDBLOCKS now fixed, by making -vedhardtabs- locally
+        false.
+
+June 29 (Aaron Sloman)
+    --- Unix Only: minor bug in LIB VED_NET fixed, and documentation for
+        Net News reading program improved. See HELP * VED_NET
+
+June 25 (Adrian Howard)
+    --- LIB *SLOWPROCS has been altered so that non-checkings procedures
+        are found by  looking for  "fast_" and "fi_"  prefixes. See  REF
+        *FASTPROCS and LIB *SLOWPROCS.
+
+June 24 (Aaron Sloman)
+    --- New utilities using the sys_timer facility described in
+        REF * TIMES, as follows:
+
+    --- New improved version of LIB * PROFILE, documented in
+        HELP *PROFILE
+
+    --- Two new VED facilities, LIB * VED_CLOCK and LIB * VED_ALARM
+        described in HELP * VED_CLOCK, * VED_ALARM (UNIX only)
+        The former shows the time on VED's status line. The latter
+        allows you to set one or more alarms, e.g. to remind you
+        to do something.
+
+June 22 (Aaron Sloman)
+    --- HELP * EFFICIENCY updated with information about compile-time
+    options provided in LIB * COMPILE_MODE and related files.
+
+    --- LIB * VED_FOLLOWUP (Unix only), now fixed not to ignore line
+    starting "Followup-To:". No longer takes note of "Approved:" lines.
+    See HELP * VED_POSTNEWS
+
+
+June 22 (Jonathan Meyer)
+    --- basic XVed documentation installed. See HELP *XVED
+
+June 20 (Simon Nichols)
+    --- A new library LIB * DEBUGGER has been added which defines a
+    source-level debugger for POP-11. The debugger accepts commands in
+    terms of the source files, line numbers and variable names of your
+    program. It enables you to:
+
+        -- set break points on source line numbers and procedures;
+
+        -- single-step execution;
+
+        -- examine and update all variables, including lexical ones;
+
+    and much else besides. See HELP * DEBUGGER for details.
+
+June 19 (Robert Duncan)
+    --- A new *SUBSYSTEM procedure -subsystem_searchlist- returns the
+    documentation or library search-lists appropriate to particular
+    subsystems. See REF * subsystem_searchlist.
+
+    --- The procedure -flatten_searchlist- has been modified just to
+    ignore procedures in search-lists rather than mishap.
+    See REF * flatten_searchlist.
+
+June 14 (Aaron Sloman)
+    LIB * VED_AUTOSAVE provides a mechanism making it possible to
+    instruct VED to save all changed files every N minutes. For
+    details see HELP * VED_AUTOSAVE
+
+June 10 (Aaron Sloman)
+    Minor changes to LIB DIREDPIPEIN, and LIB VEDPIPEIN to reduce
+    spurious refreshing with ENTER dired -l
+    See HELP * DIRED
+
+June 7 (Robert Duncan)
+    --- New library LIB * MKIMAGE added to simplify the making of saved
+    images. See HELP * MKIMAGE for details. The library largely
+    supersedes the existing LIB * MKSSIMAGE and LIB * MKVEDIMAGE.
+
+June 5  Version 14.04
+
+June 1 (Aaron Sloman)
+    --- ENTER ls fixed to deal with the case where the last produced
+        ls file is the only file left in VED.
+    --- New VED library command ved_nextsame searches the current and
+    "other" file for the next line that is the same in both. It is for
+    use with ved_diff in comparing two files. See HELP * VED_NEXTSAME
+
+    --- ved_diff (ENTER diff) has been revised so that when a difference
+    is found the command 'nextsame' is now set on the status line,
+    rather than 'nextdiff' See HELP * DIFF
+
+May 31 Version 14.03
+
+May 31 (John Gibson)
+    --- (VMS Only) There is now a procedure -sys_symbol_value- for
+    getting or setting DCL symbol values. See REF *sys_symbol_value.
+
+May 30 (Jon Meyer)
+    --- A "Vanilla" version of the XVed X based multi window Ved
+        editor has been Installed. It is loaded using LIB *XVED.
+
+May 30 (John Gibson)
+    --- There is a new mechanism called `runtime actions'. This allows
+    the execution of certain actions (procedures) to be delayed until
+    runtime, where `runtime' is indicated by whether or not the POPLOG
+    image/saved image being run was given the command-line argument
+    %nort. See the sections `Runtime Actions' and `General System
+    Startup' in REF *SYSTEM.
+
+    --- The "=" form of -exload- now works via runtime actions (the
+    main reason for which they were introduced). This is dealt with in
+    detail in REF *EXTERNAL, but in summary the consequences of the
+    change are
+
+        (a) A saved image that uses identifiers initialised with "=" is
+    only guaranteed to work properly under all circumstances if built in
+    a system run with %nort;
+
+        (b) The identifiers will not be assigned until runtime, and so
+    their values cannot be accessed at compile-time when building a
+    saved image in this way.
+
+
+May 29 (Simon Nichols)
+    --- You can now exit from any POPLOG language by typing
+
+        bye
+
+    to the prompt, or in VED, doing
+
+        <ENTER> bye
+
+    This is since the command "bye" has been added to Prolog and PML.
+
+May 16 (Simon Nichols)
+    --- Two new PWM libraries (courtesy of Reading University) added.
+    See LIB * PWM_MAKE_SETITEM and LIB * PWM_MAKE_SLIDERITEM.
+
+May  3 (Aaron Sloman)
+    --- LIB * WINDOWS modified to use "include sigdefs" so that it is
+        more portable.
+    --- The TEACH PROLOG file caused confusion for Unix users by
+    recommending typing CTRL-Z for end of file. This has been clarified.
+
+May  1 (John Gibson)
+    --- (VMS Only) The problem of POPLOG saved images not surviving new
+    releases of VMS (and giving the mishap 'SYSTEM HAS CHANGED IN SIZE'
+    etc) has now been considerably eased. This problem is due to VMS
+    shareable images having different sizes in different releases of
+    VMS, and, while it has not been eliminated altogether, several
+    important improvements have been made:
+
+    First, POPLOG will now only be affected by an EXPANSION in shareable
+    image size (previously even a contraction could not be coped with).
+    Second, the system now allows the user to control what percentage of
+    the space occupied by shareable images should be left free for them
+    to expand. This is done by giving the logical name
+    "pop_shrim_margin" an integer percent value (defaulting to 10% if
+    not set).
+
+    In addition, when a saved image does fail to restore because the
+    expansion margin allowed was insufficient, the system prints a more
+    helpful mishap message
+
+        crsv: CAN\'T RESTORE - VMS SHAREABLE IMAGES HAVE EXPANDED,
+                NEED TO REBUILD SAVED IMAGE
+        INVOLVING: 'expansion margin allowed A%, needed N%'
+
+    giving the percent A that was allowed when the saved image was
+    built, and the percent N that was required.
+
+    See the section `Note on VMS Saved Images' in REF *SYSTEM.
+
+
+Apr 18 (Jon Meyer)
+    --- Moved contents of LIB *SYSDEFS to INCLUDE *SYSDEFS.PH, and
+    changed LIB *SYSDEFS to do 'loadinclude sysdefs.ph;' This lets
+    programs do conditional compilation based on system configuration
+    without having to make so many global constants. Also closer to how
+    INCLUDE *SIGDEFS is.
+
+Apr 17 (John Gibson)
+    --- A new active variable -proglist_state- allows the complete state
+    of -proglist- and all its associated variables to be saved or
+    localised in a procedure. The procedure -proglist_new_state-
+    generates a state to assign to -proglist_state-, given an input
+    source (item list, character repeater or filename, etc) as argument.
+
+    The basic motivation for these is that processing a list locally in
+    -proglist-, e.g.
+
+            dlocal proglist = LIST;
+
+    is not guaranteed to work in all contexts, because it does not
+    properly localise (or initialise) the other data associated with
+    -proglist- (such as the stack of #_INCLUDEs or #_IFs, etc). The
+    above can now be done correctly with
+
+            dlocal proglist_state = proglist_new_state(LIST);
+
+    See the section `Proglist State Variables' in REF *PROGLIST.
+
+    --- An associated change is that -compile- now uses the above
+    facilities. This means that in addition to the usual character
+    repeater/filename values, it now it allows an item list as argument.
+    As a consequence, the procedure -popval- is redundant.
+
+Apr  5 (Jon Meyer)
+    --- Made define_inline macros accept 0 arguments, and improved the
+    way they read declarators. Added references to HELP *INLINE in
+    REF *SYNTAX/define_inline and HELP *DEFINE_FORM.
+
+Apr  3 (John Gibson)
+    --- Regrettably, it has been found necessary to introduce the
+    following (on some systems) non-upward-compatible change to the new
+    external calling mechanisms introduced in Version 14:
+
+    The result type "sfloat" for an external function now means exactly
+    what it says, i.e. the function returns a single-float datum.
+
+    This was not previously the case, because (like a "decimal"
+    argument to the old -external_apply-), "sfloat" assumed a result as
+    returned by a "float" function in C (which on some systems, e.g.
+    Suns, actually returns a double).
+
+    The C-style result is now catered for by the new type "float" (which
+    in all contexts other than a function result is identical to
+    "sfloat"). Thus to call a C "float" function with -exacc- (or
+    declare it in -exload- etc), use :float as the result typespec; for
+    any other language (e.g. a FORTRAN "real*4" function) use :sfloat.
+
+    This change does not affect double-float function results; use
+    :dfloat for these in all cases.
+
+    See REF *EXTERNAL, REF *KEYS.
+
+Mar 13 (John Williams)
+    --- New procedure *vedlinerepeater added. Returns successive lines
+    from the current VED buffer.
+
+Mar 7 (Roger Evans)
+    --- Core X toolkit documentation finally installed. See REF *X, REF
+    *XTOOLKIT, REF *XT_LIBS, REF *XptDescriptor, REF *SHADOWCLASS, among
+    others.
+
+Mar 4 (Aaron Sloman)
+    --- Altered vededitor so that on entry it does not try to force
+    input to a VED window, and on exit it does not force the base window
+    to open. The former can be achieved by including "ved" in the list
+    vedusepwmwindows (which unfortunately can cause some odd side
+    effects), the latter by including "ved_pop".
+    See REF * VEDUSEPWMWINDOWS
+
+Feb 26 (Aaron Sloman)
+    --- Revised entry for * issubitem in REF * STRINGS, and entries for
+    * vedwordright, * vedwordleft, * vedmoveitem, * vedatitemstart,
+    * vedatitemend, and * vedchartype, in REF * VEDPROCS.
+
+    --- REF * VEDPROCS substantially reorganised
+
+
+Feb 22 (John Williams)
+    --- <ENTER> HELPFOR now uses the same wild-card syntax as <ENTER> ?.
+    See HELP * HELPFOR.
+
+Feb 6  (Aaron Sloman)
+    --- Installed change to pwmtool procedure set_input_source() due to
+    Anthony Worrall, to stop excessive motion of cursor under PWM.
+
+Jan 14 (John Williams)
+    --- Version number changed to 14.01
+
+Jan 8 (David Young)
+    --- Made LIB * SHOWARRAY's use of fast integer procedures more
+    sensible and fixed a bug caused by the change of field specifiers.
+
+Jan 7 (Aaron Sloman)
+    --- Not documented for V14 (though in the system)
+    Two new VED identifiers to facilitate user control, and provide more
+    EMACS-like options:
+
+        vedlastcommand (last procedure run)
+
+        veduserdocommand(boolean, proc)
+            The boolean is true if called from veddocommand, false if
+            called from Ved_do_char action.
+
+    The context in both cases is of the form:
+
+        if isprocedure(veduserdocommand) then
+            veduserdocommand(<boolean>, action)
+        else
+            action();
+        endif;
+        action -> vedlastcommand;
+
+    I.e. if the user defines veduserdocommand then it MUST do the action
+    if it is to be done. It doesn't return a result saying whether it has
+    been done or not.
+
+Jan 7 (John Gibson)
+    --- A new procedure -sys_timer- implements multiple interval timers
+    (in all systems, Unix and VMS). Timers can run in either real time
+    or process-virtual time. See REF *sys_timer.
+
+
+    *********** For earlier news please see HELP NEWS.V14 **************
+
+
+--- C.all/help/news.v14_1
+--- Copyright University of Sussex 1993. All rights reserved.

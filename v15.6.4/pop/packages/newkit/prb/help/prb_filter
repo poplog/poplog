@@ -1,0 +1,399 @@
+HELP PRB_FILTER                                                June 1995
+                                          Aaron Sloman and Riccardo Poli
+
+NB the form of FILTER condition described here can be clumsy to use if
+you wish to run a neural net on all possible combinations of values of
+certain variables. The use of [DO ...] conditions introduced in April
+1996 make this easier to manage.
+
+
+FILTERING OF RULES IN LIB POPRULEBASE
+
+A set of facilities for smoothly interfacing condition-action rules with
+other mechanisms, for example neural nets.
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- Terminology
+ -- FILTER condition types
+ -- -- Boolean filter conditions: [FILTER BFP C1 C2 ... Cn]
+ -- -- Vector filter conditions: [FILTER VFP -> var C1 C2 ... Cn]
+ -- Action types to go with FILTER conditions
+ -- -- Actions following BFP filters.
+ -- -- Actions following VFP filters
+ -- -- The SELECT action type: [SELECT ?var A1 A2 ... An]
+ -- -- The MAP action type:  [MAP ?var MP A1 A2 ... An]
+ -- NOTES
+ -- Variables in FILTER CONDITIONS can be bound by earlier conditions
+ -- Some variables in a filter condition may be left ubound
+ -- Examples
+ -- -- The obstacle_avoidance rule
+ -- -- The wall_following rule
+ -- Further Reading
+
+-- Introduction -------------------------------------------------------
+
+The ideas described here are developments of the suggestions put forward
+in Poli and Brayshaw 1994.
+
+The features described here have a number of uses. In part they can be
+used simply to express in a concise form some condition/action rules
+that would normally require several different rules to handle different
+cases.
+
+In part they show how a "symbolic" rule-based system can naturally
+invoke, at certain key points, another type of mechanism, such as a
+neural net or other "sub-symbolic" system.
+
+This is achieved by means of two "FILTER" condition types, and two
+action types, "SELECT" and "MAP" actions, as described below.
+
+-- Terminology --------------------------------------------------------
+
+The following terminology is used:
+
+o Conditions are referred to as C1, C2, C3 ...
+
+    In poprulebase there are several different forms of conditions,
+    as described in HELP POPRULEBASE, the simplest being Pop-11
+    patterns.
+
+    In what follows I shall assume that only pattern conditions are
+    used. However it may be possible to generalise the mechanisms to
+    cope with more complex conditions e.g. OR or NOT or IMPLIES or even
+    FILTER conditions.
+
+o Actions are referred to as A1 A2 A3...
+
+    The types of actions permitted are described in HELP POPRULEBASE
+    They range from simple lists to be asserted to arbitrary Pop-11
+    actions.
+
+o A list of database items matching a simple condition Cn will be
+    referred to as LCn. If no items match, then LCn is false.
+
+o A veclist is a list of N elements derived from N conditions,
+    where each element of the veclist is either false or some other
+    object. This list can be thought of as representing the output
+    vector of something like a neural net, or some other system that
+    operates in parallel and produces a set of values. How they are
+    actually produced, and whether they are produced in parallel or
+    not is of no concern for the mechanisms described here.
+
+    By default at present the veclist initially derived from
+
+        [%C1, C2, ... Cn%]
+
+    will be
+
+        [%LC1, LC2, ... LCn%]
+
+    i.e. a list containing either lists of matching items or false.
+    In general however, a veclist with a different number can be
+    produced by a vector filter procedure VFP (see below).
+
+o A boolean filter procedure (BFP) takes both the initial list of
+    conditions and a veclist derived from the list of conditions and
+    returns true or false.
+
+        BFP(conditions, veclist) -> boolean
+
+    When the result is false, the filter condition of which it is a part
+    fails.
+
+    The BFP might proces the veclist by activating a neural net, or some
+    other (possibly trainable) sub-symboic mechanism.
+
+o A vector filter procedure (VFP) takes both the list of conditions
+    and a veclist derived from the list and returns false (if the rule
+    containing it is to fail) or another list, which may be a modified
+    veclist or some other list possibly of a different length from the
+    original.
+
+        VFP(conditions, veclist) -> false or veclist
+
+    A VFP might also activate a neural net or whatever to derive the
+    output list.
+
+o A map procedure (MP) takes a veclist and a list of actions A1...An
+    and a rule_instance from which they are derived, and performs some
+    (possibly) transformed subset of the actions, or other actions,
+    depending on the contents and the actions.
+
+       MP(veclist, actionlist, rule_instance);
+
+    The rule_instance will be a record of type prbactivation, to which
+    the prbactivation field-accessing procedures like prb_ruleof,
+    prb_varsof, prb_valsof, etc. can be applied.
+        (See HELP * POPRULEBASE/prbactivation )
+
+    E.g. if the ith element of the veclist is a list LCi of patterns,
+    then it may perform a collection of variants of Ai, one for each
+    element of LCi. Or it might do this only for a subset of the Ai,
+    selected according to some criterion. A map procedure may invoke a
+    sub-symbolic mechanism, such as a neural net.
+
+We can now describe the FILTER condition types and corresponding action
+types.
+
+
+-- FILTER condition types ---------------------------------------------
+
+There are two new filter condition types one using a (user-defined)
+boolean filter procedure BFP, and the other using a (user-defined)
+vector filter procedure VFP, whose output veclist is transferred to the
+corresponding select action or map action. The formats are:
+
+-- -- Boolean filter conditions: [FILTER BFP C1 C2 ... Cn]
+
+    [FILTER BFP C1 C2 ... Cn]
+        The BFP will be applied to a veclist of n items derived from
+        the n conditions and the condition will succeed or fail
+        depending on whether the result of BFP is non-false.
+        Note that the condition may have the NAME of a BFP or the
+        procedure itself as second element. (Using the name makes
+        debugging easier.)
+
+-- -- Vector filter conditions: [FILTER VFP -> var C1 C2 ... Cn]
+
+    [FILTER VFP -> var C1 C2 ... Cn]
+        The VFP will be applied to a veclist VL of n items derived from
+        the n conditions and should output either FALSE, in which case
+        the condition fails, or another list, the output veclist OVL,
+        of length m, where m need not be the same as n.
+
+        This list (OVL) may be the original veclist VL or some
+        transformed version, e.g. a set of numbers, or whatever.
+
+        The list  OVL will be transferred via the variable var to the
+        corresponding action, if the rule is selected by the conflict
+        resolution mechanism.
+        (Not all successful rules automatically have their actions
+        executed.)
+        Note that the condition may have the NAME of a VFP or the
+        procedure itself as second element.
+
+
+Note: these uses of "FILTER" correspond to the use of "SATISFY" in the
+Brayshaw and Poli paper. They write the word "satisfy" after the
+conditions.
+
+
+-- Action types to go with FILTER conditions --------------------------
+
+-- -- Actions following BFP filters.
+
+The simple FILTER condition using a BFP does not have any corresponding
+new action type. The filter merely specifies whether the rule is
+runnable and does not produce any new information to be used in the
+actions, which may be of any type.
+
+-- -- Actions following VFP filters
+
+For FILTER conditions that use a VFP to produce an output veclist
+derived from the conditions, a corresponding action can access the
+output veclist by using the variable to which the veclist is assigned.
+
+There are two cases, one where the veclist is used merely to select a
+subset of actions from an action list, and one where a user defined
+mapping procedure (MP) takes the veclist and the action list (and the
+rule instance) and does whatever it likes!
+
+-- -- The SELECT action type: [SELECT ?var A1 A2 ... An]
+
+    [SELECT ?var A1 A2 ... An]
+        The var should have a list of length n as value, derived from
+        a vector filter procedure in one of the conditions of the rule.
+        The non-false elements of the list will be used to select the
+        corresponding actions to be performed. This case is referred to
+        in the Brayshaw and Poli paper, though the syntax is different,
+        and the paper assumes that the outputs of VFPs are merely
+        boolean vectors.
+
+As B&P argue, the combination of FILTER and SELECT can collapse many
+normal condition-action rules into a single rule, which, in some cases,
+may be trainable, where the VFP is trainable.
+
+Note that if you wish a succession of actions to be selected, then the
+action type [DOALL Ai1, Ai2 Ai3 ...] can be used to combine several
+actions into one, as in this example
+
+     define :rule check_hypertension
+        [FILTER hyper_proc -> rulepredvar12
+         [sex ?sex]
+         [age ?a]
+         [blood_pressure ?bp]]
+            ;
+        [SELECT ?rulepredvar12
+         [DOALL [SAY 'The patient is an Hypertensive subject'] [STOP]]
+         [DOALL [SAY 'The patient is a normal subject'] [STOP]]]
+     enddefine;
+
+where hyper_proc might be a procedure that runs a neural net, given the
+values matching the conditions [sex ?sex] [age ?a] [blood_pressure ?bp]
+
+
+-- -- The MAP action type:  [MAP ?var MP A1 A2 ... An]
+
+    [MAP ?var MP A1 A2 ... An]
+        The var should have as value a veclist, which may or may not
+        have length n, where the veclist is derived from a vector filter
+        procedure in one of the FILTER conditions of the rule.
+
+        The mapping procedure MP will be applied to the value of var and
+        the list of actions A1 ... An, and the rule_instance
+        containing them.
+
+        This is even more general than the previous case. It may be so
+        general as to be useless! That remains to be seen.
+
+        As before DOALL can be used to include action sequences among
+        the options.
+
+It may be that later on some special cases of MAP procedures will be
+directly supported. LIB POPRULEBASE is implemented to allow new
+user-defined action types to be easily specified, and in fact, the MAP
+and select actions use that mechanism to extend the library via
+autoloadable library files, so that if they are not used they will not
+be compiled.
+
+-- NOTES --------------------------------------------------------------
+
+There are many issues to do with variable binding that have not been
+discussed above.
+
+-- Variables in FILTER CONDITIONS can be bound by earlier conditions
+
+1. At present the implementation is such that if the conditions in a
+FILTER condition include variables, then if any of those variables have
+been bound by earlier conditions in the same rule, then the
+corresponding instances of the conditions will be used. E.g. in this
+case:
+
+    [?x loves ?y] [FILTER BFP [?y loves ?z ] ...]
+
+the input to BFP will contain only items matching the pattern with
+?y instantiated consistently with an instance of [?x loves ?y]
+
+If there are several database items matching [?x loves ?y] then this
+will be done separately for each of them (i.e. there will be two
+runnable instances of the same rule, with different variable bindings).
+
+-- Some variables in a filter condition may be left ubound
+
+2. If the conditions in the filter condition list C1, ... Cn have any
+unbound shared variables then no attempt is made by the above mechanisms
+to ensure that only mutually consistent bindings are used. In that case
+it may be up to either the filter procedure BFP, or VFP, or the map
+procedure MP in a corresponding action, to do whatever is required to
+relate the different conditions, e.g. by doing Waltz filtering or some
+kind of constraint propagation.
+
+-- Examples
+
+Here are some examples from a demonstration being developed by Riccardo
+Poli and Aaron Sloman, using the SIM_AGENT toolkit.
+    (See TEACH SIM_AGENT)
+
+We consider a robot in space moving in a 2-D plane with 8 sensors, each
+recording the average distance of objects in a 45 degree cone, and two
+impulse accelerators, each able to give a positive or negative
+acceleration, one in the X direction and one in the Y direction.
+
+-- -- The obstacle_avoidance rule
+
+Assume that in order to avoid bumping into obstacles the system has been
+trained to use a neural net which takes as input a vector recording
+which sensors have recorded anything within a "touching" threshold,and
+then selects one of four acceleration patterns. We can incorporate this
+neural net into the rule base via the following rule using a FILTER
+condition which invokes a procedure run_avoid_net, to run the neural
+net, and a SELECT action to select the accelerations on the basis of the
+output from the neural net.
+
+If the procedure produces a non-false result, its output is a veclist
+assigned to avoid_net_output and when the action is run that veclist is
+used in a SELECT action, to chose the accelerations.
+
+The first condition and the last action are to prevent repeated
+activation in a time-slice. All the [== fired] patterns are removed
+after each time-slice.
+
+define :rule obstacle_avoidance
+    ;;; Conditions
+    [NOT obstacle_avoidance rule fired]
+    [FILTER run_avoid_net -> avoid_net_output
+        [new_sense_data touch sensor0]
+        [new_sense_data touch sensor45]
+        [new_sense_data touch sensor90]
+        [new_sense_data touch sensor135]
+        [new_sense_data touch sensor180]
+        [new_sense_data touch sensor225]
+        [new_sense_data touch sensor270]
+        [new_sense_data touch sensor315]
+    ]
+    ;
+    ;;; Actions
+    [SELECT ?avoid_net_output
+        [acceleration 0.006 -0.01]      ;;; sensor 180 touched
+        [acceleration -0.006 0.01]      ;;; sensor 0 touched
+        [acceleration -0.01 -0.006]     ;;; sensor 90 touched
+        [acceleration 0.01 0.006]       ;;; sensor 270 touched
+    ]
+    [SAY 'obstacle avoidance rule fired']
+    [obstacle_avoidance rule fired]
+enddefine;
+
+-- -- The wall_following rule
+
+Another example is a rule including a MAP action. Assume we have a
+filter procedure that can invoke a wall-following neural net. This net
+has been trained to accept the current x and y velocity and the eight
+sensor range values and output a veclist of information, which, if
+handed to a map function, wall_following_map, maps the veclist into some
+action. (In the limiting case the latter procedure can directly perform
+some action.)
+
+Here we have a filter procedure run_wall_following_net which is given
+the 2 velocities and the 8 range values and runs the neural net. Its
+output, the veclist, is saved in wall_following_output. If that is
+non-false, the MAP action is run, in which the wall_following_map
+procedure is given the veclist.
+
+
+define :rule wall_following
+    [NOT wall_following rule fired]
+    [FILTER run_wall_following_net -> wall_following_output
+        [new_sense_data velocity x =]
+        [new_sense_data velocity y =]
+        [new_sense_data range sensor0 =]
+        [new_sense_data range sensor45 =]
+        [new_sense_data range sensor90 =]
+        [new_sense_data range sensor135 =]
+        [new_sense_data range sensor180 =]
+        [new_sense_data range sensor225 =]
+        [new_sense_data range sensor270 =]
+        [new_sense_data range sensor315 =]
+    ]
+        ;
+    [MAP ?wall_following_output wall_following_map [] ]
+    [wall_following rule fired]
+    [SAY 'wall_following rule fired']
+enddefine;
+
+
+-- Further Reading ----------------------------------------------------
+
+HELP * POPRULEBASE
+LIB * POPRULEBASE
+
+Poli, R and Brayshaw, M.C (1994),
+    A hybrid trainable rule-based system.
+    (Submitted for publication)
+
+To be extended....
+
+--- $poplocal/local/prb/help/prb_filter
+--- Copyright University of Birmingham 1996. All rights reserved. ------

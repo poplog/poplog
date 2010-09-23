@@ -1,0 +1,433 @@
+TEACH PRODSYS                               Mike Sharples, November 1984
+
+                    Production Systems
+                    ==================
+
+A production system is a means of codifying knowledge, as a set of
+'condition-action' rules ("if this condition occurs, then take this action").
+It has three major parts:
+
+    a) A production memory, consisting of a set if IF-THEN type statements
+       called 'production rules' or 'productions'.
+
+    b) A database called 'working memory' consisting of a set of data items on
+       which the production rules operate.
+
+    c) The interpreter, which is the system's control mechanism. It determines
+       the order in which production rules are operated (or 'fired').
+
+The DATABASE package, with its procedures "allpresent", "alladd" and
+"allremove", provides a convenient means for writing simple production
+systems.
+
+A very simple production system program might look like the following:
+
+    define psys(database) -> database;
+        while true then
+            if allpresent([[...] ...]) then
+                allremove(...);
+                alladd(...);
+            elseif allpresent(...) then
+                ...
+            else
+                return;
+            endif
+        endif
+    enddefine;
+
+The basic idea of a production system program is that it should contain a
+master loop (while true then ... endwhile), which contains a multiway
+conditional. The conditions should be the presence of certain items in the
+database (a call of "allpresent"). For example, one section of the conditional
+might be:
+
+    elseif allpresent([[wear sunglasses] [forecast rain]]) then
+        allremove([[wear sunglasses]]);
+        alladd([[wear raincoat]]);
+
+The action should be simply a call of "alladd" and/or a call of "allremove". To
+contact the outside world you are permitted to have a print statement (using
+the print arrow) and a read statement the result of which should be added to
+the database, thus:
+
+    add(readline());
+
+One problem of writing production rules as IF...THEN clauses is that the order
+in which then conditions are matched is fixed (the first rule is matched
+against the database, if no match occurs then the second rule is tried, and so
+on). We might, however, want to match the rules differently. For instance if
+the condition of more than one rule matches the database, then choose a rule
+that has not been fired before.  It is better to write each rule as an
+individual 'module' and provide an 'interpreter' that decides the order in
+which the rules are fired.
+
+The PRODSYS package provides an interpreter for production rules that are
+written in the form:
+
+    rule RULENAME [ CONDITION ] ;
+        ACTION ;
+        ACTION ;
+          .
+          .
+    endrule ;
+
+To use it, type
+
+    lib prodsys;
+
+Then define your production rules as follows -
+
+A production rule is similar to a procedure in that it has a header line, which
+describes when it is to be used and what values its parameters are to have,
+followed by a body, i.e. some POP-11 code specifying what it is to do when it
+is invoked. The major difference between a production rule definition and a
+procedure definition is that the header line for a rule simply contains
+a sequence of patterns, describing items which are expected to be in the
+database for the production rule to be runnable.
+
+Thus
+    rule 1 [wear sunglasses] [forecast rain] ;
+        remove([wear sunglasses]);
+        add([wear raincoat]);
+    endrule;
+
+defines a rule which will be available for use if there are two items in
+the database which match the patterns [wear sunglasses] and [forecast rain].
+If the system decides to try running this rule, then the patterns will be
+matched, using the standard POP-11 matcher, against items in the database,
+until both patterns are matched.
+
+We can use variables to make the rule more general:
+
+    rule 2 [wear ?x] [forecast rain] ;
+        remove([wear ^x]);
+        add([wear raincoat]);
+    endrule;
+
+When the patterns are matched against the database, the variable 'x' will be
+given the appropriate value from the matched item (as usual), so that inside
+the body of the rule this value will be used wherever the value of 'x' is
+required. The variables appearing in the pattern part of a rule are taken to
+be local to that rule, so there is no danger of clashes being caused because
+one rule has bound a variable that is local to another. You can have extra
+locals, by declaring them with a "lvars" or "dlocal" statement, just as
+you would in an ordinary procedure.
+
+If the first element of any pattern is the word "not", that pattern will be
+satisfied if there are NO items in the database which match its second
+element, eg [not [forecast rain]] (setting "repeating" to false (see below)
+will NOT prevent such rules from firing repeatedly). A rule whose header
+contains no patterns will always be runnable, since there are no patterns to
+be matched; it is thus possible to define a default rule by giving it an empty
+header line, e.g.
+
+    rule default ;
+        [Doing default] =>
+        ...
+    endrule;
+
+When you have written your production rules you can load them like normal
+POP11 procedures, by marking the range and doing CTRL-D. They will be
+autumatically stored in a list called "rulebase". If you want to reload them,
+you should first reset "rulebase" to nil. It's probably best to put all your
+production rule definitions in a file, and to start the file with
+
+    nil -> rulebase;
+
+to make sure. Each rule will be stored as a 3-element list, with the
+first two elements being the pattern and the body, and the third being a
+translation of the rule into compiled POP-11. Thus you can inspect
+rules (by printing all or part of the list "rulebase"), and by looking
+at the stored values of the pattern and the body you can see what they are
+supposed to do; but changing these stored values will not in fact make any
+difference to what the rule actually does, since that is embodied in the
+compiled form - the other components are for inspection only.
+
+To run your production system, call the procedure "run", thus:
+
+    run();
+
+It uses the normal POP11 database as its working memory, and calls up the list
+of production rules stored in "rulebase".  The database must be set to the
+initial conditions of the working memory:
+
+    [[wear sunglasses] [forecast rain]] -> database;
+    run();
+
+This runs the rules until there are none left whose patterns match items
+in the database, or till one whose body contains a call of the procedure
+"end_sys" is run. The final value of the database represents the working
+memory after the rules have been fired:
+
+    database =>
+    ** [[wear raincoat][forecast rain]]
+
+There are four control variables which alter the way the production system
+works:
+        chatty
+            if this is set true then the system prints out the database before
+            each rule is activated and also prints out the rule being used
+        walk
+            if this is set true the system pauses before firing a rule and
+            waits for a response. You can either press return to continue with
+            the next rule, or type "why" to be shown the conditions that cause
+            the rule to be fired, or "show" to be given a listing of the rule.
+        repeating
+            if this is set false the system will not trigger the same rule on
+            the same database items twice.
+        backtracking
+            if this is set true, then you may use rules which call the
+            procedure "fail". When "fail" is called, the system is reset to
+            the state it was in when the previous rule was chosen and
+            run, and the next matching rule (if there is one) is chosen
+            instead.
+
+If you don't set your own values for these variables then "chatty" and
+"repeating" are made true and "walk" and "backtracking" are  made false. You
+are not allowed to have "repeating" set to false and "backtracking" set to
+true at the same time, since there are clashes between the way they work.
+
+EXERCISES
+=========
+
+1. Define the production Rule 1 given above, then try:
+
+        [[wear sunglasses] [forecast rain]] -> database;
+        run();
+
+   and see what happens. Next, substitute Rule 2 and run it with the same
+   database. You will need to press control-C to halt the program. Modify
+   the production rule so that the program will halt.
+
+2. Below is a set of production rules for a simple 'wine advisor':
+
+        nil -> rulebase;
+
+        false -> repeating;
+        false -> chatty;
+
+        /* Determine the type of dish */
+
+        rule get_dish [wine property main_dish is unknown];
+            lvars dish;
+            pr('Is the main dish fish, meat, or poultry');
+            readline()->dish;
+            add([wine property main_dish is ^^dish]);
+            remove([wine property main_dish is unknown]);
+        endrule;
+
+        /* The next three rules determine the colour of the wine */
+
+        rule colour1 [wine property main_dish is fish];
+            add([wine property chosen_colour is white certainty 0.9]);
+            add([wine property chosen_colour is red certainty 0.1]);
+        endrule;
+
+        rule colour2 [wine property main_dish is poultry];
+            add([wine property chosen_colour is white certainty 0.9]);
+            add([wine property chosen_colour is red certainty 0.3]);
+        endrule;
+
+        rule colour3 [wine property main_dish is meat];
+            add([wine property chosen_colour is red certainty 0.7]);
+            add([wine property chosen_colour is white certainty 0.2]);
+        endrule;
+
+        /* This rule is fired if the user does not state the main dish */
+
+        rule dish_unknown [wine property main_dish is      ];
+            add([wine property chosen_colour is red certainty 0.5]);
+            add([wine property chosen_colour is white certainty 0.5]);
+        endrule;
+
+        /* Discover which colour of wine the user prefers */
+
+        rule find_colour [wine property preferred_colour is unknown];
+            lvars preference;
+            pr('Do you prefer red or white wine');
+            readline()->preference;
+            add([wine property preferred_colour is ^^preference
+                    certainty 1.0]);
+            remove([wine property preferred_colour is unknown]);
+        endrule;
+
+
+        /* This rule is fired if the user does not express a preference */
+
+        rule no_preference
+                [wine property preferred_colour is   certainty 1.0];
+            add([wine property preferred_colour is red certainty 0.5]);
+            add([wine property preferred_colour is white certainty 0.5]);
+        endrule;
+
+        /* The next two rules merge the user's preference with the program's
+        *  choice of colour (based on the type of dish)
+        */
+
+        rule merge1 [wine property chosen_colour is ?colour1 certainty ?cert1]
+                [wine property preferred_colour is ^colour1 certainty ?cert2];
+            add([wine property colour is ^colour1 certainty
+                    ^(cert1 + (0.4 * cert2 * (1 - cert1)))]);
+            remove ([wine property chosen_colour is ^colour1
+                        certainty ^cert1]);
+            remove ([wine property preferred_colour is ^colour1
+                        certainty ^cert2]);
+        endrule;
+
+        /* Cannot reconcile colours (ie. no preferred_colour for a particular
+         * colour)
+         */
+
+        rule merge2 [wine property chosen_colour is ?colour certainty ?cert];
+            remove ([wine property chosen_colour is ^colour certainty ^cert]);
+            add ([wine property colour is ^colour certainty ^cert]);
+        endrule;
+
+        /* Print out the suggested wine.
+           The special condition beginning with "where" specifies that
+           this rule only applies if cert2 is greater than cert1.
+           This ensures that the colour with the greater certainty is
+           printed out.
+           A "where clause" can be included in any rule, but only at the
+           end of the condition; there can be only one per rule.  It
+           consists of the word "where", followed by any POP-11 expression,
+           which ends at the semi-colon at the end of the condition.
+           The expression must return true or false, and the rule is only
+           fired if in addition to all the patterns being present, the
+           "where" expression returns true.
+           */
+
+        rule print_wine
+                [wine property colour is ?colour1 certainty ?cert1]
+                [wine property colour is ?colour2 certainty ?cert2]
+                where cert2 > cert1;
+            remove([wine property colour is ^colour1 certainty ^cert1]);
+            remove([wine property colour is ^colour2 certainty ^cert2]);
+            [I would suggest a ^colour2 wine with a certainty of ^cert2]=>
+        endrule;
+
+
+        /* Default rule, fired if certainties for red and white are equal.
+           Again, a "where clause" is used to check part of the condition,
+           namely that colour1 and colour2 are different. */
+
+        rule either
+                [wine property colour is ?colour1 certainty ?cert1]
+                [wine property colour is ?colour2 certainty ^cert1]
+                where colour1 /= colour2;
+            remove([wine property colour is ^colour1 certainty ^cert1]);
+            remove([wine property colour is ^colour2 certainty ^cert1]);
+            [Either a red or a white wine would be appropriate]=>
+        endrule;
+
+    Run the rules with the following initial database
+
+        [[wine property main_dish is unknown]
+         [wine property preferred_colour is unknown]]
+
+    Try giving different responses to the questions (including just pressing
+    RETURN). Set "chatty" to true and run the system for a meat dish, with a
+    preference for white wine. Hand in a listing of the output from this run.
+
+3.  Define two productions as follows -
+
+        rule 1 [part_result fact ?n 1] ;
+            remove([part_result fact ^n 1]);
+            add([result ^n]);
+        endrule;
+
+        rule 2 [part_result fact ?n ?m] ;
+            remove([part_result fact ^n ^m]);
+            add([part_result fact ^(n*m) ^(m-1)]);
+        endrule;
+
+   Now call "run" with the database:
+
+       [[part_result fact 1 7]]
+
+   with "chatty" set to true. Write a short description of how these two
+   productions calculate factorial 7.
+
+4. Write some simple production systems of your own for LIB PRODSYS and run
+   them. Some possible examples:
+
+      - A program that takes a database containing two lists and puts them
+        together into one big list (this will be quite similar to the two
+        productions that find factorial for you).
+
+      - A program that guesses an animal thought up by the user (as in TEACH
+        DISCRIM). This one will need to have rules that contain calls of
+        "readline", or something similar, in their bodies, so that they can
+        ask you questions.
+
+      - A program that diagnoses faults in something like a bicycle, a
+        car, or a sick person. This one will probably also need to have
+        rules which ask you questions to guide it, eg:
+
+            rule no_start [fails to start] ;
+                lvars x ;
+                pr('Does the engine turn over');
+                readline() -> x;
+                add([engine turns ^x]);
+             endrule;
+
+             rule no_power [engine turns [no]];
+                lvars x ;
+                pr('Do the lights work');
+                readline() -> x;
+                add([lights work ^x]);
+             endrule;
+
+             rule no_lights [lights work [no]] ;
+                [battery is flat] =>
+             endrule;
+
+        Note that you will have to set "repeating" to false to get sensible
+        behaviour from this set of rules. Why ? Why do the follow up
+        rules have [no] in their patterns ?
+
+   It is possible to spend years writing production systems that do things
+   like diagnose illnesses, or check for reasons why a car fails to start. You
+   should set yourself a reasonable target when attempting this exercise; it
+   may be possible to continue it as a project if you get very involved.
+
+
+5. Read some of the references below.
+
+                               References
+                               ----------
+
+The most useful of the following references is likely to be the Waterman
+and  Hayes  book,  "Pattern Directed Inference Systems", as this book is
+intended as an introduction to  the  field  and  contains  an  extensive
+bibliography.  The library has at least one copy of this book.
+
+Bundy A. et al section on production systems in Artificial Intelligence.
+
+Davis, R. & King, J. "An Overview of Production Systems", Machine
+     Intelligence 8.
+
+Newell, A. - "Production systems: Models of control structures", In W.G.
+     Chase (ed), "Visual Information Processing" 1973, pp463-526.
+
+Newell, A. "On The Analysis of Human Problem Solving Protocols". In
+     Johnson-Laird, P.N. and Wason, P.C, "Thinking".
+
+Waterman, D.A. "Adaptive production  systems",  4th IJCAI Proceedings,
+     September, 1975, pp.296-303.
+
+Waterman, D.A.  &  Hayes-Roth,  F  (eds)  -  "Pattern-Directed Inference
+     Systems", Academic Press, 1978
+
+Winston, P. Section on production systems  in  Artificial Intelligence,
+     Addison Wesley
+
+Young, R.M.  "Production Systems as Models of  Cognitive  Development",
+     in AISB I (1974), conference proceedings.
+
+Young, R.M. "Production Systems For Modelling Human Cognition",
+     in "Expert Systems In The Micro-electronic World", ed. D.Michie
+
+
+--- ___________________C.all/teach/prodsys
+--- _________Copyright __________University __of ______Sussex _____1995. ___All ______rights _________reserved.

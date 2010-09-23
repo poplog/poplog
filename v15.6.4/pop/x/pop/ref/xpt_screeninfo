@@ -1,0 +1,252 @@
+REF XPT_SCREENINFO                                   Jon Meyer, Nov 1990
+                                        Revised: Adrian Howard, Jul 1993
+
+       COPYRIGHT University of Sussex 1990. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<    ACCESSING CONTENTS OF    >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<     X SCREEN STRUCTURES     >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+The X screen structure (see * XptScreenPtr) contains information on  the
+display  hardware  of   a  screen   on  a  specified   X  display   (see
+* XptDisplayPtr.) The following details how to access this information.
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Overview
+
+  2   LIB XPT_SCREENINFO
+
+  3   LIB FAST_XPT_SCREENINFO
+
+  4   Related Procedures
+
+
+
+-----------
+1  Overview
+-----------
+
+An X Screen structure contains  information about the screen upon  which
+widgets   are    displayed.   Such    information   includes    physical
+characteristics  such   as   size  and   depth   as  well   as   logical
+characteristics such as default foreground and background pixel values.
+
+LIB * XPT_SCREENINFO and LIB * FAST_XPT_SCREENINFO provide procedures to
+extract information  from  * XptScreenPtr  structures  (as  returned  by
+* XtScreen for example.)
+
+These procedures are also used  in * XptScreenPtrApply which allows  the
+programmer to write constructs like
+
+    screen("width")
+
+to access the width  (in pixels) of  the XptScreenPtr structure  screen.
+See REF * XPT_CLASSAPPLY for details of this mechanism.
+
+NOTE: The X Screen  structure is meant  to be opaque  and should not  be
+accessed directly.  The procedures  outlined in  the following  sections
+should always be used.
+
+The procedures supplied by  this library are  direct equivalents of  the
+Xlib C functions. For information on  the C functions see section  2.2.3
+"Screen Information Macros" in:
+
+                     Xlib - C Language X Interface,
+                       MIT X Consortium Standard,
+                         X Version 11, Release 4
+
+        Copyright (C) 1985, 1986, 1987, 1988, 1989 Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+
+
+---------------------
+2  LIB XPT_SCREENINFO
+---------------------
+
+LIB * XPT_SCREENINFO provides the following procedures:
+
+
+XWidthOfScreen(screenptr) -> int                             [procedure]
+XHeightOfScreen(screenptr) -> int                            [procedure]
+        Returns the width  and height  of specified  screen measured  in
+        pixels. Compare with * XDisplayHeight and * XDisplayWidth.
+
+
+XWidthMMOfScreen(screenptr) -> int                           [procedure]
+XHeightMMOfScreen(screenptr) -> int                          [procedure]
+        Returns the width and height of the specified screen measured in
+        millimetres. Compare with the  procedures * XDisplayWidthMM  and
+        * XDisplayHeightMM.
+
+
+XPlanesOfScreen(screenptr) -> int                            [procedure]
+XDefaultDepthOfScreen(screenptr) -> int                      [procedure]
+        Returns the number of display planes  in the root window of  the
+        specified screen  (ie.  its depth).  Monochrome  screens  have 1
+        plane, colour screens have 2, 4, 8 or more planes.
+
+        Compare with * XDefaultDepth
+
+        XDefaultDepthOfScreen is a synonym for XPlanesOfScreen.
+
+
+XRootWindowOfScreen(screenptr) -> window                     [procedure]
+        Returns the  XID of  the root  window of  the specified  screen.
+        Compare with * XRootWindow and * XDefaultRootWindow.
+
+
+XDefaultGCOfScreen(screenptr) -> gc                          [procedure]
+        Returns the default graphics  context for the specified  screen.
+        Compare with * XDefaultGC.
+
+        gc is created  for the  convenience of  simple applications  and
+        contains the  default  GC  components with  the  foreground  and
+        background pixels set  to the pixels  returned by  * XBlackPixel
+        and * XWhitePixel respectively. The returned  gc is not used  in
+        any Xlib functions and can be modified freely.
+
+        IMPORTANT NOTE: The GC should never be freed.
+
+        See REF * XGraphicsContext for more details on handling  graphic
+        contexts in Xlib. Compare with * XDefaultGC.
+
+
+XBlackPixelOfScreen(screenptr) -> int                        [procedure]
+XWhitePixelOfScreen(screenptr) -> int                        [procedure]
+        Returns the pixel  value for black  and for white  on the  given
+        screen. These  colours  are  guaranteed  to  contrast  with  one
+        another, but  they  may  not actually  be  "black"  or  "white".
+        Compare with * XWhitePixel and * XBlackPixel.
+
+
+XDisplayOfScreen(screenptr) -> displayptr                    [procedure]
+        Returns a pointer to the  display associated with the  specified
+        screen. Each Display has one or more screens, and is therefore a
+        logical collection of screens. A display corresponds to a single
+        X Server connection. Compare with * XDefaultScreenOfDisplay  and
+        * XScreenOfDisplay.
+
+
+XCellsOfScreen(screenptr) -> int                             [procedure]
+        Returns the number of color cells in the default colormap of the
+        specified   screen   (see   REF * XColorcells.)   Compare   with
+        * XDisplayCells.
+
+
+XMinCmapsOfScreen(screenptr) -> int                          [procedure]
+XMaxCmapsOfScreen(screenptr) -> int                          [procedure]
+        Returns the minimum and maximum number of colormaps that can  be
+        installed on the specified screen. See REF * XColormaps for more
+        information on colormap installation.
+
+
+XDoesSaveUnders(screenptr) -> bool                           [procedure]
+        Returns true  if the  specified screen  supports "save  unders."
+        This means that the screen is capable of storing the contents of
+        a window  when it  is covered  by another.  When the  window  is
+        uncovered  again  the  contents  can  be  restored  without  the
+        application having to re-draw it.
+
+        NOTE: Just because  the screen supports  this facility does  not
+        mean it will always be used.
+
+
+XDoesBackingStore(screenptr) -> int                          [procedure]
+        Test  whether  the  specified  screen  supports  backing  store.
+        Returns one of * WhenMapped, * NotUseful, and * Always.
+
+        If the screen supports backing  store then the server  maintains
+        copies of  the  contents of  windows  so they  can  be  restored
+        without having  to  get  the application  to  re-draw  them  via
+        * Expose events.
+
+        Compare with * XptDoesBackingStore.
+
+
+XEventMaskOfScreen(screenptr) -> mask                        [procedure]
+        Returns the  event mask  of the  root window  for the  specified
+        screen at connection setup time.
+
+
+XDefaultColormapOfScreen(screenptr) -> colormap              [procedure]
+        Returns the default  colormap of the  specified screen.  Compare
+        with * XDefaultColormap.
+
+
+XDefaultVisualOfScreen(screenptr) -> visual                  [procedure]
+        Returns the default visual of the specified screen. Compare with
+        * XDefaultVisual.
+
+
+XScreenNumberOfScreen(screenptr) -> int                      [procedure]
+        Returns the  screen index  number of  the specified  screen  (as
+        passed to procedures line * XDefaultVisual.)
+
+
+
+
+--------------------------
+3  LIB FAST_XPT_SCREENINFO
+--------------------------
+
+The following procedures are provided by LIB * FAST_XPT_SCREENINFO:
+
+
+fast_XWidthOfScreen(screenptr) -> int                        [procedure]
+fast_XHeightOfScreen(screenptr) -> int                       [procedure]
+fast_XWidthMMOfScreen(screenptr) -> int                      [procedure]
+fast_XHeightMMOfScreen(screenptr) -> int                     [procedure]
+fast_XPlanesOfScreen(screenptr) -> int                       [procedure]
+fast_XRootWindowOfScreen(screenptr) -> window                [procedure]
+fast_XDefaultGCOfScreen(screenptr) -> gc                     [procedure]
+fast_XBlackPixelOfScreen(screenptr) -> int                   [procedure]
+fast_XWhitePixelOfScreen(screenptr) -> int                   [procedure]
+fast_XDisplayOfScreen(screenptr) -> displayptr               [procedure]
+fast_XCellsOfScreen(screenptr) -> int                        [procedure]
+fast_XMinCmapsOfScreen(screenptr) -> int                     [procedure]
+fast_XMaxCmapsOfScreen(screenptr) -> int                     [procedure]
+fast_XDoesSaveUnders(screenptr) -> bool                      [procedure]
+fast_XDoesBackingStore(screenptr) -> int                     [procedure]
+fast_XEventMaskOfScreen(screenptr) -> mask                   [procedure]
+fast_XDefaultColormapOfScreen(screenptr) -> colormap         [procedure]
+fast_XDefaultVisualOfScreen(screenptr) -> visual             [procedure]
+fast_XDefaultDepthOfScreen(screenptr) -> int                 [procedure]
+fast_XScreenNumberOfScreen(screenptr) -> int                 [procedure]
+        As for  the  procedures  in  LIB * XPT_SCREENINFO,  but  without
+        checks for valid arguments. These procedures should only be used
+        in fully debugged programs. See REF * XTOOLKIT for full  details
+        of the POPLOG X naming conventions for non-checking and checking
+        procedures. Also see REF * FASTPROCS.
+
+
+
+
+---------------------
+4  Related Procedures
+---------------------
+
+The following procedures are related to  the above libraries and may  be
+of interest:
+
+    * XptScreenPtrApply
+        The  procedure   called  by   * class_apply  of   * XptScreenPtr
+        structures. See REF * XPT_CLASSAPPLY.
+
+
+XptDoesBackingStore(screenptr) -> word                       [procedure]
+        As for * XDoesBackingStore but  returns the words  "whenmapped",
+        "notuseful", and "always" instead of numeric constants.
+
+
+
+
+--- C.x/x/pop/ref/xpt_screeninfo
+--- Copyright University of Sussex 1993. All rights reserved.

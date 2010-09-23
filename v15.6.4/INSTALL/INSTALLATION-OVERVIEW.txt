@@ -1,0 +1,191 @@
+HOW THE POPLOG V15.62 INSTALLATION PROCESS WORKS:
+A HIGH LEVEL OVERVIEW
+Aaron Sloman
+http://www.cs.bham.ac.uk/~axs/
+6 Nov 2008
+
+The latest version of this file should be available here
+
+    http://www.cs.bham.ac.uk/research/projects/poplog/v15.62/INSTALLATION-OVERVIEW.txt
+
+This is a high level overview of what happens when you run the
+shell script
+    INSTALL_BHAM_LINUX_POPLOG
+
+If you run it without arguments it merely prints out instructions.
+
+If you run it with arguments, e.g.
+
+    ./INSTALL_BHAM_LINUX_POPLOG  motif bham /usr/local/poplog links > install.log 2>&1
+
+the install script sets various environment variables on the basis
+of the arguments provided, and creates the $rootdir directory to
+install to in this case
+
+    /usr/local/poplog
+
+which is also the default, and subdirectory
+
+    /usr/local/poplog/local
+
+for site-specific local additions.
+
+Internally it sets popversion (e.g. to v15.62) and creates
+
+    /usr/local/poplog/$popversion
+
+(e.g. /usr/local/poplog/v15.62 )
+
+and assigns that to $usepop
+
+It then goes to the root directory, e.g. /usr/local/poplog
+and creates a symbolic link called current-poplog to the popversion
+directory, e.g.
+
+    ln -s $popversion current-poplog
+
+So whatever the version of poplog the directory current-poplog can
+be used, e.g.
+
+    /usr/local/poplog/current-poplog/
+
+It then untars the tarball, e.g. bham-linux-poplog-v15.62.tar.gz
+into the that directory.
+
+One of the subdirectories created is called INSTALL, i.e.
+
+    $usepop/INSTALL
+
+To continue the installation it then goes to that directory and
+runs various scripts located there.
+
+It runs the script
+
+    CHECK_LINUX_FACILITIES
+
+and on the basis of its status at exit determines whether the
+facilities for using the X window system, or motif are present
+and reports the results.
+
+It then runs $usepop/INSTALL/CREATE_SCRIPTS with $rootdir as
+argument.
+
+That creates two scripts in $usepop/bin, namely
+    poplog
+    poplog.sh
+
+which have the root directory hard coded in them and can be
+used to set environment variables to run poplog. The bash
+script poplog.sh will be linked to /usr/local/bin/poplog
+so that the command poplog can be used to run ved, pop11,
+etc, e.g.
+    poplog ved
+    poplog pop11
+    poplog clisp
+
+========================
+
+CREATING POPLOG SYSTEM IMAGES
+
+The installation continues by sourcing the file
+
+    $usepop/com/poplog.sh
+
+which sets many environment variables used in the rest
+of the process (they are all set relative to $usepop).
+
+Depending on whether the X window facilities and motif are available
+it copiews one of these two scripts
+
+    $usepop/pop/com/mkstartup.core
+    $usepop/pop/com/mkstartup.bham
+
+to this script
+
+    $usepop/pop/com/mkstartup
+
+which is used in building or rebuilding the poplog user saved images
+(at a later stage).
+
+Depending on what is available, or requested, it then runs one of
+these commands in the INSTALL directory:
+
+    ./LINK_USING_NEWPOP motif
+
+    ./LINK_USING_NEWPOP nomotif
+
+    ./LINK_USING_NEWPOP nox
+
+Those commands attempt to link a 'core' version of poplog in
+$usepop/pop/pop, and then attempt to use it to create the
+system-building saved images that are run relative to that core.
+
+    $usepop/pop/pop/popc.psv
+        Used for compiling the poplog sources
+    $usepop/pop/pop/poplibr.psv
+        Used for archiving the poplog compiled sources
+    $usepop/pop/pop/poplink.psv
+        Used for linking a new version from the compiled sources
+
+    $usepop/pop/pop/newpop.psv
+        Used for relinking and creating new saved images, and
+        updating indexes  (See HELP NEWPOP)
+
+
+If the newpop command works, there should be a newly linked
+command
+
+    $usepop/pop/pop/basepop11
+        (or possibly the old one supplied in the tar ball will
+        have been used if a new one was not able to be linked)
+
+and a collection of new saved images made relative to that in
+
+    $usepop/pop/lib/psv
+
+e.g.
+
+    startup.psv
+        for running pop11
+    clisp.psv
+        for running common lisp
+    pml.psv
+        for running standard ML
+    prolog.psv
+        for running prolog
+    xved.psv
+        for running the editor XVed
+
+(Other saved images can be created by users, e.g. using scripts
+in $usepop/pop/com starting 'mk' )
+
+If the saved images have not been created, failure is reported, and
+the output of the installation process should be sent to a
+maintainer for advice on what to do.
+
+
+NOTE:
+In the installation process the script
+
+    $usepop/INSTALL/LINK_USING_NEWPOP
+
+does most of the work.
+
+It tries to recreate the 'system-building' saved images so that
+poplog can recompile and relink itself.
+
+It tries various ways of relinking basepop11 to suit the
+environment, and as a last resort leaves the original basepop11
+binary that is included in the tar ball, which sometimes works even
+though relinking to produce a new version fails!
+
+There are other files provided for users which run LINK_USING_NEWPOP
+i.e.
+    /LINK_MOTIF_POPLOG
+    /LINK_NOBHAM_POPLOG
+    /LINK_NOMOTIF_POPLOG
+
+These can be used for rebuilding the system without having to
+reinstall everything from the tar ball.
+
+Please report problems to A.Sloman@cs.bham.ac.uk

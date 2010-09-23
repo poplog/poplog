@@ -1,0 +1,50 @@
+#!/bin/sh
+# --- Copyright University of Sussex 2008. All rights reserved. ----------
+# File:             C.unix/src/mksyscomp
+# Purpose:          Build saved images for POPC, POPLINK and POPLIBR
+# Author:           John Gibson, Jun 24 1988 (see revisions)
+
+# Usage:
+#		mksyscomp [-d] [image ...]
+# where 'image' is popc, poplink or poplibr
+
+if [ "$popautolib" = "" ]; then
+	echo "mksyscomp: doing pop/com/popenv to set environment vars"
+	. $usepop/pop/com/popenv.sh
+fi
+
+DEBUG=false
+case "$1" in
+	-d)	DEBUG=true
+		shift
+		;;
+esac
+
+for IMAGE
+do
+
+corepop %nort %noinit << ****
+	lvars savedir = current_directory;
+	'$popsrc/syscomp' -> current_directory;
+	$DEBUG -> pop_debugging;
+	pop11_compile("make_$IMAGE");
+	savedir -> current_directory;
+	make_saved_image('$popsys/$IMAGE.psv');
+	sysexit();
+****
+
+done
+
+# --- Revision History ---------------------------------------------------
+# --- Aaron Sloman, Nov  6 2008 Changed corepop11 to corepop
+# --- John Gibson, Jul 10 1993  Image now built in popsys on corepop11
+# --- Robert John Duncan, Jan  9 1992
+#		Rewritten to allow multiple arguments and always to use safepop11
+# --- Rob Duncan, Jun 18 1990
+#		Changed to poplib=/ (no "unset" on Ultrix)
+# --- John Gibson, Jun 18 1990
+#		Added unset poplib
+# --- John Gibson, Jul 11 1989
+#		Added -d option for debugging
+# --- John Gibson, Jun  7 1989
+#		Added false -> pop_debugging

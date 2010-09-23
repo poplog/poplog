@@ -1,0 +1,334 @@
+HELP RC_POINT                                   Aaron Sloman,  June 1997
+
+LIB RC_POINT
+A library to make mouse movable points, each depicted (by default) as a
+circle with a label in the middle. Make it available thus
+
+    uses rclib
+    uses rc_point
+
+
+CONTENTS
+
+ -- Introduction
+ -- Class rc_point
+ -- The method print_instance(p:rc_point);
+ -- rc_cons_point(x,y, radius) -> newpoint;
+ -- rc_new_live_point(x, y, r, label) -> newpoint
+ -- rc_new_live_point(x, y, r, label, list) -> newpoint
+ -- rc_new_live_point(x, y, r, label, list) -> newpoint
+ -- rc_new_live_point(x, y, colour, r, label) -> newpoint
+ -- rc_new_live_point(x, y, colour, r, label, list) -> newpoint
+ -- rc_kill_point(point)
+ -- rc_get_mouse_points(win_obj:rc_window_object, radius, pdr, stop_button)
+ -- Examples
+ -- -- Make everything available and create a window to draw in
+ -- -- Using rc_cons_point
+ -- -- Examples of the use of rc_new_live_point
+ -- -- Adding a larger point with a small cross in the centre
+ -- -- Using a procedure for rc_mouse_limit
+ -- -- Use of rc_get_mouse_points
+ -- See also
+
+-- Introduction -------------------------------------------------------
+
+This is part of the rclib library (See HELP RCLIB).
+
+It makes the following items available.
+
+-- Class rc_point -----------------------------------------------------
+
+First a class rc_point which is a selectable movable subclass of
+rc_linepic, and which by default species a circular picture.
+
+define :class rc_point;
+    ;;; The basic class for points.
+    ;;; Each point is drawn by the procedure rc_DRAWPOINT
+    is rc_selectable rc_linepic_movable;
+
+    slot rc_mouse_limit = rc_default_point_radius;
+
+    slot rc_point_radius = rc_default_point_radius;
+
+    slot rc_point_linewidth = 2;
+
+    slot rc_point_colour = false;
+
+    slot rc_point_string = false;
+
+    ;;; To change the appearance of a point alter rc_pic_lines or
+    ;;; redefine rc_DRAWPOINT.
+
+    ;;; This slot can be given a list, to draw something more complex
+    ;;; than a circle with a string label
+    slot rc_pic_lines == "rc_DRAWPOINT";
+enddefine;
+
+
+
+-- The method print_instance(p:rc_point); -----------------------------
+    A point is printed in a format which shows its string if it has one
+    and its x and y coordinates.
+
+E.g.
+    instance rc_point; endinstance =>
+    ** <point  0 0>
+
+    instance rc_point; rc_point_string = 'A'; endinstance =>
+    ** <point A 0 0>
+
+
+-- rc_cons_point(x,y, radius) -> newpoint; ----------------------------
+
+    This procedure creates an instance of rc_point at the specified
+    location to be drawn as a circle with the specified radius, and with
+    that radius as it rc_mouse_limit. It is possible to change the
+    rc_mouse_limit if you wish the point to be selectable at a different
+    distance.
+
+    WARNING, if rc_mouse_limit is an integer, it defines a SQUARE
+    sensitive area, which will be the square enclosing the circle, so
+    some points just outside the circle will be included. For small
+    circles this is unlikely to matter. For large circles it could
+    be confusing. In that case the rc_mouse_limit slot can be replaced
+    with a procedure that detects the distance from the centre, e.g.
+    using this procedure partially applied to a value for lim:
+
+    define xy_in_point(x, y, picx, picy, pic, lim) -> boole;
+        ;;; lim is the radius
+        ;;; x,y is the mouse location, picx, picy the
+        ;;; point centre, pic the rc_point picture object
+
+        (x - picx)**2 + (y - picy)**2 < lim**2 -> boole
+
+    enddefine;
+
+
+-- rc_new_live_point(x, y, r, label) -> newpoint --------------------
+-- rc_new_live_point(x, y, r, label, list) -> newpoint --------------
+-- rc_new_live_point(x, y, r, label, list) -> newpoint --------------
+-- rc_new_live_point(x, y, colour, r, label) -> newpoint -------------
+-- rc_new_live_point(x, y, colour, r, label, list) -> newpoint -------
+    This procedure creates a point with location x, y radius r, and
+    specified label (a string or false). If the label argument is false
+    no label is included.
+
+    There are two optional arguments, a string specifying a colour
+    (third argument) and a list.
+
+    If the colour is provided it is assigned to the rc_point_colour
+    slot of newpoint.
+
+    If the optional list argument is provided it is added to the
+    rc_pic_lines slot to provide extra drawing instructions, in
+    the formats described in HELP RC_LINEPIC and TEACH RC_LINEPIC
+
+    After creating the point the procedure draws it and makes it mouse
+    sensitive by adding it to the current window object, thus:
+
+    rc_add_pic_to_window(newpoint, rc_current_window_object, true);
+
+
+
+-- rc_kill_point(point) ----------------------------------------------
+
+    This procedure undraws the point and removes it from the current
+    window's list of mouse sensitive objects.
+
+
+-- rc_get_mouse_points(win_obj:rc_window_object, radius, pdr, stop_button)
+
+    This makes win_obj the current window object, makes sure it is mouse
+    sensitve, and uses rc_app_mouse to allow you repeatedly to create a
+    point picture object, which is immediately drawn on the screen and
+    can be moved with the mouse. The process of creation stops as soon
+    as the stop_button is clicked. Any other button creates a new point.
+
+    As each point is created it the procedure pdr is applied to it. This
+    may return a result, but need not.
+
+-- Examples -----------------------------------------------------------
+
+
+-- -- Make everything available and create a window to draw in
+uses rclib
+uses rc_window_object
+uses rc_point
+
+;;; create a window
+vars win1 = rc_new_window_object( 600, 20, 400, 350, true, 'win1');
+
+;;; To remove it later do this
+;;; rc_kill_window_object( win1);
+
+;;; Make it mouse sensitive
+rc_mousepic(win1);
+
+-- -- Using rc_cons_point
+
+;;; create two points
+vars pt1 = rc_cons_point(0, 0, 6), pt2 = rc_cons_point(100,100,15);
+
+pt1 ,pt2 =>
+
+;;; draw them, but first make pt2 red
+rc_draw_linepic(pt1);
+
+'red' -> rc_point_colour(pt2);
+rc_draw_linepic(pt2);
+
+;;; give pt2 a label, and a thicker boundary
+rc_undraw_linepic(pt2);
+'pt2' -> rc_point_string(pt2);
+4 -> rc_point_linewidth(pt2);
+rc_draw_linepic(pt2);
+
+;;; move it
+rc_move_to(pt2, -50, 50, true);
+
+;;; remove the points
+rc_undraw_linepic(pt1);
+rc_undraw_linepic(pt2);
+
+
+;;; get rid of the window
+rc_kill_window_object( win1);
+
+-- -- Examples of the use of rc_new_live_point
+
+;;; start a new window
+vars win1 = rc_new_window_object( 600, 20, 400, 350, true, 'win1');
+
+;;; Make it mouse sensitive
+rc_mousepic(win1);
+
+;;; make three mouse sensitive points
+vars
+    p1 = rc_new_live_point(0, 0, 6, 'a'),
+    p2 = rc_new_live_point(0, 50, 'red', 7, 'b'),
+    p3 = rc_new_live_point(0, -50, 'blue', 15, 'c'),
+;
+
+;;; print them out
+p1,p2,p3 =>
+
+;;; Move the points around with the mouse then print them out
+;;; again
+p1,p2,p3 =>
+
+;;; If you have trouble dragging a point, first select it with mouse
+;;; button 1, then press SHIFT. You should then be able to drag it
+;;; with button 1, or even make it jump to a location by pressing
+;;; clicking at that location (while SHIFT is held down).
+
+;;; Move the points under program control
+vars ang;
+for ang from 0 by 5 to 720 do
+    rc_move_to(p1, 100*cos(ang), 100*sin(ang), true);
+    rc_move_to(p2, 80*cos(2*ang), 80*sin(2*ang), true);
+    rc_move_to(p3, 50*cos(3*ang), 50*sin(3*ang), true);
+    syssleep(1);
+endfor;
+
+-- -- Adding a larger point with a small cross in the centre
+
+;;; We can use the second format for rc_new_live_point to specify an
+;;; additional sub-picture. E.g. one way is to specify two lines,
+;;; forming a cross. Each line is specified by its endpoints
+
+vars p4 =
+    rc_new_live_point(-50, 50, 15, false, [[{-5 0} {5 0}][{0 -5} {0 5}]]),
+;
+
+
+;;; Alternatively use the procedure CROSS defined as follows
+
+define CROSS(size);
+    ;;; procedure to draw a cross at the centre of a "point"
+    rc_drawline(-size, 0, size, 0);
+    rc_drawline(0, -size, 0, size)
+enddefine;
+
+;;; Use that to specify a small blue cross drawn with double thickness
+;;; inside an orange circle
+vars p5 =
+    rc_new_live_point(-80, 70, 'orange', 30, false,
+        [COLOUR 'blue' WIDTH 2 [^(CROSS(%5%))]]),
+;
+
+;;; Try moving that around. It is mouse sensitive over the whole
+;;; area of the circle, and a bit beyond. We can restrict the sensitive
+;;; area
+
+5 -> rc_mouse_limit(p5);
+
+-- -- Using a procedure for rc_mouse_limit
+
+;;; This is the procedure suggested above for defining a circular
+;;; sensitive limit for a point. We can use it for p4, which was
+;;; defined to have radius 15
+
+define xy_in_point(x, y, picx, picy, pic, lim) -> boole;
+    ;;; x,y is the mouse location, picx, picy the
+    ;;; point centre, pic the rc_point picture object
+
+    (x - picx)**2 + (y - picy)**2 < lim**2 -> boole
+
+enddefine;
+
+xy_in_point(%15%) -> rc_mouse_limit(p4);
+
+;;; remove the points
+applist([%p1, p2, p3, p4, p5%], rc_kill_point);
+
+
+-- -- Use of rc_get_mouse_points
+
+
+uses rclib;
+uses rc_point;
+
+;;; The following procedure, if applied to a point that includes no
+;;; string redraws it to include a string containing one letter.
+;;; Initially it uses the letter 'a', then 'b', then 'c', etc.
+
+vars point_counter = 0;
+define rc_name_point(p) -> p;
+    ;;; remove p, give it a string, and redraw it.
+    rc_undraw_linepic(p);
+    consstring(`a` + point_counter, 1) -> rc_point_string(p);
+    rc_draw_linepic(p);
+    (point_counter + 1) mod 26 -> point_counter;
+enddefine;
+
+;;; assume win1 still exists (if not create it as above)
+
+;;; Use the mouse to create points of radius 8 using rc_name_point.
+;;; Stop with button 3
+
+vars points = [%rc_get_mouse_points(win1, 8, rc_name_point, 3) %];
+
+;;; print out their locations
+points ==>
+
+;;; Move the points with mouse button 1, then print their locations
+points ==>
+
+;;; remove them from the window
+
+applist(points, rc_kill_point);
+
+;;; remove the window
+
+rc_kill_window_object(win1);
+
+
+-- See also -----------------------------------------------------------
+
+HELP RCLIB
+TEACH RC_LINEPIC
+
+SHOWLIB RC_POINT
+
+--- $poplocal/local/rclib/help/rc_point
+--- Copyright University of Birmingham 1997. All rights reserved. ------

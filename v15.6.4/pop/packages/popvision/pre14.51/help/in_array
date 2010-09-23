@@ -1,0 +1,239 @@
+HELP IN_ARRAY                                   David Young, Jan 1994
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- Simple use
+ -- with_index
+ -- updating_last
+ -- in_region
+ -- of_dimension
+ -- 1-D equivalence and optimisation
+ -- fast_for form
+
+-- Introduction -------------------------------------------------------
+
+The *________FOR_FORM
+
+    for ... in_array ... do ... endfor
+
+allows looping over the data in arrays (see REF * ______ARRAYS), much as other
+forms allow looping over data in lists and vectors.  This can often
+replace a number of nested numerical for loops, and provide greater
+flexibility in programs that deal with arrays with varying numbers of
+dimensions.
+
+The general in_array form includes several components:
+
+    for ____var1, ____var2, ...
+        with_index ____ivar
+        in_array ______array1, ______array2, ...
+        updating_last _n
+        in_region ____list
+        of_dimension _d
+    do
+        ...
+    endfor
+
+Any of the the with_index, updating_last, in_region and of_dimension
+components may be omitted.  They may be included in any combination, as
+long as they are in the order shown above.
+
+It is also possible to iterate a set of coordinates over an
+N-dimensional region using
+
+    for ____ivar in_region ____list do ... endfor
+
+-- Simple use ---------------------------------------------------------
+
+The simplest usage is
+
+    for ____var1, ____var2, ... in_array ______array1, ______array2, ... do
+
+Each of the variables ____varN iterates over elements of the corresponding
+array ______arrayN.
+
+The arrays must all have the same number of dimensions. If their
+boundslists differ, iteration occurs over the elements that they have in
+common. E.g., if the boundslists are
+
+    [0 100 1 10] and [50 150 0 5]
+
+then the loop runs over elements whose first index takes values from 50
+to 100 and whose second takes values from 1 to 5.
+
+Array elements are processed in order, with the first index increasing
+most quickly.
+
+For example:
+
+    vars v1, array1;
+    newarray([1 3 1 2], conspair) -> array1;
+    for v1 in_array array1 do
+        v1 =>
+    endfor;
+
+prints
+
+    ** [1|1]
+    ** [2|1]
+    ** [3|1]
+    ** [1|2]
+    ** [2|2]
+    ** [3|2]
+
+-- with_index ---------------------------------------------------------
+
+The current indices into the arrays can be kept track of using
+
+    for ____var1, ... with_index ____ivar in_array ______array1, ... do
+
+The variable ____ivar is assigned a vector whose length is equal to the
+number of dimensions of the arrays.  During execution of the loop, the
+contents of the this vector are the current indices into the array.
+
+That is, when ____ivar has the value {__c1, c2 , ...}, the value of ______arrayN(__c1,
+__c2, ...) is assigned to ____varN.
+
+The code in the body of the loop should not assign anything to ____ivar, and
+should not change the contents of the vector. If it is necessary to save
+the indices at some point and continue the loop, the vector must be
+copied and not just assigned to another variable.
+
+One way to update an array inside the loop is to use an index variable -
+applying destvector to it will give the indices to use for updating the
+current array element. However, it is more efficient (and neater) to use
+the facility described next, particularly if having an index variable
+can then be avoided.
+
+-- updating_last ------------------------------------------------------
+
+Updating an array can be done with
+
+    for ____var1, ... ____varp in_array ______array1, ... ______arrayp updating_last do
+
+The value of the last variable ____varp is then used to update the last
+array ______arrayp. This happens at the end of the loop, in effect just before
+the endfor is reached, but after all the code in the body of the loop
+has executed. This variable ____varp is not assigned a value automatically
+like the other loop variables; it is up to the code in the body of the
+loop to give it a value.
+
+For example, the following code adds 1 to every element in ______array1,
+storing the results in ______array2.
+
+    for v1, v2 in array1, array2 updating_last do
+        v1 + 1 -> v2
+    endfor
+
+An array can be specified twice if it is both to supply and receive
+values.
+
+An integer _n may be placed after updating_last to specify that the last
+_n arrays are to be updated from the last _n variables.
+
+    for ____var1, ... in_array ______array1, ... updating_last _n do
+
+Note that _n must be given as an integer (or a macro that expands to an
+integer) in the program, not as an expression or variable.
+
+All the variables can be update variables if the purpose of the loop is
+to fill arrays or parts of them with data from some other source.
+
+-- in_region ----------------------------------------------------------
+
+It is possible to specify explicitly the region of the arrays over which
+to iterate, with a list in the form of a *boundslist. The syntax is
+
+    for ____var1, ... in_array ______array1, ... in_region ____list do
+
+The first index into the arrays takes values between the first two
+numbers in ____list, inclusive; the second index takes values between the
+next two numbers; and so on.
+
+The region specified by ____list can be pictured as rectangular for 2-D
+arrays and cuboid for 3-D arrays.
+
+The region must not include any elements which cannot be accessed in all
+the arrays.
+
+The form
+
+    for ____ivar in_region ____list do
+
+is also available if only the coordinates are required. This has the
+same effect as
+
+    for with_index ____ivar in_array in_region ____list do
+
+would have if it was possible to omit all the arrays from the in_array
+form (which it isn't). See HELP *in_region for more details.
+
+-- of_dimension -------------------------------------------------------
+
+If the number of dimensions of the arrays is known in advance (when the
+loop is compiled) then of_dimension can be used:
+
+    for ____var1, ... in_array ______array1, ... of_dimension _d do
+
+Here _d must be an integer in the program (or a macro that expands to an
+integer), not an expression or variable. The arrays must all have _d
+dimensions. The main effects of this are to produce more compact code
+and reduce the startup time for the loop.
+
+For most applications, it is not likely to be worth bothering with
+of_dimension, even if the dimensionality is known at compile time. It
+may be worth including if
+
+    EITHER  the code must be as small as possible;
+
+    OR      the code must run as fast as possible
+            AND the dimensionality is 3 or greater
+            AND     EITHER the user index (with_index) is used
+                    OR the arrays are not all 1-D equivalent (see below)
+
+    OR      the code must run as fast as possible
+            AND the arrays or region will be very small
+            AND it is possible to use the fast_for form (see below)
+
+Including of_dimension may cause a slight slow-down in the case of 1-D
+arrays, or where 1-D optimisation (see below) would otherise get done.
+For small regions, this might be balanced by a decrease in start-up
+overhead.
+
+-- 1-D equivalence and optimisation -----------------------------------
+
+An array is ___1-D __________equivalent with respect to a region if the data for that
+region are stored in one contiguous section of the arrayvector, and the
+array is either actually 1-D or is arrayed by row (REF * ______ARRAYS).
+
+One test for 1-D equivalence is therefore
+
+    pdnargs(array) == 1 or
+    (isarray_by_row(array) and
+        (allbutlast(2, boundslist(array)) = allbutlast(2, region))
+
+If the arrays are all 1-D equivalent with respect to the region to be
+processed, the user index is not invoked with with_index, and the
+dimensionality is not specified with of_dimension, then iteration is
+optimised to a simple loop over one variable. In such cases, and for all
+arrays that are actually 1-D, accesses and updates are carried out by
+indexing directly into the arrayvector, using the subscriptor procedure
+stored in the array.
+
+-- fast_for form ------------------------------------------------------
+
+If fast_for is used instead of for, initial checks on the arrays and
+region are not carried out.  As usual with fast loop forms, strange
+behaviour will result if assumptions are violated, e.g. if the arrays
+have different numbers of dimensions, or the region is not within all
+the array bounds.
+
+In addition, if in_region is not specified, the boundslist of the first
+array is used as the region, rather than the intersection of all the
+boundslists.
+
+
+--- ____________________________________$poplocal/local/vision/help/in_array
+--- _________Copyright __________University __of ______Sussex _____1994. ___All ______rights _________reserved.

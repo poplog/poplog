@@ -1,0 +1,1380 @@
+/*
+TEACH GRAMMAREXAMPLES                      Aaron Sloman Aug 2009
+
+-- Introduction
+
+This file exists in order to provide some examples of what can be
+done using LIB * GRAMMAR, described more fully in TEACH * GRAMMAR.
+
+It could be used to introduce various projects, including group
+projects, involving specifications of subsets of a natural language.
+
+It is suitable for students who already have some understanding of
+the notion of different parts of speech (different syntactic
+categories for words, phrases, classes, etc.) and who have spent a
+little time working through the much simpler examples provided in
+TEACH * GRAMMAR. This does not strictly require any knowledge of
+computer programming, though using this file involves running some
+programs provided in the Pop-11 library. (They could be given a
+graphical interface, though in many ways using the plain text editor
+Ved is more convenient, as it can preserve a clearly visible history
+of the outputs of commands you have given.)
+
+This is NOT an introduction to the grammar of English nor a serious
+introduction to natural language processing (NLP). It merely shows
+how speakers of English can explore the structure of their own
+language by trying to make LIB GRAMMAR generate good English
+sentences and exclude non-English strings using the same words.
+
+This file is compilable (e.g. using ENTER l1 in Ved).
+
+That will load LIB GRAMMAR and also compile Part 2 and Part 3,
+defining gram1, lex1, gram2, and lex2.
+
+The testing section will not be compiled. It contains commented out
+commands that can be used to run tests.
+
+NOTE TO TEACHERS: you may wish to produce a simpler lexicon and
+grammar than the one given in Part 3, to illustrate these points,
+with a lexicon better suited to the age and background of your
+students.
+
+CONTENTS
+
+ -- Introduction
+ -- Overview
+ -- PROJECT WORK
+ -- PART1 Testing the two grammars and lexicons
+ -- -- TESTING gram1 lex1
+ -- Testing gram1 lex1 with maxlevel = 5
+ -- Testing gram1 lex1 with maxlevel = 10
+ -- Testing gram1 lex1 with maxlevel = 15
+ -- -- TESTING gram2 lex2
+ -- Testing gram2 lex2 with maxlevel = 9
+ -- Testing gram2 lex2 with maxlevel = 11
+ -- Testing gram2 lex2 with maxlevel = 15
+ -- Testing gram2 lex2 with maxlevel = 20
+ -- Part 2: Defining lex1 and gram1
+ -- -- lex1: A lexicon
+ -- -- gram1: A grammar using lex1
+ -- Part 3: Defining lex2 and gram2
+ -- -- lex2: Another lexicon
+ -- -- gram2: A grammar using lex2
+ -- APPENDIX 1: grammatical and lexical categories for gram1, lex1
+ -- -- List of categories for lex1
+ -- -- List of categories for gram1
+ -- APPENDIX 2: grammatical and lexical categories from gram2, lex2
+ -- -- List of categories for lex2
+ -- -- List of categories for gram2
+ -- SEE ALSO
+
+*/
+
+/*
+-- Overview
+*/
+
+/*
+This file uses LIB GRAMMAR to demonstrate some ways in which a
+computer can be made to control the structure of sentences generated
+in accordance with a grammar and lexicon, on the basis of random
+selections between options during the generation process.
+
+The setup(grammar,lexicon) command, provided in LIB GRAMMAR can also
+be used to create a parser for sentences that accord with the
+grammar and lexicon. For more information about using the
+library to generate and to parse sentences see TEACH GRAMMAR.
+
+The principle of this file is that it is possible to 'compile'
+aspects of semantics (e.g. differences between different kinds of
+verbs and different kinds of nouns, among others) into the syntax of
+a language by subdividing categories and restricting the ways
+subcategories of one type can combine with subcategories of another
+type -- e.g. allowing only nouns and noun-phrases referring to
+'agents' to be subjects of verbs of action. (This idea was suggested
+by Gerald Gazdar many years ago when we were using the package for
+teaching at Sussex University.)
+
+The technique is illustrated in some detail in the rest of this
+file. There are three main parts, after this overview, followed by
+appendices 1 and 2 listing the categories used in the two sets of
+grammars and lexicons.
+
+1. The first main part includes tests of the grammars and lexicons,
+with examples of their output, as described below. These tests are
+all commented out and will not be run when the main file is
+compiled, but can be re-run separately in the Poplog editor Ved.
+
+2. In the second main part the first highly 'tolerant' grammar and
+lexicon (gram1, lex1) are specified. They can be used to generate
+sentences, many of which are distinctly ungrammatical in English
+though they are grammatical according to gram1 and lex1.
+
+3. In the third part, another grammar and lexicon (gram2, lex2) are
+specified that can generate sentences, using exactly the same words
+as in gram1 and lex1, but broken down into more different
+categories, and with more rules in the grammar specifying which
+combinations are legal. This produces a much stricter system of
+constraints on acceptable phrases and sentences.
+
+The tests in part 1 first use lex1 and gram1 to generate sentences
+randomly, using increasing recursion limits (producing longer
+sentences), and then use lex2 and gram2 to generate sentences, also
+using increasing levels of recursion.
+
+The sentences generated can also be parsed by using the 'setup'
+command provided in LIB GRAMMAR to define a sentence parser given a
+grammar and a lexicon. The pair gram1 and lex1 define a rather
+sloppy language, and many of the sentences they generate are
+distinctly ungrammatical in English though they are grammatical
+according to lex1 and gram1, and can be parsed accordingly.
+
+In contrast, gram2 and lex2 are more tightly constrained. So
+generate(gram1, lex1) produces many sentences that the parser
+produced by setup(gram2, lex2) will reject as ill-formed, whereas
+all the sentences generated by generate(gram2, lex2) should be
+grammatical according to the over-tolerant grammar defined by gram1,
+lex1.
+
+-- PROJECT WORK
+
+There are many possible student projects that could be based round
+the ideas demonstrated here. One in particular might make a good
+group project for the study of aspects of language.
+
+Choose a set of statements about some subject matter, e.g. political
+events, things that can happen in a garden, things that can happen
+in a birthday party, the structure of a building or town, etc. Write
+down a varied collection of examples of such statements, then
+produce a grammar (testgram) and a lexicon (testlex) that could be
+used to generate those and other statements about the domain. Test
+the grammar and lexicon by using them to generate sentences, as
+shown in the testing section, below, using different recursion
+levels to control the length of sentences generated, e.g.
+
+    5 -> maxlevel;
+    repeat 10 times generate(testgram, testlex) => endrepeat;
+
+If unwanted sentences are generated try to constrain the grammar and
+lexicon to exclude them, while maintaining as much generality as
+possible.
+
+When all the short sentences generated by that command are
+acceptable, try increasing maxlevel, step by step.
+
+A more ambitious project could be to add non-declarative sentences,
+e.g. including questions and commands, or even allowing short
+answers to questions, e.g.
+
+    Who dug up the flower bed?
+    Fred did.
+
+Later the project could continue by generating a parser from the
+grammar using 'setup' and then trying to use the output of the
+parser plus additional information about the words in the lexicon,
+to build a logical translation of sentences that are successfully
+parsed. This could be part of a 'natural language' interface to a
+simulated robot or some other simulated intelligent agent.
+
+A much more ambitious project would be to try to define a program
+that could be given lots of examples of sentences produced by
+gram1 and lex1, or gram2 and lex2, and would then infer what the
+grammar and lexicon are. Inferring the lexicon is relatively easy,
+as long as enough sentences are provided to cover all the words in
+the lexicon. Inferring the grammar is much harder.
+
+You may like to think about the advantages of using a neural net
+over other kinds of learning (beyond the scope of this teach file).
+
+Creative students will think of other projects using these ideas.
+
+WARNING:
+    The parsers generated by setup(grammar, lexicon) are not always
+    general enough to find all the ways of parsing sentences that
+    are legal according to the grammar and lexicon. That is because
+    the parsers do not do general backtracking to find alternatives.
+    LIB * TPARSE, described in HELP * TPARSE is more general and
+    should find all parses, though it can take a long time if
+    the grammar is not well designed.
+
+    Another option is to move towards a different sort of grammar,
+    e.g. using Prolog. See text books on natural language processing
+    for up to date techniques. 'Natural Language Processing in POP-11'
+    by Gazdar and Mellish gives a lot more detail. Parts of the book
+    are in the Poplog 'contrib' directory
+
+    http://www.cs.bham.ac.uk/research/projects/poplog/freepoplog.html#popcontrib
+
+*/
+
+
+
+;;; Compile LIB GRAMMAR
+uses grammar;
+
+
+/*
+-- PART1 Testing the two grammars and lexicons
+
+-- -- TESTING gram1 lex1
+*/
+
+/*
+
+You can use this command to create a parsing function 's' and try
+applying it to some of the sentences generated.
+
+setup(gram1, lex1);
+
+-- Testing gram1 lex1 with maxlevel = 5
+
+;;; don't allow deep recursion in the generation process
+5 -> maxlevel;
+
+repeat 15 times generate(gram1, lex1) ==> endrepeat;
+
+** [maybe them smiled]
+** [mary wrote]
+** [she sang]
+** [probably jon sang]
+** [maybe julie sang]
+** [probably it smiled]
+** [suppose judith wrote]
+** [john danced]
+** [it laughed]
+** [gerald sang]
+** [she jumped]
+** [suppose judith fell]
+** [maybe she smiled]
+** [suppose julie jumped]
+** [probably him smiled]
+
+What is wrong with those examples? What needs to be changed to
+exclude the bad examples?
+
+What would a grammar need in order to prevent generation of a
+sentence like: "him smiled"
+
+Try parsing some of them
+
+setup(gram1, lex1);
+
+s([maybe julie sang]) ==>
+** [s [sadv maybe] [np [pn julie]] [vp [v sang]]]
+
+s([suppose julie jumped]) ==>
+** [s [sadv suppose] [np [pn julie]] [vp [v jumped]]]
+
+-- Testing gram1 lex1 with maxlevel = 10
+
+;;; allow deeper recursion
+10 -> maxlevel;
+
+repeat 15 times generate(gram1, lex1) ==> endrepeat;
+
+** [if probably we and steve solved us then suppose jon and steve is big]
+** [if suppose jon are short then certainly mary sang or steve fell]
+** [suppose julie and mary fell and laughed although probably you and us stupidly
+            danced]
+** [if certainly you fell but them danced then if you danced then i fell]
+** [probably her countries lifted it by me]
+** [it boldly laughed although he and he is fourth]
+** [us and jon and steve bought me for he]
+** [the countries that he liked lifted judith up]
+** [the chair which you reversed climbed on judith]
+** [if certainly you smiled then she smiled although he and it wrote and danced]
+** [we danced or certainly mary wrote and me laughed or I wrote]
+** [if you and judith were third then if probably jon danced then suppose they sang]
+** [certainly him stood over judith]
+** [suppose another sheep wrote steve for it]
+** [probably my schools stored judith upon john]
+
+What is wrong with those examples? What needs to be changed to
+exclude the bad examples?
+
+E.g. how could a computer avoid generating things like these?
+
+    "you and us stupidly danced"
+
+    "them danced"
+
+instead of
+
+    "you and we stupidly danced"
+
+    "they danced"
+
+Try using setup and then parsing some of the examples:
+
+setup(gram1, lex1);
+
+s([suppose julie and mary fell and laughed although probably
+    you and us stupidly danced])==>
+
+** [s [s [sadv suppose]
+         [np [np [pn julie]] and [np [pn mary]]]
+         [vp [vp [v fell]] and [vp [v laughed]]]]
+      [conj although]
+      [s [sadv probably]
+         [np [np [pn you]] and [np [pn us]]]
+         [vp [adv stupidly] [vp [v danced]]]]]
+
+In this parse, "you and us stupidly danced" is accepted as being
+of the form
+
+      [np vp]
+
+what is needed to constrain the types of noun phrase+verb phrase
+sentences more closely?
+
+See if you can work out a solution before you see how it is done in
+gram2,lex2, below.
+
+-- Testing gram1 lex1 with maxlevel = 15
+
+;;; allow deeper recursion
+15 -> maxlevel;
+repeat 15 times generate(gram1, lex1) ==> endrepeat;
+
+** [suppose all women sang]
+** [your man with us jumped on her and reported my woman to his cars of she]
+** [your fourth first fifth table sent for her small cars which him and jon used]
+** [if maybe her wrote but gerald laughed and probably mary and i bought we and
+       suppose julie laughed then suppose a doors looked up julie or every school
+       which she shot wept over gerald but every man and their president which danced
+       and his president upon they and me lifted up I]
+** [if if if a boy inside julie jumped stupidly and boldly smiled then if it and
+       julie is blue then if suppose jon fell then suppose she fell then some clean
+       cars up he is long then probably all long woman outside them and jon and
+       you and I and another doors sold i and another mice]
+** [her long schools and other teacher from his table that fell thought that
+        certainly you and a mice below they looked at him]
+** [some man looked judith up and feared that if judith smiled then mary fell because
+         if maybe she danced or i sang then certainly john fell and she danced but
+         she and julie and him talked to I while if maybe judith fell or they jumped
+         while he and john slowly fell then they laughed and probably mary smiled
+         while if me danced then certainly I laughed]
+** [if her old bald doors fell over another man then if if judith and him and steve
+       looked judith up then him and steve and me is clean boldly then if suppose
+       I laughed quietly quickly then probably her laughed although probably us
+       danced although suppose them sang because you laughed]
+** [some small woman into all big tree under john and mary reversed steve]
+** [every short teachers sold every teachers to another table while if maybe we
+          sang quietly then probably john smiled because them smiled or certainly
+          some table that them liked joined i to john and certainly some chair and
+          gerald were a old mice]
+** [probably all tables looked for her but my cat feared that maybe her put jon
+             above steve]
+** [if probably their sheep who rang gerald up are a second chairs then if every
+       school on them and he and us jumped on jon slowly then her girl which smiled
+       inserted it in I or probably your governments of us stupidly laughed and
+       fell]
+** [if if my sheep lifted julie and i up then if my room copied julie from you then
+       if me and john joined mary then john and you laughed and smiled then some
+       sad sheep below she and her car who she solved and i and me and me hit her
+       door]
+** [if his trees up they and john and he rang judith up then if suppose your
+       presidents made gerald for julie then my women which her hit shot at them
+       because if if certainly you and he hit they then maybe it and john laughed
+       and sang then i and them jumped and wrote although if we wrote then judith
+       sang]
+** [if gerald and his girl upon us shot her at mary then if if suppose steve fell
+       then I fell and probably mary laughed and laughed then she and steve and
+       jon grabbed gerald by jon although suppose some sad boys on jon and julie
+       gazed at gerald because certainly another women who was big is blue and feared
+       that certainly me fell]
+
+What is wrong with those examples? What needs to be changed to
+exclude the bad examples?
+
+The parse trees generated from these may be too complex and messy to
+be intelligible!
+
+*/
+
+/*
+-- -- TESTING gram2 lex2
+*/
+
+/*
+
+Compare the outputs generated using gram2 and lex2 with those
+generated by gram1 and lex1, and then look at the differences
+between the two grammars and two lexicons and try to understand how
+the more complex grammar and lexicon manages to exclude much of the
+rubbish generated by the first grammar and lexicon.
+
+You can use this command to create a parsing function 's' and try
+applying it to some of the sentences generated.
+
+setup(gram2, lex2);
+
+
+-- Testing gram2 lex2 with maxlevel = 9
+
+;;; anything smaller than 9 doesn't allow enough recursion
+;;; with this grammar
+9 -> maxlevel;
+repeat 15 times generate(gram2, lex2) ==> endrepeat;
+
+** [we smiled]
+** [you jumped]
+** [eve laughed]
+** [we jumped]
+** [they danced]
+** [they laughed]
+** [you jumped]
+** [she laughed]
+** [julie jumped]
+** [we laughed]
+** [eve smiled]
+** [they wrote]
+** [they wrote]
+** [I jumped]
+** [she wrote]
+
+Try parsing some of those:
+setup(gram2, lex2);
+
+s([julie jumped])==>
+** [s [ssimp [npsa [snpsa [pn julie]]] [vps [vpssimp [v jumped]]]]]
+
+Notice how much deeper the parse tree is for a simple sentence,
+than with gram1, lex1. The syntactic categories are defined below in
+APPENDIX B. You can use the editor to search for them, e.g. search
+for snpsa at the end of the file givs
+
+snpsa               ;;; simple noun phrase singular (agent) without determiner
+
+Notice that the categories 'npsa' and 'vps' are 'singular', so that
+they can be combined in this grammar.
+
+
+s([they wrote]) ==>
+** [s [ssimp [nppa [snppa [pprns they]]] [vpp [vppsimp [v wrote]]]]]
+
+Here 'pprns' means Plural PRoNoun capable of being a Subject.
+'snppa' means 'simple noun phrase plural (agent)'.
+
+In gram2, lex2 a lot of information is crammed obscurely into the
+name of a syntactic category. It would be better to have the
+category name replaced by a list of features. That would be similar
+to the approach of Halliday's 'Systemic Grammar', used by Terry
+Winograd in his SHRDLU program. In pop-11 it would be easy to set up
+an association between the names and lists of features, e.g. using
+LIB * ASSOC. See HELP * NEWASSOC.
+(Alternatively see HELP * NEWPROPERTY, for a more efficient
+implementation of associations.)
+
+-- Testing gram2 lex2 with maxlevel = 11
+
+11 -> maxlevel;
+
+repeat 15 times generate(gram2, lex2) ==> endrepeat;
+** [it wrote or you laughed]
+** [she danced and I sang]
+** [steve smiled or you danced]
+** [we were sad]
+** [eve reversed you]
+** [suppose she wrote]
+** [if you smiled then we wrote]
+** [if judith fell then they jumped]
+** [suppose you jumped]
+** [if julie fell then they danced]
+** [judith laughed and laughed]
+** [her fourth and second mice outside you smiled and fell]
+** [maybe i danced]
+** [maybe we jumped]
+** [mary smiled and you laughed]
+
+Try parsing some of those:
+setup(gram2, lex2);
+
+s([if julie fell then they danced]) ==>
+
+** [s [scomp if
+             [ssimp [npsa [snpsa [pn julie]]] [vps [vpssimp [v fell]]]]
+             then
+             [ssimp [nppa [snppa [pprns they]]] [vpp [vppsimp [v danced]]]]]]
+
+s([her fourth and second mice outside you smiled and fell])==>
+
+** [s [ssimp [nppa [detsnppa [detp her]
+                             [enum fourth]
+                             and
+                             [enum second]
+                             [qnpa [nounpa mice]]]
+                   [pp [locprep outside] [npo [nps [snpsa [sprns you]]]]]]
+             [vpp [vppcomp [vppsimp [v smiled]] and [vppsimp [v fell]]]]]]
+
+
+Notice that in the expression "fourth and second mice", mice is
+plural and the whole noun phrase (nppa) is a plural+agent noun
+phrase.
+
+Two of the examples generated below are
+
+** [your second woman beside you and me quietly jumped but every government inside
+         me sang]
+** [their teacher above her and them is young quickly because my fourth and first
+          clean women above you sang]
+
+Notice that the first one includes
+    "your second woman"
+
+(i.e. it is singular ("woman") because there is only one woman
+referred to, the second one,) whereas the later example, like the
+"mice" example earlier, uses a plural form ("women) in the phrase
+    "my fourth and first clean women"
+
+where the plural "women" is used to match the fact that there are
+two enumeration words, "fourth and first", implying that there are
+two women. The matching of use of two enumerators with the plural
+noun is achieved despite the intervening adjective "clean".
+
+These are examples of types of constraint that the pair gram1,lex1
+fail to express even though they use the same set of English words.
+
+How human brains express those constraints is another matter and
+interested students could study linguistic or psycholinguistic
+literature looking for examples. (I don't know if there are any
+good, generally accepted, theories about this.)
+
+Another lot of sentences generated by the above command:
+
+** [it was short]
+** [mary and I laughed cleverly]
+** [probably we fell]
+** [you smiled]
+** [we fell although julie smiled]
+** [if you wrote then I fell]
+** [my girls within me are happy]
+** [a country beside you wrote]
+** [maybe we fell]
+** [you are big]
+** [suppose adam laughed]
+** [probably judith wrote]
+** [julie was new]
+** [i smiled while barbara smiled]
+** [maybe judith wrote]
+
+
+-- Testing gram2 lex2 with maxlevel = 15
+15 -> maxlevel;
+repeat 15 times generate(gram2, lex2) ==> endrepeat;
+
+** [other third and third men within her and you gazed at you]
+** [your fourth and fourth short presidents upon us are happy and jumped and we
+         hated me and are old]
+** [if judith and i wrote then you lifted them by her]
+** [their third and first short sad men into them and them and her looked for you]
+** [my small long boys that some mice used slowly bought her for him]
+** [your second woman beside you and me quietly jumped but every government inside
+         me sang]
+** [he put her below you cleverly]
+** [maybe his fourth and second small girls who sang hit you]
+** [their cats got us for him and a fifth old president in her smiled at him]
+** [maybe some clean woman who barbara shot reversed them and was blue]
+** [some first new boy that another teacher shot talked to you cleverly]
+** [judith inserted her upon me]
+** [his bald girl who fell went to them or you wrote and bought her]
+** [their teacher above her and them is young quickly because my fourth and first
+          clean women above you sang]
+** [they looked for him]
+
+What additional restrictions would be needed to rule out, for
+example, "is young quickly" ?
+
+An example of the parser at work on one of the longer sentences:
+
+s([your second woman beside you and me quietly jumped but every
+    government inside me sang]) ==>
+
+;;; This is a compound sentence made of two simpler sentences
+;;; joined by the conjunction 'but', It may be worth spending five
+;;; minutes understanding the parse tree, using Appendix 2 in a
+;;; different editor window alongside this one, so that you can
+;;; check out the meanings of the labels.
+
+** [s [scomp [ssimp [npsa [detsnpsa [dets your]
+                                    [enum second]
+                                    [qnsa [nounsa woman]]]
+                          [pp [locprep beside]
+                              [npo [npo [nps [snpsa [sprns you]]]]
+                                   and
+                                   [npo [sprno me]]]]]
+                    [vps [vpscomp [adv quietly] [vpssimp [v jumped]]]]]
+             [conj but]
+             [ssimp [npsa [detsnpsa [dets every] [qnsa [nounsa government]]]
+                          [pp [locprep inside] [npo [sprno me]]]]
+                    [vps [vpssimp [v sang]]]]]]
+
+
+and another go with the generator:
+
+** [it and i sent for us boldly]
+** [maybe they threw him at him]
+** [maybe gerald looked at them]
+** [all second and third new big cats into them laughed]
+** [my new man under you threw you and him at me and me]
+** [her blue government under you and us inserted you above her although they liked
+        them stupidly]
+** [some sad country which was short fell on me and you]
+** [the fifth and third schools who all presidents solved shot you at her]
+** [we smiled because another long government outside me and me rang me up]
+** [your third and second sad governments that sang and fell pulled them by them
+         stupidly]
+** [some fifth big man that it within her reversed sang]
+** [certainly I put them upon you]
+** [probably her second long mouse which danced loved her and was bald]
+** [his fourth and second blue long cats that other doors loved picked up you and
+        us]
+** [you are some men and sent for her]
+
+
+-- Testing gram2 lex2 with maxlevel = 20
+
+;;; This is a bit over the top, and can be ignored unless you really
+;;; want to understand what the generator and parser can do.
+
+
+20 -> maxlevel;
+repeat 15 times generate(gram2, lex2) ==> endrepeat;
+
+** [the long long short girl in us and you borrowed you from you because the second
+        and first young small dogs that climbed on her hoped that judith smiled]
+** [maybe their first old mouse within you hoped that they fell]
+** [barbara slowly shot us at them and you and other second and fourth clean dogs
+            on us inserted her above them]
+** [every clean happy man and he looked for my mice]
+** [if your sheep within john upon you hoped that I fell then the third and third
+       sad blue mice stupidly jumped]
+** [he searched for me and threw you at him and them while his dogs who looked me
+       up thought that you fell]
+** [certainly my old sheep in I sold us and us to her slowly]
+** [certainly she and i made steve for us]
+** [some fourth sheep on her sold all tables in me]
+** [their fifth sad teacher and john believed that certainly it wrote]
+** [other mice into you fell]
+** [other schools who all presidents joined bought your girls for mary and him]
+** [if their government within her searched for you and jumped then my cat which
+       adam joined stupidly picked up me and them]
+** [my big old sad girl climbed on all teachers]
+** [his first cat above my bald countries got him and me for I and shot you and
+        them and you at me and them and them and me]
+
+
+;;; Why doesn't this produce very much longer sentences, with
+;;; hundreds of words?
+
+2000 -> maxlevel;
+repeat 5 times generate(gram2, lex2) ==> endrepeat;
+
+Part 2 and Part 3 follow. In part 2 the highly tolerant language of
+gram1 and lex1 is defined. In part 3 the more restrictive language
+of gram2 and lex2 is defined. After that appendices list the
+categories used in the two languages.
+
+*/
+
+
+/*
+-- Part 2: Defining lex1 and gram1
+-- -- lex1: A lexicon
+*/
+
+global vars lex1 =
+    [
+    ;;; copula
+    [cop is was are were]
+    ;;; determiners
+    [det a the another every some her his their my your
+        other all]
+    ;;; adjectives
+    [adj big sad happy bald small blue old young clean new long short
+        first second third fourth fifth]
+    ;;; proper names and pronouns
+    [pn steve she you i I me we they he him it her them us julie john mary jon
+        gerald judith]
+    ;;; common nouns
+    [noun boy boys car cars cat cats chair chairs countries country
+        dog dogs door doors girl girls government governments man
+        men mice mouse president presidents room rooms school
+        schools sheep table tables teacher teachers tree trees
+        woman women]
+    ;;; prepositions
+    [prep on in by from to with under below above inside into of
+        up upon within outside beside]
+    ;;; locative prepositions
+    [locprep on upon in under below above inside within outside beside into]
+    ;;; transitive verbs
+    [vnp owned liked loved hated bought hit shot sold
+        solved reversed used joined]
+    ;;; transitive verbs followed by from + np
+    [vnpfromnp fetched copied borrowed stole took lifted bought removed ]
+    ;;; transitive verbs followed by for + np
+    [vnpfornp got brought wrote made bought]
+    ;;; transitive verbs followed by to + np
+    [vnptonp gave reported sent sold joined]
+    ;;; transitive verbs followed by by + np
+    [vnpbynp grabbed pulled lifted]
+    ;;; intransitive verbs
+    [v smiled laughed wrote danced fell jumped sang]
+    ;;; intransitive verbs followed by at + np
+    [vatnp smiled laughed looked shot winked gazed grinned]
+    ;;; intransitive verbs followed by over + np
+    [vovernp jumped fell wept stood]
+    ;;;  --- followed by "on" + np
+    [vonnp  jumped fell climbed]
+    ;;; --- followed by "to" + np
+    [vtonp went walked crawled ran jumped talked belonged]
+    ;;; --- followed by "for" + np
+    [vfornp looked searched sent]
+    ;;; --- followed by  up + np
+    [vupnp picked rang lifted looked]
+    ;;; --- followed by  np + up
+    [vnpup picked rang lifted looked]
+    ;;; transitive verbs followed by a locative preposition
+    [vnplocnp put inserted stored]
+    ;;; transitive verbs followed by at + np
+    [vnpatnp threw shot]
+    ;;; relative pronouns
+    [rel that who which]
+    ;;; propositional verbs
+    [pv thought believed hoped feared]
+    ;;; adverbs
+    [adv quickly happily slowly stupidly cleverly boldly quietly]
+    ;;; sentence modifying adverts
+    [sadv probably certainly maybe suppose]
+    ;;; conjunctions
+    [conj and or because but while although]
+    ];
+
+/*
+-- -- gram1: A grammar using lex1
+*/
+
+global vars gram1 =
+
+    [
+        ;;; sentence formats
+        [s
+            [if s then s]
+            [np vp]
+            [sadv np vp]
+            [s conj s]
+        ]
+        ;;; noun phrases
+        [np
+            [pn]
+            [snp]
+            [snp pp]
+            [snp relp]
+            [np and np]
+            ]
+        ;;; relative clause phrases
+        [relp
+            [rel vp]
+            [rel np vnp]
+            ]
+        ;;; predicates
+        [pred
+            [adj]
+            [a qn]
+            [np]
+            ]
+
+        ;;; prepositional phrases
+        [ppatnp     [at np]]
+        [pptonp     [to np]]
+        [ppfornp    [for np]]
+        [pponnp     [on np]]
+        [ppovernp   [over np]]
+        [ppupnp     [up np]]
+        [ppnpup     [np up]]
+        [ppnptonp   [np to np]]
+        [ppnpatnp   [np at np]]
+        [ppnpbynp   [np by np]]
+        [ppnpfromnp [np from np]]
+        [ppnpfornp  [np for np]]
+        [ppnplocnp  [np locprep np]]
+        [pp     [prep np]]
+        ;;; verb phrases
+        ;;; verb phrases
+        [vp
+            [cop pred]
+            [vatnp ppatnp]
+            [vtonp  pptonp]
+            [vfornp  ppfornp]
+            [vonnp  pponnp]
+            [vovernp  ppovernp]
+            [vupnp  ppupnp]
+            [vnpup  ppnpup]
+            [vnptonp  ppnptonp]
+            [vnpatnp  ppnpatnp]
+            [vnpbynp  ppnpbynp]
+            [vnpfromnp  ppnpfromnp]
+            [vnpfornp  ppnpfornp]
+            [vnplocnp  ppnplocnp]
+            [pv that s]
+            [vnp np]
+            [v]
+            [vp and vp]
+            [vp adv]
+            [adv vp]
+            ]
+        ;;; simple noun phrase
+        [snp
+            [det qn]
+            ]
+        ;;; qualified noun
+        [qn
+            [noun]
+            [adj qn]
+            ]
+        ];
+
+
+
+
+/*
+-- Part 3: Defining lex2 and gram2
+
+-- -- lex2: Another lexicon
+*/
+
+/*
+Here we define a new grammar and lexicon gram2 and lex2, with the
+lexicon presented first.
+
+In contrast with gram1,lex1, the labels for the lexical categories
+are much richer (as summarised in Appendix 2 below), giving more
+information about what sort of word can fall into the category.
+
+Similarly the syntactic categories given in gram2 are much richer
+than in gram1, and this allows more special cases to be specified
+where different parts of a complex expression share a feature (e.g.
+being singular or plural, or being capable of being combined as
+subject and verb).
+
+Do not expect all this to be simple and obvious: if you try to
+understand the grammar and the lexicon you will probaby find it
+useful to have another editor window open showing examples
+generated, as in the section on testing gram2,lex2 above, and in
+some cases you may need to get the parser to parse the sentence with
+the parse tree printed out using "==>", as shown in that section, to
+help you understand how the various categories are used to constrain
+both the construction of sentences during generation, and the
+acceptance of sentences during parsing.
+
+*/
+
+global vars lex2 =
+    [
+    ;;; singular copula
+    [cops is was]
+    ;;; plural copula
+    [copp are were]
+    ;;; determiners singular
+    [dets a the another every some her his their my your]
+    ;;; determiners plural
+    [detp the other all some her his their my your]
+    ;;; adjectives
+    [adj big sad happy bald small blue old young clean new long short]
+    ;;; enumerators
+    [enum first second third fourth fifth]
+    ;;; proper names
+    [pn adam barbara eve gerald john judith julie mary steve ]
+
+    ;;; singular pronouns subjects (nominative)
+    [sprns she you i I he it]
+    ;;; singular pronouns objects (accusative)
+    [sprno you me him her]
+    ;;; plural pronouns subjects (nominative)
+    [pprns we they you]
+    ;;; plural pronouns objects (accusative)
+    [pprno us them you]
+    ;;; common nouns singular
+    [nouns boy car cat chair country dog door girl government man
+        mouse president room school sheep table teacher tree woman ]
+    ;;; common nouns plural
+    [nounp boys cars cats chairs countries dogs doors girls
+        governments men mice presidents rooms schools sheep tables teachers
+        trees women ]
+    ;;; common nouns singular agents
+    [nounsa man woman president girl cat dog sheep teacher boy
+        girl mouse government school country]
+    ;;; common nouns plural agents
+    [nounpa men women presidents girls cats dogs sheep teachers boys
+        girls mice governments schools countries]
+    ;;; prepositions
+    [prep on in by from to with under below above inside into of
+        up upon within outside beside]
+    ;;; what should we do with "for"
+    ;;; locative prepositions
+    [locprep on upon in under below above inside within outside beside into]
+    ;;; transitive verbs
+    [vnp owned liked loved hated bought hit shot sold
+        solved reversed used joined]
+    ;;; transitive verbs followed by from + np
+    [vnpfromnp fetched copied borrowed stole took lifted bought removed ]
+    ;;; transitive verbs followed by for + np
+    [vnpfornp got brought wrote made bought]
+    ;;; transitive verbs followed by to + np
+    [vnptonp gave reported sent sold joined]
+    ;;; transitive verbs followed by by + np
+    [vnpbynp grabbed pulled lifted]
+    ;;; intransitive verbs
+    [v smiled laughed wrote danced fell jumped sang]
+    ;;; intransitive verbs followed by at + np
+    [vatnp smiled laughed looked shot winked gazed grinned]
+    ;;; intransitive verbs followed by over + np
+    [vovernp jumped fell wept stood]
+    ;;;  --- followed by "on" + np
+    [vonnp  jumped fell climbed]
+    ;;; --- followed by "to" + np
+    [vtonp went walked crawled ran jumped talked belonged]
+    ;;; --- followed by "for" + np
+    [vfornp looked searched sent]
+    ;;; --- followed by  up + np
+    [vupnp picked rang lifted looked]
+    ;;; --- followed by  np + up
+    [vnpup picked rang lifted looked]
+    ;;; transitive verbs followed by a locative preposition
+    [vnplocnp put inserted stored]
+    ;;; transitive verbs followed by at +np
+    [vnpatnp threw shot]
+    ;;; relative pronouns
+    [rel that who which]
+    ;;; propositional verbs
+    [pv thought believed hoped feared]
+    ;;; adverbs
+    [adv quickly happily slowly stupidly cleverly boldly quietly]
+    ;;; sentence modifying adverts
+    [sadv probably certainly maybe suppose]
+    ;;; conjunctions
+    [conj and or because but while although]
+    ];
+
+/*
+-- -- gram2: A grammar using lex2
+
+*/
+
+global vars gram2 =
+
+    [
+    ;;; sentence formats
+    [s
+        [ssimp]
+        [scomp]
+        ]
+
+        ;;; simple sentences
+    [ssimp
+        ;;; singular noun phrase (agent) then singular verb phrase
+        [npsa vps]
+        ;;; plural noun phrase (agent) then plural verb phrase
+        [nppa vpp]
+        ]
+        ;;; compound sentences
+    [scomp
+        ;;; conditionals
+        [if ssimp then ssimp]
+        ;;; joined by a conjunction
+        [ssimp conj ssimp]
+        ;;; sentential adverb then sentence
+        [sadv ssimp]
+        ]
+/*
+    ;;; noun phrases (Generic version no longer needed)
+    [np
+        ;;; singular noun phrases
+        [nps]
+        ;;; plural noun phrases
+        [npp]
+        [np and np]
+        ;;; singular and plural pronouns accusative
+        [sprno]
+        [pprno]
+        ]
+*/
+    ;;; accusative (Object) noun phrases
+    [npo
+        ;;; singular noun phrases
+        [nps]
+        ;;; plural noun phrases
+        [npp]
+        [npo and npo]
+        ;;; singular and plural pronouns accusative
+        [sprno]
+        [pprno]
+        ]
+        ;;; singular noun phrases
+    [nps
+        [snps]
+        [snpsa]
+        [nps pp]
+;;;        [snps relps]
+        ]
+    [npp
+        ;;; plural versions
+        [snpp]
+        [npp pp]
+;;;        [snpp relpp]
+        ]
+        ;;; singular noun phrases (agent forms)
+    [npsa
+        [snpsa]
+        [detsnpsa pp]
+        [detsnpsa relps]
+        ]
+    [nppa
+        ;;; plural versions (agent)
+        [snppa]
+        [detsnppa pp]
+        [detsnppa relpp]
+        ]
+    ;;; relative clause phrases singular
+    [relps
+        [rel vps]
+        [rel nps vnp]
+        ]
+    ;;; relative clause phrases plural
+    [relpp
+        [rel vpp]
+        [rel npp vnp]
+        ]
+    ;;; predicates singular
+    [preds
+        [adj]
+        [a qns]
+        [nps]
+        ]
+    ;;; predicates plural
+    [predp
+        [adj]
+        [some qnp]
+        [npp]
+        ]
+    ;;; prepositional phrases
+    [ppatnp     [at npo]]
+    [pptonp     [to npo]]
+    [ppfornp    [for npo]]
+    [pponnp     [on npo]]
+    [ppovernp   [over npo]]
+    [ppupnp     [up npo]]
+    [ppnpup     [npo up]]
+    [ppnptonp   [npo to npo]]
+    [ppnpatnp   [npo at npo]]
+    [ppnpbynp   [npo by npo]]
+    [ppnpfromnp [npo from npo]]
+    [ppnpfornp  [npo for npo]]
+    [ppnplocnp  [npo locprep npo]]
+    [pp     [locprep npo]]
+    ;;; verb phrases singular (simple)
+    [vpssimp
+        [cops preds]
+        [vatnp ppatnp]
+        [vtonp  pptonp]
+        [vfornp  ppfornp]
+        [vonnp  pponnp]
+        [vovernp  ppovernp]
+        [vupnp  ppupnp]
+        [vnpup  ppnpup]
+        [vnptonp  ppnptonp]
+        [vnpatnp  ppnpatnp]
+        [vnpbynp  ppnpbynp]
+        [vnpfromnp  ppnpfromnp]
+        [vnpfornp  ppnpfornp]
+        [vnplocnp  ppnplocnp]
+        [vnp npo]
+        [v]
+        ]
+    ;;; verb phrases singular (complex)
+    [vpscomp
+        [pv that s]
+        [vpssimp and vpssimp]
+        [vpssimp adv]
+        [adv vpssimp]
+        ]
+    ;;; verb phrases singular
+    [vps
+        [vpssimp]
+        [vpscomp]
+        ]
+    ;;; verb phrases plural simple
+    [vppsimp
+        [copp predp]
+        [vatnp ppatnp]
+        [vtonp  pptonp]
+        [vfornp  ppfornp]
+        [vonnp  pponnp]
+        [vovernp  ppovernp]
+        [vupnp  ppupnp]
+        [vnpup  ppnpup]
+        [vnptonp  ppnptonp]
+        [vnpatnp  ppnpatnp]
+        [vnpbynp  ppnpbynp]
+        [vnpfromnp  ppnpfromnp]
+        [vnpfornp  ppnpfornp]
+        [vnplocnp  ppnplocnp]
+        [vnp npo]
+        [v]
+        ]
+    ;;; verb phrases plural (complex)
+    [vppcomp
+        [pv that s]
+        [vppsimp and vppsimp]
+        [vppsimp adv]
+        [adv vppsimp]
+        ]
+    ;;; verb phrases plural
+    [vpp
+        [vppsimp]
+        [vppcomp]
+        ]
+    ;;; simple noun phrase singular
+    [snps
+        [dets qns]
+        [dets enum qns]
+        ]
+    ;;; simple noun phrase plural
+    [snpp
+        [detp qnp]
+        ]
+    ;;; simple noun phrase singular (agent)
+    ;;; without determiner
+    [snpsa
+        [pn]
+        [sprns]
+        [detsnpsa]
+        ]
+    ;;; simple noun phrase singular (agent)
+    ;;; with determiner
+    [detsnpsa
+        [dets qnsa]
+        [dets enum qnsa]
+        ]
+
+    ;;; simple noun phrase plural (agent)
+    [snppa
+        [pprns]
+        [snpsa and snpsa]
+        [detsnppa]
+        ]
+    ;;; simple noun phrase plural (agent)
+    ;;; with determiner
+    [detsnppa
+        [detp qnpa]
+        [detp enum and enum qnpa]
+        ]
+    ;;; qualified noun singular
+    [qns
+        [nouns]
+        [adj qns]
+        ]
+    ;;; qualified noun plural
+    [qnp
+        [nounp]
+        [adj qnp]
+        ]
+    ;;; qualified noun singular agent
+    [qnsa
+        [nounsa]
+        [adj qnsa]
+        ]
+    ;;; qualified noun plural agent
+    [qnpa
+        [nounpa]
+        [adj qnpa]
+        ]
+    ];
+
+;;;[end]
+
+
+/*
+-- APPENDIX 1: grammatical and lexical categories for gram1, lex1
+*/
+
+/*
+-- -- List of categories for lex1
+*/
+/*
+
+cop                 ;;; copula
+det                 ;;; determiners
+adj                 ;;; adjectives
+pn                  ;;; proper names and pronouns
+noun                ;;; common nouns
+prep                ;;; prepositions
+locprep             ;;; locative prepositions
+vnp                 ;;; transitive verbs
+vnpfromnp           ;;; transitive verbs followed by from + np
+vnpfornp            ;;; transitive verbs followed by for + np
+vnptonp             ;;; transitive verbs followed by to + np
+vnpbynp             ;;; transitive verbs followed by by + np
+v                   ;;; intransitive verbs
+vatnp               ;;; intransitive verbs followed by at + np
+vovernp             ;;; intransitive verbs followed by over + np
+vonnp               ;;;  --- followed by "on" + np
+vtonp               ;;; --- followed by "to" + np
+vfornp              ;;; --- followed by "for" + np
+vupnp               ;;; --- followed by  up + np
+vnpup               ;;; --- followed by  np + up
+vnplocnp            ;;; transitive verbs followed by a locative preposition
+vnpatnp             ;;; transitive verbs followed by at + np
+rel                 ;;; relative pronouns
+pv                  ;;; propositional verbs (e.g. 'thought .. that'
+adv                 ;;; adverbs
+sadv                ;;; sentence modifying adverts
+conj                ;;; conjunctions
+
+*/
+
+/*
+-- -- List of categories for gram1
+*/
+
+/*
+
+s                   ;;; sentence
+np                  ;;; noun phrase
+relp                ;;; relative phrase
+pred                ;;; a predicate e.g. 'red', 'a house'
+ppatnp              ;;; prepositional phrase of form  at np
+pptonp              ;;; prepositional phrase of form  to np
+ppfornp             ;;; prepositional phrase of form  for np
+pponnp              ;;; prepositional phrase of form  on np
+ppovernp            ;;; prepositional phrase of form  over np
+ppupnp              ;;; prepositional phrase of form  up np
+ppnpup              ;;; prepositional phrase of form  np up
+ppnptonp            ;;; prepositional phrase of form  np to np
+ppnpatnp            ;;; prepositional phrase of form  np at np
+ppnpbynp            ;;; prepositional phrase of form  np by np
+ppnpfromnp          ;;; prepositional phrase of form  np from np
+ppnpfornp           ;;; prepositional phrase of form  np for np
+ppnplocnp           ;;; prepositional phrase of form  np locprep np
+pp                  ;;; prepositional phrase of form  prep np
+vp                  ;;; verb phrase (several types distinguished in the grammar).
+snp                 ;;; simple noun phrase
+qn                  ;;; qualified noun
+*/
+
+/*
+-- APPENDIX 2: grammatical and lexical categories from gram2, lex2
+*/
+/*
+-- -- List of categories for lex2
+*/
+
+/*
+
+cops                ;;; singular copula
+copp                ;;; plural copula
+dets                ;;; determiner singular
+detp                ;;; determiner plural
+adj                 ;;; adjective
+enum                ;;; enumerator
+pn                  ;;; proper name
+adv                 ;;; sentence modifying adverb
+sprns               ;;; singular pronoun subject (nominative)
+sprno               ;;; singular pronoun object (accusative)
+pprns               ;;; plural pronoun subject (nominative)
+pprno               ;;; plural pronouns object (accusative)
+nouns               ;;; common noun singular
+nounp               ;;; common noun plural
+nounsa              ;;; common noun singular agents
+nounpa              ;;; common noun plural agents
+prep                ;;; preposition
+locprep             ;;; locative prepositions
+vnp                 ;;; transitive verb
+vnpatnp             ;;; transitive verb followed by at +np
+vnpbynp             ;;; transitive verb followed by by + np
+vnpfornp            ;;; transitive verb followed by for + np
+vnpfromnp           ;;; transitive verb followed by from + np
+vnplocnp            ;;; transitive verbs followed by a locative preposition
+vnptonp             ;;; transitive verb followed by to + np
+v                   ;;; intransitive verb
+vatnp               ;;; intransitive verb followed by at + np
+vfornp              ;;; --- followed by "for" + np
+vonnp               ;;;  --- followed by "on" + np
+vovernp             ;;; intransitive verb followed by over + np
+vtonp               ;;; --- followed by "to" + np
+vupnp               ;;; --- followed by  up + np
+vnpup               ;;; --- followed by  np + up
+rel                 ;;; relative pronouns
+pv                  ;;; propositional verbs (e.g. thought believed)
+sadv                ;;; sentence modifying adverts
+conj                ;;; conjunctions
+*/
+
+/*
+-- -- List of categories for gram2
+*/
+
+/*
+
+s                   ;;; sentence (any type)
+ssimp               ;;; simple sentence
+scomp               ;;; compound sentence
+np                  ;;; noun phrase (Generic version no longer needed)
+npo                 ;;; accusative (Object) noun phrase
+nps                 ;;; singular noun phrase
+npp                 ;;; plural noun phrase
+npsa                ;;; singular noun phrase (agent form)
+nppa                ;;; plural noun phrase (agent form)
+relps               ;;; relative clause phrase singular
+relpp               ;;; relative clause phrase plural
+preds               ;;; predicate singular
+predp               ;;; predicate plural
+
+pp                  ;;; prepositional phrases
+
+;;; prepositional phrase of form 'prep'+np
+ppatnp
+pptonp
+ppfornp
+pponnp
+ppovernp
+ppupnp
+ppnpup
+
+;;; prepositional phrase of form np+'prep'+np
+ppnptonp
+ppnpatnp
+ppnpbynp
+ppnpfromnp
+ppnpfornp
+ppnplocnp
+
+vpssimp             ;;; verb phrase singular (simple)
+vpscomp             ;;; verb phrase singular (complex)
+vps                 ;;; verb phrase singular
+vppsimp             ;;; verb phrase plural simple
+vppcomp             ;;; verb phrase plural (complex)
+vpp                 ;;; verb phrase plural
+snps                ;;; simple noun phrase singular
+snpp                ;;; simple noun phrase plural
+snpsa               ;;; simple noun phrase singular (agent) without determiner
+detsnpsa            ;;; simple noun phrase singular (agent) with determiner
+snppa               ;;; simple noun phrase plural (agent)
+detsnppa            ;;; simple noun phrase plural (agent) with determiner
+qns                 ;;; qualified noun singular
+qnp                 ;;; qualified noun plural
+qnsa                ;;; qualified noun singular agent
+qnpa                ;;; qualified noun plural agent
+
+-- SEE ALSO
+
+    TEACH * GRAMMAR
+    HELP  * TPARSE
+    HELP  * FACETS
+    HELP  * MOREFACETS
+    TEACH * STORYGRAMMAR
+
+
+--- teach/grammarexamples
+--- Copyright University of Birmingham 2009. All rights reserved.
+*/

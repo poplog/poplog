@@ -1,0 +1,82 @@
+HELP ARRAY_HALFSIZE                                 David Young
+                                                    February 1997
+
+LIB * ARRAY_HALFSIZE reduces an array to half its size along each
+dimension.
+
+array_halfsize(arrin, region, arrout_false, option) -> arrout
+        arrin is the input array, of any number of dimensions (except
+        for certain options - see below), and containing numbers only.
+        The data are taken from the region specified by the region
+        argument, which is a *boundslist type list of limits on each
+        dimension, or <false>, in which case the whole of arrin is used.
+
+        If arrout_false is <false>, a new array is created and returned.
+        Otherwise, arrout_false must be an array of the same number of
+        dimensions as arrin and of adequate size (see below) in which
+        the results will be stored, and which is returned.
+
+        The option argument specifies the type of sampling. This may be
+        one of the words "average", "sample", "field1" or "field2". The
+        last two are only usable with 2-D arrays. option may also be
+        <false>, which is equivalent to "average".
+
+Sampling behaviour
+
+For all options, as much of the array is used as possible; the final
+element of a 1-D array, or the final row and or/column of a 2-D array
+may be ignored. Similarly for higher-dimensioned arrays. For all options
+except the "field2" option, sampling starts at the lower limit of the
+bounds.
+
+The "average" option means that small regions of the array are averaged
+(with equal weighting on the pixels) to produce each output value.
+Details are as follows; if arrin is a 1-D array and region is [x0 x1],
+then:
+
+    If the number of elements N = x1-x0+1 is even, then N/2 values will
+    be stored in arrout. If N is odd, then the last input element,
+    arrin(x1), is ignored, and (N-1)/2 output values are stored.
+
+    If x0 is even, the output will start at arrout(x0/2) and the mapping
+    is defined by
+
+            arrout(i) = (arrin(2*i) + arrin(2*i+1)) / 2.
+
+    If x0 is odd, the output will start at arrout( (x0+1)/2 ) and
+
+            arrout(i) = (arrin(2*i-1) + arrin(2*i)) / 2.
+
+    If arrin has more than 1 dimension, the rules above apply to each
+    dimension separately. Each element of arrout will be the average of
+    2**D elements of arrin, where D is the number of dimensions.
+
+The "sample" option means that alternate pixels on each dimension are
+ignored. For the 1-D array case:
+
+    If N is even, N/2 values are stored. If N is odd, then (N+1)/2
+    values are stored.
+
+    If x0 is even, the output will start at arrout(x0/2) and
+
+            arrout(i) = arrin(2*i)
+
+    If x0 is odd, the output will start at arrout( (x0+1)/2 ) and
+
+            arrout(i) = arrin(2*i-1)
+
+    These rules apply for each dimension of multidimensional arrays.
+
+The "field1" and "field2" options are for the special case where an
+image has been obtained with a raster-scan device which produces an
+interleaved image, with alternate rows belonging to different fields.
+These may have to be separated to avoid blatant motion blur. The
+"field1" option samples the first dimension of a 2-D array by averaging
+and the second dimension by sampling alternate pixels. The rules above
+are used in each case. The "field2" option is the same, except that the
+first raster line (the pixels whose second index equals the lower bound)
+are ignored, and sampling starts on the next row.
+
+
+--- $popvision/help/array_halfsize
+--- Copyright University of Sussex 1997. All rights reserved.

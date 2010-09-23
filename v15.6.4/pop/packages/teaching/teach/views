@@ -1,0 +1,1233 @@
+TEACH VIEWS                                       Aaaron Sloman Jan 1987
+
+LIB VIEWS           -  a basic context/view mechanism
+LIB CURRENT_VIEW    -  a "packaged" version of the mechanism
+
+CONTENTS - (Use <ENTER> g to access desired sections)
+
+ -- Introduction
+ -- Overview
+ -- LIB VIEWS
+ -- LIB CURRENT_VIEW
+ -- Example of use - the river puzzle
+ -- Representing possible actions
+ -- Using CROSSWITH to change the state
+ -- Getting the computer to solve the problem
+ -- Auxiliary procedures needed
+ -- Avoiding circular searches
+ -- Defining a plan-finding procedure
+ -- Print out from a sample run
+ -- Times to solve the problem
+ -- Looping with for_view
+ -- More general facilities - context nets vs trees
+ -- Creating a network of views using newsubview
+ -- The procedure view_value
+ -- How does view_value search for a value?
+ -- The variable view_search
+ -- An example of searching for a value
+ -- Removing a value using no_view_value
+ -- What happens if we switch to breadth first searching
+ -- Items can be introduced anywhere in the net
+ -- Illustrating different search orders with appview
+ -- Using appviewmap
+ -- The use of hashing function and equality test
+ -- Controlling re-hashing after garbage collection
+ -- Defining a specialised view constructor
+ -- The variable no_view_value
+ -- Using freeze_view
+ -- Further facilities are summarised in HELP VIEWS
+
+-- Introduction -------------------------------------------------------
+
+LIB VIEWS and LIB CURRENT_VIEW
+
+These files provide a context-, or viewpoint-, mechanism for associating
+values with arbitrary objects in a view or context, in such a way that
+if values are not found in a particular view they can be inherited from
+an ancestor view.
+
+This means that two views, or contexts, can share some structure, making
+it unnecessary to copy everything from an existing view to a new one.
+Only the differences need to be recorded in the new view.
+
+The mechanism is useful for planning or problem-solving programs that
+need to explore a set of situations which overlap in their contents.
+The technique described in TEACH * SEARCHING can require a lot of space
+to be wasted by constructing data-bases to describe each new state that
+is explored. The VIEWS mechanism makes it possible for different states
+to share space, since only things that have changed in a new state are
+recorded explicitly.
+
+Before reading this TEACH file it will be helpful to master two others:
+TEACH MATCHES and TEACH DATABASE.
+
+
+-- Overview -----------------------------------------------------------
+These packages generalise POP-11 properties in the following ways:
+
+1. An object can have different values associated with it in different
+views, where views form a network in which values are inherited from
+ancestors if not assigned explicitly.
+
+2. If a view has more than one parent, the method of inheritance can be
+specified by the user.
+
+3. The objects with which values are associated may be complex. E.g. two
+lists of words with the same elements can have the same value. The user
+defines what counts as "the same" item. (This requires provision of a
+hashing procedure and equality test, though the package uses default
+versions that will cover most cases. The defaults can be over-ridden.)
+
+LIB VIEWS makes use of the way in which * NEWANYPROPERTY generalises
+* NEWPROPERTY.
+
+
+-- LIB VIEWS ----------------------------------------------------------
+LIB VIEWS provides a basic mechanism for creating views, each of which
+may have one or more "parent" views from which values are inherited. A
+view may have no parents, in which case it is a "root" view. A view
+contains a POP-11 mapping table which can map arbitrary POP objects onto
+arbitray values with the property that if X = Y is true then X and Y
+will have the same value in all views.
+
+Procedures are provided for searching up a network of views.
+
+
+-- LIB CURRENT_VIEW ---------------------------------------------------
+LIB CURRENT_VIEW extends the package by providing a collection of
+procedures for operating on the "current" view, which may have been
+derived from previous views. The current view can be replaced by
+a new view using the procedure PUSH_VIEW. This for example can represent
+a transition to a new time, or a new state of an object. POP_VIEW
+restores the previous view. Various other facilities including a new
+looping construct provide a range of mechanisms that can be adapted to
+different purposes.
+
+There is also a simple extension mirroring some features of the POP-11
+database package. See HELP * DATABASE
+
+An example is given below showing how to use the package for a planning
+task.
+
+The facilities provided by LIB VIEWS and LIB CURRENT_VIEW are summarised
+in HELP * VIEWS.
+
+The rest of this file provides illustrations, first of the CURRENT_VIEW
+facilities, then the more basic mechanisms.
+
+
+-- Example of use - the river puzzle ----------------------------------
+
+Here is an example of the use of VIEWS and CURRENT_VIEW libraries.
+
+Consider the problem of getting a man, fox, chicken and grain from the
+left to the right bank of a river, using a boat that holds only one item
+besides the man. The fox may not be left alone with the chicken, nor the
+chicken with the grain. We can represent this problem by setting up a
+database in which certain things are true.
+    [] -> view_facts;
+    true -> chatty;     ;;; causes some trace printing
+    start_views(10);    ;;; initialises stack of current views
+                        ;;; and create initial view, with table size 10
+
+This prints out:
+    Starting new context view1
+
+Record the initial facts that are TRUE in this view
+    vars fact;
+    for fact in [[man left] [chicken left] [fox left] [grain left]] do
+        record_in_view(fact,true)
+    endfor;
+
+RECORD_IN_VIEW adds its first argument to the 'database', i.e. a list
+called VIEW_FACTS and also gives it the specified value in the
+"current" view.
+
+The above actions could be packaged into a procedure called START that
+initialises the problem.
+
+    define start();
+        lvars fact;
+        start_views(10);
+        [] -> view_facts;
+        for fact in [[man left] [chicken left] [fox left] [grain left]] do
+            record_in_view(fact,true)
+        endfor;
+    enddefine;
+
+    start();
+    Starting new context view1
+
+We can ask what facts are true about the left, or the right, bank, in
+the current context, using the procedure GET_ALL_TRUE, which takes a
+pattern and returns a list of the items in the views database that have
+value TRUE in the current view:
+
+    get_all_true([== left]) =>
+    ** [[grain left] [fox left] [chicken left] [man left]]
+
+    get_all_true([== right]) =>
+    ** []
+
+Define a procedure to show everything on left and right banks:
+
+    define showstate();
+        get_all_true([== left]) =>
+        get_all_true([== right]) =>
+    enddefine;
+
+    showstate();
+    ** [[grain left] [fox left] [chicken left] [man left]]
+    ** []
+
+Having seen how to represent a state by assigning values to certain
+assertions, we now need to represent actions as procedures that change
+the state. A program to solve the problem can try various combinations
+of operations involving these procedures until it finds a sequence that
+leads to the goal state, where everthing is on the right bank.
+
+
+-- Representing possible actions --------------------------------------
+
+There are four possible moves the man can make in any state - either to
+cross the river alone, or to cross with one of the three animals. In
+some cases not all the moves are possible because the animal is on the
+opposite bank - a precondition is violated.
+
+We can define a procedure that takes either the name of an animal, or
+[], and attempts to cross the river. If given an animal it checks
+whether the man and the animal are in the same place. If not, it does
+nothing, and returns false. If successful it returns true.
+In defining this we need to be able to check the current location of the
+man and other animals.
+
+    vars place;
+    view_lookup([man ?place]);
+
+That assigns a value to the pattern variable PLACE:
+
+    place =>
+    ** left
+
+We can check whether something else is in the same place.
+    true_in_view([fox ^place]) =>
+    ** [fox left]
+
+    true_in_view([cat ^place]) =>
+    ** <false>
+
+These can be used to define the operator CROSSWITH. It does some
+checking, and if conditions are satisfactory, records the changes of
+state, in a new view created by PUSH_VIEW, so that the previous
+current_view can be restored easily if it later turns out necessary:
+
+    define crosswith(item);
+        lvars item, newplace;   ;;; lexical variables - faster and safer
+        vars place;             ;;; used with "?" in pattern so VARS
+        view_lookup([man  ?place]);
+        if place == "left" then "right" else "left" endif-> newplace;
+        if item = [] then
+            ;;; crossing alone
+            push_view(2);
+            record_in_view([man ^place],false);
+            record_in_view([man  ^newplace],true);
+            true
+        elseif true_in_view([^item  ^place]) then
+            ;;; item is in same place - ok to move
+            push_view(4);
+            record_in_view([^item  ^place],false);
+            record_in_view([^item  ^newplace],true);
+            record_in_view([man ^place],false);
+            record_in_view([man  ^newplace],true);
+            true
+        else false
+        endif
+    enddefine;
+
+The facilities from LIB CURRENT_VIEW used here are PUSH_VIEW,
+VIEW_LOOKUP, TRUE_IN_VIEW, and RECORD_IN_VIEW. The latter changes the
+value of an item in a the current view.
+
+-- Using CROSSWITH to change the state --------------------------------
+We can use CROSSWITH, defined above, to explore various actions, and
+return to previous states if we don't like the consequences. E.g.
+
+    crosswith("fox")=>
+    Starting new context view2
+    ** <true>
+
+    showstate()
+    ** [[grain left] [chicken left]]
+    ** [[man right] [fox right]]
+
+But this is illegal, so we wish to restore the previous state:
+    pop_view();
+    Leaving view view2
+     - Resuming view view1
+
+    showstate();
+    ** [[grain left] [fox left] [chicken left] [man left]]
+    ** []
+
+However, the system remembers what was in view2, and a procedure can
+be defined that shows the state in any view for which a name is
+provided:
+    define showstate_in(current_view);
+        showstate()
+    enddefine;
+
+    showstate_in(view2);
+    ** [[grain left] [chicken left]]
+    ** [[man right] [fox right]]
+
+Try another move
+    crosswith("chicken")=>
+    Starting new context view3
+    ** <true>
+
+    showstate();
+    ** [[grain left] [fox left]]
+    ** [[chicken right] [man right]]
+
+But it still remembers view1, the initial state
+    showstate_in(view1);
+    ** [[grain left] [fox left] [chicken left] [man left]]
+    ** []
+
+It also remembers view2, which was abandoned as illegal. We can expunge
+all records of view2 by cancelling the identifier;
+    syscancel("view2");
+
+    current_viewname =>
+    ** view3
+
+View2 has been abandoned as illegal, but the current view, view3
+has not. We can investigate various moves to see whether they are legal
+in the current view.
+
+It is not possible in state view3 to cross with the fox, because it is
+on the wrong bank:
+
+    crosswith("fox") =>
+    ** <false>
+
+    crosswith("grain") =>
+    ** <false>
+
+But it is possible to cross with the chicken.
+    crosswith("chicken")=>
+    Starting new context view4
+    ** <true>
+    showstate();
+    ** [[grain left] [fox left] [chicken left] [man left]]
+    ** []
+
+This is a legal state, but the move was futile, as it simply restored
+a state that had existed previously. So we should go back to the
+previous view, view3, and try something different, crossing alone:
+
+    pop_view();
+    Leaving view view4
+     - Resuming view view3
+
+    crosswith([])=>
+    Starting new context view5
+    ** <true>
+
+That succeeded, so look at the new state:
+    showstate();
+    ** [[grain left] [fox left] [man left]]
+    ** [[chicken right]]
+
+
+-- Getting the computer to solve the problem --------------------------
+
+With this sort of apparatus it is not hard to write a program to explore
+the different possible actions and their consequences, trying to find a
+sequence of actions that will achieve the goal state. The techniques
+used are explained in TEACH * SEARCHING and in TEACH * TOWER.
+
+The program needs to explore alternative moves from the initial state,
+keeping track of which sequences of moves get to which states. If a
+sequence gets to the goal state, that is the required plan.
+
+
+-- Auxiliary procedures needed ----------------------------------------
+
+If the computer is to find a sequence of actions to solve the problem, it
+will need to be given a procedure to decide whether a state is legal, so
+that it does not explore plans involving illegal states.
+
+We can use VIEW_LOOKUP to find where things are in the current view.
+    vars place;
+    view_lookup([chicken ?place]);
+    place =>
+    ** right
+
+Local variables used with "?" in patterns must be declared with VARS,
+not LVARS. A procedure of the following sort can be used to check
+whether the current view is legal:
+
+    define legal_view();
+        ;;; check whether current situation is legal
+        vars manplace foxplace chickenplace grainplace;
+        view_lookup([fox ?foxplace]);
+        view_lookup([chicken ?chickenplace]);
+        view_lookup([man ?place]);
+        if (foxplace == chickenplace) and (place /== foxplace) then
+            return(false)
+        endif;
+        view_lookup([grain ?grainplace]);
+        if (chickenplace == grainplace) and (place /== chickenplace) then
+            return(false) endif;
+        true
+    enddefine;
+
+Is the current view legal?
+
+    legal_view()=>
+    ** <true>
+
+Note that even if preconditions of an action are satisfied, the result
+of the action may be illegal.
+
+Another procedure is needed to decide whether the goal state has been
+reached. The procedure FALSE_IN_VIEW can be used for this. It takes a
+pattern and returns TRUE if all the items in the database that match the
+pattern are FALSE in the current view. Hence, a procedure to check that
+there's nothing remaining on the left bank:
+
+    define isgoal();
+        false_in_view([=  left])
+    enddefine;
+
+Is the current view a goal state;
+
+    isgoal() =>
+    ** <false>
+
+
+-- Avoiding circular searches -----------------------------------------
+To prevent circularity it is useful to keep a record of all states that
+have been explored, so that when an action creates a new state, if that
+state is in the list of previously explored states then it is not worth
+examining.
+
+In general how to record a state for future comparison is a very tricky
+question, especially if descriptions of states are large and complex.
+We could simply use a list of the things that are true in the
+current state as a record.
+
+A description of the current state can be created using the procedure
+GET_ALL_TRUE, which returns a list of all items that match its argument
+and are true in the current state. E.g. Since every list matches [==], we
+can make a list of all true assertions:
+
+    get_all_true([==]) =>
+    ** [[chicken right] [grain left] [fox left] [man left]]
+
+However, since every item is either on the left or on the right, we can
+avoid recording the whole situation if we simply record what is on the
+right bank, since that uniquely identifies a state, for this problem.
+
+    define this_state();
+        get_all_true([= right])
+    enddefine;
+
+E.g.
+    this_state() =>
+    ** [[chicken right]]
+
+
+Define a global variable PREVIOUS_STATES with a list of states
+previously visited, and a procedure to check whether the current state
+has been visited, and if not to record it in the list, returning TRUE.
+If the state has been visited previously then it doesn't record it, but
+returns FALSE:
+
+    vars previous_states=[];
+    define record_this_state() -> result;
+        lvars state result;
+        this_state() -> state;
+        if member(state,previous_states) then
+            false -> result
+        else
+            [^state ^^previous_states] -> previous_states;
+            true -> result
+        endif
+    enddefine;
+
+This assumes that the lists of true assertions produced by get_all_true
+are always in the same order. We can assume this because it finds them
+in the same order as they are in view_facts, which does not change.
+
+
+-- Defining a plan-finding procedure ----------------------------------
+
+Using a modified version of the techniques described in TEACH SEARCHING
+we can define a procedure that searches for a sequence of moves from the
+initial state to a goal state, and returns the sequence as its result,
+or else returns false if it cannot succeed.
+
+The plan is built up by adding items at the beginning of the list,
+so at the end it is reversed.
+
+This procedure uses breadth first search, to find the shortest
+successful plan. Depth first search is much easier, using push_view and
+pop_view. For breadth first search we can't use a stack of views, but
+instead keep a "queue"of alternative views to explore, in the form of a
+list of view-names.
+
+The list contains the names of views and if any new possible views are
+generated from an old view, by new legal actions, then the new names are
+attached to the right hand end of the list, called ALTERNATIVES. Then
+the front of the list is examined, and if it is not the goal state new
+states are derived from it and put at the end of ALTERNATIVES. This goes
+on until there are no more alternatives, or the goal has been found.
+
+In the procedure SOLVE we set the variable USE_GLOBAL_VIEW false, since it
+shoule be left true (its default value) only in cases where most of the items
+whose values are accessed are in a "global" view. See HELP * VIEWS
+
+Two procedures will be defined later;
+
+    vars procedure (try_alternatives,try_new_state);
+
+    define solve() -> newplan;
+        lvars viewname,alternatives,newplan;
+        vars plan, previous_states=[],
+            use_global_view=false;
+        start();
+        [^current_viewname] -> alternatives;    ;;; views to explore
+        record_in_view([plan []],true);         ;;; initial plan is []
+        repeat
+            ;;; if no more alternatives to explore report failure
+            if alternatives == [] then false -> newplan; return() endif;
+
+            ;;; examine first alternative, and remove it from the list
+            front(alternatives) -> viewname;
+            back(alternatives) -> alternatives;     ;;; to use next time
+            ;;; set up the view corresponding to viewname
+            set_current_view(valof(viewname),viewname);
+            ;;; find the plan that got to this state
+            view_lookup([plan ?plan]);
+            ;;; try ways of extending it, using procedure defined below
+            try_alternatives(plan,alternatives,[fox chicken grain []])
+                                                -> newplan -> alternatives;
+            if newplan then
+                if chatty then
+                    current_viewname >< ' IS THE GOAL STATE' =>
+                    showstate()
+                endif;
+                return();
+            endif;
+        endrepeat
+    enddefine;
+
+
+    define try_alternatives(plan,alternatives,objects)
+                                        -> newplan -> alternatives;
+        ;;; try alternative ways of extending the plan so far
+        lvars plan object newplan alternatives objects;
+        for object in objects do
+            if crosswith(object) then
+                ;;; add this move to front of plan so far
+                [[crosswith ^object] ^^plan] -> newplan;
+                ;;; There will be a new view. Try it out
+                try_new_state(newplan,object,alternatives)
+                                -> newplan -> alternatives;
+                ;;; if newplan isn't false, goal is achieved
+                if newplan then return() endif;
+                ;;; restore prior state & try remaining objects
+                pop_view();
+            endif
+        endfor;
+        false -> newplan;       ;;; did not succeed
+    enddefine;
+
+    define try_new_state(newplan,object,alternatives)
+                                    -> newplan ->alternatives;
+        lvars newplan object alternatives;
+        if isgoal() then
+            rev(newplan)-> newplan;
+            return();
+        elseif legal_view() and record_this_state() then
+            ;;; legal state, and not an old one
+            if chatty then
+                ;;; print out view name, plan so far, and state
+                current_viewname =>
+                'Plan to get here' =>
+                rev(newplan) ==>
+                'Current state:' =>
+                showstate();
+            endif;
+            ;;; record the plan that got to this state
+            record_in_view([plan ^newplan],true);
+            ;;; remember this view's name for future use
+            [^^alternatives ^current_viewname] -> alternatives;
+        else
+            ;;; don't save this context (optional)
+            syscancel(current_viewname);
+        endif;
+        false -> newplan;
+    enddefine;
+
+-- Print out from a sample run ---------------------------------------
+
+We can run this with chatty true, and print out the result thus:
+
+    solve()==>
+    Starting new context view1
+    Starting new context view2      ;;; illegal - crossed with fox
+    Leaving view view2
+     - Resuming view view1
+    Starting new context view3      ;;; OK crossed with chicken
+    ** view3
+    ** Plan to get here
+    ** [[crosswith chicken]]        ;;; Only one action in plan so far
+    ** Current state:
+    ** [[grain left] [fox left]]
+    ** [[chicken right] [man right]]
+    Leaving view view3
+     - Resuming view view1          ;;; try other moves from view1
+    Starting new context view4
+    Leaving view view4              ;;; illegal - crossed with grain
+     - Resuming view view1
+    Starting new context view5
+    Leaving view view5              ;;; illegal - crossed alone
+     - Resuming view view1
+    Starting new context view3      ;;; no more options from view1
+    Starting new context view6
+    ** view6
+    ** Plan to get here
+    ** [[crosswith chicken] [crosswith chicken]]
+    ** Current state:
+    ** [[grain left] [fox left] [chicken left] [man left]]
+    ** []
+    Leaving view view6              ;;; useless - like view1
+     - Resuming view view3
+    Starting new context view7
+    ** view7
+    ** Plan to get here
+    ** [[crosswith chicken] [crosswith []]]
+    ** Current state:
+    ** [[grain left] [fox left] [man left]]
+    ** [[chicken right]]
+    Leaving view view7              ;;; try more options from view3
+
+and so it goes on .... tilll
+
+    Starting new context view16
+    ** view16
+    ** Plan to get here
+    ** [[crosswith chicken]
+        [crosswith []]
+        [crosswith fox]
+        [crosswith chicken]]
+    ** Current state:
+    ** [[grain left] [chicken left] [man left]]
+    ** [[fox right]]
+    Leaving view view16
+     - Resuming view view12
+
+Etc     .....
+
+     - Resuming view view22
+    Starting new context view29
+    ** view29
+    ** Plan to get here
+    ** [[crosswith chicken]
+        [crosswith []]
+        [crosswith fox]
+        [crosswith chicken]
+        [crosswith grain]
+        [crosswith []]]
+    ** Current state:
+    ** [[chicken left] [man left]]
+    ** [[grain right] [fox right]]
+    Leaving view view29
+     - Resuming view view22         ;;; but no more options there, so
+    Starting new context view29
+    Starting new context view30
+    ** view30 IS THE GOAL STATE
+    ** []
+    ** [[grain right] [chicken right] [man right] [fox right]]
+
+And this is the plan returned as a result of SOLVE()
+
+    ** [[crosswith chicken]
+        [crosswith []]
+        [crosswith fox]
+        [crosswith chicken]
+        [crosswith grain]
+        [crosswith []]
+        [crosswith chicken]]
+
+For a depth first search all that would be required would be to put new
+alternatives at the front of the list rather than the back. I.e. change:
+          [^^alternatives ^current_viewname] -> alternatives;
+
+to
+          [^current_viewname ^^alternatives] -> alternatives;
+
+A useful exercise would be to generalise this procedure so that it could
+be applied to a range of different problems.
+
+For example, SOLVE and the other procedures could be made totally general,
+in which case they would have to take extra arguments relevant to the
+particular problem. The techniques required are similar to those explained
+in TEACH * SEARCHING.
+
+A heuristic procedure for comparing states in order to determine which
+alternative to try first could also be used, as explained in TEACH *
+SEARCHING.
+
+
+-- Times to solve the problem -----------------------------------------
+
+A depth first version of this program (with USE_GLOBAL_VIEW set false)
+solved the problem in about 1.9 seconds CPU time on a VAX-750, the breadth
+first version in 2.9 seconds. (On a SUN-3 it takes about a third of the time.)
+
+The depth first version looked at 20 views, the breadth first 30. In
+fact, by using more efficient though less clear techniques the times can
+be reduced substantially. E.g. using recursion for the depth-first
+search speeds it up considerably.
+
+The time taken is sensitive to the hashing procedure selected, as
+described below.
+
+It is even more sensitive to the problem-representation. If, for
+example, the actions of getting in and out of the boat, putting an
+animal in or taking it out, are represented explicitly, the search space
+increases and the time taken can go up by an order of magnitude or
+more.
+
+-- Looping with for_view ----------------------------------------------
+
+LIB VIEWS extends the looping syntax of POP-11 so that it is easy to
+perform an action relating to all the database items that are true in
+the current context and match a given pattern. This is by analogy with
+the role of * FOREACH in the POP-11 database. E.g. to make a list of all
+the items that are on one side or the other in a given view:
+
+    define list_on_side(side,current_view);
+        lvars side;
+        vars item; ;;; used in matcher, so must be dynamic
+        [%  for_view [?item ^side] with_value true do
+                item
+            endfor_view %]
+    enddefine;
+
+    list_on_side("left",view3) =>
+    ** [grain fox]
+
+    list_on_side("right",view3) =>
+    ** [chicken man]
+
+    list_on_side("left",view1) =>
+    ** [grain fox chicken man]
+
+FOR_VIEW can be used with a richer syntax.
+
+    FOR_VIEW <pattern>
+    WITH_VALUE <expression>     ;;; optional
+    IN_VIEW <view>              ;;; optional
+    IN <list>                   ;;; optional
+    DO
+        <actions>
+    ENDFOR_VIEW
+
+The optional components can occur in any order, with <expression>
+defaulting to TRUE, the <view> defaulting to CURRENT_VIEW and the <list>
+defaulting to VIEW_FACTS
+
+
+-- More general facilities - context nets vs trees --------------------
+
+The example given above used a simple notion of a view as having only
+one parent view. So views form a tree structure, such as:
+
+                view1
+               /  |  \
+         view2 view3  view4
+        /  |          /  \
+    view5  view6   view7  view8
+
+LIB VIEWS provides more general facilities, permitting networks of views
+in which a particular view, or context, may have more than one parent.
+
+The more general facilities used to define the specialised mechanisms
+illustrated in the example above are illustrated below.
+
+
+-- Creating a network of views using newsubview -----------------------
+
+The procedure NEWSUBVIEW takes a view or list of views, possibly empty,
+and returns a new view, having those views as its parents. E.g. we can
+use it to create a network of eight views with the structure:
+
+                v1-----\
+              /  |  \   \
+            v2  v3   v4  |
+             \ /     |   |
+              v5     |   |
+              |  \  /   /
+              v6  v7   /
+                \  |  /
+                   v8
+
+
+To create a new "root" view invoke NEWSUBVIEW with an empty list of
+parent views, and a guess at the number of items to be stored there.
+(The number does not have to be exact, as the table will expand
+automatically if it gets too full.)
+
+    vars
+        v1=newsubview([],10),
+        v2=newsubview(v1,3),
+        v3=newsubview(v1,3),
+        v4=newsubview(v1,3),
+        v5=newsubview([^v2 ^v3],3),    ;;; "^" means use the value of
+        v6=newsubview(v5,3),
+        v7=newsubview([^v5 ^v4],3),    ;;; note the order of v5 and v4
+        v8=newsubview([^v6 ^v7 ^v1],3);    ;;; note the order of v5 and v4
+
+Each new view is actually a record of three items
+    1. a property mapping items to values, created by * NEWANYPROPERTY
+    2. a parent or list of parents
+    3. a "mark" used by procedures that search through networks of views
+
+The precise behaviour of NEWSUBVIEW is controlled by some important
+user-assignable global variables, described below. These determine the
+kind of property table created.
+
+
+-- The procedure view_value -------------------------------------------
+
+This procedure, like its updater, takes a view and an item and accesses
+or updates the value of the item in the view.
+
+If the "current" view, set by PUSH_VIEW or POP_VIEW is to be used, as in
+the river crossing example above, then CURRENT_VIEW_VALUE can be used
+for simplicity, instead of VIEW_VALUE. The example below uses the latter
+to illustrate its generality.
+
+If no value is found for an item in the given view, VIEW_VALUE will
+search upwards through ancestor views looking for a value. The search
+strategy is determined by the variable VIEW_SEARCH, as shown below.
+
+Give some assertions true or false values in the root node: v1 (actually
+ANY values can be used).
+
+    vars item;
+    for item in [[a is big] [b is big] [c is big]] do
+        true -> view_value(v1,item)
+    endfor;
+
+    for item in [[a is red] [b is red] [c is red]] do
+        false -> view_value(v1,item)
+    endfor;
+
+All of these will now have been inherited in all descendent nodes in the
+network:
+
+    view_value(v3,[a is big]) =>
+    ** <true>
+
+    view_value(v8,[c is red]) =>
+    ** <false>
+
+    true -> view_value(v4,[c is red]);
+
+    view_value(v8,[c is red]) =>
+    ** <false>
+
+But some propositions have no value in any context:
+    view_value(v1,[a is heavy]) =>
+    ** <no_view_value>
+
+
+-- How does view_value search for a value? ----------------------------
+
+VIEW_VALUE cannot find a value associated with any item in view v8,
+because no value has been explicitly stored there. So it has to look at
+the parents of v8, namely v6, v7, and v1, and if necessary at their
+parents, until it finds a value.
+
+In what order should it look, since, for example there may be no value
+explicity stored in v6 or any of its ancestors apart from v1, whereas
+there is a value in v4?
+
+The answer is that the search order is up to the user. Two standard
+search orders are available, depth first (branching up to the left)
+and breadth first, which searches up in waves. The default is depth
+first.
+
+
+-- The variable view_search -------------------------------------------
+
+This variable determines the strategy for searching for a value in the
+context net. Its value may be EITHER the word "depth" OR the word
+"breadth" OR a procedure of three arguments, namely
+
+    1. an item for which a value is required,
+    2. a list of views previously discovered in the search
+    3. a list of new views, containing parents of the most recently
+        examined view.
+
+It should return an ordered list of views to be examined. For example,
+joining argument 3 at the front of argument 2 will determine a depth
+first strategy, while putting them at the end will determine a breadth
+first strategy. Anything else will determine some other strategy.
+
+For most purposes the variable view_search will probably have the value
+"depth" or "breadth". We start with the former, by default.
+
+In the "river" puzzle example the value of view_search would have made
+no difference because each view had only one parent.
+
+
+-- An example of searching for a value --------------------------------
+
+Change the value of [a is big] in view v3.
+
+    false -> view_value(v3,[a is big]);
+    view_value(v3,[a is big]) =>
+    ** <false>
+
+What will its value now be in v5, which has v2 and v3 as parents, in
+that order? Because the strategy is depth first, it will search up
+from v2 and will therefore find a value at v1 before looking at v3, so
+the value at v5 will be unaffected by that at v3:
+
+    view_value(v5,[a is big]) =>
+    ** <true>
+
+But if we change the value in v2 it will be inherited by v5:
+    "maybe" -> view_value(v2,[a is big]);
+    view_value(v5,[a is big]) =>
+    ** maybe
+
+And below
+    view_value(v6,[a is big]) =>
+    ** maybe
+
+And in v8
+    view_value(v8,[a is big]) =>
+    ** maybe
+
+-- Removing a value using no_view_value -------------------------------
+
+The change in v2 can be cancelled by assigning no_view_value as the
+value so that in v2 and its descendants the value will revert to what
+was inherited from v1:
+
+    no_view_value-> view_value(v2,[a is big]);
+    view_value(v5,[a is big]) =>
+    ** <true>
+
+    view_value(v6,[a is big]) =>
+    ** <true>
+
+    view_value(v7,[a is big]) =>
+    ** <true>
+
+-- What happens if we switch to breadth first searching ---------------
+
+    "breadth" -> view_search;
+
+Now the first parent of v5, namely v2, has no value of its own, whereas
+the second parent, v3 still has. So in breadth first mode, the v3 value
+will be found:
+    view_value(v2,[a is big]) =>
+    ** <true>
+that is inherited from v1.
+
+    view_value(v3,[a is big]) =>
+    ** <false>
+that is stored explicitly in v3
+
+So:
+    view_value(v5,[a is big]) =>
+    ** <false>
+
+
+-- Items can be introduced anywhere in the net -----------------------
+
+So far, all the items considered have had values at the root node, which
+have either been inherited or masked lower down. An item may have a
+value lower down the net, and no value higher up. E.g.
+
+    true -> view_value(v5,[a is huge]);
+
+The value is inherited
+    view_value(v7,[a is huge]) =>
+    ** <true>
+
+but unknown higher up.
+    view_value(v1,[a is huge]) =>
+    ** <no_view_value>
+
+
+-- Illustrating different search orders with appview ------------------
+
+We can use the procedure appview to display the order in which ancestor
+views are examined. First lets give v1 to v8 names:
+
+    vars nameof=newproperty([],5,false,true);
+    vars w;
+    for w in [v1 v2 v3 v4 v5 v6 v7 v8] do
+        w -> nameof(valof(w))
+    endfor;
+
+Now define a procedure that takes a view, and a search strategy
+specification, and uses appview to search up ancestors printing their
+names out:
+
+    define pr_ancestors(v,view_search);
+        lvars v;
+        appview(v, procedure(v); lvars v; spr(nameof(v)); endprocedure);
+        pr(newline);
+    enddefine;
+
+    pr_ancestors(v8,"depth");
+    v8 v6 v5 v2 v1 v3 v7 v4
+
+Checking against the diagram above shows that this is a depth-first
+search up the net from v8. Compare:
+
+    pr_ancestors(v8,"breadth");
+    v8 v6 v7 v1 v5 v4 v2 v3
+
+Here is a procedure value for view_search that changes the order, by
+trying to put v4 at the front.
+
+    define oddsearch(item,old,new) -> list;
+        lvars item,old,new,list;
+        vars left right;
+        old <> new -> list;
+        while list matches [??left ^v4 ??right] and left /== [] do
+            delete(v4,right) -> right;
+            delete(v4,left) -> left;
+            [^v4 ^^ left ^^right] -> list;
+        endwhile;
+    enddefine;
+
+    pr_ancestors(v8,oddsearch);
+    v8 v6 v7 v4 v1 v5 v2 v3
+
+We can see the effects of different search strategies on view_value, by
+giving [a is huge] three different values in ancestors of v8.
+
+    true -> view_value(v5,[a is huge]);
+    "maybe"-> view_value(v1,[a is huge]);
+    false -> view_value(v4,[a is huge]);
+
+Using depth-first search:
+    "depth" -> view_search;
+    view_value(v8,[a is huge]) =>
+    ** <true>
+
+It caught v5 first. Now catch the value at v1 first:
+    "breadth" -> view_search;
+    view_value(v8,[a is huge]) =>
+    ** maybe
+
+Finally the above procedure can make v4 take priority:
+
+    oddsearch -> view_search;
+    view_value(v8,[a is huge]) =>
+    ** <false>
+
+
+-- Using appviewmap ---------------------------------------------------
+This procedure takes a view V and a two argument procedure P suitable as
+argument for appproperty.
+
+APPVIEWMAP finds every ancestor A of V, using the order defined by
+VIEW_SEARCH, and then for each one does
+
+    appproperty(A,P).
+
+This can be used to find every item explicitly given a value in any
+ancestor of V. For example:
+
+    "depth" -> view_search;
+
+    appviewmap(v8,
+        procedure(item,val);
+            [^item ^val]=>
+        endprocedure);
+    ** [[a is huge] <false>]
+    ** [[c is red] <true>]
+    ** [[a is huge] maybe]
+    ** [[a is red] <false>]
+    ** [[a is big] <true>]
+    ** [[b is red] <false>]
+    ** [[b is big] <true>]
+    ** [[c is red] <false>]
+    ** [[c is big] <true>]
+    ** [[a is huge] <true>]
+    ** [[a is big] <false>]
+
+
+-- The use of hashing function and equality test ----------------------
+
+The rest of this file is for advanced users only.
+
+The mapping from items to values in each view makes use of an equality
+test and a hashing function for indexing, of the sorts described in
+HELP * NEWANYPROPERTY. The procedure NEWSUBVIEW illustrated above, uses
+the POP-11 equality test "=", and a hashing procedure determined by the
+user-assignable variable HASH_DEFAULT. Its initial value is the
+procedure SYSHASH which is provided as part of POPLOG (from V12.3).
+Given any POPLOG object SYSHASH returns an integer, whose value is
+unchanged by garbage collections. The user can affect its behaviour by
+updating the class_hash procedure associated with each key.
+See *SYSHASH.
+
+In general a more complex hashing procedure reduces the chance that
+different items will be mapped onto the same index number, which is
+useful for indexing, but it will be slower to compute. It is up to the
+user to determine the optimal tradeoff in a particular application. The
+fastest possible hashing procedure would simply return the same integer
+for all inputs, but would not be good for large hash-tables.
+
+
+-- Controlling re-hashing after garbage collection --------------------
+
+If a user-supplied hashing procedure is employed, and the result in
+some cases depends on the address of the argument, then two similar
+records will not be recognised as the same by =. So it may be necessary
+to provide an appropriate equality test.
+
+Use of the address also means that since the address can change as a
+result of a garbage collection, re-hashing may be necessary from time to
+time. To indicate this do:
+    true -> view_hash_gc;
+
+NEWSUBVIEW assigns a default size of 3 and an expansion factor of 1 to
+the properties it creates (see * NEWANYPROPERTY). Starting with a small
+but expandable table makes sense if most views will have only a few
+items explicitly assigned values in them. For problems in which a lot of
+changes occur in each view, a larger table size may be appropriate.
+(This is easily achieved by copying and editing the procedure NEWSUBVIEW
+after doing SHOWLIB *VIEWS.)
+
+However, all these defaults may be inappropriate for certain
+applications, so LIB VIEWS provides more general facilities.
+
+
+-- Defining a specialised view constructor ----------------------------
+
+The general purpose viewpoint constructor NEW_VIEW allows users to
+specify types of properties tailored to their applications. When given
+mapping information analogous to NEWANYPROPERTY and a view or a list of
+parent views (possibly empty), it returns a new view.
+
+The arguments for NEW_VIEW are:
+    1 to 8. All the arguments for NEWANYPROPERTY except the default
+        value, which is fixed by LIB VIEWS to use the value of
+        NO_VIEW_VALUE (see below)
+    9. A parent view or list of views, or [].
+
+For example, given a procedure MYHASH, and an equality tester MYEQ, if
+you wished the initial table size to be 100 with an expansion factor of
+1, and you required re-hashing after garbage collections, you could use
+NEW_VIEW to re-define NEWSUBVIEW as follows (for full details see HELP *
+NEWANYPROPERTY):
+
+    define newsubview(parents,size);
+        lvars parents;
+        new_view([],size,1,false,myhash,myeq,true,false, parents)
+    enddefine;
+
+Clearly more options are available to the user who fully understands
+NEWANYPROPERTY.
+
+
+-- The variable no_view_value -----------------------------------------
+
+Detailed examination of the specification for NEWANYPROPERTY will reveal
+one argument missing in the above example. We do not need to specify the
+"default" value for the hash table. That is a unique string
+'<no_view_value>' created in LIB VIEWS, held in the variable
+no_view_value, and used by NEW_VIEW. It prints out thus:
+    no_view_value=>
+    ** <no_view_value>
+
+It was used in the example above to remove values for certain items in a
+specified view, so that they reverted to inheriting values from parent
+views.
+
+
+-- Using freeze_view --------------------------------------------------
+A procedure is provided which makes the values of certain items in a view
+explicit in that view. This can serve two purposes
+
+1. if those items are looked up frequently it saves the problem of always
+    searching up the ancestor chain(s)
+
+2. it enables (some of) the contents of a view to be rendered immune to
+    changes in an ancestor view.
+
+Suppose we store some information in view v1;
+    vars item;
+    for item in [[views are powerful] [views are fast] [views are good]] do
+        true -> view_value(v1,item)
+    endfor;
+
+This is inherited by v8:
+
+    view_value(v8, [views are powerful]) =>
+    ** <true>
+
+We can "fix" the values of e.g. [views are fast] and [views are good] in v8
+
+    freeze_view(v8,[[views are fast] [views are good]]);
+
+Then changing the value of the other item in v7 will over-ride the value
+inherited from  v1, e.g.
+
+    false -> view_value(v6, [views are powerful]);
+    "depth" -> view_search;
+    view_value(v8, [views are powerful]) =>
+    ** <false>
+
+But the frozen values cannot be over-ridden higher up.
+    false -> view_value(v6, [views are fast]);
+    view_value(v8, [views are fast]) =>
+    ** <true>
+
+    false -> view_value(v1, [views are good]);
+    view_value(v8, [views are good]) =>
+    ** <true>
+
+Additional facilities are provided for manipulating views:
+
+    merge_view_values(view1,view2,check_clash)
+        This copies the associations stored in view1 into view2.
+
+        This can be used to combine a temporary hypothetical extension
+        of view2 with view2 after the extension has been tested and
+        found to be satisfactory.
+
+    view_consistent(list,view1,view2,eqproc,report);
+        This is used to test whether two views are consistent and if not
+        to report the inconsistency.
+
+See HELP * VIEWS for further details.
+
+-- Further facilities are summarised in HELP VIEWS --------------------
+
+For more information:
+
+See HELP * VIEWS, * PROPERTIES, * NEWPROPERTY, * NEWANYPROPERTY
+         * NEWMAPPING, * SYSHASH
+
+HELP * DATABASE, TEACH * DATABASE
+
+LIB * VIEWS, * CURRENT_VIEW
+
+-----<Copyright University of Sussex 1987.  All rights reserved.>-------

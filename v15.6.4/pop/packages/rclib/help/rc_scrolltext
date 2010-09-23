@@ -1,0 +1,835 @@
+HELP RC_SCROLLTEXT                                     A.Sloman May 1999
+
+(INCOMPLETE DRAFT Last updated 26 Aug 2002)
+    See HELP RCLIB_NEWS
+
+LIB RC_SCROLLTEXT
+
+This library provides a scrolling text panel addition to the collection
+of facilities described in HELP * RCLIB. It is based on the Poplog
+Scrolling Text widget as described in
+
+    REF * XpwScrollText
+
+Several additional libraries are built on top of rc_scrolltext, for
+instance in combination with rc_control_panel or rc_popup_panel
+
+CONTENTS
+
+ -- Introduction
+ -- Manipulation by the user
+ -- Example using rc_display_strings
+ -- Associated libraries
+ -- A simple example: rc_getfile
+ -- Alternative ways to cancel or accept
+ -- The basic procedure: create_scroll_text
+ -- The appearance and functionality of rc_scroll_text instances
+ -- Using the library
+ -- An example using create_scroll_text
+ -- -- Changing the selected string:
+ -- -- Changing the visible text
+ -- -- Dragging in the text panel
+ -- -- Giving the panel a "reactor" procedure.
+ -- -- Giving the panel an "acceptor" procedure.
+ -- Some additional facilities
+ -- -- rc_browse_files
+ -- -- ved_browser
+ -- -- rc_testbrowser
+ -- -- rc_display_strings
+ -- -- rc_popup_strings
+ -- -- rc_vedfileselect
+ -- Classes procedures and methods defined in the library
+
+-- Introduction -------------------------------------------------------
+
+The basic mechanism allows a panel, with a specified number of rows and
+columns (using a fixed width font) to display a vector of strings. It is
+a scrolling text panel because:
+
+1. If there are too many strings to be visible at one time, the panel
+can be scrolled up or down to show different strings.
+
+2. If some of the strings are too long, the panel can be scrolled left
+or right to allow different portions of long strings to be visible.
+
+Various methods are provided to implement this functionality, by
+invoking the C routines defined in the Poplog widget set.
+
+These methods scroll the text one row or column up or down, left or
+right:
+
+ define :method rc_scrollup(obj:rc_scroll_text);
+ define :method rc_scrolldown(obj:rc_scroll_text);
+ define :method rc_scrollleft(obj:rc_scroll_text);
+ define :method rc_scrollright(obj:rc_scroll_text);
+
+These two are used to make a designated row or column the first one
+visible in the panel:
+
+ define :method rc_scroll_to_row(obj:rc_scroll_text, row);
+ define :method rc_scroll_to_column(obj:rc_scroll_text, col);
+
+-- Manipulation by the user -------------------------------------------
+
+Although the above methods, and others provided can be invoked by
+programs, they are often instead invoked by the user via mouse or
+keyboard events. To facilitate this the Pop-11 rc_slider facility is
+used to implement mouse-sensitive "scroll bars" on the right and at the
+bottom of the text panel. In addition the text panel is made sensitive
+to mouse and keyboard events.
+
+The class rc_scroll_text, defined in LIB RC_SCROLLTEXT, also supports
+the notion of the "currently selected" string associated with a panel.
+
+-- Example using rc_display_strings -----------------------------------
+
+;;; The following example is also in TEACH rclib_demo.p
+;;; Create a panel showing a set of strings, and allow different
+;;; strings to be selected at different times. The currently selected
+;;; string should always be associated with the pop-11 variable
+;;;         the_string
+
+uses rclib
+uses rc_scrolltext
+uses rc_display_strings
+
+;;; First create a vector of strings:
+
+vars poem =
+    {'     THE POEM'
+    'Mary had a little lamb'
+    'Its fleece was white as snow'
+    'and everywhere that Mary went'
+    'the lamb was sure to go.'
+    'It followed her to school one day'
+    'and made the children laugh and play.'
+    'Another child had a dog,'
+    'and two of them had pet boa constrictors'
+    };
+
+;;; Define a variable to be associated with the string which happens to
+;;; be the selected one at any time.
+
+vars the_string;
+
+;;; Now display the strings in a panel, entitled 'Mary', which allows
+;;; you to scroll up and down or left and right. The panel has top left
+;;; corner at screen location 500, 20, and has 6 rows and 20 columns of
+;;; text.
+;;; (For now ignore the unexplained arguments of rc_display_panel).
+
+vars mary_panel =
+    rc_display_strings(
+        500, 20, poem, [], false, false, 6, 20,
+            [{font '9x15'} {ident the_string}], 'Mary');
+
+;;; Check the value of the currently selected string. By default it is
+;;; the first one in the vector.
+
+the_string =>
+
+/*
+Try the following
+
+o Click on various lines of the poem and print out the value of the
+variable "the_string" after clicking. Note how the triangular pointer on
+the left moves to the selected line.
+
+o Move the triangular pointer with the mouse, either by clicking above
+or below it or dragging it. Click just above or below its highest and
+lowest positions.
+
+o Put the mouse cursor in the text panel and try moving the text
+  - by using the UP, DOWN, LEFT and RIGHT arrow keys.
+  - by dragging the mouse pointer up, or down, including going beyond
+    the limits of the text panel (and continue moving with the button
+    down, e.g. moving it small amounts back and forth.
+
+o Try using the blobs below and to the right of the panel to make the
+the visible window of text scroll up or down, left or right. You can
+drag the blob or click at a location to which you would like it to move.
+
+o Try re-running the above call of rc_display_strings with different
+numbers of rows and columns (including 0) and different (fixed width)
+fonts, e.g. '6x13', '6x13bold', '8x13', '10x20', '12x24'
+
+When done, you can click on "Dismiss All" to remove all the panels
+created by rc_display_strings.
+
+More information on the arguments for rc_display_strings and other
+utilities can be found below and in HELP RCLIB
+
+-- Associated libraries -----------------------------------------------
+
+The rc_scrolltext library has been designed to work in connection with
+instances of the class rc_window_object, i.e. windows created by
+rc_new_window_object or its derivatives, e.g. rc_control_panel and
+rc_popup_panel (see HELP * RCLIB)
+
+Additional autoloadable libraries are built on top of rc_scrolltext,
+using those facilities:
+
+    LIB * RC_POPUP_STRINGS
+        Uses rc_control_panel to present a scroll text panel displaying
+        a list or vector of strings
+    LIB * RC_BROWSEFILES
+        Uses rc_display_strings to display filenames in a versatile new
+        kind of file browser.
+    LIB * VED_BROWSER
+        Provides a way of invoking rc_browsefiles using a VED command
+            ENTER browser
+    LIB * RC_TESTBROWSER
+        Provides a simple pop-11 procedure for invoking rc_browsefiles
+        with some default arguments.
+    LIB * RC_GETFILE
+        Uses rc_popup_panel and rc_scrolltext to display a menu of files
+        matching a pattern. (Illustrated below).
+
+The class rc_scroll_text and associated methods and procedures provide a
+set of facilities for adding a scrolling text panel to a Pop11 composite
+widget such as is provided in the panels produced by rc_control_panel
+and rc_popup_panel.
+
+For users who are familiar with widget programming, as explained in
+TEACH Xpw, TEACH motif and HELP Xpw, it would be possible to copy the
+code in LIB RC_SCROLLTEXT, and leave out bits which assume that the
+scroll_text_object is part of a more complex window.
+
+the procedure create_scroll_text
+and other facilities described here, can be used as a convenience level
+above the level of widgets. An even easier way to make use of the
+scrolling text facilities is to use rc_control_panel and other libraries
+which incorporate instances of the rc_scroll_text class. These include
+
+    rc_popup_strings
+    rc_getfile
+    rc_popup_panel
+
+Examples of the use of these facilities can be found in
+    TEACH RCLIB_DEMO.P
+
+-- A simple example: rc_getfile ---------------------------------------
+
+To try out the basic facilities do this
+
+uses rclib
+uses rc_getfile
+
+The autoloadable library procedure rc_getfile uses the rc_scrolltext
+mechanisms to display files which match a filter pattern, and lets you
+select one. It can also be used in "recursive" mode so that selecting a
+directory causes files in that directory to be displayed.
+
+The basic format is
+
+    rc_getfile(x, y, filter, rows, cols, font) -> selection;
+
+Use it to show the files in your own directory in a small window of
+5 rows and width 25 columns, displayed at screen location 300, 30, with
+a 10x20 font.
+
+    rc_getfile(300, 30, '~', false, 5, 25, '10x20') =>
+
+The arguments are: two numbers for panel location on the screen, a start
+directory, a filter pattern or false, number of rows and columns to be
+shown and a font.
+
+This will display a panel containing a scrolltext window, with a movable
+triangular pointer on the left, and scroll bars on the right and below,
+with movable circular blobs. (One or other scroll bar may be missing if
+all the rows or all the columns fit in the specified window.)
+
+When it is displayed try moving the text around
+
+o by using the horizontal and vertical scroll bars
+o by dragging the "selected string" pointer up or down
+o by dragging the mouse pointer from inside the text window across
+  the boundaries of the window.
+
+There is always a currently selected string, indicated by the pointer on
+the left.
+
+If you press RETURN, or double click in the window, the procedure
+rc_getfile terminates and returns the selected string.
+
+Try it with a filter string, and different size window, e.g.
+
+    rc_getfile(300, 30, '$local/help/', 'ved*', 15, 40, '10x20') =>
+
+This is likely to have strings which are too long to fit into the panel,
+so you can scroll the text to the left.
+
+If you click on the CANCEL button it returns false. If you click on the
+OK button it returns the currently selected string. Alernatively,
+"acceptance" can be indicated by double-clicking or pressing the RETURN
+or ENTER key.
+
+If you give the procedure an extra argument, the word "recurse" then if
+you select a directory name from the files displayed it will exit and
+invoke itself with that directory. It also always adds the directory
+above that currently displayed, at the top. E.g.
+
+    rc_getfile(300, 30, '/usr/man/', '*', 15, 30, '10x20', "recurse") =>
+
+Notice how the bottom scroll bar does not appear if all the strings are
+short enough to fit in the window. Also the row scroll bar on the right
+does not appear if all the rows can fit within the number specified.
+
+If either the number of rows or number of columns specified is 0, then
+the tool attempts to work out how big the window should be so as to
+accommodate all rows and the longest string.
+
+If there are very many strings it may prove too long to fit on the
+screen.
+
+    rc_getfile(300, 30, '$usepop/pop/help', '*', 0, 0, '10x20', "recurse") =>
+
+There are two global variables controlling the maximum numbers of rows
+and columns if the arguments given are 0:
+
+    rc_scroll_rows_max      default 30,
+    rc_scroll_columns_max   default 100,
+
+You can change these to suit your screen size, preferred font,
+application requirements, etc.
+
+    30 -> rc_scroll_rows_max;
+
+-- Alternative ways to cancel or accept -------------------------------
+
+When the panel pops up your program is suspended until you cancel or
+indicate acceptance.
+
+You can cancel (causing rc_getfile to return false) in the following
+ways:
+
+o Click on the cancel button
+o Type Control C (hold control down and tap on the C key).
+
+You can indicate acceptance in the following ways:
+
+o double-click on the selected string
+o click on the OK button
+o press the RETURN or ENTER key (after selecting the string)
+
+
+-- The basic procedure: create_scroll_text ----------------------------
+
+The rc_getfile utility makes use of a variety of mechanisms in the RCLIB
+package. One is rc_control_panel, which is used to display an
+automatically formatted mixture of graphical items, as described in
+    HELP RC_CONTROL_PANEL
+
+That is invoked by rc_popup_panel, which displays a panel and suspends
+processing until an appropriate event occurs. That is used by
+rc_popup_strings to display the files which match the filter given to
+rc_getfiles.
+
+The portion of the display which shows the text, the scrollbars and the
+selected text pointer on the left is all produced by the procedure
+create_scroll_text, defined in LIB RC_SCROLLTEXT. It is invoked as
+follows:
+
+create_scroll_text(
+    ;;; parameters for the text panel
+    name, stringvec, container, xpos, ypos, rows, cols, fg, bg, font,
+    ;;; parameters controlling the associated sliders (see LIB RC_SLIDER)
+    swidth, scol, sblob, fcol, fwidth) -> scroll_text_object;
+
+    Optional arguments
+
+    spec
+        A featurespec vector or list (See HELP FEATURESPEC)
+
+    wident
+        A word or identifier to be given as value of the currently
+        selected string.
+
+
+To see how to invoke this implicitly in a panel created by
+rc_control_panel, see HELP * RC_CONTROL_PANEL, and search for SCROLLTEXT
+(upper case).
+
+-- The appearance and functionality of rc_scroll_text instances -------
+
+This is used to create a scrolling text panel within the panel which is
+given as the "container" argument. In all the applications described
+here, that container is an instance of rc_window_object, which contains
+a composite widget containing a graphic widget for the rest of the
+display. The scrolltext panel is inserted within the same composite
+widget. However you don't need to know about widgets to use this
+package. (See TEACH Xpw if you wish to find out.)
+
+In addition to the scrolling text panel create_scroll_text also creates
+at least one and up to three sliders (see HELP RC_SLIDER):
+
+o The slider on the left has an invisible bar, and a moving triangular
+pointer to indicate the selected string. This is always present.
+
+o If there are more strings than can be displayed there is also a
+vertical slider on the right which can be used as a scroll bar to alter
+the portion of text displayed in the panel, by moving the visible window
+up or down.
+
+o If some of the strings are too long to fit in the panel there is a
+horizontal slider at the bottom, which can be used as a scroll bar to
+alter the portion of text displayed in the panel, by moving the visible
+window left or right.
+
+The text can be moved either by dragging the slider blob or by clicking
+on the slider bar with mouse button 1. The currently "selected" text
+line is shown at the top of the panel and is highlighted. By clicking on
+a different line with mouse button 1, you can make that one the selected
+text. The scroll bar is required if you wish to select a line which is
+not yet visible.
+
+
+-- Using the library --------------------------------------------------
+
+To make the package available first do
+
+    uses rclib
+    uses rc_window_object
+    uses rc_slider
+    uses rc_scrolltext
+
+
+The procedure to create a scrolling text panel in a window (e.g. created
+by rc_window_object) is
+
+define create_scroll_text(
+    name, vec, container, xpos, ypos, rows, cols, fg, bg, font,
+    swidth, scol, sblob, fcol, fwidth) -> obj;
+
+With optional extra arguments spec, and wident, explained below.
+
+This creates obj, an instance of the class rc_scroll_text corresponding
+to a new scrolling text panel drawn on the window.
+
+The arguments have the following significance:
+
+    name
+        A string, labelling the widget to be created.
+
+    vec
+        A vector of strings to go into the panel. They may be only
+        partly visible.
+
+    container
+        The window object to contain the panel.
+
+    xpos, ypos
+        The position in rc_graphic coordinates of the top left corner of
+        the panel in the window
+
+    rows, cols
+        The number of rows and columns to be shown in the panel. These
+        two numbers together with choice of font, determine the size of
+        the panel.
+
+    fg, bg
+        These may be either false or strings specifying the foreground
+        and background colours to be used in the text panel, except for the
+        first line, which is highlighted, and whose colours are
+        determined by;
+            rc_scroll_text_status_fg_def  (default 'black')
+            rc_scroll_text_status_bg_def  (default 'white')
+
+    font
+        Either false or a string specifying the font to be used for the
+        text.
+
+    swidth
+        Half the width of the horizontal and vertical scrollbars
+        (corresponding to the blob radius in LIB RC_SLIDER)
+
+    scol
+        A string, the colour to be used for each of the scroll bars
+    sblob
+        A string, the colour of the blob to be used for the scroll bars.
+
+    fcol
+        A string, being the frame colour if the sliders have frames.
+
+    fwidth
+        A non-negative integer specifying the width of the frame drawn
+        around the framebar. It could be 0.
+
+    spec
+        An optional featurespec vector, interpreted as in
+            HELP FEATURESPEC
+
+    wident
+        An optional final argument which is a word or an identifier.
+        If provided, the selected string will be assigned to this
+        variable whenever it changes.
+
+
+-- An example using create_scroll_text --------------------------------
+
+uses rclib
+uses rc_scrolltext
+
+To create a scrolling text panel we first need some text. Here is a
+vector of strings:
+
+vars stringvec =
+    {'1.  now is the time for all good men 1234567890 1234567890'
+    '2.  Now Is the time for all bad men 1234567890 1234567890'
+    '3.  now was The time for all good men 1234567890 1234567890'
+    '4.  now is the day for all good men 1234567890 1234567890'
+    '5.  Now is the week for all bad men 1234567890 1234567890'
+    '6.  when was the time for all good men 1234567890 1234567890'
+    '7.  now is the month for all good men 1234567890 1234567890'
+    '8.  now is the time for all red men 1234567890 1234567890'
+    '9.  now is the time for all good men 1234567890 1234567890'
+    '10. Now Is the time for all bad men 1234567890 1234567890'
+    '11. now was The time for all good men 1234567890 1234567890'
+    '12. now is the day for all good men 1234567890 1234567890'
+    '13. Now is the week for all bad men 1234567890 1234567890'
+    '14. when was the time for all good men 1234567890 1234567890'
+    '15. now is the month for all good men 1234567890 1234567890'
+    '16. now is the time for all red men 1234567890 1234567890'
+    '17. now was the day for all good men 1234567890 1234567890'};
+
+
+Create a window to draw in
+
+vars win1 = rc_new_window_object("right","top",500,400,true,'win1');
+
+Now create a scrolling text panel, which always associates its currently
+selected string with the identifier "the_string". It should be located
+in the top left corner of the window win1, created above.
+
+vars the_string;
+
+vars scroller =
+    create_scroll_text(
+        'scroller', stringvec, win1, -250, 200,
+        ;;; it should have 10 rows and 50 columns, and default colours
+        10, 50, false, false,
+        ;;; the font
+        '8x13',
+        ;;; Slider width, bar and blob colours,
+        5, 'white', 'black',
+        ;;; frame colour and frame width (can be 0).
+        'blue', 3,
+        ;;; Associate the panel with this identifier
+        ident the_string);
+
+At the left of the panel is a triangle pointing to the right, to
+indicate the currently selected string. This is actually the movable
+blob of an invisible slider, which will be referred to as the "selector
+slider".
+
+To operate on the panel and make it respond to key presses, you will
+need to move the mouse pointer to lie within the text panel. Using mouse
+button 1 (left usually) try clicking on the horizontal and vertical
+bars, or dragging the blobs, and see what happens to the text.
+
+After the text has scrolled up or down, print this:
+
+    the_string =>
+
+
+-- -- Changing the selected string:
+
+There is always a selected string, which in this case can be printed out
+using the value of this variable, because of the last argument given to
+create_scroll_text
+
+    the_string =>
+
+There are several ways of changing the selected string.
+
+o By clicking on other strings with mouse button 1
+
+o By clicking on the invisible scroll bar to the left of the panel,
+above or below the triangle pointer.
+
+o By dragging the mouse pointer with mouse button 1 down, either in the
+text panel, or on the invisible slider to the left of it.
+
+o By pressing the "UP" and "DOWN" arrow keys on the keyboard, or
+equivalently typing CTRL P, CTRL N
+
+Repeatedly check what this prints out, after altering the selected
+string:
+
+    the_string =>
+
+-- -- Changing the visible text
+
+If the text panel has fewer rows than the number of strings in the
+vector, then it is possible to scroll the text up or down to change the
+visible portion. To facilitate this a vertical scrolling slider with a
+cricular blob is provided on the right of the text panel. Try dragging
+the blob, or clicking on the slider bar, or dragging the mouse pointer
+on the slider bar.
+
+If all the text strings are visible there is no vertical slider on the
+right.
+
+Likewise if the panel has fewer columns than the number of characters in
+the longest string, then it is is possible to scroll the text left and
+right. To facilitate this there is a horizontal slider with circular
+blob placed immediately below the text panel. If the panel has
+sufficient columns to accommodate the longest string, the horizontal
+slider is not provided.
+
+Experiment with the sliders to the right and below, to get a feel for
+their effects. Note what happens to the selected text pointer on the
+left.
+
+-- -- Dragging in the text panel
+
+Instead of using the sliders on the right and below, it is possible to
+make the text scroll left or right, up or down by dragging the mouse
+pointer across the text, left or right, up or down. The visible portion
+of the text will seem to move in the direction of the mouse, as the text
+actually moves in the opposite directly.
+
+If the slider goes beyond an edge of the panel and continues moving it
+will cause the text to continue scrolling in the appropriate direction.
+
+-- -- Giving the panel a "reactor" procedure.
+
+Like buttons, sliders, text input and number input panels, a scroll text
+panel is an instance of the class rc_informant described briefly in
+HELP RCLIB/rc_informant.
+
+Consequently there is at any time an entity associated with the panel
+which is accessible as rc_informant_value(<panel>). E.g. try
+accessing the value associated with the panel created above:
+
+    rc_informant_value(scroller) =>
+
+This should always return the same thing as the value of the (optional)
+identifier associated with the panel (in this case the_string).
+
+Whenever the currently selected string changes, the value will change.
+When the value changes a reactor procedure can run. We can give scroller
+a reactor procedure as follows:
+
+    define scroll_reactor(panel, value);
+        value =>
+    enddefine;
+
+    "scroll_reactor" -> rc_informant_reactor(scroller);
+
+Check the effect
+    rc_information_changed(scroller);
+
+-- -- Giving the panel an "acceptor" procedure.
+
+The process of moving the pointer, or changing the currently selected
+string can be distinguished from the process of confirming the final
+choice. That can be done (in the default configuration) either by
+double-clicking on the string, or by pressing RETURN (or ENTER) in which
+case the currently selected string will be given to the panel's
+acceptor method, held in the slot rc_accept_action. This should be a
+procedure (or method) or the name of one. The procedure or method will
+then be applied to the scroll text object, the column, the row, any
+modifier string (specifying whether modify keys were being held down)
+and the button number.
+
+    define scroll_acceptor(panel, value, key_or_button);
+        [selected ^value by ^key_or_button] =>
+    enddefine;
+
+    "scroll_acceptor" -> rc_accept_action(scroller);
+
+You should be able to trigger the activation of scroll_acceptor with
+appropriate arguments by either pressing RETURN, or ENTER within the
+text panel, or by double clicking on a string in the panel. Note that if
+you double click on a string which is not already the selected one then
+you will trigger the reactor as well as the acceptor methods.
+
+-- Some additional facilities -----------------------------------------
+(First draft documentation, to be improved).
+
+This help file is incomplete, and will be extended.
+
+Search for SCROLLTEXT (i.e. upper case) in HELP RC_CONTROL_PANEL. That
+shows how to add a scrolling text panel to a panel field specification.
+
+
+-- -- rc_browse_files
+
+This is a new file browser which has been implemented using the scroll
+text mechanism:
+
+    uses rclib
+
+;;; then declare a variable to hold the selected file.
+    vars selected_file;
+
+;;; rc_browse_files (x, y, path, filter, instruct, rows, cols, font, wident) -> panel;
+    rc_browse_files(100, 5, '~', '*', [], 15, 0, '9x15', "selected_file") ->;
+
+You'll get a panel showing files and directories in your login directory.
+You can select one by double clicking, or use UP and DOWN arrow keys
+and use RETURN or double-click to "accept".
+
+If there are more files than the number of rows specified (15 above),
+then a scroll bar on the right enables you to scroll up or down,
+or you can drag the text window with the mouse. The pointer on the left
+shows the currently selected file which is also always in the variable
+    selected_file =>
+
+If you "accept" (e.g.double-click) a directory you will get another file
+listing for that directory using the filter given, showin in a texin
+panel. However you can edit the filter first.
+
+The directory above the one given is also shown so you can select that
+instead of a sub-directory. If you move the displayed panel, then accept
+a directory shown in it the new display will be located near the moved
+panel, not the original panel. So you can group them according to
+directories, etc.
+
+-- -- ved_browser
+
+Ved users can invoke this by doing
+    ENTER browser <directory> <filter>
+e.g.
+    ENTER browser ~ *
+
+This is just an incomplete demo system. Code is in LIB RC_BROWSE_FILES
+
+-- -- rc_testbrowser
+Another simple way of invoking the browser uses
+
+    rc_testbrowser(x, y, file, filter, rows, font);
+
+e.g.
+    rc_testbrowser(400, 10, '~', '*', 15, '9x15');
+    rc_testbrowser(400, 10, '~', '*.p', 15, '9x15');
+
+-- -- rc_display_strings
+
+The browser uses LIB RC_DISPLAY_STRINGS, which shows how you can add a
+SCROLLTEXT panel to a specification for rc_control_panel.
+
+rc_display_strings(
+    x, y, strings, panel_fields, acceptor, reactor,
+        rows, cols, scrollspecs, title) -> panel;
+
+Uses rc_control_panel and rc_scrolltext to create a panel displaying a
+vector of strings in a scrolling text panel. See HELP * RC_SCROLLTEXT
+
+The currently "selected" string is accessible via reactor procedures,
+and the association of an identifier or variable with the panel.
+
+
+-- -- rc_popup_strings
+
+rc_popup_strings(x, y, list, strings, rows, cols, font) -> selection;
+
+    Using rc_popup_panel, create a panel, including a scrolling text
+    window, and wait for user to make a selection from that window
+    (by clicking or dragging) and press the 'OK' button. Return the
+    selected string as result.
+    If interrupted (Ctrl-C), or if the 'Cancel' button is selected,
+    return false.
+
+    x, y
+        Screen location of top left corner of panel
+
+    list
+        A list or vector of strings list, to be displaced in a scrolling
+        text panel
+
+    strings
+        Text strings to be displayed at the top of the panel
+
+    rows, cols
+        number of rows and columns to be displayed. If either is
+        0 then use number required to display all rows, or all columns,
+        or both.
+
+    font
+        Use specfied font.
+
+Compare this with rc_display_strings, which uses rc_control_panel to put
+up a "permanent" display showing the strings, and allowing a different
+string to be the currently "selected" string at different times.
+
+Compare rc_popup_strings, which uses rc_popup_panel: this puts up the
+list of strings, and waits till you make a selection which is then
+returned.
+
+Example:
+
+vars
+    strings =
+    ['Select your string' 'after scrolling if necessary'],
+    vec =
+    {%
+        lvars x;
+        for x to 40 do
+            x ><
+                '. a very useful number to display today is the number '
+                    >< x
+        endfor;
+    %};
+
+rc_popup_strings(500, 20, vec, strings, 30, 50, '9x15') =>
+
+The selected string can be returned by double-clicking, by pressing
+RETURN on the keyboard or by clicking on the OK button. The Cancel
+button causes false to be returned.
+
+See LIB RC_POPUP_STRINGS for the code, showing how to use rc_popup_panel
+to do this sort of thing.
+
+-- -- rc_vedfileselect
+
+Another example: a procedure to show buffers currently in the editor and
+let you select one to view/edit. Try:
+
+    rc_vedfileselect(300, 300, '9x15');
+
+To see how it is defined using rc_popup_strings see LIB RC_VEDFILESELECT
+
+Compare HELP VEDFILESELECT
+
+
+-- Classes procedures and methods defined in the library --------------
+
+ define vars rc_scrolltext_field_abbreviations =
+ define :class vars rc_scroll_text; is rc_informant rc_linepic rc_selectable rc_keysensitive;
+ define :method print_instance(pic: rc_scroll_text);
+ define trywriteline(widget, col, row, col_offset, vec, stringnum);
+ define :method rc_scrollup(obj:rc_scroll_text);
+ define :method rc_scrolldown(obj:rc_scroll_text);
+ define :method rc_scrollleft(obj:rc_scroll_text);
+ define :method rc_scrollright(obj:rc_scroll_text);
+ define :method rc_update_selected(obj:rc_scroll_text, val);
+ define :method rc_scroll_to_row(obj:rc_scroll_text, row);
+ define :method rc_scroll_to_column(obj:rc_scroll_text, col);
+ define :method updaterof rc_informant_value(item, obj:rc_scroll_text);
+ define lconstant select_row_string(obj, row) -> num;
+ define :method rc_button_1_down(obj:rc_scroll_text, col, row, modifiers);
+ define :method rc_button_1_up(obj:rc_scroll_text, col, row, modifiers);
+ define :method rc_button_1_drag(obj:rc_scroll_text, col, row, modifiers);
+ define :method rc_handle_keypress(obj:rc_scroll_text, col, row, modifiers, key);
+ define :method rc_handle_accept(obj:rc_scroll_text, val, button);
+ define lconstant do_select_row(slider, val, obj);
+ define lconstant do_scroll_row(slider, val, obj);
+ define lconstant do_scroll_col(slider, val, obj);
+ define lconstant set_current_active_object(scr_obj);
+ define lconstant restore_current_window(win_obj);
+ define lconstant do_button_actions(widget, item, data);
+ define lconstant do_move_actions(widget, item, data);
+ define lconstant do_keyboard_actions(widget, item, data);
+ define rc_point_right(x, y, size, col);
+ define :method rc_draw_slider_right(s:rc_slider);
+ define :method rc_undraw_linepic(obj:rc_scroll_text);
+ define :method rc_draw_linepic(obj:rc_scroll_text);
+ define create_scroll_text(name, vec, container, xpos, ypos, rows, cols, fg, bg, font,
+
+
+[[TO BE CONTINUED]]
+
+--- $poplocal/local/rclib/help/rc_scrolltext
+--- Copyright University of Birmingham 2002. All rights reserved. ------

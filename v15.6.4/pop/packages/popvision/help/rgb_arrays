@@ -1,0 +1,126 @@
+HELP RGB_ARRAYS                                 David Young
+                                                September 2001
+
+
+LIB * RGB_ARRAYS provides procedures for converting between the
+different representations of the red, blue and green components of
+colour images. In particular it handles the kind of array required by
+the *XpwDrawImage method on 24-bit systems (that is, with 32 bit words)
+and the kind of array returned by *sunrasterfile when it reads a
+depth-24 image file. It will convert between these two representations
+and also pack and unpack separate red, green and blue arrays into them.
+
+
+rgbsep_to_32(r, g, b, region, arr) -> arr
+        r, g and b must be 2-D arrays containing the red, green and blue
+        image data respectively.
+
+        For maximum efficiency, r, g and b should have 8-bit
+        arrayvectors (e.g. as returned by *newbytearray) or single-float
+        arrayvectors (e.g. as returned by *newsfloatarray). If r is one
+        of these types, then g and b must be the same type as r.
+
+        However, at some cost in efficiency, r, g and b can be any type
+        of array, provided that they contain only numerical data in the
+        region from which data are taken.
+
+        Data are taken from the region defined by region, which should
+        be a 4-element list giving the region in *boundslist style.
+        Alternatively region can be <false> in which case the region is
+        defined by the intersection of the boundslists of the r, g and b
+        arrays.
+
+        If an input array is a packed unsigned integer array (e.g. as
+        returned by newbytearray) then the data are assumed to lie in
+        the range 0 (dark) to 2**K-1 (bright) where K is the number of
+        bits per array element. They are shifted as necessary to lie in
+        the range 0-255. Otherwise data are assumed to be floating point
+        values in the range 0.0 (dark) to 1.0 (bright). They are
+        multiplied by 256 and clipped at 0 and 255.
+
+        On entry, arr may be <false>, in which case a new array is
+        created and returned, or it may be a 2-D array with a 32-bit
+        arrayvector (e.g. as returned by *newintarray). In the latter
+        case its bounds must contain the data region, and data is stored
+        in arr and it is returned. If arr is neither <false> nor an
+        array on entry, an array is created and returned using
+        oldintarray (see *newintarray and *oldarray) using the input
+        value as the tag.
+
+        On return, the first byte of each element of arr is not defined,
+        the second byte is set from the corresponding element of r, the
+        third byte is set from the corresponding element of g, and the
+        fourth byte is set from the corresponding element of b.
+
+
+rgb32_to_sep(arr, region, r, g, b) -> (r, g, b)
+        arr must be an 2-D array with a 32-bit arrayvector (e.g. as
+        returned by *newintarray) containing image data, with red in the
+        second byte of each word, green in the third and blue in the
+        fourth. The first byte of each word is ignored.
+
+        Data are taken from the region defined by the list region, which
+        is in the style of a *boundslist. Alternatively, if region is
+        <false>, the whole of arr is used.
+
+        On entry, if r is something other than an array (e.g. <false>)
+        then new arrays are created and returned. If r is the word
+        "sfloat" then the new arrays have single-precision floating
+        point arrayvectors. Otherwise they have 8-bit arrayvectors.
+
+        Alternatively, on entry r may be an array. In this case it must
+        be either a single-precision floating point array (e.g. as
+        returned by *newsfloatarray) or a byte array (e.g. as returned
+        by *newbytearray), and g and b must be the same type. These
+        arrays are then filled with data and returned. The bounds of
+        each of the output arrays must contain the data region. (The
+        option of passing a tag for use with oldarray is not implemented
+        in this procedure.)
+
+        On return, r, g and b (or the relevant regions of them) contain
+        the red, green and blue data respectively. If they are byte
+        arrays the values are copies. If they are float arrays, the
+        values are scaled to lie in the range 0 to 1 by division by 256.
+
+
+rgbsep_to_24(r, g, b, region, arr) -> arr
+        Like rgbsep_to_32 but packs the data into successive bytes of an
+        array with 24 bits per element. arr, if supplied on input, must
+        have an arrayvector with 24 bits per element.
+
+        On return, arr contains the data, scaled if necessary as above,
+        and packed into successive bytes in the order g, r, b (since
+        this is the order in which the data are held in Sun rasterfiles
+        with 24-bit depths).
+
+
+rgb24_to_sep(arr, region, r, g, b) -> (r, g, b)
+        Like rgb32_to_sep but takes the data from successive bytes of an
+        array with 24 bits per element. arr must have an arrayvector of
+        this type.
+
+        On exit the data are unpacked into r, g and b, with conversion
+        to floats if required as above. The data are assumed to be
+        stored in the input array in the order g, r, b - see above.
+
+
+rgb24_to_32(arr24, region, arr32) -> arr32
+        This is equivalent to
+
+            rgb24_to_sep(arr24, region, false,false,false) -> (r, g, b);
+            rgbsep_to_32(r, g, b, region, arr32) -> arr32;
+
+        only more efficient, of course.
+
+
+rgb32_to_24(arr32, region, arr24) -> arr24
+        This is equivalent to
+
+            rgb32_to_sep(arr32, region, false,false,false) -> (r, g, b);
+            rgbsep_to_24(r, g, b, region, arr24) -> arr24;
+
+        only more efficient, of course.
+
+
+--- $popvision/help/rgb_arrays
+--- Copyright University of Sussex 2001. All rights reserved.

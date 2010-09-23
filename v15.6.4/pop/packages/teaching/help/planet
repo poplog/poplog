@@ -1,0 +1,175 @@
+HELP PLANET                                             R.Evans November 1982
+
+- Planned execution package: an example of mixing pop11 and Prolog.
+
+The Planet package is a program designed to run on the VAX POPLOG system
+utilising features of both pop11 and Prolog. The basic function of the
+package is to allow the user to specify a procedure in two ways
+simultaneously - firstly in terms of its objectives, preconditions and
+side-effects and secondly as an 'ordinary' pop11 procedure which actually
+gets the work done. Such a procedure is called a MODULE.
+
+A module definition falls naturally into two parts - Prolog and pop11.
+The Prolog half is a STRIPS-like specification of an operator (very similar
+to a SCHEMA in LIB SOLVER (see HELP SOLVER), and the pop11 half is simply the
+body of a procedure.
+
+Modules are not called explicitly, rather, the system is invoked by
+requesting that a goal be achieved. A Prolog problem solver (a
+forward-chaining, depth-first, means-end analysis problem solver using
+chronological backtracking ) attempts to achieve the goal using the operator
+specifications of the modules. Thus it finds a module (searching in order of
+declaration of the modules) which claims to satisfy the goal required, and
+attempts (recursively) to achieve its preconditions - other goals.
+
+If no plan is found, a mishap results, otherwise the plan found is a sequence
+of operators to be applied (in fact, in the Prolog database, they have
+already been applied). The pop11 procedures corresponding to these operators
+are then run (in the order specified by the plan), thus the plan is executed
+in the 'real world' - pop11 (as opposed to the 'imaginary world' - Prolog -
+used for planning).
+
+
+
+Defining Planet modules
+-----------------------
+
+A full BNF specification of the syntax is given below. This section describes
+the syntax by example. First, an example of a module:
+
+    module in(room,X);
+
+        given input(X),input(room),
+              adjacent(room,oldroom),in(oldroom,X);
+        lose in(oldroom,X);
+        gain in(room,X);
+        using X,room,oldroom;
+
+        ;;; the body is just a pop11 procedure body
+        [Move ^X from ^oldroom to ^room] =>
+
+    endmodule;
+
+    The goal of this module is "in(room,X)" - immediately following the word
+"module". This goal is to be seen as a Prolog-like goal, a functor with
+arguments, but note that both arguments are treated as (Prolog) variables -
+the pop11 syntax rules about variable/constant distinctions are used. Thus
+if we wanted a constant as an argument then we would need word quotes. The
+exception to this is when a functor has no arguments. Such functors are not
+permitted in Prolog (an atom must be used) but here both forms are
+acceptible. Examples of valid goals are:
+
+    in(room,X)      in("kitchen",X)      setup()      setup
+
+This first goal term (the module's goal) is used for matching against a
+desired goal to be solved (here 'matching' is Prolog matching based on the
+informal translation above of goal terms into their Prolog counterparts).
+
+The "given" list is a list of preconditions for the goal. These take the same
+form as the goal, with three additional special cases:
+
+    input(X)    -   precondition that X is instantiated (as a Prolog var.)
+    output(X)   -   precondition that X is uninstantiated (as a Prolog var.)
+    fact(...)   -   where ... is a goal. This goal is to be looked up as a
+                    fact (in the Prolog database), not achieved as a goal to
+                    the prblem solver.
+
+The "given" list is the list of required preconditions which the Prolog
+problem solver will try to achieve before accepting this module as a
+solution for the main goal.
+
+The "lose" list is the list of facts to be removed from the Prolog database
+if the module is used. Note that any facts to be removed must be present in
+the database, otherwise the module will fail. The "gain" and "lose" lists
+together form the side-effect control mentioned above.
+
+The "gain" list is the list of facts to be added to the Prolog database if
+the module is used Note that the goal term must be explicitly mentioned here
+if it is to be added - this is not done automatically.
+
+The facts in the "lose" and "gain" lists look just like goals.
+
+The "using" clause provide a list of variables to be passed to the pop11
+procedure when it is run. Within the head of the module (that is, all the
+clauses discussed so far) any variables mentioned are considered as Prolog
+variables (all occurences are bound to a Prolog uninstantiated variable),
+they are not declared as pop11 variables. The "using" clause specifies which
+of these variables are to be used in the pop11 procedure - they are declared
+as pop11 variables (with the same name), local to the procedure, and are
+automatically dereferenced (using Prolog_full_deref) before the procedure is
+called. Thus they can be treated as ordinary pop11 variables with values
+obtained from the Prolog processing.
+
+Calling the Planet system
+-------------------------
+
+    Planet is called by asking it to achieve a goal. The syntax is:
+
+        achieve in("kitchen","Fred");
+
+    Here, arguments can take two forms either a pop11 expression or a 'query
+    variable', eg ?x.
+    The first is for inputs to the goal - the expression is evaluated and
+    passed to Prolog. The second is for outputs - <var> should be a declared
+    pop11 variable and when the achieve finishes its value will have been set
+    by the Planet system (either by the Prolog planner or by the pop11 code).
+    It will have been fully dereferenced.
+
+Note: in all cases where Prolog passes a value to pop11, the value is fully
+      dereferenced. If the variable passed has not been instantiated then a
+      Prolog variable (as detected by Prolog_undefvar) is returned.
+
+
+Resetting the planet system
+---------------------------
+
+The package provides one additional macro - clearplanet - which simply clears
+down all the modules currently remembered, and should be used before
+reloading a program. Clearing down individual modules is not possible.
+
+
+A BNF specification of the syntax
+---------------------------------
+
+<module definition> ::=  module <goal>;
+                            given <precondition list>;      (*)
+                            lose  <predicate list>;         (*)
+                            gain  <predicate list>;         (*)
+                            using <varlist>;                (*)
+                            <pop11 code>                    (*)
+                         endmodule;
+
+(*) these lines are optional, but must be in the order given if present.
+
+<goal> ::= <word> | <functor term>
+
+<functor term> ::= <word> ( <arglist> )
+
+<arglist> ::= <arg> | <arg>, <arglist>
+
+<arg> ::= "<word>" | <var> | <functor term>
+
+<precondition list> ::= <precon> | <precon>, <precondition list>
+
+<precon> ::= <goal> | input( <var> ) | output( <var> ) | fact( <predicate> )
+
+<predicate list> ::= <predicate> | <predicate>, <predicate list>
+
+<predicate> ::= <goal>
+
+<varlist> ::= <var> | <var>, <varlist>
+
+<pop11 code> ::= { any piece of pop11 code which makes up
+                   a valid procedure body }
+
+<var> ::= <word>
+
+<word> ::= { any pop11 literal word }
+
+<achieve statement> ::= achieve <call goal>;
+
+<call goal> ::= <word> | <word> ( <callarglist> )
+
+<callarglist> ::= <callarg> | <callarg>, <callarglist>
+
+<callarg> ::= {a pop11 expression} | ?<var>

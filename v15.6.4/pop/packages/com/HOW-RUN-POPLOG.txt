@@ -1,0 +1,288 @@
+http://www.cs.bham.ac.uk/research/poplog/com/HOW-RUN-POPLOG.txt
+$poplocal/local/com/HOW-RUN-POPLOG.txt
+2 Nov 2003
+Aaron Sloman
+http://www.cs.bham.ac.uk/~axs/
+REVISED 24 Dec 2004
+Changed to refer to v15.53f (Version may change later.)
+
+HOW TO RUN POPLOG AFTER INSTALLATION
+
+CONTENTS
+
+ -- PREAMBLE
+ -- A. Which shell? bash-like or tcsh-like
+ -- B. The poplog environment variables
+ -- -- SETTING ENVIRONMENT VARIABLES YOURSELF
+ -- -- -- The main poplog environment variable: $usepop
+ -- -- -- Scripts for setting additional environment variables
+ -- -- Requirements for a startup script
+ -- -- The user's $poplib directory
+ -- C. Where poplog has been installed.
+ -- D.1. POPLOG WITH BHAM EXTENSIONS
+ -- D.2. POPLOG WITHOUT BHAM EXTENSIONS
+ -- ADDITIONAL NOTES
+
+-- PREAMBLE
+
+How you should run poplog depends on
+
+    A. which login shell you use.
+
+    B. whether you want to have all the poplog environment variables
+       set permanently after you log in, or only when you wish to run
+       poplog (including Ved or Xved, the editor)
+
+    C. Where poplog has been installed.
+        E.g. in the default location or somewhere else
+
+    D. Whether you have the Birmingham extensions to poplog
+        Included in
+            http://www.cs.bham.ac.uk/research/poplog/bham-linux-poplog.tar.gz
+
+
+-- A. Which shell? bash-like or tcsh-like
+
+The default shell for many linux users is 'bash', but some users (like
+me) prefer tcsh. There are other shells, but they all fall into either
+the bash family or the tcsh family. E.g. ksh (bash-like) and csh
+(tcsh-like).
+
+The examples below will merely discuss the two main options, referred to
+as 'bash-like' and 'tcsh-like' shells.
+
+Roughly the various startup scripts provided in poplog are available in
+two forms, one with and without the suffix '.sh'. The ones with the
+suffix are for bash-like shells, and the ones without the suffix are for
+tcsh-like shells. If you 'source' a script (using 'source' in tcsh or
+'.' in bash-like shells) then you must use a script compatible with your
+shell.
+
+If you merely RUN a script (without 'source' or '.') then it does not
+matter which version you use. E.g. although the 'poplog' startup script
+can be sourced only in tcsh-like shells, it can be RUN in any shell,
+provided that 'tcsh' or 'csh' is available on your system.
+
+-- B. The poplog environment variables
+
+Poplog is a complex system which has many components (including the
+four main language subsystems, Pop-11, Common Lisp, Prolog and Standard
+ML.) There are also program libraries that come with poplog,
+documentation libraries that come with poplog and the option to specify
+private (or 'local') program and documentation libraries. Poplog uses a
+collection of environment variables to specify locations of various
+components of the system, which and that allows different users of the
+same installation to have variants where parts are located differently,
+and allows the same user to temporarily 'plug in' different parts.
+
+There are also some environment variables that are relevant to
+rebuilding or relinking the system, which you may or may not ever have
+to do. If you try modifying poplog (e.g. recompiling parts of it) then
+those may be important for you. But most users can ignore them. (The
+installation process uses them automatically.)
+
+Mostly you don't need to know about the environment variables -- apart
+from
+    $usepop,
+        the place where the current version of poplog is installed, and
+    $poplib
+        where your private poplog files are (e.g. init.p and vedinit.p
+        for tailoring pop-11 and the editor).
+
+If you later install extensions to poplog in the local library you may
+find it useful to find out about the environment variable $poplocal, but
+for now you can ignore it.
+
+If you use Poplog via the start-up scripts described below, you don't
+need to know anything about the environment variables. The poplog and
+poplog.sh scripts described below enable users of different sorts of
+linux shells to run poplog.
+
+
+-- -- SETTING ENVIRONMENT VARIABLES YOURSELF
+
+You may find this useful if you wish to run commands like pop11, ved,
+xved, prolog, clisp, pml, yourself, without having to prefix all
+commands with the name of a startup script.
+
+
+-- -- -- The main poplog environment variable: $usepop
+
+The single basic environment variable from which all the others (except
+$poplib) are derived is $usepop.
+
+That is the name of the top-level directory of the current poplog
+system. E.g. if poplog is installed in /usr/local/poplog, then $usepop
+might be something like one of these, depending on the version of poplog
+you have
+
+    /usr/local/poplog/v15.53
+    /usr/local/poplog/v15.53f
+
+Or it could be set to
+    /usr/local/poplog/current.poplog
+
+which can be made a symbolic link to different versions at different
+times.
+
+More generally, if poplog is installed in a directory with some other
+pathname, then instead of the above, $usepop might be set to something
+like one of the following where 'ROOT' stands for the path name of the
+installation directory:
+
+    ROOT/v15.53
+    ROOT/v15.53f
+    ROOT/current.poplog
+
+
+-- -- -- Scripts for setting additional environment variables
+
+
+Once $usepop is set, other variables are automatically set by this
+'dot' command in bash-like shells:
+
+    . $usepop/pop/com/poplog.sh
+
+or this command in tcsh-like shells:
+
+    source $usepop/pop/com/poplog
+
+-- -- Requirements for a startup script
+
+So a poplog startup script needs to set $usepop and then run the extra
+'source' or 'dot' command. Alternatively you can put the commands in
+your .bashrc or your .login directory, as explained later.
+
+-- -- The user's $poplib directory
+
+It is also useful for the user to have a private directory in which
+extensions to poplog, including startup files can be located. This is
+held in the environment variable $poplib, which might be set to
+something like:
+
+    ~/Poplib
+
+This can be set in your .bashrc file or .login file after setting other
+environment variables, e.g.
+
+    setenv poplib ~/Poplib
+        in tcsh-like shells
+or
+    export poplib=~/Poplib
+        in bash-like shells
+
+
+-- C. Where poplog has been installed.
+
+The default location for poplog is in /usr/local/poplog. If you adopt
+the default various things become slightly simpler.
+
+You may not wish to install poplog there e.g. because you are short of
+space in the /usr/local disc partition, or because you do not have
+access to that directory.
+
+The Poplog installation scripts (since November 2003) make it easy to
+install poplog in a different directory. They also create suitable
+startup scripts that you can use without having to edit the default
+startup scripts.
+
+Two options for installing in another location with or without a
+symbolic link to /usr/local/poplog are described in the file AREADME.txt
+
+If the symbolic-link option is not used then you may need to edit the
+default poplog startup scripts so that they reference the actual ROOT
+directory where poplog is installed.
+
+Fortunately, if you use the new startup scripts made available since 2nd
+November 2003, you no longer need to edit startup scripts, as the
+installation scripts create new versions of the startup scripts for you
+to use. These are called poplog and poplog.sh and placed in the startup
+subdirectory of directory containing the tar files used to install
+poplog.
+
+-- D.1. POPLOG WITH BHAM EXTENSIONS
+
+    If you have installed poplog with Birmingham extensions then you
+    should read one of the files in the startup subdirectory for
+    further instructions:
+
+    If you have installed it in the default location (/usr/local/poplog)
+    then
+
+        if your shell is bash or ksh or sh, read
+
+            startup/bham+default+bash
+
+        if your shell is tcsh or csh, read
+
+            startup/bham+default+tcsh
+
+    If you have installed poplog somewhere else, then
+
+        if your shell is bash or ksh or sh, read
+
+            startup/bham+nondefault+bash
+
+        if your shell is tcsh or csh, read
+
+            startup/bham+nondefault+tcsh
+
+
+-- D.2. POPLOG WITHOUT BHAM EXTENSIONS
+
+    If you have installed Poplog without birmingham extensions, then
+    read one of the following files for instructions.
+
+
+    1. If your login shell is bash
+        Read the file
+            startup/nonbham+bash
+
+    2. If your login shell is tcsh or csh
+        Read the file
+            startup/nonbham+tcsh
+
+    3. For more information see
+        http://www.cs.bham.ac.uk/research/poplog/userguide.html
+
+    which should have been installed in poplog as
+
+        $usepop/man/man1/userguide.html
+
+
+=======================================================================
+-- ADDITIONAL NOTES
+
+You may also find it useful to copy some files from the poplog
+installation.
+
+    cp -rp /usr/local/poplog/local/setup/Poplib ~
+
+or, if Poplog was installed somewhere else, then
+
+    cp -rp ROOT/local/setup/Poplib ~
+
+This will give you a directory called Poplib containing
+poplog startup files which you can edit to suit your preferences.
+
+If you do not have a file called .Xdefaults then copy this one
+    cp /usr/local/poplog/local/setup/Poplib/Xdefaults.poplog ~/.Xdefaults
+or
+    cp ROOT/local/setup/Poplib/Xdefaults.poplog ~/.Xdefaults
+
+If you already have such a file, add the poplog file to the end of it
+
+    cat /usr/local/poplog/local/setup/Poplib/Xdefaults.poplog >> ~/.Xdefaults
+or
+    cat ROOT/local/setup/Poplib/Xdefaults.poplog >> ~/.Xdefaults
+
+Either of those will set up various defaults for the X window system,
+which you may wish to change later by editing your .Xdefaults file.
+
+For more tips see the file checkout.txt in the directory where you
+put all the poplog sources, e.g.
+    .../linux-poplog/checkout.txt
+
+
+Please  report problems with this file to
+    A.Sloman AT cs.bham.ac.uk

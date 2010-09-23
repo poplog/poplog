@@ -1,0 +1,587 @@
+HELP NEWKIT                                       Aaron Sloman July 1999
+
+LIB SIM_AGENT  LIB POPRULEBASE
+(From Version 5.0)
+Major changes July 1999.
+Last updated 18 Aug 2000
+
+Note: before looking at any of the HELP or LIB files referred to below,
+it is necessary to run the command
+
+    uses newkit
+
+to ensure that you get the new versions of the library, not the old
+ones.
+
+There should be a file: $poplocal/local/lib/newkit.p
+linked to $poplocal/local/newkit/newkit.p
+
+The versions of Poprulebase and Sim_agent are held in
+
+    $poplocal/local/newkit/prb/
+    $poplocal/local/newkit/sim/
+
+These should be linked to
+    $poplocal/local/prb
+and
+    $poplocal/local/sim
+respectively.
+
+
+This file is
+    $poplocal/local/newkit/sim/help/newkit
+
+and also browsable on the internet at
+
+    http://www.cs.bham.ac.uk/research/poplog/newkit/sim/help/newkit
+
+CONTENTS
+
+ -- Summary SIM_AGENT V5.0, Poprulebase V5.0
+ -- Terminology: ruleclusters
+ -- -- For readers new to Sim_agent: what is a rulefamily?
+ -- New "define :rulesystem" syntax
+ -- Specifying activation intervals: "with_interval"
+ -- Activation intervals
+ -- Rulesystems transferred to databases
+ -- -- What happens when sim_setup runs
+ -- -- Rulesystem information in the database
+ -- -- [RULE_SYSTEM <name> <ruleclusters ....> ]
+ -- -- [RULE_SYSTEM_STARTUP <4-element vector>] (optional)
+ -- -- [RULE_SYSTEM_SECTION <section> ] (optional)
+ -- -- [RULE_CLUSTER <name> <cluster> <limit or interval> ]
+ -- Backward compatibility
+ -- -- Change to cycle_limit specifications
+ -- -- Additional contents of database
+ -- -- Explicit operations on contents of sim_rulesystem slot
+ -- -- Alterations to Poprulebase database facilities
+ -- -- . In LIB POPRULEBASE
+ -- -- . In LIB SIM_AGENT
+ -- Further documentation
+
+-- Summary SIM_AGENT V5.0, Poprulebase V5.0 ---------------------------
+
+The Sim_agent toolkit had a major revision in June/July 1999 allowing
+the rulesets within an agent to be stored within its database instead of
+being held in a list in the sim_rulesystem slot.
+
+This required a minor revision to some parts of Poprulebase, especially
+facilities for printing databases (to prevent rulesystems and rulesets
+being printed every time). Some other utilities had to be modified to
+ignore the new additions to the database.
+
+Additional condition-types and action-types will be introduced later to
+aid manipulation of rulesystems and their components at run time.
+
+Independently of the change in implementation of rulesystems, there is
+another change: a new "interval" mechanism for specifying the frequency
+of activation of some or all of an agent's internal mechanisms, e.g.
+once every N time slices, or "daily" "weekly", etc.
+
+Initial tests show that after these changes there is little or no
+discernible effect on efficiency. Accessing individual rulesets at run
+time may take a little longer, but the extra time is a tiny fraction of
+the total time for running rulesets, and the mechanisms for running
+rulesets are unchanged.
+
+There are other minor consequential changes. This file summarises the
+changes, and will be updated from time to time as further mechanisms,
+based on the new implementation, are added.
+
+-- Terminology: ruleclusters ------------------------------------------
+
+The word "rulecluster" is used below to refer to both rulesets and
+rulefamilies.
+
+-- -- For readers new to Sim_agent: what is a rulefamily?
+
+A rulesystem specifies the internal processing architecture of an agent
+or object. It may contain many rulesets and rulefamilies, which are
+"notionally" run concurrently.
+
+A rulefamily combines several rulesets, only one of which is current
+at any time. Rules in a ruleset in a rulefamily can have actions which
+switch control between different rulesets within that rulefamily, using
+the facilities described in HELP RULESYSTEMS:
+
+    [SAVERULESET <name>]
+    [RESTORERULESET <name>]
+    [SWITCHRULESET <name1> <name2>]
+    [PUSHRULESET <name>]
+    [POPRULESET]
+
+Those actions are defined in LIB RULEFAMILY
+
+To simplify repeatedly writing "ruleset or rulefamily" this document
+uses "rulecluster" as a term to cover both. Likewise HELP RULESYSTEMS
+has been updated to reflect this. The latest version is always
+accessible at
+    ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/newkit/prb/help/rulesystems
+
+
+-- New "define :rulesystem" syntax ------------------------------------
+
+In Version 5 of sim_agent the syntax for defining rulesystems (composed
+of ruleclusters) has been extended to allow activation intervals to be
+specified. All the old syntax still works except that "cycle_limit" can
+be used only once, near the beginning of the ruleset specification,
+before the specification of included ruleclusters.
+
+Although the syntax is largely unchanged, how it works has changed.
+Previously the rulesystem specification was translated into a list of
+ruleclusters with additional information defining the execution
+environment. Each agent's rulesystem was stored in its sim_rulesystem
+slot.
+
+In the new system, the contents of the rulesystem are be transferred to
+the agent's internal database by the sim_setup procedure defined in
+LIB SIM_AGENT, which is invoked before the agent is first run, as
+explained below.
+
+Despite this change, most rulesystem definitions should appear to work
+exactly as before, with a few exceptions, described below.
+
+Example files which run unchanged in the new system are:
+
+    TEACH ARMYSIM.P
+    TEACH SIM_DEMO
+    TEACH SIM_SHEEP.P
+    TEACH SIM_FEELINGS
+
+The changes appear not to have affected execution speeds of these files
+but I have so far not done proper testing except on the first one.
+
+-- Specifying activation intervals: "with_interval" -------------------
+
+The syntax for specifying activation intervals is explained in detail in
+
+    HELP RULESYSTEMS/with_interval
+
+There are three ways to specify an activation interval.
+
+o Use the sim_interval slot value in the object or agent
+
+o Use with_interval <sysinterval> at the top of a rulesystem
+  definition
+
+    <sysinterval> must be an integer, decimal or word
+
+o Use with_interval <interval> for particular ruleclusters.
+    <interval> can be a number or word optionally followed by a
+    colon and additional number: e.g. in this format, where
+    "..." represents the name of a rulecluster
+
+      include ... with_interval 3
+            ;;; run every 3 cycles
+
+      include ... with_interval 0.25
+            ;;; Run every cycle with probability 0.25
+            ;;; i.e. run randomly, on average once every 4 cycles
+
+      include ... with_interval day
+            ;;; run every day
+
+      include ... with_interval 3 : 4
+            ;;; run every 3 cycles with limit 4
+            ;;; NB put a space in front of the colon, to prevent
+            ;;; any chance of it being interpreted as a number radix
+
+      include ... with_interval day : 4
+            ;;; run every day with limit 4
+
+    The integer after the colon specifies a cycle limit for the
+    rulecluster. E.g. "with_interval 3 :4" means that the ruleset
+    or rulefamily should run only once in every 3 cycles of the
+    sim_agent scheduler, but when it runs it should be given 4
+    cycles of the rule-interpreter (unless a STOP action causes
+    earlier termination).
+
+Instead of a word or number specifying the interval, it is possible to
+use a string for the interval, but then you will need to redefine
+sim_interval_test to interpret the string as explained below.
+
+If the interval is a decimal rather than an integer it is interpreted
+via a randomiser. I.e. the decimal represents the probability of running
+on any cycle.
+
+-- Activation intervals -----------------------------------------------
+
+The idea of an activation interval was inspired by the SDML toolkit
+developed at Manchester Metropolitan University
+
+    Moss, S. J., Gaylard, H., Wallis, S. and Edmonds, B. (1998). SDML:
+    A Multi-Agent Language for Organizational Modelling.
+    In Computational and Mathematical Organization Theory, 4, pages
+    43-69. (http://www.cpm.mmu.ac.uk/cpmrep16.html)
+
+This allows agents to run hourly, daily, weekly. etc. The new sim_agent
+activation intervals provide similar facilities.
+
+An activation interval can be specified for an agent class or instance,
+for a rulesystem, or for individual ruleclusters within a rulesystem.
+
+The interval determines how often the relevant mechanisms are run.
+The interval can be specified either as an integer N, or a decimal
+number D <= 1.0, or a word, such as "second", "day", "week"
+
+If it is an integer N then the agent, or the individual rulecluster,
+will be run only once in every N time-slices.
+
+If it is a decimal number D, D should be between 0.0 and 1.0. Then the
+probability of it running in any timeslice is D. (A random decision
+maker is used).
+
+If it is a word naming a time-interval, i.e. "second", "minute", "hour",
+"day", "week", then activation will occur only once every T time slices,
+where T will be computed on the basis the notional time in milliseconds
+allocated to each time-slice.
+
+The global variable
+
+    sim_cycle_milliseconds
+
+can have a value which is false (the default) or an integer.
+
+To make each time-slice represent 5 seconds, do
+
+    5000 -> sim_cycle_milliseconds;
+
+To make each time-slice represent 1 day, do
+
+    24*60*60*1000 -> sim_cycle_milliseconds;
+
+I.e.
+
+    86400000 -> sim_cycle_milliseconds;
+
+Suppose the value of sim_cycle_milliseconds is K. Then if the activation
+interval specified for a mechanism is "day", then it will run once in
+every 24*60*60*1000/K cycles of the scheduler.
+
+The currently supported symbolic intervals are
+    "second" "minute" "hour" "day"
+
+However these are recognised only if sim_cycle_milliseconds is not
+false. Otherwise a mishap results.
+
+Full details can be found in the code for sim_interval_test
+in LIB SIM_AGENT
+
+Redefine sim_interval_test if you need to. E.g. you could extend
+it to handle strings specifying some other kind of interval.
+
+Later it may be possible to add some "real-time" scheduling options, but
+how fine-grained this can be will depend on speed of available CPUs and
+the types of programs included. (And garbage collections are a potential
+problem.)
+
+-- Rulesystems transferred to databases -------------------------------
+
+The most important change in V5.0 of the toolkit is that before agents
+are first run the method sim_setup transfers the agent's rulesystem into
+the database.
+
+-- -- What happens when sim_setup runs
+
+The rulesystem is analysed and the individual rulesets and ruleclusters
+transferred to the agent's database. The remaining "skeleton" rulesystem
+is stored in the database in the form of list which gives the names of
+all the ruleclusters used.
+
+Additional items taken from the header of the rulesystem definition,
+including items corresponding to the DLOCAL, LVARS, cycle_limit,
+use_section and with_interval specifications at the top of
+a rulesystem definition are stored in the database.
+
+-- -- Rulesystem information in the database
+
+After sim_setup(agent) has run, a skeleton rulesystem is constructed
+in the form of database items with the following structure, where the
+vector and name are optional.
+
+    [RULE_SYSTEM <name> <ruleclusters ....> ]
+    [RULE_SYSTEM_STARTUP <4-element vector>]
+
+If prb_use sections is true before compilation of the libraries, then
+there may also be an entry of this form:
+
+    [RULE_SYSTEM_SECTION <section> ]
+
+An agent can alter the contents of its rulesystem by adding or removing
+items.
+
+E.g. the order in which the ruleclusters are to be run can be changed,
+or the activation interval can be changed.
+
+Getting sleepy or tired might be implemented by increasing the
+activation interval. A changed level of arousal might be implemented by
+increasing the cycle limits for some or all ruleclusters.
+
+{{XXX need to be able to have a "sleep until" option?}}
+
+
+-- -- [RULE_SYSTEM <name> <ruleclusters ....> ]
+
+The main rulesystem specification in the database contains:
+
+    The word "RULE_SYSTEM"
+        (This may change to something less likely to clash with
+        user keywords)
+
+    An optional reference (created by consref) holding the name of
+    the rulesystem (included by default if you use define_rulesystem).
+
+    The rulesystem name (a word in a reference: see HELP CONSREF)
+
+    <word>
+    <word>
+    <word>
+
+    Where the words are names of rulesets or rulefamilies, in the order
+    in which they are to be run in each time slice, corresponding to the
+    order of "include" statements in the rulesystem definition.
+
+    (It is possible that the actual rulesets of rulefamilies may
+    be in the original list, rather than their names. In that case
+    appropriate new names for them are created using gensym.)
+
+
+NOTE:
+At present, although (as described in HELP RULESYSTEMS) a rulesystem
+declaration may include one of
+    debug = true;
+    debug = false;
+neither has any effect.
+
+In future it may be that the latter option will cause some optimisations
+which may reduce flexibility, e.g. making it impossible for a redefined
+ruleset to affect running agents because the rulesystem information uses
+hard links.
+
+
+-- -- [RULE_SYSTEM_STARTUP <4-element vector>] (optional)
+
+If present, the main control information for rulesystems is stored in a
+four element vector in the database, in this format:
+
+    [RULE_SYSTEM_STARTUP
+           {<dlocal_spec> <lvars_spec> <limit_spec> <interval_spec>} ]
+
+Each of the four items may be false, if there was no specification in
+the rulesystem definition.
+
+If all four are false there is no database entry of this form.
+
+    <dlocal_spec>
+        is false or holds the local environment information specified in
+            [DLOCAL ....]
+
+        If present this is a list starting with the word "DLOCAL"
+        containing information about which aspects of the environment
+        are to be stored when the rulesystem starts and restored on
+        exit, along with any new initialisations of dynamically local
+        variables. For efficiency, initialisation instructions are
+        compiled when the rulesystem declaration is compiled. More
+        precisely the list is of the form
+
+            [DLOCAL <procedure> <vars list>]
+        The values of the variables in <vars list> are saved, and the
+        <procedure> is run to do initialisations.
+
+    <lvars_spec>
+        is false or holds the information for extending popmatchvars
+        specified in
+            [LVARS ....]
+        If not false <lvars_spec> takes the form of a two element vector
+            { <words> <procedure> }
+        where <words> is the list of words to be added to popmatchvars,
+        while the rulesystem is running, and <procedure> is run to
+        initialise (some of their) their values. This works a bit like
+        sysDLVARS   described in REF VMCODE
+
+        NOTE: for efficiency the system does not reset values of global
+        matcher variables on exit from sim_run_agent. It is possible
+        that this could cause problems. This may be addressed later.
+
+
+    <limit_spec>
+        is false or holds the information specified in
+            cycle_limit = <integer>
+        If present this is a vector {limit <limit> }
+
+    <interval_spec>
+        is false or holds the information specified in
+            with_interval = <sysinterval>
+
+        If present this is a vector {rulesystem_interval <sysinterval>}
+        <sysinterval> will be an integer, decimal or word as explained
+        above.
+
+In cases where all four items would be false because the rulesystem
+definition had none of the header items, the the 4-element vector is not
+created.
+
+-- -- [RULE_SYSTEM_SECTION <section> ] (optional)
+
+If prb_use_sections is true and the rulesystem definition includes
+use_section = <section name> then the database will contain an entry of
+the form
+    [RULE_SYSTEM_SECTION <section> ]
+
+where <section> is a section (see HELP SECTIONS). Then sim_run_agent
+will save the current section on entry, will make <section> the current
+section while it runs, and will restore the old section on exit. Since
+sections change how "valof" works, this needs to be used with care, but
+be an aid to modularity in large programs. (Individual ruleclusters may
+also use their own sections.)
+
+
+-- -- [RULE_CLUSTER <name> <cluster> <limit or interval> ]
+
+There are also separate items in the database for each rulecluster. They
+are invoked by the scheduler running through the rulesystem list.
+
+Each rulecluster is represented in the database by a four element list
+with one of the following formats:
+
+    [RULE_CLUSTER <name> <cluster> <limit or interval> ]
+    [RULE_CLUSTER <name> <cluster> <false> ]
+
+Where
+    <name>
+        is the word following "define :ruleset" or "define :rulefamily"
+
+    <cluster>
+        is either the ruleset (a list) or a rulefamily, an instance
+        of the recordclass prb_rulefamily defined in LIB RULEFAMILY
+        and described near the end of HELP RULESYSTEMS
+
+    <limit or interval>
+        is a two element vector, of one of these two forms
+            {limit <integer>}
+            {interval <interval>}
+                Where <interval> can take one of the forms described
+                above.
+
+The last item is false if there is no limit or interval information.
+
+The fact that the information about an agent's rulesystem is stored in
+its own database using entries of this form, means that rules can more
+easily have conditions and actions which check the current rulesystem,
+making it easier for an agent to observe or update its own architecture.
+
+New rule-condition and rule-action formats will be introduced to make it
+easier to manipulate ruleclusters, though the above mechanisms allow an
+experienced user of the Pop-11 pattern matcher to do everything needed,
+using pattern restriction procedures if necessary to dig into vectors.
+(See HELP MATCHES)
+
+{{XXX perhaps the vectors should be replaced by lists, to simplify
+pattern matching.}}
+
+sections XXXXX
+
+-- Backward compatibility ---------------------------------------------
+
+The changes have been made in such a way as to be almost completely
+backwards compatible, except for the points listed below.
+
+As far as speed is concerned, on a number of tests the differences in
+speed between the old and the new system have proved to be negligible.
+
+Extracting the rulesystem and ruleclusters from an object's database on
+each time-slice may take a little more time, than simply going through a
+list of ruleclusters. However this extra time is normally negligible,
+compared with the time required to run the agent's rulesets the increase
+
+(The deterioration could be more noticeable for agents whose
+rulesystems include very large numbers of ruleclusters. If necessary,
+mechanisms for dealing with this will be added later.)
+
+There are three sources of incompatibility which may require changes in
+some applications of the toolkit:
+
+-- -- Change to cycle_limit specifications
+
+A rulesystem declaration (using define :rulesystem ...) can now have
+only ONE occurrence of "cycle_limit" near the beginning, before
+the first "include" and before "with_interval".
+
+Previously a later occurrence of "cycle_limit" affected all subsequent
+ruleclusters. This unstructured facility has been removed.
+
+The same effect can be achieved using the with_limit qualifier for
+several individual ruleclusters specified using "include".
+
+    See HELP RULESYSTEMS
+
+-- -- Additional contents of database
+
+After switching to the new toolkit, differences in behaviour may arise
+if there are rules or procedures which explicitly interrogate the
+property holding the agent's database, since there will now be new items
+stored there: the rulesystem specification and the ruleclusters.
+
+There may also be accidental keyword clashes if "RULE_SYSTEM" or
+"RULE_CLUSTER" has previously been used as the first item of database
+entries.
+
+-- -- Explicit operations on contents of sim_rulesystem slot
+
+After switching to the new toolkit, differences in behaviour may arise
+if there are rules or procedures which explicitly operate on the
+contents of the agent's sim_rulesystem slot.
+
+Previously that slot held a list of ruleclusters, specifying the order
+in which they are run. Now information about the rulesystem is
+transferred into the database when sim_setup(object) is run. During this
+process the initial contents of the sim_rulesystem slot are analysed,
+and information transferred to the agent's database. After that a string
+is assigned to the sim_rulesystem slot, indicating that the rulesystem
+has been processed. This will cause an error if any attempt is made to
+treat the contents as a list.
+
+-- -- Alterations to Poprulebase database facilities
+
+-- -- . In LIB POPRULEBASE
+
+    prb_noprint_keys
+        A new user assignable global variable holding a list of database
+        keywords, default []
+
+    prb_print_table(dbtable, keys);
+        Changed to to ignore keys in prb_noprint_keys
+
+-- -- . In LIB SIM_AGENT
+
+    sim_noprint_keys
+
+        A list of keys to be assigned to prb_noprint_keys while
+        sim_scheduler is running. Default value is the list
+            [RULE_SYSTEM RULE_CLUSTER RULE_SYSTEM_STARTUP]
+
+        If prb_use_sections is made true before poprulebase and
+        sim_agent are compiled, then the list is
+            [RULE_SYSTEM RULE_CLUSTER RULE_SYSTEM_STARTUP
+                    RULE_SYSTEM_SECTION]
+
+
+    sim_clear_database(dbtable);
+        This procedure has been altered so that if dbtable includes any
+        database items starting with any of these words
+            "RULE_SYSTEM" "RULE_CLUSTER" "RULE_SYSTEM_STARTUP"
+            "RULE_SYSTEM_SECTION"
+        then those items are not cleared from the database.
+
+
+XXX to be completed
+
+-- Further documentation ----------------------------------------------
+
+    HELP RULESYSTEMS
+    HELP POPRULEBASE
+    HELP SIM_AGENT
+    ....
+
+--- $poplocal/local/newkit/sim/help/newkit
+--- Copyright University of Birmingham 2002. All rights reserved. ------

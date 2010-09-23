@@ -1,0 +1,1383 @@
+TEACH PICDEM                                  Updated A.Sloman July 1989
+                                                     Updated 15 Aug 2009
+
+
+SOME PROBLEMS OF ANALYSIS, INTERPRETATION AND RECOGNITION OF IMAGES
+
+This file uses some simple demonstration programs in LIB * PICDEM to
+illustrate some of the problems of building, storing, and comparing
+descriptions of images, showing that whether you can recognize something
+you have seen before can depend on how you store its description,
+whether the description is generalised or not, and what kind of matching
+process is used. Various concepts concerned with image analysis,
+interpretation, and recognition are introduced and illustrated.
+
+CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Overview
+ -- Loading the program
+ -- Trying it out
+ -- Seeing and describing similarities
+ -- Find the lines in the picture
+ -- Find the junctions and ends
+ -- Abstracting away from actual locations of junctions
+ -- Learning concepts from pictures: start with a corner
+ -- Formats for using the -learn- procedure
+ -- Now teach the program what a line is (??)
+ -- Remembering previously learnt concepts
+ -- Learning about another corner-like concept
+ -- Displaying pictures of the original instances of learnt concepts
+ -- The long term memory of the program
+ -- The triangle and square examples
+ -- Three sides which don't join up
+ -- The "house" example
+ -- A rotated "house" is not recognized
+ -- Towards a more general matcher
+ -- Seeing one structure as a substructure of another
+ -- Towards 3-D perception
+ -- Recognition based on knowledge
+ -- Key ideas in image analysis and interpretation
+ -- Further reading
+
+-- Overview -----------------------------------------------------------
+
+The program provides simple mechanisms for drawing pictures made of
+straight lines in a 2-D array using the Pop-11 turtle (described in
+TEACH * TURTLE) and some picture analysing programs based on lib
+findlines and findjuncs (See TEACH * SEEPICTURE). These programs
+produce descriptions of lines and junctions in the picture.
+
+By storing these descriptions and comparing them, rather than comparing
+the original images, we can achieve some generality. However, to
+simplify the matching, it sometimes helps to transform the descriptions
+into a "canonical" form, as will be shown.
+
+Not all picture descriptions can easily be transformed to a unique
+canonical form, so the more complex techniques of LIB * SCHEMA can be
+used (explained in TEACH * SCHEMATA, where the problem is to matching
+stories rather than pictures).
+
+-- Loading the program ------------------------------------------------
+
+In order to try out the examples in this teach file it is useful to
+know how to mark and load a range in the editor
+    --- See TEACH * MARK, TEACH * LMR
+
+Thus all the commands given below can be run using the "load marked
+range" facility in VED. You can also try varying some of them to
+see what difference it makes.
+
+In order to get the programs ready, mark and compile the following
+commands.
+
+Get the turtle ready:
+
+    lib turtle;
+
+Initialise the turtle
+
+    turtle();
+    ** turtle ready
+
+Get library programs to find lines and junctions - mark and load these
+commands.
+
+    lib findlines;
+    lib findjuncs;
+
+Get generally useful description matcher (see TEACH * SCHEMATA)
+
+    lib schema;
+
+Now get the main picture analysing programs that use the above.
+
+    lib picdem
+
+Thereafter you can ask VED to obey all the commands illustrated below by
+marking and loading them. You can also try changing the examples to see
+what happens.
+
+If you have not loaded the preceding libraries, then LIB PICDEM will do
+it for you, so only the last command is required.)
+
+
+-- Trying it out ------------------------------------------------------
+
+First make a new blank turtle picture in which to draw.
+
+    newpicture(11,6);
+
+Use the Pop-11 turtle  (see TEACH * TURTLE or HELP * TURTLE) to make a
+picture and display it
+
+    repeat 2 times draw(2);turn(90);draw(5);turn(90) endrepeat;
+    display();
+    ***
+    * *
+    * *
+    * *
+    * *
+    ***
+
+Notice that the picture appears stretched vertically on most terminals,
+because the spaces between rows are larger than the spaces between
+columns. However this picture has more rows than columns because of the
+way it was drawn.
+
+Now create another picture
+
+    newpicture(11,6);
+    jumpto(2,3);
+    repeat 2 times draw(4); turn(90); draw(3); turn(90) endrepeat;
+    display();
+    *****
+    *   *
+    *   *
+    *****
+
+This last picture is similar to the previous one in the number of lines
+and corners and their relationships, but different in the sizes and
+locations of the lines, and the locations of the corners. Both are
+rectangles. Is it possible for a program to generate a description that
+applies equally to both of them?
+
+
+-- Seeing and describing similarities ---------------------------------
+
+We can see the similarity between the two pictures - even though the
+dots are differently arranged. But matching one picture directly against
+the other will not reveal the similarity. We need a higher level
+description of the structure of the picture. GLOBAL properties and
+relations need to be described and compared.
+
+Our approach will be to ignore the particular locations of lines
+and junctions, and simply try to describe how many lines and
+junctions there are and, most importantly, how they are related to one
+another - i.e. how they connect up (the "topology" of the picture).
+
+Fortunately there are library programs that will find the lines and
+junctions if the pictures are not too complicated.
+
+
+-- Find the lines in the picture --------------------------------------
+
+The procedure -findlines- builds a database of information about
+lines in the last picture drawn.
+
+    [] -> database;
+    findlines();
+    database ==>
+    ** [[line vrt [6 3] [6 6]]
+        [line vrt [2 3] [2 6]]
+        [line hrz [2 6] [6 6]]
+        [line hrz [2 3] [6 3]]]
+
+Notice that findlines can cope with four types of lines distinguished by
+their orientation ("vrt", "hrz", "lft", "rht").  Only two types are
+shown in the above example.
+
+-- Find the junctions and ends ----------------------------------------
+
+The procedure -findjuncs- analyses relations between lines that have
+been found, and describes each junction or end. This gives a higher
+level description of the image.
+
+    findjuncs();
+    database ==>
+    ** [[junc ell [6 6] [2 6] [6 3]]
+        [junc ell [2 6] [2 3] [6 6]]
+        [junc ell [2 3] [6 3] [2 6]]
+        [junc ell [6 3] [6 6] [2 3]]
+        [line vrt [6 3] [6 6]]
+        [line vrt [2 3] [2 6]]
+        [line hrz [2 6] [6 6]]
+        [line hrz [2 3] [6 3]]]
+
+
+The database now includes both line descriptions and junction
+descriptions of our original four-sided figure. It also has specific
+locations of junctions and ends of lines. So some generalisation or
+abstraction is required, if a generally applicable concept is to be
+formed.
+
+
+-- Abstracting away from actual locations of junctions ----------------
+
+    display()
+     *****
+     *   *
+     *   *
+     *****
+
+The database describing this contains descriptions of lines and
+junctions, including coordinates of all the junctions. However, a
+similar picture of a rectangle might have its corners at different
+locations, with different coordinates, so it is best to try to find a
+description that ignores the actual locations.
+
+We need a program that can recognize things by working at this sort of
+level of description, but which does not mind if the exact co-ordinates
+vary from one description to another. It also should not mind if the
+orientations of lines differ, e.g. if a picture is rotated in the 2-D
+image plane. An intelligent program should be able to GENERALISE to cope
+with this.
+
+We illustrate this with a simple program called "generalise" that is
+in LIB PICDEM. It starts from the current database, then generalizes
+the description of the junctions and their relationships, returning
+the generalized description.
+
+    newpicture(16,8);
+    draw(15);
+    jumpto(7,1);
+    turn(90);
+    draw(7);
+    turn(-90);
+    draw(5);
+    display();
+      ******
+      *
+      *
+      *
+      *
+      *
+      *
+****************
+
+    findlines();
+    findjuncs();
+    generalize() ==>
+
+Which produces the following printout:
+
+Here's the database:
+** [[junc end [16 1] [7 1]]
+    [junc end [12 8] [7 8]]
+    [junc end [1 1] [7 1]]
+    [junc ell [7 8] [7 1] [12 8]]
+    [junc tee [7 1] [16 1] [7 8] [1 1]]
+    [line vrt [7 1] [7 8]]
+    [line hrz [7 8] [12 8]]
+    [line hrz [1 1] [7 1]]
+    [line hrz [7 1] [16 1]]]
+
+Here's a simplified version of the database:
+** [[end [16 1] [7 1]]
+    [end [12 8] [7 8]]
+    [end [1 1] [7 1]]
+    [ell [7 8] [7 1] [12 8]]
+    [tee [7 1] [16 1] [7 8] [1 1]]]
+
+Here's the database re-ordered (most complex junctions first):
+** [[tee [7 1] [16 1] [7 8] [1 1]]
+    [ell [7 8] [7 1] [12 8]]
+    [end [16 1] [7 1]]
+    [end [12 8] [7 8]]
+    [end [1 1] [7 1]]]
+  ( Replacing point [ 7 1 ] with ? pt1 )
+Here's the modified, reordered, database:
+** [[tee ? pt1 [16 1] [7 8] [1 1]]
+    [ell [7 8] ? pt1 [12 8]]
+    [end [16 1] ? pt1]
+    [end [12 8] [7 8]]
+    [end [1 1] ? pt1]]
+  ( Replacing point [ 16 1 ]    with ? pt2 )
+Here's the modified, reordered, database:
+** [[tee ? pt1 ? pt2 [7 8] [1 1]]
+    [end ? pt2 ? pt1]
+    [ell [7 8] ? pt1 [12 8]]
+    [end [12 8] [7 8]]
+    [end [1 1] ? pt1]]
+  ( Replacing point [ 7 8 ] with ? pt3 )
+Here's the modified, reordered, database:
+** [[tee ? pt1 ? pt2 ? pt3 [1 1]]
+    [end ? pt2 ? pt1]
+    [ell ? pt3 ? pt1 [12 8]]
+    [end [12 8] ? pt3]
+    [end [1 1] ? pt1]]
+  ( Replacing point [ 1 1 ] with ? pt4 )
+Here's the modified, reordered, database:
+** [[tee ? pt1 ? pt2 ? pt3 ? pt4]
+    [end ? pt2 ? pt1]
+    [ell ? pt3 ? pt1 [12 8]]
+    [end ? pt4 ? pt1]
+    [end [12 8] ? pt3]]
+  ( Replacing point [ 12 8 ]    with ? pt5 )
+Here's the modified, reordered, database:
+** [[tee ? pt1 ? pt2 ? pt3 ? pt4]
+    [end ? pt2 ? pt1]
+    [ell ? pt3 ? pt1 ? pt5]
+    [end ? pt4 ? pt1]
+    [end ? pt5 ? pt3]]
+** [[tee ? pt1 ? pt2 ? pt3 ? pt4]
+    [end ? pt2 ? pt1]
+    [ell ? pt3 ? pt1 ? pt5]
+    [end ? pt4 ? pt1]
+    [end ? pt5 ? pt3]]
+
+
+The "learn" program learns concepts from pictures using findlines,
+findjuncs, then generalize.
+
+
+-- Learning concepts from pictures: start with a corner ---------------
+
+Lets tell the program about some shape concepts
+
+Start with a very simple pattern made of two lines, and an empty
+database, which we can call corner.
+
+    newpicture(10,7);
+    jumpto(1,5); drawto(5,1); drawto(9,5);
+
+    display();
+
+    *       *
+     *     *
+      *   *
+       * *
+        *
+
+    true -> chatty;     ;;;make the program verbose
+
+Tell the program to treat the current picture as defining a concept
+which is to be labelled "corner", and to learn this concept by
+generalizing to other cases. There will be quite a lot of printout.
+
+    [] -> database;
+
+    learn([corner]);
+
+;;; This should print out:
+
+Learning corner
+
+Here's the database:
+** [[junc end [1 5] [5 1]]
+    [junc end [9 5] [5 1]]
+    [junc ell [5 1] [9 5] [1 5]]
+    [line rht [5 1] [9 5]]
+    [line lft [5 1] [1 5]]]
+
+Here's a simplified version of the database:
+** [[end [1 5] [5 1]] [end [9 5] [5 1]] [ell [5 1] [9 5] [1 5]]]
+
+Here's the database re-ordered (most complex junctions first):
+** [[ell [5 1] [9 5] [1 5]] [end [1 5] [5 1]] [end [9 5] [5 1]]]
+  ( Replacing point [ 5 1 ] with ? pt1 )
+Here's the modified, reordered, database:
+** [[ell ? pt1 [9 5] [1 5]] [end [1 5] ? pt1] [end [9 5] ? pt1]]
+  ( Replacing point [ 9 5 ] with ? pt2 )
+Here's the modified, reordered, database:
+** [[ell ? pt1 ? pt2 [1 5]] [end ? pt2 ? pt1] [end [1 5] ? pt1]]
+  ( Replacing point [ 1 5 ] with ? pt3 )
+Here's the modified, reordered, database:
+** [[ell ? pt1 ? pt2 ? pt3] [end ? pt2 ? pt1] [end ? pt3 ? pt1]]
+
+
+
+3       2
+ *     *
+  *   *
+   * *
+    1
+
+The generalised model for corner is
+** [[ell ? pt1 ? pt2 ? pt3] [end ? pt2 ? pt1] [end ? pt3 ? pt1]]
+
+No previous concept is like corner.
+
+
+To reduce the amount of printout in future examples you could do
+
+    false -> chatty;
+
+
+-- Formats for using the -learn- procedure ----------------------------
+
+learn([<name>]);
+learn([<name> <drawing instructions>]);
+
+The procedure -learn- takes one argument, a list. If the list contains
+only one item it should be a word, which is taken as the name of the
+concept illustrated by the current turtle picture. (See TEACH * TURTLE)
+
+Alternatively the list can contain the name followed by instructions
+to draw a picture illustrating the concept to be learnt.
+
+The "learn" program does only "ONE SHOT" learning. That is to say it is
+given a picture (composed entirely of horizontal, vertical and diagonal
+lines in a 2-D binary array) and the name of a concept, and because it
+has some simple built in pre-conceptions about what is important in
+pictures, it manages to extract a concept from one example. This is a
+bit like a botanist who knows so much about plants that when she has
+been shown one instance of a new species can immediately form the
+concept of that species.
+
+More realistic and general learning programs would have to be shown
+several examples and counter-examples, for learning some kinds of
+concepts, but that is not the topic of this teach file.
+
+We'll use the -learn- procedure to illustrate some simple kinds of
+learning and recognition, and will later introduce a more sophisticated
+recognizer program.
+
+
+-- Now teach the program what a line is (??) --------------------------
+
+    learn([line jumpto(4,6); drawto(9,1)]);
+
+This is what the printout looks like:
+
+    Learning line
+    ** turtle ready
+
+       1
+        *
+         *
+          *
+           *
+            2
+
+    The generalised model for line is
+    ** [[end ? pt1 ? pt2] [end ? pt2 ? pt1]]
+
+    Comparing line with previously known concepts
+    Is it like corner ? -- No.
+    No previous concept is like line.
+
+This time some of the intermediate stages are not printed out
+because we made -chatty- false above.
+
+
+-- Remembering previously learnt concepts -----------------------------
+
+Notice that learn tried to recognize the line it was given as an
+instance of its previous concept ("corner") and fails because this has a
+simpler structure.
+
+Each concept is actually just a list of lists describing instances
+of the concept.
+
+    line ==>
+    ** [[end ? pt1 ? pt2] [end ? pt2 ? pt1]]
+
+    corner ==>
+    ** [[ell ? pt1 ? pt2 ? pt3] [end ? pt2 ? pt1] [end ? pt3 ? pt1]]
+
+Clearly a simple equality test is going to fail:
+
+    line = corner =>
+    ** <false>
+
+
+-- Learning about another corner-like concept -------------------------
+
+Give it another figure made of two lines that meet at an end
+
+    learn([corn2  draw(7); turn(90); draw(5)]);
+
+    Learning corn2
+    ** turtle ready
+
+
+           2
+           *
+           *
+           *
+           *
+    3******1
+
+    The generalised model for corn2 is
+    ** [[ell ? pt1 ? pt2 ? pt3] [end ? pt2 ? pt1] [end ? pt3 ? pt1]]
+
+    Comparing corn2 with previously known concepts
+    Is it like corner ?
+    YES corn2 is like corner
+
+    Is it like line ? -- No.
+
+Try printing the list of known concepts
+
+    allconcepts ==>
+    ** [corner line corn2]
+
+Notice that it has decided that a -corn2- is like a -corner-, but not
+like a -line-, the only  other previously known concept at this stage.
+
+
+Does it think corn2 is like the line?
+
+    corn2 = line =>
+    ** <false>
+
+But  comparing corner and corn2 give a different story...
+
+    corner ==>
+    ** [[ell ? pt1 ? pt2 ? pt3] [end ? pt2 ? pt1] [end ? pt3 ? pt1]]
+
+    corn2 ==>
+    ** [[ell ? pt1 ? pt2 ? pt3] [end ? pt2 ? pt1] [end ? pt3 ? pt1]]
+
+We can even use the equality operator to test them.
+
+    corn2 = corner =>
+    ** <true>
+
+Note the importance of "canonical" order to facilitate recognition when
+using simple matching based on equality tests.
+
+Later more complex matching facilities are advertised..
+
+
+-- Displaying pictures of the original instances of learnt concepts ---
+
+A reminder of the pictures is provided by -picof-
+
+    picof(corner);
+
+
+    3       2
+     *     *
+      *   *
+       * *
+        1
+
+This is displayed with ends and junctions numbered to correspond to the
+order of the variables in the generalized descriptions in the database:
+
+    corner ==>
+    ** [[ell ? pt1 ? pt2 ? pt3] [end ? pt2 ? pt1] [end ? pt3 ? pt1]]
+
+
+    picof(corn2);
+
+           2
+           *
+           *
+           *
+           *
+    3******1
+
+
+-- The long term memory of the program --------------------------------
+
+A list of names of learnt shapes provides access to the program's
+"long term" memory.
+
+    allconcepts =>
+    ** [corner line corn2]
+
+Each time the program learns a new concept it checks to see
+if it is like one stored in this list.
+
+
+-- The triangle and square examples -----------------------------------
+
+Now try a more complicated figure, made of three lines:
+
+    newpicture(12,12);
+
+    learn([tri draw(10); turn(90); draw(10); drawto(1,1)]);
+
+    Learning tri
+    ** turtle ready
+
+
+              1
+             **
+            * *
+           *  *
+          *   *
+         *    *
+        *     *
+       *      *
+      *       *
+     *        *
+    2*********3
+
+    The generalised model for tri is
+    ** [[ell ? pt1 ? pt2 ? pt3]
+        [ell ? pt2 ? pt3 ? pt1]
+        [ell ? pt3 ? pt1 ? pt2]]
+
+    Comparing tri with previously known concepts
+    Is it like corner ? -- No.
+    Is it like line ? -- No.
+    Is it like corn2 ? -- No.
+    No previous concept is like tri.
+
+This is how the "tri" concept has been generalised:
+
+    tri =>
+
+is it like a corner?
+
+    tri = corner =>
+
+
+Now see what hapens if a square picture is analysed.
+
+    learn([sq repeat 4 times draw(8); turn(90) endrepeat]);
+
+    Learning sq
+    ** turtle ready
+
+
+    2*******1
+    *       *
+    *       *
+    *       *
+    *       *
+    *       *
+    *       *
+    *       *
+    4*******3
+
+    The generalised model for sq is
+    ** [[ell ? pt1 ? pt2 ? pt3]
+        [ell ? pt2 ? pt4 ? pt1]
+        [ell ? pt3 ? pt1 ? pt4]
+        [ell ? pt4 ? pt3 ? pt2]]
+
+    Comparing sq with previously known concepts
+    Is it like corner ? -- No.
+    Is it like line ? -- No.
+    Is it like corn2 ? -- No.
+    Is it like tri ? -- No.
+    No previous concept is like sq.
+
+
+(The LIB REGIONS program (not demonstrated here) is capable of finding
+still larger structures - e.g. a region bounded by a cyclic set of
+junctions. This can be used for describing more global relations.)
+
+
+Does our learn program recognize a new, somewhat different figure made
+of three sides:
+
+    learn([tri2 newpicture(11,7);
+            drawto(6,6); drawto(11,1); drawto(1,1)]);
+
+    Learning tri2
+
+         1
+        * *
+       *   *
+      *     *
+     *       *
+    2*********3
+
+    The generalised model for tri2 is
+    ** [[ell ? pt1 ? pt2 ? pt3]
+        [ell ? pt2 ? pt3 ? pt1]
+        [ell ? pt3 ? pt1 ? pt2]]
+
+    Comparing tri2 with previously known concepts
+    Is it like corner ? -- No.
+    Is it like line ? -- No.
+    Is it like corn2 ? -- No.
+    Is it like tri ?
+    YES tri2 is like tri
+
+Is it like sq ? -- No.
+
+    tri2 = sq =>
+    ** <false>
+
+    tri2 = tri =>
+    ** <true>
+
+Just a reminder of their differences:
+    picof(tri);
+
+          1
+         **
+        * *
+       *  *
+      *   *
+     *    *
+    *     *
+   *      *
+  *       *
+ *        *
+2*********3
+
+    picof(tri2);
+
+     1
+    * *
+   *   *
+  *     *
+ *       *
+2*********3
+
+
+-- Three sides which don't join up ------------------------------------
+
+    learn([t2 newpicture(11,11);
+         draw(10); turn(90); draw(10); turn(135); draw(7)]);
+
+Learning t2
+
+          1
+         **
+        * *
+       *  *
+      *   *
+     2    *
+          *
+          *
+          *
+          *
+4*********3
+
+The generalised model for t2 is
+** [[ell ? pt1 ? pt2 ? pt3]
+    [end ? pt2 ? pt1]
+    [ell ? pt3 ? pt1 ? pt4]
+    [end ? pt4 ? pt3]]
+
+Comparing t2 with previously known concepts
+Is it like corner ? -- No.
+Is it like line ? -- No.
+Is it like corn2 ? -- No.
+Is it like tri ? -- No.
+Is it like sq ? -- No.
+Is it like tri2 ? -- No.
+No previous concept is like t2.
+
+Compare it with the triangle? Although it has the right number of
+lines, the number of junctions is wrong, and the wrong types included.
+
+    t2 = tri =>
+    ** <false>
+
+Another four-sided figure:  a rotated square, looking like a diamond.
+
+Will -learn- notice the relationship with squares?
+
+    learn([diamond jumpto(6,1); turn(45);
+                repeat 4 times draw(7); turn(90) endrepeat]);
+
+Learning diamond
+** turtle ready
+
+     1
+    * *
+   *   *
+  *     *
+ *       *
+2         3
+ *       *
+  *     *
+   *   *
+    * *
+     4
+
+The generalised model for diamond is
+** [[ell ? pt1 ? pt2 ? pt3]
+    [ell ? pt2 ? pt4 ? pt1]
+    [ell ? pt3 ? pt1 ? pt4]
+    [ell ? pt4 ? pt3 ? pt2]]
+
+Comparing diamond with previously known concepts
+Is it like corner ? -- No.
+Is it like line ? -- No.
+Is it like corn2 ? -- No.
+Is it like tri ? -- No.
+Is it like sq ?
+YES diamond is like sq
+
+Is it like tri2 ? -- No.
+
+    diamond = sq =>
+    ** <true>
+
+    diamond ==>
+    ** [[ell ? pt1 ? pt2 ? pt3]
+        [ell ? pt2 ? pt4 ? pt1]
+        [ell ? pt3 ? pt1 ? pt4]
+        [ell ? pt4 ? pt3 ? pt2]]
+
+    sq ==>
+    ** [[ell ? pt1 ? pt2 ? pt3]
+        [ell ? pt2 ? pt4 ? pt1]
+        [ell ? pt3 ? pt1 ? pt4]
+        [ell ? pt4 ? pt3 ? pt2]]
+
+    diamond = sq =>
+    ** <true>
+
+
+-- The "house" example ------------------------------------------------
+
+Now try something quite a bit more complicated - a "house" picture
+
+Use a library program for drawing squares.
+
+    learn([house    newpicture(14,14);
+        square(8); jumpto(1,9); drawto(5,13); drawto(9,9)]);
+
+Learning house
+
+
+    2
+   * *
+  *   *
+ *     *
+3*******1
+*       *
+*       *
+*       *
+*       *
+*       *
+*       *
+*       *
+5*******4
+
+The generalised model for house is
+** [[arw ? pt1 ? pt2 ? pt3 ? pt4]
+    [ell ? pt2 ? pt3 ? pt1]
+    [arw ? pt3 ? pt5 ? pt1 ? pt2]
+    [ell ? pt4 ? pt1 ? pt5]
+    [ell ? pt5 ? pt4 ? pt3]]
+
+Comparing house with previously known concepts
+Is it like corner ? -- No.
+Is it like line ? -- No.
+Is it like corn2 ? -- No.
+Is it like tri ? -- No.
+Is it like sq ? -- No.
+Is it like tri2 ? -- No.
+Is it like t2 ? -- No.
+Is it like diamond ? -- No.
+No previous concept is like house.
+
+
+It should now recognize a house of a different size:
+
+    learn([house2 newpicture(7,10); square(6); jumpto(1,7);
+            drawto(4,10); drawto(7,7)]);
+
+Learning house2
+
+   2
+  * *
+ *   *
+3*****1
+*     *
+*     *
+*     *
+*     *
+*     *
+5*****4
+
+The generalised model for house2 is
+** [[arw ? pt1 ? pt2 ? pt3 ? pt4]
+    [ell ? pt2 ? pt3 ? pt1]
+    [arw ? pt3 ? pt5 ? pt1 ? pt2]
+    [ell ? pt4 ? pt1 ? pt5]
+    [ell ? pt5 ? pt4 ? pt3]]
+
+Comparing house2 with previously known concepts
+Is it like corner ? -- No.
+Is it like line ? -- No.
+Is it like corn2 ? -- No.
+Is it like tri ? -- No.
+Is it like sq ? -- No.
+Is it like tri2 ? -- No.
+Is it like t2 ? -- No.
+Is it like diamond ? -- No.
+Is it like house ?
+YES house2 is like house
+
+
+Will it recognize one upside down?
+
+    learn([house3 newpicture(8,11);
+            jumpto(2,4); square(6); drawto(5,1); drawto(8,4)]);
+
+Learning house3
+
+
+ 4*****5
+ *     *
+ *     *
+ *     *
+ *     *
+ *     *
+ 1*****3
+  *   *
+   * *
+    2
+
+The  generalised model for house3 is
+** [[arw ? pt1 ? pt2 ? pt3 ? pt4]
+    [ell ? pt2 ? pt3 ? pt1]
+    [arw ? pt3 ? pt5 ? pt1 ? pt2]
+    [ell ? pt4 ? pt1 ? pt5]
+    [ell ? pt5 ? pt4 ? pt3]]
+
+Comparing house3 with previously known concepts
+Is it like corner ? -- No.
+Is it like line ? -- No.
+Is it like corn2 ? -- No.
+Is it like tri ? -- No.
+Is it like sq ? -- No.
+Is it like tri2 ? -- No.
+Is it like t2 ? -- No.
+Is it like diamond ? -- No.
+Is it like house ?
+YES house3 is like house
+
+Is it like house2 ?
+YES house3 is like house2
+
+So an upside down house is recognized - this is because the "canonical"
+ordering of the junctions in the description of the house enables a
+simple equality test to work.
+
+-- A rotated "house" is not recognized --------------------------------
+
+The next example shows that this is something of a fluke.
+
+The sideways-house problem
+
+    learn([sidehouse newpicture(10,7); jumpto(1,1); square(6);
+            jumpto(7,1);drawto(10,4); drawto(7,7)]);
+
+Learning sidehouse
+
+2*****1
+*     **
+*     * *
+*     *  4
+*     * *
+*     **
+5*****3
+
+The generalised model for sidehouse is
+** [[arw ? pt1 ? pt2 ? pt3 ? pt4]
+    [ell ? pt2 ? pt5 ? pt1]
+    [arw ? pt3 ? pt4 ? pt1 ? pt5]
+    [ell ? pt4 ? pt1 ? pt3]
+    [ell ? pt5 ? pt3 ? pt2]]
+
+Comparing sidehouse with previously known concepts
+Is it like corner ? -- No.
+Is it like line ? -- No.
+Is it like corn2 ? -- No.
+Is it like tri ? -- No.
+Is it like sq ? -- No.
+Is it like tri2 ? -- No.
+Is it like t2 ? -- No.
+Is it like diamond ? -- No.
+Is it like house ? -- No.
+Is it like house2 ? -- No.
+Is it like house3 ? -- No.
+No previous concept is like sidehouse.
+
+
+The program does not recognize the sideways house because in this case
+the different orientation has caused it to number the points
+differently, even though it attempted to produce a description in a
+canonical form.
+
+This sort of effect is not easy to predict, as it depends on how the
+program happens to order the junctions:
+
+    picof(house);
+
+    2
+   * *
+  *   *
+ *     *
+3*******1
+*       *
+*       *
+*       *
+*       *
+*       *
+*       *
+*       *
+5*******4
+
+    picof(sidehouse);
+2*****1
+*     **
+*     * *
+*     *  4
+*     * *
+*     **
+5*****3
+
+There are two ell junctions next to the arrow junction chosen for p1. In
+one case the ell junction in the roof is chosen for p2 whereas in the
+other case the ell junction at the base of the house is chosen for p2.
+
+
+-- Towards a more general matcher -------------------------------------
+
+However, we can now make use of the fact that the stored models contain
+variables (i.e. the "?p1", "?p2", etc.) and treat them as patterns that
+can be "matched" against database entries.
+
+A procedure -recognize- has been defined in LIB PICDEM that makes use of
+the library program LIB SCHECK, described in TEACH * SCHEMATA.
+
+It uses a more complex matcher that can cope with variation of ordering.
+It tries all possible ways of finding one complex description as a
+sub-description of another. Warning: that kind of algorithm is
+combinatorially explosive, so this sort of matcher can work only for
+relatively small structures.
+
+However, it is less dependent on the use of a canonical order for
+the elements of a complex description.
+
+The procedure -recognize- defined in LIB PICDEM takes the names of
+two previously learnt concepts and tries to recognize the picture
+corresponding to the second one as being and instance of the first
+concept:
+
+The command
+
+    recognize("house","sidehouse");
+
+produces the following printout:
+
+Examining picture for sidehouse:
+2*****1
+*     **
+*     * *
+*     *  4
+*     * *
+*     **
+5*****3
+
+Here is the description for sidehouse:
+** [[arw [7 7] [1 7] [7 1] [10 4]]
+    [ell [1 7] [1 1] [7 7]]
+    [ell [1 1] [7 1] [1 7]]
+    [ell [10 4] [7 7] [7 1]]
+    [arw [7 1] [10 4] [7 7] [1 1]]]
+
+Matching it with the schema house
+** [[arw ? pt1 ? pt2 ? pt3 ? pt4]
+    [ell ? pt2 ? pt3 ? pt1]
+    [arw ? pt3 ? pt5 ? pt1 ? pt2]
+    [ell ? pt4 ? pt1 ? pt5]
+    [ell ? pt5 ? pt4 ? pt3]]
+
+sidehouse has the following features in common with house
+** [[arw [7 1] [10 4] [7 7] [1 1]]
+    [ell [10 4] [7 7] [7 1]]
+    [arw [7 7] [1 7] [7 1] [10 4]]
+    [ell [1 1] [7 1] [1 7]]
+    [ell [1 7] [1 1] [7 7]]]
+
+sidehouse and house are very similar concepts.
+
+By using the SCHECK program we were able to recognize the sizeways house
+version, despite different ordering in the description. This is because
+SCHECK tries alternative ways of matching parts, unlike the simple
+equivalence test "="
+
+-- Seeing one structure as a substructure of another ------------------
+
+People can see similarities even where there is a bigger
+difference than mere rotation, as the next example shows.
+
+    learn([ bat newpicture(7,7); square(4); drawto(7,7);]);
+
+Learning bat
+
+      5
+     *
+4***3
+*  **
+* * *
+**  *
+1***2
+
+The generalised model for bat is
+** [[arw ? pt1 ? pt2 ? pt3 ? pt4]
+    [ell ? pt2 ? pt3 ? pt1]
+    [psi ? pt3 ? pt5 ? pt4 ? pt1 ? pt2]
+    [ell ? pt4 ? pt1 ? pt3]
+    [end ? pt5 ? pt3]]
+
+Comparing bat with previously known concepts
+Is it like corner ? -- No.
+Is it like line ? -- No.
+Is it like corn2 ? -- No.
+Is it like tri ? -- No.
+Is it like sq ? -- No.
+Is it like tri2 ? -- No.
+Is it like t2 ? -- No.
+Is it like diamond ? -- No.
+Is it like house ? -- No.
+Is it like house2 ? -- No.
+Is it like house3 ? -- No.
+Is it like sidehouse ? -- No.
+No previous concept is like bat.
+
+
+Look again at the picture:
+
+    picof(bat);
+
+      5
+     *
+4***3
+*  **
+* * *
+**  *
+1***2
+
+We can see that a picture containing a square is something like
+this, though with a bit missing.
+
+    picof(sq);
+
+2*******1
+*       *
+*       *
+*       *
+*       *
+*       *
+*       *
+*       *
+4*******3
+
+
+
+    bat = sq =>
+    ** <false>
+
+So a simple match fails.
+
+Can the -recognize- program see anything in common between "bat" and
+"sq"? -recognize- uses -scheck-, which can detect partial similarities.
+
+The command
+
+    recognize("bat","sq");
+
+Produces this response -
+
+Examining picture for sq:
+
+
+
+2*******1
+*       *
+*       *
+*       *
+*       *
+*       *
+*       *
+*       *
+4*******3
+
+Here is the description for sq:
+** [[ell [9 9] [1 9] [9 1]]
+    [ell [1 9] [1 1] [9 9]]
+    [ell [1 1] [9 1] [1 9]]
+    [ell [9 1] [9 9] [1 1]]]
+
+Matching it with the schema bat
+** [[arw ? pt1 ? pt2 ? pt3 ? pt4]
+    [ell ? pt2 ? pt3 ? pt1]
+    [psi ? pt3 ? pt5 ? pt4 ? pt1 ? pt2]
+    [ell ? pt4 ? pt1 ? pt3]
+    [end ? pt5 ? pt3]]
+
+sq has the following features in common with bat
+** [[ell [9 9] [1 9] [9 1]] [ell [1 1] [9 1] [1 9]]]
+
+Here is stuff in sq not recognized by schema bat:
+** [[ell [1 9] [1 1] [9 9]] [ell [9 1] [9 9] [1 1]]]
+
+Here are missing bits predicted by the schema bat:
+** [[arw [1 9] [1 1] [9 1] [9 9]]
+    [psi [9 1] [1 7] [9 9] [1 9] [1 1]]
+    [end [1 7] [9 1]]]
+
+Alas it can't try different ways of "projecting" the bat
+schema onto the square - we can see that there are different
+ways of  seeing the square as extendable into a bat.
+
+
+-- Towards 3-D perception ---------------------------------------------
+
+Not everything can be recognized on the basis of a 2-D pattern.
+
+    lib edgepic;
+    ;;; LOADING LIB edgepic
+    display();
+        *****
+       *   **
+      ***** *         *********
+      *   * *        *       **
+     **   * ****    *       * *
+    * *   **  **   *       *  *
+   *  *****  * *  *********   *
+  *         *  *  *       *   *
+ *         *   *  *       *   *
+***********    ********   *   *
+*         *    *     **   *   *
+*         *   *     * *   *  *
+*         *  *******  *   * *
+*         *  *     *  *   **
+*         *  *     *  *****
+*         *  *     *  *
+*         *  *     * *
+*         * **     **
+*         ** *******
+***********
+
+Note the importance of context - you don't see all the lines
+(collinear sets of 3 or more dots which are in the picture),
+because you can tell from the context that they should be ignored.
+If you run findlines and findjuncs on that picture (obtainable
+from LIB EDGEPIC) they will find lines and junctions that you
+don't notice.
+
+
+The domain of 2-D structures is different from the domain of
+3-D structures - people see this 2-D picture as representing
+a 3-D configuration within which we recognize some known
+3-D shapes - i.e. rectangular blocks.
+
+Here we need the idea of a 3-D domain of structure as something
+different from the 2-D domain of dots, lines, junctions, etc.
+
+The process of building a description of the 3-D structure
+represented by such a picture is called INTERPRETATION, and is
+contrasted with ANALYSIS of what is IN the picture itself.
+
+After building the interpretation, you may or may not
+recognize the 3-D Object as something familiar.  If you do,
+you can predict missing bits - e.g. hidden corners.
+
+
+-- Recognition based on knowledge -------------------------------------
+
+Contrast the following
+
+    newpicture(20,19);
+    jumpto(3,1); drawto(8,6);drawto(13,1); jumpto(8,6);drawto(8,11);
+    jumpto(2,9);drawto(14,9); jumpto(7,11);square(2);
+    display();
+
+
+          ***
+          * *
+          ***
+           *
+     *************
+           *
+           *
+           *
+          * *
+         *   *
+        *     *
+       *       *
+      *         *
+
+
+Another one:
+    jumpto(7,5); drawto(12,10);drawto(17,5); jumpto(12,10);drawto(12,15);
+    jumpto(12,12);turn(45);draw(8); jumpto(12,12);turn(90);draw(8);
+    0 -> heading; jumpto(11,15);square(2);
+    display();
+
+     *           *
+      *   ***   *
+       *  * *  *
+        * *** *
+         * * *
+      *** ***
+      * *  *
+      ***  *
+       *   *
+ *************
+       * *   *
+       **     *
+       *       *
+      * *       *
+     *   *
+    *     *
+   *       *
+  *         *
+
+
+Recognising objects in cluttered images can be difficult.
+
+See chapter 9 of The Computer Revolution in Philosophy
+http://www.cs.bham.ac.uk/research/projects/cogaff/crp/chap9.html
+
+-- Key ideas in image analysis and interpretation ---------------------
+
+Some important ideas can come out of all this:
+
+IMAGE ENHANCEMENT             IMAGE ANALYSIS         IMAGE INTERPRETATION
+STRUCTURAL DESCRIPTION        SEGMENTATION           PARSING
+TEMPLATE MATCHING             MATCHING DESCRIPTIONS  CANONICAL FORMS
+CONTEXT-SENSITIVITY           DESCRIBING A MATCH
+UNARTICULATED REPRESENTATION  ARTICULATED REPRESENTATION
+GENERALIZATION
+GLOBAL RELATIONS
+DOMAINS OF STRUCTURES (e.g. 2-D, 3-D domains)
+APPLYING A SCHEMA as: recognition + prediction + description of mismatch
+
+The following distinction is sometimes important
+    1) Seeing if a learned description applies to an instance
+    2) Seeing if two learned descriptions are equivalent
+
+1) Requires a possibly quite elaborate process of building and comparing
+descriptions. Complex examples need to use things like SCHECK.
+
+2) Can be done by = (i.e. simple equality) IF the descriptions have
+already been translated into a 'canonical form'.
+
+An entirely different approach to some of these problems is being
+developed by people working on neural models of computation ("Parallel
+Distributed Processing"). At this stage it is not clear which aspects
+of the problem are best handled within that paradigm. Perhaps all
+of them are.
+
+-- Further reading ----------------------------------------------------
+
+TEACH * SEEPICTURE
+TEACH * SEEPICS
+TEACH * REGIONS
+
+uses popvision
+TEACH * VISION
+TEACH * VISION1
+
+HELP * POPVISION
+TEACH * EVANS (and HELP * ANALOGY)
+
+TEACH * SCHEMATA
+
+P.H. Winston,
+    Artificial Intelligence
+    (Chapter 2)
+
+Books on Computer Vision and Parallel Distributed Processing
+E.g.
+
+Ballard, D.H and Brown, C.M., Computer Vision, (Prentice-Hall, 1982)
+
+Marr, D., Vision, (W.H. Freeman, 1982)
+
+
+McClelland, James L, D.E. Rumelhart et al.,
+    Parallel Distributed Processing, Vols 1 and 2,
+    MIT Press 1986.
+
+--- $usepop/pop/packages/teaching/teach/picdem
+--- Copyright University of Sussex 2009. All rights reserved. ----------

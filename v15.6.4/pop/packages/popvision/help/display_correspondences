@@ -1,0 +1,138 @@
+HELP DISPLAY_CORRESPONDENCES                            David Young
+                                                        March 1996
+
+LIB * DISPLAY_CORRESPONDENCES uses the facilities of * RC_GRAPHIC to
+display positions of corresponding features in a stereo pair of images.
+The list of correspondences must have been previously computed.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   The procedure
+
+  2   Global variables
+
+  3   Example
+
+-----------------------------------------------------------------------
+1  The procedure
+-----------------------------------------------------------------------
+
+display_correspondences(im1, im2, region, corresps, win) -> win
+        Displays two images side-by-side in a single window, and
+        indicates the positions of corresponding points using coloured
+        markers of different shapes.
+
+        im1 and im2 are arrays containing the left and right image data
+        respectively. They must have the same boundslists.
+
+        region is a boundslist-type specification of the parts of the
+        arrays to display, or <false> to display the whole arrays.
+
+        corresps is a list of 4-element vectors giving the positions of
+        corresponding features. Each vector describes the positions of a
+        feature in the two images, using the coordinates in the order
+
+                {x1 y1 x2 y2}
+
+        where (x1, y1) is the position of the feature in im1 and
+        (x2, y2) is its position in im2.
+
+        win is a window in which to display the images and mark the
+        features. To be sure that it is the right size, it should be a
+        window returned by a previous call to display_correspondences.
+        If win is <false> on entry, a new window the correct size is
+        created, displayed and returned.
+
+
+-----------------------------------------------------------------------
+2  Global variables
+-----------------------------------------------------------------------
+
+The behaviour of display_correspondences can be modified by assigning
+values to some global variables.
+
+The overall scale can be controlled by assigning an integer to
+rci_show_scale (see *rci_show).
+
+display_correspondences_marksize
+        This specifies half the width of each mark in terms of image
+        pixels. The default is 3. It must be a positive integer.
+
+display_correspondences_colours
+        This is a list of strings specifying the colours to use, in
+        sequence, for the marks.
+
+display_correspondences_drawers
+        This is a list of the procedures used in sequence to draw the
+        marks. Each procedure must take two arguments, x and y,
+        and must draw a symbol centred on (x, y) in the *RC_GRAPHIC
+        coordinate system. The size of the symbol should be controlled
+        by display_correspondences_marksize. The default list draws
+        filled circles, open circles, open squares and crosses.
+
+
+-----------------------------------------------------------------------
+3  Example
+-----------------------------------------------------------------------
+
+Check the relevant libraries are loaded:
+
+    uses popvision
+    uses sunrasterfile
+    uses display_correspondences
+
+Read a pair of stereo images:
+
+    vars im1, im2;
+    sunrasterfile(popvision_data dir_>< 'maze_left.ras') -> im1;
+    sunrasterfile(popvision_data dir_>< 'maze_right.ras') -> im2;
+
+Here are some correspondences computed earlier (not all of them are
+good). Load the whole of the next chunk at once:
+
+    vars corresps =
+        [{226 153 197 157} {265 236 224 239} {140 240 91 232} {135 191
+        93 194} {128 107 99 109} {345 62 329 65} {323 61 306 65} {188 34
+        166 38} {40 155 15 159} {343 112 314 116} {154 113 131 117} {284
+        110 259 114} {349 85 321 91} {253 17 239 21} {142 70 120 74}
+        {283 142 247 145} {275 20 205 16} {111 81 81 85} {248 66 213
+        68}];
+
+Display them, normal size, whole of arrays shown, creating a new window:
+
+    vars win = false;
+    1 -> rci_show_scale;  ;;; the default, but might have been changed
+    1 ->> rci_show_x -> rci_show_y;     ;;; put at top left
+    display_correspondences(im1, im2, false, corresps, win) -> win;
+
+(Click on the image to destroy the window if you want to get rid of it -
+see *rci_show).
+
+Note the poor match near the top.
+
+If the corresps list is changed, it can be redisplayed in the same
+window:
+
+    {50 50 50 50} :: corresps -> corresps;  ;;; add a "match"
+    display_correspondences(im1, im2, false, corresps, win) -> win;
+
+but a new window would have been created if win had been reset to
+<false>.
+
+Show just the top right corner at double scale in a new window, which we
+will not bother to keep:
+
+    2 -> rci_show_scale;        ;;; double scale
+    display_correspondences(im1, im2, [170 384 1 140],
+        corresps, false) -> ;
+
+A reasonable visual judgement of the quality of the matches can be made
+this way, if no independent measure is available.
+
+The scale and the part of the image shown can of course be manipulated
+independently, but when changing either it is a good idea to make a new
+window to ensure it is the right size.
+
+
+--- $popvision/help/display_correspondences
+--- Copyright University of Sussex 1996. All rights reserved.

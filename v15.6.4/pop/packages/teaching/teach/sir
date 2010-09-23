@@ -1,0 +1,297 @@
+TEACH SIR                                   Steven Hardy, November 1982
+
+This TEACH file describes a programming exercise based on the SIR system
+developed by Bertram Raphael. This is described in:
+
+    Bertram Raphael
+    SIR: A COMPUTER PROGRAM FOR SEMANTIC INFORMATION RETRIEVAL
+    in SEMANTIC INFORMATION PROCESSING (ed M. Minsky, MIT Press, 1967)
+
+Only the bare bones of the project are outlined. You are meant to use your
+imagination to think up new ways of extending the basic framework. Some
+suggestion of directions to go in are given at the end.
+
+-- A TYPICAL INTERACTION WITH SIR --------------------------------------
+
+    : [] -> database;
+    : sir();
+    ** [SIR IS READY FOR INPUT]
+    ? the capital of england is london
+    ** [OK]
+    ? the mother of john is mary
+    ** [OK]
+    ? what is the capital of england
+    ** [IT IS london]
+    ? what is the capital of france
+    ** [SORRY - I DONT KNOW]
+    ? john is a fireman
+    ** [OK]
+    ? is john a fireman
+    ** [YES]
+    ? every fireman has redbraces
+    ** [OK]
+    ? does john have redbraces
+    ** [YES]
+    ? every fireman is a man
+    ** [OK]
+    ? every thin man is hungry
+    ** [OK]
+    ? john is thin
+    ** [OK]
+    ? is john hungry
+    ** [YES]
+    ? the mother of a hungry man does cook applepie
+    ** [OK]
+    ? who does cook applepie
+    ** [MARY]
+    ? bye
+    ** [SIR IS NOW FINISHED]
+
+-- THE BASIC IDEA ------------------------------------------------------
+
+The SIR program can best be described as ELIZA meets DATABASE. One of the
+exercises in COMPUTERS AND THOUGHT was based on this idea. As with ELIZA, we
+have a 'master' procedure which controls input and output:
+
+    define sir();
+        vars x;
+        [SIR IS READY FOR INPUT] =>
+        readline() -> x;
+        until x = [bye] do
+            respondto(x);
+            readline() -> x;
+        enduntil;
+        [SIR IS NOW FINISHED] =>
+    enddefine;
+
+Where ELIZA has a canned response for each pattern that it matches against
+the input, SIR has a canned ACTION for each possible input pattern. These
+actions can, for example, alter the DATABASE or retrieve some information
+from it.
+
+-- A SIMPLE VERSION OF RESPOND -----------------------------------------
+
+    define respondto(list);
+        vars x, y, z;
+        if list matches [the ?x of ?y is ?z] then
+            add([the ^x of ^y is ^z]);
+            [OK] =>
+        elseif list matches [what is the ?x of ?y] then
+            if present([the ^x of ^y is ?z]) then
+                [IT IS ^z] =>
+            else
+                [SORRY - I DONT KNOW] =>
+            endif
+        else
+            [SORRY - INPUT NOT UNDERSTOOD] =>
+        endif
+    enddefine;
+
+The basic form of RESPONDTO is very simple. It tests its argument against a
+sequence of patterns. When it finds one that matches it then performs some
+appropriate action.
+
+-- AN EXTENSION --------------------------------------------------------
+
+The version of RESPONDTO given above cannot cope with all of the dialogue
+shown at the start of this TEACH file. Your task is to extend the
+basic program to move towards making it do so. To help you in this process,
+here are some suggestions.
+
+Consider the following fragment of interaction:
+
+    ? john is a fireman
+    ** [OK]
+    ? is john a fireman
+    ** [YES]
+
+This can be simply handled by editing into RESPONDTO the following lines:
+
+    elseif list matches [?x is a ?y] then
+        add([^x is a ^y]);
+        [OK] =>
+    elseif list matches [is ?x a ?y] then
+        if present([^x is a ^y]) then
+            [YES] =>
+        else
+            [NO] =>
+        endif
+
+To cater for the fragment:
+
+    ? every fireman has redbraces
+    ** [OK]
+    ? does john have redbraces
+
+we would need to edit in:
+
+    elseif list matches [every ?x has ?y] then
+        add([every ^x has ^y]);
+        [OK] =>
+    elseif list matches [does ?x have ?y] then
+        if allpresent([[^x is a ?z] [every ?z has ^y]]) then
+            [YES] =>
+        else
+            [NO] =>
+        endif
+
+Of course, this would not cater for a direct assertion about what JOHN has.
+The following would still not work:
+
+    ? john has hair
+    ** [OK]
+    ? does john have hair
+    ** [YES]
+
+Notice too that it could not cope with:
+
+    ? every man has eyes
+    ** [OK]
+    ? does john have eyes
+    ** [YES]
+
+which certainly follows from JOHN being a FIREMAN, every FIREMAN being a MAN
+and every MAN having EYES. Coping with arbitrarily long chains of ISA 'links'
+(as they are sometimes called) would be a useful extension to the program.
+
+-- ADJECTIVES ----------------------------------------------------------
+
+The interation at the start of the section has some examples using
+adjectives, thus:
+
+    ? every thin man is hungry
+    ** [OK]
+    ? john is a man
+    ** [OK]
+    ? john is thin
+    ** [OK]
+    ? is john hungry
+    ** [YES]
+
+One way to handle this would be to edit in the following lines:
+
+    elseif list matches [every ?x ?y is ?z] then
+        add([every ^x ^y is ^z]);
+        [OK] =>
+    elseif list matches [is ?x ?y] then
+        if present([^x is ^y]) then
+            [YES] =>
+        elseif allpresent([[^x is a ?z] [every ?z is a ^y]]) them
+            [YES] =>
+        elseif
+            allpresent([[^x is a ?z1] [^x is ?z2] [every ?z1 ?z2 is ^y]])
+        then
+            [YES] =>
+        else
+            [NO] =>
+        endif
+
+How would this need to be extended if we wanted to handle statements with
+multiple adjectives, such as the following?
+
+    ? every tall thin man is underweight
+    ** [OK]
+
+-- SUMMARY SO FAR ------------------------------------------------------
+
+The basic idea unerlying this SIR program is that it has a number of patterns
+for 'matching' input sentences. There is no knowledge of syntax beyond this.
+Thus we cannot 'capture' the knowledge that, say, nounphrases may include
+any number of adjectives in one single place but must duplicate it again and
+again. If we have patterns:
+
+        [EVERY noun IS A noun]
+        [EVERY noun HAS noun]
+        [EVERY noun IS adjective]
+
+and decide to extend our program to allow adjectives before nouns then we
+must have three completely new patterns, thus:
+
+        [EVERY adjective noun IS A noun]
+        [EVERY adjective noun HAS noun]
+        [EVERY adjective noun IS adjective]
+
+If we wish to allow multiple adjectives, then we need even more patterns.
+This is an obvious flaw in the design of this type of system. There is
+another, subtler flaw. The SIR program, as described here (but not the real
+one written by Raphael), uses ALLPRESENT to make inferences. If the user asks
+some question then first that question gets matched against one of the
+patterns and then attempt is made, using ALLPRESENT, to determine the answer
+to the question. However, there may be several ways of inferring the answer
+to a question. Consider the question:
+
+        [IS JOHN A FOOL]
+
+The answer to this is YES if any of the following sets of items are in the
+database:
+
+(1)     [JOHN IS A FOOL]
+
+(2)     [JOHN IS A MAN]
+        [EVERY MAN IS A FOOL]
+
+(3)     [JOHN IS THIN]
+        [JOHN IS A MAN]
+        [EVERY THIN MAN IS A FOOL]
+
+(4)     [JOHN IS A MAN]
+        [EVERY MAN IS A HUMAN]
+        [EVERY HUMAN IS A FOOL]
+
+We must look for each of these potential sets of items explicitly, eg:
+
+    elseif list matches [is ?x a ?y] then
+        if allpresent([[^x is a ^y]])
+            or allpresent([[^x is a ?z] [every ?z is a ^y]])
+            or allpresent([[^x is ?z1] [^x is a ?z2] [every ?z1 ?z2 is a ^y]])
+            or allpresent(
+                [[^x is a ?z1] [every ?z1 is a ?z2] [every ?z2 is a ^y]])
+        then
+            [YES] =>
+        else
+            [NO] =>
+        endif
+
+Of course, the problem is that there is an INFINITE number of ways of showing
+that [?X IS A ?Y] and we could never list them all explicitly as we are
+trying to do here.
+
+
+Your task in extending the basic SIR framewoprk sketched out above is two
+fold. Firstly, you should try and make the program as 'clever' as you can
+within the constraints of the framework. Secondly, you should ponder on the
+nature of the problems of the basic framework and see if you can come up with
+some conclusions as to how to improve on it.
+
+Obviously, one idea would be to try and incorporate the parsing ideas
+discussed in ISASENT into SIR. It would be good to have patterns of the form:
+
+        [EVERY ??x:isaqnoun IS A ?y:isanoun]
+        [EVERY ??x:isaqnoun HAS A ?y:isanoun]
+
+The problem is what to do once we have found a match against such a pattern.
+We may want to have some general translation process that takes us from a
+structural description of a statement to a representation that facilitates
+using the information for answering questions.
+
+Another idea would be to try and improve the actual retrieval of facts from
+the database. It seems as if we need an 'inference' package able to cope
+with the multiple possible ways of answering questions, just as LIB SOLVER
+copes with the multiple possible actions that may help it to attain its goal.
+Suppose we restricted ourselves to questions that need only YES or NO answers
+(ie no WHO type questions), We might have a version of SIR that looked like:
+
+    define respondto(list);
+        if isaquestion(list) then
+            if prove(list) then
+                [YES] =>
+            else
+                [NO] =>
+            endif
+        elseif isaassertion(list) then
+            add(list);
+            [OK] =>
+        else
+            [EH] =>
+        endif
+    enddefine;

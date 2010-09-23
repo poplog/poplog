@@ -1,0 +1,618 @@
+REF XpwGraphic                 Jonathan Meyer, Andreas Schoter  Aug 1990
+
+        COPYRIGHT University of Sussex 1991. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<           XPWGRAPHIC        >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+Xpw is the Poplog Widget Set.  It contains a variety of object  oriented
+user interface components (called widgets) which are controlled  through
+the X Windows Toolkit (Xt). For an outline of Xpw, see HELP * Xpw.
+    This file describes the XpwGraphic widget, and the Pop-11  interface
+to XpwGraphic. See the section on associated documentation for a list of
+other documents describing Xpw.
+    Xpw is  currently  written  in  C. See  the  section  C  Programming
+Information for more details on using the XpwGraphic widget in C.
+    This file assumes a basic understanding of the Xt toolkit.  Concepts
+such as resources, actions, translations, etc. are all introduced in the
+X Toolkit Intrinsics - C Language Interface manual.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   XpwGraphic Widget
+      1.1   Synopsis
+
+  2   Methods
+      2.1   Datatypes
+      2.2   XpwCore Methods
+      2.3   XpwPixmap methods
+      2.4   XpwGraphic Methods
+
+  3   Resources
+      3.1   Core, XpwCore and XpwPixmap Resources
+      3.2   XpwGraphic Resources
+
+  4   Actions & Translations
+      4.1   Actions
+      4.2   Translations
+      4.3   Keyboard Handling
+
+  5   C Programming Information
+
+  6   Related Documentation
+
+
+
+--------------------
+1  XpwGraphic Widget
+--------------------
+
+    Superclass:   XpwPixmap
+
+An XpwGraphic  widget is  a  general purpose  window.  Any of  the  Xlib
+graphics primitives  can  be applied  to  the widget.  Because  it  is a
+subclass of XpwPixmap,  it has  a pixmap  associated with  it, which  is
+automatically set  to be  the  same size  as  the window.  Any  graphics
+operations are duplicated on  the pixmap, which is  used to restore  the
+contents of  the window  after resize  and exposure  events.  XpwGraphic
+widgets use callbacks to notify  applications of events. They also  have
+colormap manipulation methods.
+
+There are a  variety of  operations that  can be  performed on  Graphics
+widgets. They are  all accessed using  the XpwCallMethod Method  Calling
+interface  (See  REF * XpwCallMethod).   All  of   these  methods   have
+corresponding Pop-11 procedures,  which check their  arguments and  then
+call the method.
+
+Although the XpwGraphic widget  class is fairy simple,  it is also  very
+useful. Programmers can use graphics widgets as general purpose  windows
+to display textual or  graphical output, without  having to worry  about
+complex details such as (exposure) events and colormaps.
+
+
+1.1  Synopsis
+-------------
+In C:
+
+        #include <Intrinsic.h>
+        #include <StringDefs.h>
+        #include <X11/Xpw/XpwGraphic.h>
+        widget = XtCreateWidget(name, xpwGraphicWidgetClass, ...);
+
+
+in Pop-11:
+
+
+xpwGraphicWidget  -> widgetclass                              [constant]
+        A member of the Poplog Widget Set.
+
+        To  make  available   both  the  Xpw   library  directory,   and
+        xpwGraphicWidget from it, requires either
+
+            uses Xpw, XpwGraphic;
+
+        or
+
+            uses Xpw, xpwGraphicWidget;
+
+        The first loads all the method  procedures in this file as  well
+        as the widget itself, whereas  the second just loads the  widget
+        and * XpwCallMethod.
+
+        Then call either of
+
+            XtCreateWidget(name, xpwGraphicWidget, ...) -> w;
+            fast_XtCreateWidget(name, xpwGraphicWidget, ...) -> w;
+
+        to create an instance of the XpwGraphic widget.
+
+
+
+
+
+----------
+2  Methods
+----------
+
+For more information about Poplog Widget Methods, see REF * XpwMethods.
+
+XpwGraphic widgets have methods for manipulating colormaps, and  inherit
+all of the XpwPixmap and XpwCore methods (see REF * XpwPixmap, * XpwCore
+for details of these methods).
+
+The following  tables summarise  the  methods available  for  XpwGraphic
+widgets.
+
+
+2.1  Datatypes
+--------------
+The following data types are used in descriptions of XpwGraphic  methods
+and are not described elsewhere in the documentation:
+
+RED                                                           [datatype]
+GREEN                                                         [datatype]
+BLUE                                                          [datatype]
+        Integer value for specifying colours (0-255 on 8 bit displays).
+
+
+
+2.2  XpwCore Methods
+--------------------
+
+ Method Name             Arguments          Notes
+ -----------             ---------          -----
+ XpwMSetColor            string             Either name or #RGB format
+ XpwMFreeColor           string
+ XpwMSetFont             string             Font name
+ XpwMFreeFont            string
+ XpwMSetCursor           shape              Shape in cursorfont.h
+ XpwMFreeCursor          shape
+ XpwMSetBackgroundPixmap string             Bitmap's filename
+
+
+
+2.3  XpwPixmap methods
+----------------------
+
+ Method Name             Xlib Procedure     Arguments
+ -----------             --------------     ---------
+ XpwMClearArea           XClearArea         x,y,w,h
+ XpwMClearWindow         -                  none
+ XpwMCopyFrom            -                  src_widget,x,y,w,h,ex,ey
+ XpwMCopyTo              -                  dst_widget,x,y,w,h,ex,ey
+ XpwMDrawArc             XDrawArc           x,y,width,height,a1,a2
+ XpwMDrawArcs            XDrawArcs          arcs,narcs
+ XpwMDrawImage              -               w,h,x,y,data,depth
+ XpwMDrawImageString     XDrawImageString   x,y,str,len
+ XpwMDrawLine            XDrawLine          x,y,w,h
+ XpwMDrawLines           XDrawLines         pts,npts
+ XpwMDrawPoint           XDrawPoint         x,y
+ XpwMDrawPoints          XDrawPoints        pts,npts
+ XpwMDrawRectangle       XDrawRectangle     x,y,w,h
+ XpwMDrawRectangles      XDrawRectangles    recs,nrecs
+ XpwMDrawSegments        XDrawSegments      segs,nsegs
+ XpwMDrawString          XDrawString        x,y,str,len
+ XpwMFillArc             XFillArc           x,y,w,h,a1,a2
+ XpwMFillArcs            XFillArcs          arcs,narcs
+ XpwMFillPolygon         XFillPolygon       pts,npts,shape,mode
+ XpwMFillRectangle       XFillRectangle     x,y,w,h
+ XpwMFillRectangles      XFillRectangles    recs,nrecs
+ XpwMGetImage            XGetImage          x,y,w,h,msk,format
+ XpwMPutImage            XPutImage          image,sx,sy,ex,ey,w,h
+
+
+
+2.4  XpwGraphic Methods
+-----------------------
+
+ Method Name             Arguments          Notes
+ -----------             ---------          -----
+ XpwMAllocColorRange     n,r,g,b,r,g,b      See below.
+ XpwMFreeColorRange      range
+ XpwMAllocColor          r,g,b
+ XpwMChangeColor         p,r,g,b
+ XpwMCreateColormap      none               Sets XtNswitchCmaps on.
+ XpwMFreeColormap        none
+
+
+XpwAllocColorRange(widget, n, red_1, green_1, blue_1,        [procedure]
+            red_2, green_2, blue_2) -> range_exptr
+        Calls the XpwMAllocColorRange method for widget.
+
+        Allocates a  new colour  range, which  is n  number of  colormap
+        entries, which start at the RGB colour (red_1, green_1,  blue_1)
+        and extends  linearly to  the colour  (red_2, green_2,  blue_2).
+        Returns an external  pointer to the  opaque C structure  holding
+        information about the range, or false if the range could not  be
+        allocated.
+
+
+XpwColorRangeBase(range_exptr) -> pixel                      [procedure]
+        Returns the pixel value, for  the given color range,  specifying
+        where the ranges colours start in the colormap.
+
+
+XpwColorRangeInfo(range_exptr, num) -> info_vector           [procedure]
+        Returns a vector containing information about the num'th element
+        of the color range. The vector contains:
+
+                { PIXEL RED GREEN BLUE }
+
+
+XpwStackColorRangeInfo(range_exptr, num)                     [procedure]
+                -> (pixel, red, green, blue)
+        Returns  the  same  information  as  XpwColorRangeInfo,  but  as
+        separate items rather than a vector.
+
+
+XpwFreeColorRange(widget, range_exptr)                       [procedure]
+        Deallocates colormap  cells allocated  using  XpwAllocColorRange
+        for  XpwGraphic  widget  widget.  range_exptr  is  the  external
+        pointer returned  by  XpwAllocColorRange, which  identifies  the
+        color range to free.
+
+
+XpwAllocColor(widget, red, green, blue) -> pixel             [procedure]
+        Allocates a new colour cell from an XpwGraphic widgets colormap,
+        and then sets the  RGB value for the  new cell to the  specified
+        levels of red, green and blue.  Returns the pixel value for  the
+        new colour cell.
+
+
+XpwChangeColor(widget, pixel, red, green, blue)              [procedure]
+        Changes the  levels of  red, green  and blue  for the  specified
+        pixel in the colormap of an XpwGraphic widget widget.
+
+
+XpwCreateColormap(widget)                                    [procedure]
+        Initially, a new XpwGraphic widget will use the default colormap
+        of the display. This means  that it will share colormap  entries
+        with other  applications.  However, for  some  applications  the
+        programmer wants to allocate all the colours of the colormap, or
+        has very  specific colormap  requirements. In  these  situations
+        they should create  a new colormap  using the  XpwCreateColormap
+        method. This creates a  colormap with none  of the colour  cells
+        allocated.    Subsequent    calls    to    methods    such    as
+        XpwAllocColorRange will use  the new colormap.  The colormap  is
+        activated by moving  the mouse  pointer into the  window of  the
+        XpwGraphic widget.
+
+        Colormaps are a limited resource, and programmers should try and
+        avoid creating many colormaps.
+
+
+XpwFreeColormap(widget)                                      [procedure]
+        Destroys the colormap  of the specified  XpwGraphic widget,  and
+        installs the default colormap for the screen.
+
+
+XpwQueryColor(widget, pixel) -> (red, green, blue)           [procedure]
+        Returns the  current red,  green and  blue values  (as  integers
+        between 0 and 255) for a pixel in widget.
+
+
+
+
+------------
+3  Resources
+------------
+
+XpwGraphic inherits all of  the Core and  XpwCore widget resources,  and
+adds some additional resources.
+
+    The following resources are retrieved from the argument list or  the
+resource database when XpwGraphic widgets are created.
+
+
+
+3.1  Core, XpwCore and XpwPixmap Resources
+------------------------------------------
+(See REF * XpwCore, REF * XpwPixmap)
+
+ Name                    Class                   Type            Access
+ ----                    -----                   ----            ------
+ XtNancestorSensitive    XtCSensitive            Boolean         G*
+ XtNautoFlush            XtCBoolean              Boolean         SGI
+ XtNbackground           XtCBackground           Pixel           SGI
+ XtNbackgroundPixmap     XtCPixmap               Pixmap          SGI
+ XtNborderColor          XtCBorderColor          Pixel           SGI
+ XtNborderPixmap         XtCPixmap               Pixmap          SGI
+ XtNborderWidth          XtCBorderWidth          short           SGI
+ XtNcapStyle             XtCCapStyle             Int             SGI
+ XtNdepth                XtCdepth                short           SGI
+ XtNdestroyCallback      XtCCallback             XtCallbackList  SI
+ XtNfont                 XtCFont                 XFontStruct     SGI
+ XtNforeground           XtCForeground           Pixel           SGI
+ XtNfunction             XtCFunction             Int             SGI
+ XtNheight               XtCHeight               short           SGI
+ XtNjoinStyle            XtCJoinStyle            Int             SGI
+ XtNlineStyle            XtCLineStyle            Int             SGI
+ XtNlineWidth            XtCLineWidth            Int             SGI
+ XtNmappedWhenManaged    XtCMappedWhenManaged    Boolean         SGI
+ XtNmodifiers            XtCModifiers            int             G
+ XtNpixmap               XtCPixmap               Pointer         SGI
+ XtNpixmapStatus         XtCPixmapStatus         Cardinal        SGI
+ XtNpointerShape         XtCCursor               Cursor          SGI
+ XtNprivateGC            XtCGC                   Pointer         G
+ XtNsensitive            XtCSensitive            Boolean         GI*
+ XtNtileForeground       XtCTileForeground       Pixel           GI
+ XtNtranslations         XtCTranslations         XtTranslations  GI
+ XtNusersGC              XtCUsersGC              GC              SG
+ XtNwidth                XtCWidth                short           SGI
+ xXtNx                   XtCPosition             short           SGI
+ XtNxpwCallback          XtCCallback             XtCallbackList  SI
+ XtNy                    XtCPosition             short           SGI
+
+The Access Column is interpreted as follows:
+
+    S   Value can be set by XtSetValues
+    G   Value can be read by XtGetValues
+    I   Value can be set at initialization
+    *   Value set in other ways
+
+
+
+3.2  XpwGraphic Resources
+-------------------------
+
+ Name                    Class                   Type            Access
+ ----                    -----                   ----            ------
+ XtNmyGC                 XtCGC                   Pointer         G
+ XtNswitchCmaps          XtCBoolean              Boolean         SGI
+ XtNmouseX               XtCMouseLocation        Int             SG
+ XtNmouseY               XtCMouseLocation        Int             SG
+ XtNbuttonEvent          XtCCallback             XtCallbackList  GI
+ XtNkeyboardEvent        XtCCallback             XtCallbackList  GI
+ XtNmouseEvent           XtCCallback             XtCallbackList  GI
+ XtNmotionEvent          XtCCallback             XtCallbackList  GI
+ XrNresizeEvent          XtCCallback             XtCallbackList  GI
+
+The Access Column is interpreted as follows:
+
+    S   Value can be set by XtSetValues
+    G   Value can be read by XtGetValues
+    I   Value can be set at initialization
+    *   Value set in other ways
+
+
+XtNswitchCmaps                                                [resource]
+        BOOL, true or false, default value: false
+
+        The XtNswitchCmaps  resource  determines  whether  the  graphics
+        widget should perform its own colormap switching, if the  widget
+        has a  different  colormap  from the  default  colormap  of  the
+        screen.  If  XtNswitchCmaps  is  true,  the  widget  will   call
+        XInstallColormap to switch  to its own  colormap on  EnterNotify
+        events, and XUninstallColormap to revert to the default colormap
+        on LeaveNotify events.  Window managers should  do this for  the
+        window automatically. Interclient conventions state that windows
+        should not use XInstall/UninstallColormap. However, the  ability
+        to perform colormap switching can be useful, especially if  your
+        favourite window  manager does  not perform  this operation  for
+        you!
+
+
+XtNmouseX                                                     [resource]
+XtNmouseY                                                     [resource]
+        INT, default value: unspecified
+
+        The XtNmouseY and XtNmouseX resources  are set by an  XpwGraphic
+        or XpwScrollText  widget  whenever  a  new  (interesting)  event
+        occurs. They can  be read  by the application  to determine  the
+        mouse location in pixels, relative to the top left corner of the
+        widget's window.
+
+
+XtNbuttonEvent                                                [resource]
+XtNkeyboardEvent                                              [resource]
+XtNmouseEvent                                                 [resource]
+XtNmotionEvent                                                [resource]
+XtNresizeEvent                                                [resource]
+        CALLBACKLIST, default value: empty (NULL)
+
+        The XtN*Event resources  are Callback Lists  that are  activated
+        when certain categories  of events have  occurred within an  Xpw
+        widget. They should not be updated using XtSetValues. Users  can
+        add  procedures   to   one   of  these   callback   list   using
+        XtAddCallback, specifying  which event  they are  interested  in
+        trapping. For example:
+
+             XtAddCallback(widget, XtNmotionEvent, foo, false)
+
+        For more  information  on  writing event  handlers  using  these
+        callbacks, see the sections on Actions and Translations below.
+
+        Notice that the resources XtNmouseX, XtNmouseY, XtNmodifiers and
+        possibly XtNkey are set before a client is notified of an  event
+        so that clients can read  these resources in order to  determine
+        what action to take for the event.
+
+
+
+
+-------------------------
+4  Actions & Translations
+-------------------------
+
+
+4.1  Actions
+------------
+The XpwGraphic widget has some generic actions that are each designed to
+handle a specific event.  The actions all perform  some decoding of  the
+event (extracting information such as  mouse coordinates etc), and  then
+call an  associated  callback  list,  usually with  a  useful  piece  of
+call_data. The following table shows the actions defined in XpwGraphic:
+
+ Action Name             X Event              Call Data
+ -----------             -------              ---------
+ string+                 Key press            +/-KeySym of key
+ notify-keyboard-event+  Key press            +/-KeySym of key
+ notify-button-event     ButtonPress/Release  +/-Button number
+ notify-motion-event     Mouse Motion         0 or Button number
+ notify-mouse-event      Mouse Enter/Leave    Event type
+ notify-resize-event     Resize request       Event type
+
+(+ identical - both actions exist for compatibility reasons.)
+
+
+string                                                          [action]
+notify-keyboard-event                                           [action]
+        ACTION, handle X KeyPress event, calls XtNkeyboardEvent callback
+        list.
+
+        This action is activated when  a keyboard key is pressed  within
+        an XpwGraphic or XpwScrollText widget.
+
+        Both  "string"  and  "notify-keyboard-event"  perform  the  same
+        action: They  first set  XtNmodifiers, XtNmouseX  and  XtNmouseY
+        according to the event. Then  they translate the KeyCode  into a
+        KeySym, and  set  the  XtNkey  resource  to  reflect  the  ASCII
+        translation for that  key. Then they  call the  XtNkeyboardEvent
+        callback. If the  event is a  KeyRelease, the call  data is  the
+        KeySym of the  key multiplied  by -1,  otherwise the  (positive)
+        KeySym is used as call data.
+
+        If the  action is  specified in  the translation  table with  an
+        argument, XtNkey is set to  that argument (arguments to  actions
+        are strings). Otherwise XLookupString is used.
+
+        In XpwScrollText widgets,  XtNmouseX and XtNmouseY  are in  rows
+        and columns (not pixels).
+
+
+notify-button-event                                             [action]
+        ACTION,  handle  X   ButtonPress  event,  calls   XtNbuttonEvent
+        callback list.
+
+        This action is activated when  a mouse button is pressed  within
+        an XpwGraphic or XpwScrollText widget.
+
+        First "notify-button-event"  sets the  XtNmouseX, XtNmouseY  and
+        XtNmodifiers resources according to  information in the X  event
+        structure. Then it  calls the XtNbuttonEvent  callback list.  If
+        the event was a ButtonPress then the button number is passed  as
+        call_data. If the event was  a ButtonRelease, the button  number
+        multiplied by -1 is passed.
+
+        In XpwScrollText widgets,  XtNmouseX and XtNmouseY  are in  rows
+        and columns (not pixels).
+
+
+notify-motion-event                                             [action]
+        ACTION,  handle  X  MotionNotify  event,  calls   XtNmotionEvent
+        callback list.
+
+        This action  is activated  when  a the  mouse pointer  is  moved
+        within an XpwGraphic or XpwScrollText widget.
+
+        First "notify-motion-event"  sets the  XtNmouseX, XtNmouseY  and
+        XtNmodifiers resources according to  information in the X  event
+        structure. Then it calls the XtNmotionEvent callback list.  If a
+        mouse button  is held  down, the  button's number  is passed  as
+        call_data. Otherwise the call data is 0.
+
+        In XpwScrollText widgets,  XtNmouseX and XtNmouseY  are in  rows
+        and columns (not pixels).
+
+
+notify-mouse-event                                              [action]
+        ACTION, handle  X Enter/LeaveNotify  event, calls  XtNmouseEvent
+        callback list.
+
+        This action  is activated  when the  mouse enters  or leaves  an
+        XpwGraphic widget.
+
+        First "notify-mouse-event"  sets  the XtNmouseX,  XtNmouseY  and
+        XtNmodifiers resources according to  information in the X  event
+        structure. Then it  calls the XtNmouseEvent  callback list.  The
+        event->type  field  of  the  X  Event  structure  is  passed  as
+        call_data.
+
+
+notify-resize-event                                             [action]
+        ACTION, handle  X Resize  event, calls  XtNresizeEvent  callback
+        list.
+
+        This action  is activated  when an  XpwGraphic or  XpwScrollText
+        widget is resized.
+
+        First "notify-resize-event"  sets the  XtNmouseX, XtNmouseY  and
+        XtNmodifiers resources according to  information in the X  event
+        structure. Then it  calls the XtNmouseEvent  callback list.  The
+        event->type  field  of  the  X  Event  structure  is  passed  as
+        call_data.
+
+
+
+4.2  Translations
+-----------------
+The default translations for XpwGraphic widgets simply map X events into
+the actions described above, using the following translation table:
+
+     "<BtnDown>:        notify-button-event() \n\
+     <BtnUp>:           notify-button-event() \n\
+     <EnterWindow>:     notify-mouse-event() \n\
+     <LeaveWindow>:     notify-mouse-event() \n\
+     <Motion>:          notify-motion-event() \n\
+     <ResReq>:          notify-resize-event() \n\
+     <KeyPress>:        notify-keyboard-event() \n\
+     <KeyRelease>:      notify-keyboard-event()";
+
+
+
+4.3  Keyboard Handling
+----------------------
+The keyboard  handling  for  XpwGraphic  and  XpwScrollText  widgets  is
+identical. XpwGraphic and  XpwScrollText widgets have  an action  called
+"string" which  can be  used in  a very  similar fashion  to the  string
+action of the  xterm client.  That is,  a users  resource database  file
+(.Xdefaults or equivalent) can specify  a mapping between function  keys
+and escape sequences for any key on the keyboard.
+
+    The string action takes one argument,  which is the string that  the
+XtNkey resource should  be set  to before  calling the  XtNkeyboardEvent
+callback. This string may contain control characters, which are  defined
+using \X where X is the letter  of the desired control character. So  \a
+is translated into control-a (ie. ASCII 1). Note that \[ is escape,  and
+\@ is null (ASCII  0). As with  the xterm string  action, if the  string
+starts with 0x it is interpreted as a hex character constant, so 0x1b is
+translated in ASCII 27 (ie. ESC).
+
+    For example,  the users  .Xdefaults  resource file  (or  equivalent)
+might contain:
+
+      xpop*xpw-graphic*Translations: #override \
+        <Key>Escape: string(0x1b)\n\        !Escape translates into ESC
+        <Key>F1: string("ved\\m") \n\
+        <Key>Left: string("\\[[D")\n\       !Standard VT100 cursor keys
+        <Key>Up: string("\\[[A")\n\
+        <Key>Right: string("\\[[C")\n\
+        <Key>Down: string("\\[[B")
+
+    When the escape key is pressed, first the XtNkey resource is set  to
+a string  containing the  character 27,  and then  the  XtNkeyboardEvent
+callback is called. Similarly, pushing F1 causes the XtNkey to be set to
+"ved<newline>", and then the XtNkeyboardEvent callback is called.
+
+
+
+
+----------------------------
+5  C Programming Information
+----------------------------
+
+Xpw follows all of the Xt conventions, and so should be  straightforward
+to use  in C,  and in  other languages.  Widget creation,  and  resource
+setting etc, all follow the Xt norms. The one addition to Xt is the  use
+of methods instead  of a collection  of global C  procedures to  perform
+widget-class specific operations  on a  widget. See  REF * XpwCallMethod
+for a  description of  the calling  syntax for  methods, and  a  C-style
+synopsis of all of the methods available in Xpw.
+
+
+
+
+------------------------
+6  Related Documentation
+------------------------
+
+HELP * Xpw
+    An overview of the Poplog Widget Set
+
+REF * XpwCallMethod
+    Information on method access in Xpw
+
+REF * XpwMethods
+    A summary of methods
+
+REF * XpwResources
+    An index of resources
+
+
+
+
+--- C.x/x/pop/ref/XpwGraphic
+--- Copyright University of Sussex 1991. All rights reserved.

@@ -1,0 +1,771 @@
+HELP SIM_AGENT_NEWS                                         Aaron Sloman
+
+    http://www.cs.bham.ac.uk/research/poplog/newkit/sim/help/sim_agent_news
+    ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/newkit/sim/help/sim_agent_news
+    $poplocal/local/newkit/sim/help/sim_agent_news
+
+See also
+    HELP PRB_NEWS
+    HELP RCLIB_NEWS
+
+See also the revision notes at the ends of the library files.
+
+CONTENTS
+
+ -- 2004
+ -- 12 Jan 2004 New 'hybrid' deliberative/reactive sheepdog demo added
+ -- 2003
+ -- 12 Jan 2003 Changes to LIB SIM_AGENT and SIM_HARNESS
+ -- 2002
+ --  4 Jul 2002 Bug in sim_flush and prb_flush fixed
+ -- 13 May 2002 sim_harness altered slightly
+ -- 21 Feb 2002 sim_use_ruleset_names
+ -- 21 Feb 2002 New debugging tool for rulesets
+ -- 20 Feb 2002 Agents can detect changed ruleset
+ -- 2000
+ --  5 Jan 2001 made sim_sheepdog.p accessible as library
+ -- 21 Nov 2000 Change to sim_control_panel (sim_harness)
+ -- NOTE: there have been some recent changes in RCLIB
+ --  4  Nov 2000 New self-tracing self-modification and facilities
+ -- 31 Oct 2000 new variable sim_unique_cluster_name
+ --  8  Oct 2000 new variable sim_stopping_scheduler
+ -- 18 Aug 2000 (See also HELP PRB_NEWS)
+ -- -- New self-monitoring procedures in poprulebase
+ -- -- with_interval works as documented
+ -- 2  Aug 2000 SIM_AGENT version 6 2 Aug 2000
+ -- -- Major change allowing [INDATA ?db [....]] for conditions and actions
+ -- -- Modification to sim_run_agent
+ -- -- new method sim_run_rulesystem in sim_run_agent
+ -- -- New methods and procedures for slot access
+ -- -- New procedures and methods
+ -- 6 Jul 2000 Added sim_scheduler_objects, and changed sim_harness
+ -- -- sim_scheduler_objects(objects, lim) -> objects;
+ -- -- sim_scheduler_objects now used in LIB sim_harness.
+ -- --  RCLIB changes: see HELP rclib_news
+ -- 1999
+ -- 7 Nov 1999 Restored application of sim_run_agent with empty sim_rulesystems
+ -- 2 Nov 1999 Made sim_scheduler call sim_setup in main loop
+ -- July 21 1999 sim_data_precedes, sim_pr_db, sim_syspr_db
+ -- July 1999 SIM_AGENT Version 5.0 released
+ -- Jun 26 Fixed bug in sim_intersect_segs found by Natalie Andrew:
+ -- Mar 31 1999 sim_send_message generalised
+ -- 20 March 1999 New libraries SIM_CONTROL_PANEL, SIM_FACES
+ -- 14 March 1999 TEACH SIM_SHEEP.P updated and made easier to use
+ -- 24 Feb 1999 New libraries SIM_PICAGENT, SIM_HARNESS, new SIM_FEELINGS
+ -- 1998
+ -- Sept 1998 TEACH SIM_FEELINGS rewritten
+ -- March 1998 TEACH SIM_FEELINGS introduced
+ -- 14 Nov 1997 New syntax for define :rulesystem
+ -- April 1997
+ -- SIM_AGENT version 4.0 May 1996
+ -- Major change: introduction of new datatype prb_rulefamily
+ -- Other features
+ -- Version V3.0 Jan 31 1996
+ -- Version V2.0 July 1995
+
+-- 2004
+-- 12 Jan 2004 New 'hybrid' deliberative/reactive sheepdog demo added
+
+    Marek Kopicki's MSc Mini-Project extending sim_sheepdog.p has been
+    added as
+        LIB hybrid_sheepdog.p
+    With an online video demonstration here:
+        http://www.cs.bham.ac.uk/research/poplog/figs/simagent/
+    and the project report here
+        http://www.cs.bham.ac.uk/research/cogaff/0-INDEX04.html
+
+-- 2003
+-- 12 Jan 2003 Changes to LIB SIM_AGENT and SIM_HARNESS
+
+    At suggestion of Brian logan
+        In lib_sim_agent
+        Moved this line after call to sim_post_cycle_actions
+            [] ->> sim_object_delete_list -> sim_object_add_list;
+        This allows sim_post_cycle_actions to see what was in
+        the add and delete lists.
+
+    At suggestion of Nick Hawes
+        Made sim_agent_rulefamily_trace print different things for
+        rulefamilies and rulesets
+        Change also added to LIB sim_harness
+
+-- 2002
+
+--  4 Jul 2002 Bug in sim_flush and prb_flush fixed
+    Nick Hawes discovered that sometimes prb_flush will not remove
+    all instances of a pattern containing "==". This was due to a bug
+    in the non-exported procedure prb_no_variables in LIB Poprulebase.
+    This has now been fixed. The fix also alters sim_flush, which is
+    defined in terms of prb_flush.
+
+-- 13 May 2002 sim_harness altered slightly
+    On the suggestion of Manuela Viezzer made tracing for sim_object instances
+    in LIB sim_harness more consistent with that in LIB sim_agent, e.g.
+    removed new definitions for these procedures which stopped them
+    performing their default actions.
+        define :method sim_agent_actions_out_trace(object:sim_object);
+        define :method sim_agent_rulefamily_trace(object:sim_object, rulefamily);
+        define :method sim_agent_endrun_trace(object:sim_object);
+
+    This one had a change in sim_harness that could cause bugs. Re-set
+    to system default as in LIB sim_agent
+        define :method sim_agent_terminated_trace(object:sim_object
+                                            number_run, runs, max_cycles);
+
+-- 21 Feb 2002 sim_use_ruleset_names
+    The value of this variable can be false, or true, or a list of
+    rulesets/rulefamilies. It is used to control whether an agent's
+    database contains actual rulesets of their names.
+    The default value is true.
+
+    It was introduced to make it possible for a program that needs to
+    manipulate rulesets in an agent's database to have actual copies of
+    the rulesets within the database, rather than just the names of
+    rulesets, which is the default.
+    The default makes it easy to change ruleset definitions at runtime
+    without having to reconstruct agents that use those rulesets.
+
+    Previously this convenient behaviour (use of names rather than
+    rulesets) was turned off by making pop_debugging false. However
+    Catriona Kennedy pointed out that someone might wish to keep
+    pop_debugging true for other purposes. So the introduction of
+    sim_use_ruleset_names makes it possible to turn off this debugging
+    aid only for rulesets/rulefamilies by making it false, and by making
+    it a list to turn off the debugging for all except the named
+    rulesets. This has actually been in the library since August 2000,
+    but was not documented.
+
+    A consequential change in LIB rulefamily, which defines the actions
+        [SAVERULESET <name>]
+        [RESTORERULESET <name>]
+        [SWITCHRULESET <name1> <name2>]
+        [PUSHRULESET <name>]
+        [POPRULESET]
+    Was installed 21 Feb 2002.
+    This means that the new facilities apply also to rulefamilies and
+    rulesets within rulefamilies.
+
+-- 21 Feb 2002 New debugging tool for rulesets
+    HELP PRB_NEWS summarises a new debugging aid for identifying
+    typos in rule conditions and actions. For a complete description
+    see HELP PRB_CHECKPATTERNS
+    Suggested by Catriona Kennedy.
+
+-- 20 Feb 2002 Agents can detect changed ruleset
+    Change suggested by Nick Hawes allows agents to detect when a
+    ruleset changes during a run of the rule interpreter.
+    Described in HELP PRB_NEWS
+
+-- 2000
+
+--  5 Jan 2001 made sim_sheepdog.p accessible as library
+
+    A link has been made from sim/lib/sim_sheepdog.p to
+    sim/teach/sim_sheepdog.p
+
+    So the commands
+        uses newkit
+        lib sim_sheepdog.p
+
+    will now compile the sheepdog demo.
+
+-- 21 Nov 2000 Change to sim_control_panel (sim_harness)
+    A new global variable sim_demo_maxcycles (default 1000) has been
+    added to LIB sim_control_panel. The procedure that creates the
+    control panel sim_control_panel uses that to set the upper range of
+    the slider for sim_demo_cycles. Previously the upper limit was 1000.
+
+    Also, if sim_demo_cycles is greater than sim_demo_maxcycles, the
+    former will be used to determine the slider range limit. So user
+    procedures that assign to sim_demo_cycles can thereby adjust the
+    slider's upper limit. This is done automatically if the procedure
+        run_simulation(setup_info, num, tracevars);
+    is used.
+
+-- NOTE: there have been some recent changes in RCLIB
+    See HELP RCLIB_NEWS for information.
+
+--  4  Nov 2000 New self-tracing self-modification and facilities
+
+    Added new methods
+        sim_add_rule_cluster(object, famname, fam, control_info);
+        sim_add_rule_system(object, system);
+        sim_add_rule_system_startup(object, dlocal_spec, lvars_spec, limit_spec, interval_spec);
+
+    and various tracing facilities
+
+    sim_add_rulecluster_trace
+        Make this true to get trace printout when a rulecluster is
+        added to the database in sim_setup, i.e. if
+        sim_add_rule_cluster is run. Default is false
+
+    sim_add_rulesystem_trace
+        Make this true to get trace printout when a rulesystem is
+        added to the database in sim_setup, i.e. if either of
+        sim_add_rule_system or sim_add_rule_system_startup
+        runs. Default is false
+
+-- 31 Oct 2000 new variable sim_unique_cluster_name
+    This was added to overcome a problem reported by Catriona Kennedy
+    Normally when sim_setup runs if it is installing a rulefamily in
+    the database, it copies it and then uses gensym to create a new
+    name for it, for which it is the valof. This can get in the way of
+    programs that look for the original name. To prevent creation of
+    new names assign false to sim_unique_cluster_name. The different
+    agents will have different copies of the same rulecluster but with
+    a shared name.
+
+--  8  Oct 2000 new variable sim_stopping_scheduler
+    Added new global variable sim_stopping_scheduler. Default is false
+    at beginning of run. If made true by a program, then at end of
+    current timeslice, sim_stop_scheduler is invoked to terminate run of
+    sim_scheduler cleanly.
+
+    (Should probably revise LIB sim_harness to use this instead of using
+    sim_terminate_simulation and redefining sim_scheduler_pausing_trace ??)
+
+-- 18 Aug 2000 (See also HELP PRB_NEWS)
+-- -- New self-monitoring procedures in poprulebase
+    LIB poprulebase has been extended with a collection of new
+    tracing procedures that enable an agent to record information
+    about the behaviour of its rules, e.g. checking conditions,
+    running actions, adding or deleting things from the database,
+    etc.
+
+-- -- with_interval works as documented
+    HELP NEWKIT documents the possibility of specifying both an
+    interval and a cycle limit for a ruleset. This was never
+    properly implemented. It is now.
+
+-- 2  Aug 2000 SIM_AGENT version 6 2 Aug 2000
+    sim_version how has the value: ['V6.0' '00.07.30'];
+
+-- -- Major change allowing [INDATA ?db [....]] for conditions and actions
+
+    Added support for conditions and actions of the form
+        [INDATA ?db [...]]
+    where db must be a database, and [...] must be one of the standard
+    types of conditions or actions.
+    For details of [INDATA ...] see HELP PRB_NEWS
+
+-- -- Modification to sim_run_agent
+    (See also the note on sim_run_agent in November 1999).
+    Previously the method sim_run_agent(object) would do nothing if
+    the slot sim_rulesystem(object) had the value []. However some
+    users want to be able to run sensors even when there is no
+    rulesystem. So the test for immediate exit from sim_run_agent
+    has been changed to
+        returnif(
+            sim_rulesystem(object) == [] and sim_sensors(object) == [])
+
+-- -- new method sim_run_rulesystem in sim_run_agent
+    sim_run_agent(object) has been changed so that after the sensors
+    have been run and any control environment set up, the following
+    user-definable method is now invoked:
+        sim_run_rulesystem(
+                    object:sim_object, rulesystem, action_limit, cycle_limit, len);
+
+    By default this returns immediately if rulesystem == [].
+
+-- -- New methods and procedures for slot access
+    sim_agent.p is changed to allow agents to use a shared
+    database. It is then held in the sim_shared_data slot. In that case
+    the database held in sim_data will still be used to contain the
+    rulesystem and rulesets.
+
+    For that to work, the global variable sim_use_shared_data should
+    be set true before LIB sim_agent is compiled
+
+    The new procedure variable sim_get_data by default has the same
+    value as sim_data. However if sim_use_shared_data is set true,
+    then the value of sim_get_data is the slot method sim_shared_data
+
+    Various utilities have have been changed to use sim_get_data
+    instead of sim_data. So they will work whether sim_use_shared_data
+    is true or false.
+
+-- -- New procedures and methods
+    The sim_setup method has been changed. It now invokes the new method
+        sim_post_setup(object:sim_object);
+    at the end of the setup process for each agent.
+
+    sim_setup has also been changed so as to save the original
+    rulesystem in the slot sim_original_rulesystem after transferring
+    the rulesystem to the database.
+
+
+
+
+-- 6 Jul 2000 Added sim_scheduler_objects, and changed sim_harness
+
+-- -- sim_scheduler_objects(objects, lim) -> objects;
+
+    This new procedure, suggested by Matthias Scheutz, makes it possible
+    after a run of sim_scheduler to get a list of the remaining contents
+    of sim_objects. This was previously possible using the procedure
+
+        sim_scheduler_finished(sim_objects, sim_cycle_number);
+
+    which is invoked at the end of a run. However there may be packages
+    which redefine that for other purposes, and it seemed cleaner to
+    have a way of running simulations which returned the list of
+    objects.
+
+-- -- sim_scheduler_objects now used in LIB sim_harness.
+The following procedures use this new procedure:
+        run_simulation_withvars
+        run_simulation
+        continue_run
+
+    All now have the effect that when sim_scheduler exits, the
+    remaining list of objects/agents is assigned to all_agents.
+
+    The control panel, or user invocation of continue_run, can therefore
+    be used to restart the scheduler with the current list of
+    agents, whereas previously it always restarted with the original
+    list.
+
+-- --  RCLIB changes: see HELP rclib_news
+    There have also been changes to RCLIB which make a difference to
+    the facilities available in sim_agent and especially sim_picagent
+    and sim_harness. For instance,
+    o objects can now change their appearance using the new method
+      rc_change_picture
+    o the window can change its "viewing" region by using the method
+      rc_shift_window_frame_by
+    o The new mixin rc_rotatable_picsonly allows a rotatable object
+      to keep its textual label in the same place.
+
+    For further details see HELP rclib_news or
+        http://www.cs.bham.ac.uk/research/poplog/rclib/help/rclib_news
+
+-- 1999
+
+-- 7 Nov 1999 Restored application of sim_run_agent with empty sim_rulesystems
+    When Version 5 was released sim_scheduler was redesigned to cope
+    with the new representation of rulesystems. The changes had the
+    consequence that if an agent had an empty list in its sim_rulesystem
+    slot, sim_run_agent would not be applied to it. That was a
+    mistake and has now been changed: even with an empty rulesystem the
+    sim_run_agent method is applied.
+
+-- 2 Nov 1999 Made sim_scheduler call sim_setup in main loop
+    To allow new objects to be added to the agent list easily, without
+    requiring the user to run sim_setup, the main scheduler does
+    this if sim_setup_done(agent) is false.
+
+-- July 21 1999 sim_data_precedes, sim_pr_db, sim_syspr_db
+    These three new library procedures are defined in in
+    HELP SIM_AGENT/sim_data_precedes
+    HELP SIM_AGENT/sim_syspr_db
+
+-- July 1999 SIM_AGENT Version 5.0 released
+    The new version is described in HELP NEWKIT
+    Main new features:
+    1. Activation intervals can be specified for rulesystems or
+        ruleclusters (rulesets or rulefamilies)
+    2. Each agent's rulesystems and ruleclusters are held in the
+       agent's own database. I.e. the processing mechanisms are now
+       explicitly part of the database on which they operate.
+
+-- Jun 26 Fixed bug in sim_intersect_segs found by Natalie Andrew:
+        the test was erroneous where one of the segments is vertical.
+-- Mar 31 1999 sim_send_message generalised
+    to cope with message addressed to multiple targets, following a
+    suggestion by Brian Logan.
+-- 20 March 1999 New libraries SIM_CONTROL_PANEL, SIM_FACES
+        See their help files
+-- 14 March 1999 TEACH SIM_SHEEP.P updated and made easier to use
+-- 24 Feb 1999 New libraries SIM_PICAGENT, SIM_HARNESS, new SIM_FEELINGS
+        See the help files for the first two
+
+As a step towards making it easier to use sim_agent I have
+split up the introductory demonstration file TEACH SIM_FEELINGS
+as follows.
+
+There are two new libraries:
+
+1.  LIB SIM_PICAGENT, described in HELP SIM_PICAGENT
+    This provides a collection of new mixins allowing definition of new
+    classes which combine the features of sim_agent instances and
+    rclib class instances. E.g. they can have simulation coordinates
+    in a 2D world and graphical coordinates in a 2D picture, with a
+    user-defined transformation between them (specified as usual by
+    translation, stretch, reflection). Methods are provided for
+    ensuring that both sets of coordinates are kept in step, whether
+    items are moved by code in the simulation world or by the mouse
+    on the window. This makes it simple to change that mapping while
+    keeping everything else fixed. (E.g. different bits of the world
+    could be mapped onto different windows, though I have not tried
+    doing that yet!)
+
+2.  LIB SIM_HARNESS, described briefly in HELP SIM_HARNESS
+    This is still under construction and suggestions are welcome for
+    requirements for it. The idea is to take out of the old
+    demonstration teach file the mechanisms for setting up the world
+    and running demos with different amounts of tracing and
+    logging turned on or off. They are then made generally available
+    for setting up and running different demonstrations combining the
+    simulation and graphical facilities. As suggested by Brian I shall
+    add a graphical control panel so that the mode of running can be
+    more easily changed asynchronously e.g. by toggling booleans or
+    by setting numerical values using sliders, etc. (without using
+    motif!)
+
+As a demonstration of the use of these two libraries in their present
+form, the tutorial introductory demonstration, TEACH SIM_FEELINGS has
+been re-written (the code has been changed, though some of the comments
+are probably still out of date, and will be updated shortly.) I expect
+to move more bits of this into LIB SIM_HARNESS after suitably
+generalising them.
+
+Instructions for simply running the demo are in HELP FEELINGS.DEMO
+which also says what it is all about.
+
+Comments and suggestions welcome.
+
+-- 1998
+
+-- Sept 1998 TEACH SIM_FEELINGS rewritten
+
+-- March 1998 TEACH SIM_FEELINGS introduced
+    This now the major introduction to SIM_AGENT
+
+-- 14 Nov 1997 New syntax for define :rulesystem
+    The syntax form in define :rulesystem, which allowed
+        include: <ruleset or family> with_limit = N
+
+    was not working properly, because of a bug in sim_run_agent.
+    The symptom was that the limit applied to all subsequent
+    rules in the ruleset, whereas it shouldn't have. Now fixed.
+
+-- April 1997
+--- Aaron Sloman, 6 Apr 1997 Finally provided HELP * SIM_GEOM
+
+--- Aaron Sloman, Mar 20 1997
+    Introduced global variable sim_lock_heap (default true) to make
+    sim_setup_scheduler do heap locking.
+
+--- Aaron Sloman,  23 Jul 1996
+
+    Made prb_run_agent see if there's an integer in prb_family_limit
+    and if so use that. Suggested by Peter Waudby. Supports the
+    [NEWLIMIT....] action form in poprulebase
+
+--- Aaron Sloman, Jun  4 1996
+    Changed STOPAGENT to get round exitto problem. Had to use callstacklength
+
+--- Aaron Sloman,  25 May 1996
+    Added :method sim_agent_messages_in_trace(agent:sim_agent);
+    slot sim_setup_done added, and rulesystems and rulefamilies
+    copied in default setup.
+
+    Modified control of cycle limits. Restricted to rulesystems and
+    sim_cycle_limit
+
+-- SIM_AGENT version 4.0 May 1996
+
+Detailed documentation of the changes since earlier versions will be
+added later. For now, all the most important points are to be found in
+    HELP * RULESYSTEMS
+Some information is in HELP * PRB_NEWS
+
+--- LIB VEDDISCOUT
+New procedure for redirecting trace printer output to a named VED file.
+
+--- New Method for initialising objects: sim_setup(object:sim_object);
+See HELP SIM_AGENT/sim_setup
+
+--- sim_edit_object_list(sim_objects, sim_cycle_number) -> sim_objects;
+
+Procedure for adding or removing objects at the end of every time-slice
+using the values of these two variables
+        sim_object_delete_list, sim_object_add_list
+
+--- New teach and help  files
+    TEACH * SIM_AGENT (a general introduction)
+
+    HELP * SIM_AGENT (much revised)
+
+    HELP * RULESYSTEMS
+        Explains important new mechanisms for grouping rulesets into
+        rulefamilies and rulesystems, and attaching prb_run cycle limits
+        to individual rulesets or rulesystems.
+
+    TEACH * SIM_DEMO  (modified version of old armysim demo)
+        Illustrates some of the new features, as well as old ones.
+
+    Put ?sim_myself in popmatchvars, so that users can use it in
+    patterns and actions. (Later removed, after introduction of
+    [LVARS...] forms.
+
+-- Major change: introduction of new datatype prb_rulefamily
+
+A rulefamily is a collection of rulesets only one of which is active at
+any time. Full documentation is in HELP * RULESYSTEMS
+
+(This probably makes the old mechanisms described in HELP * PRB_EXTRA
+redundant.)
+
+--- Stuff for avoiding wasted cycles when a ruleset has stopped
+
+    Added facilities to record if no rules were fired in an object
+    in a cycle (except for STOP, STOPIF, etc), and in that case run
+            sim_agent_terminated_trace
+
+    If NO object has any rule fired in a cycle of sim_scheduler, apart
+    from STOP-type actions, then run
+            no_objects_runnable_trace
+
+--- new actions
+
+    [STOPAGENT ...]
+    [STOPAGENTIF ...]
+
+-- Other features
+    Added prb_show_ruleset: if true will show which ruleset is being used.
+
+    Modified prb_run to allow prb_rules to be a word or identifier
+        so that valof or idval can be used to get the ruleset.
+        This allows rulesets to be edited without recreating agents.
+
+    Made prb_check_section user definable, so that it can be redefined
+    as erase if sections are not used.
+
+    As suggested by Jeremy Baxter optimised NOT actions of the form
+        [NOT <item> ==]
+    By changes to prb_flush and prb_subflush_fixed. This sort of
+        deletion is now handled by [] -> prb_database(<item>)
+
+    Optimised NOT conditions, using abnormal exit, and instantiated pattern
+
+    Replaced wrong call of old_sysmatch
+
+    Added trace_match, trace_match_prop, show_trace_match, clear_trace_match
+    for finding out how often different rules are checked and which
+    patterns succeed and which files. An addition to LIB * PROFILE
+    See HELP * PRB_TRACE_PROCS
+
+    Added prb_no_rule_found_trace(prb_rules, prb_database)
+
+    Various changes LIB * SIM_AGENT to accommodate rulesystems
+
+    Altered test for being in prb_instance to avoid iscaller
+
+--- Aaron Sloman, May 22 1996
+    added global variable prb_actions_run
+
+--- Aaron Sloman,  10 May 1996
+added checks on rulesystem being a list
+removed redundant section checking code
+
+--- Aaron Sloman, Apr 30 1996
+fixed problem with orig_section not being a section
+
+Introduced LIB * SIM_GEOM. Needs a help file. Needs extending.
+
+-- Version V3.0 Jan 31 1996
+
+    Introduced sim_version
+
+    Used prb_rule_found, to prevent wasted calls to prb_run
+
+    Took account of new prb_rulesystem structure to
+        allow new options in prb_run,
+        allow more control (?)
+
+-- Version V2.0 July 1995
+
+--- Aaron Sloman, July 17th 1995
+    There have been considerable changes in the implementation of
+    Poprulebase, described in HELP PRB_NEWS. This is due to the
+    replacement of prb_database as a single list of items with a
+    property mapping the first element of an item to a list of items
+    starting with that element. There have been other changes.
+
+--- Aaron Sloman 17th July 1995
+    Removed false prb_repeating default.
+
+    It's an unnecessary overhead and makes no sense in the context of
+    repeated runs of prb_run: there's no memory between cycles of
+    what has already run.
+
+--- Darryl Davis, and Aaron Sloman 7 July 1995
+    New procedures
+    sim_delete_data( /* pattern, data */ );
+    sim_add_data( /*item, dbtable*/);
+    sim_add_list_to_db( /* list, dbtable */ );
+    sim_clear_database(/*dbtable*/);
+
+    Changed sim_data slot (on class sim_object) so it is a property
+    table:
+        makes it compatible with property tables in new poprulebase
+        removed sim_remove_all : no longer used
+        added sim_dbsize: default size of property table
+
+--- Aaron Sloman, May 19 1995
+    Changed
+        define :method sim_do_action(agent:sim_agent, action);
+    to
+        define :method sim_do_action(agent:sim_object, action);
+    to avoid problems when attempts are made to apply the method
+    to objects that are not agents, e.g. in sim_post_process
+--- Aaron Sloman, Apr 26 1995
+    Introduced sim_do_actions method so as not to look at messages
+    of non-agents in the second pass of the scheduler.
+
+    Redefined :method sim_post_process so that first arg is of type
+    sim_object
+
+--- Aaron Sloman, Mar 27 1995
+    Changed :method print_instance(item:sim_object), to print
+        <object ....> instead of <agent ....>
+
+
+
+--- Aaron Sloman, Jan 11th 1995
+
+There have been several changes.
+    1. Poprulebase has been changed so that WHERE conditions are
+    compiled using read_list_of_items rather than listread. This
+    should enable things like ^my_xloc to work in an embedded list
+    in a WHERE condition. This is intended as a bug fix, but may have
+    unintended side effects due to the delayed construction of embedded
+    lists.
+
+    2. The top level class is now sim_object, not sim_agent. The
+    latter is now a subclass. This means that different methods can
+    be defined for objects that are not agents, and there is
+    potentially some saving of space in such objects, as agents will
+    often have richer structures.
+
+    The main differences at present are
+    2.a. sim_object does not include slots
+        sim_in_messages, sim_out_messages
+
+    2.b. The classes have different sim_class information structures
+        (see below.)
+
+    2.c. The default sim_cycle_limits are different (1 for sim_objects,
+        5 for sim_agents).
+
+    3. The following trace procedures are now methods, not procedures,
+    so that they can be defined differently for different classes of
+    objects.
+
+      define :method sim_agent_running_trace(object:sim_object);
+      define :method sim_agent_messages_out_trace(agent:sim_agent);
+      define :method sim_agent_actions_out_trace(object:sim_object);
+      define :method sim_agent_action_trace(object:sim_object);
+      define :method sim_agent_ruleset_trace(object:sim_object, ruleset);
+      define :method sim_agent_endrun_trace(object:sim_object);
+
+      (This remains a procedure: sim_scheduler_pausing_trace)
+      See HELP * SIM_AGENT/'User definable tracing facilities.'
+
+
+    4. Removed sim_location from the top level definition. Previously
+    it was assumed that every object would need to have a location
+    represented as a pair. This is an unjustifiable assumption, and in
+    practice some of the applications were not using this slot. So it
+    has been removed. Thus users who wish to use it will have to define
+    it in some subclass, using whatever representation for location
+    they choose.
+
+    5. Accordingly the default version of the method
+
+      define :method sim_distance(a1:sim_object, a2:sim_object) -> dist;
+
+    has now been modifed to produce a distance of 0. Users can redefine
+    it for various sub-classes. It is invoked in sim_run_sensors. Thus
+    by default everything is now within range of the sensors of
+    everything else.
+
+    6. To enable cleaning up to be done at the end of a run there is now
+    a user-definable procedure called at the end of sim_scheduler
+
+        sim_scheduler_finished(objects, cycle);
+
+    It is given the complete list of objects and the latest cycle
+    number.
+
+
+    7. Riccardo Poli suggested the need for easy premature termination
+    of some of the default procedures that have internal loops. The
+    following are now provided:
+        sim_stop_agent();
+            This does: exitto(sim_run_agent);
+            and will come out of the main loop in that method.
+
+        sim_stop_scheduler();
+            This does: exitto(sim_scheduler)
+            and comes out of the main loop in sim_scheduler, just
+            before the call of sim_scheduler_finished. (Use exitfrom
+            to bypass that.)
+
+    To facilitate the above mechanisms, the procedure sim_scheduler and
+    the default method sim_run_agent both run their main loops inside an
+    anonymous procedure.
+
+    8. Defined (inaccessible) procedure sim_stack_check and planted
+    calls of it, to do extra checking whether user procedures or methods
+    have changed the stack contents when they should not.
+
+    9. Removed the slot sim_class_information, since no system
+    procedures or methods use it. Users should not be lumbered with it
+    if they don't need it.
+
+    10. At request of Jeremy Baxter added:
+        sim_post_cycle_actions(sim_objects, cycle);
+    It is intended for updating external information (e.g. a simulation
+    program, or a plant control system, etc.) at the end of each cycle
+    It is called in sim_scheduler, just before
+
+        sim_scheduler_pausing_trace(sim_objects, cycle);
+
+    Should there be sim_pre_cycle_actions at the beginning of each
+    cycle?
+
+--- Aaron Sloman, Dec  2 1994
+    Allowed agents to sense themselves. This was done (at the suggestion
+    of Riccardo Poli) by putting the test
+        unless a1 == a2 then    ;;; don't detect oneself
+    into the method sim_sense_agent, rather than making it a condition
+    for invoking the agent. This means that the method can be redefined
+    for sub-classes of agents that need to sense themselves.
+
+--- Aaron Sloman, Nov 24 1994
+    Changed default value for
+        slot sim_sensors == [{sim_sense_agent %1.0e33%}];
+        i.e. the default is now a very large number.
+
+    Changed sim_run_sensors so as to remove check
+        nextif(other == agent)
+
+    Changed method sim_sense_agent to do the check, instead
+
+--- Aaron Sloman, Nov 13 1994
+
+    No longer needs to load LIB PRB_EXTRA as prb_remove_all has
+    been made autoloadable.
+
+    Replaced global variable sim_cycle_limit with a slot in the class
+    agent.
+
+    Also allow sim_ruleset_limit(rulesetname) to determine the number of
+    cycles in prb_run for that ruleset. This helps to allow more
+    fine-grained speed control.
+
+    Moved documentation out to help file.
+
+    Moved the use of sim_speed to sim_run_agent, where it makes more
+    sense.
+
+--- Aaron Sloman, Oct 17 1994
+        Changed to use POPRULEBASE and PRB_EXTRA
+
+        Changed to allow a maximum number of cycles for each run of
+        prb_run.
+
+--- $poplocal/local/newkit/sim/help/sim_agent_news
+--- Copyright University of Birmingham 2004. All rights reserved. ------

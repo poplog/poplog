@@ -1,0 +1,271 @@
+REF XPT_WIDGETTYPES                                 Adrian Howard Sep 91
+
+       COPYRIGHT University of Sussex 1991. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<  CORE AND COMPOSITE WIDGET  >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<    STRUCTURE DEFINITIONS    >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This REF file  describes the library  LIB * XPT_WIDGETTYPES which  gives
+details of  the internal  structure of  the Core  and Composite  widgets
+provided by the toolkit.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   Core Widget Structure
+
+  3   Composite Widget Structure
+
+
+
+---------------
+1  Introduction
+---------------
+
+The level of detail supplied by the library LIB * XPT_WIDGETTYPESis  not
+normally needed. In nearly all  situations widgets should be treated  as
+opaque objects. If  the values  of the  fields given  below are  needed,
+higher level  procedures like  XtWindow and  XtParent, or  the  resource
+fetching mechanism  (see  REF * XT_RESOURCE), should  be  used  instead.
+Users should NOT alter  any of the fields  directly unless the are  sure
+they understand the implications fully.
+
+About the only time this library should be used is when the byte-offsets
+of  the  fields   inside  a   widget  are  needed.   For  example,   the
+XptConvertArgRec structure (see  REF * XT_CONVERTER) can  take the  byte
+offset of a widget  field in its XptXVRAddressId  field. Such an  offset
+can be calculated with the FIELDOFFSET macro.
+
+For example, to calculate the byte offset of the "num_children" field in
+a composite widget you could do something like:
+
+    ;;; Byte offset from the start of a widget to the start of the
+    ;;; composite fields
+    vars composite_offset = FIELDOFFSET(:XptCompositeWidget, composite);
+
+    ;;; Offset of "num_children" field from the start of the composite
+    ;;; fields
+    vars num_children_offset =
+        FIELDOFFSET(:XptCompositePart, num_children);
+
+    ;;; Total byte offset of field is therefore:
+    vars offset = composite_offset + num_children_offset;
+
+For details of the FIELDOFFSET macro see REF * DEFSTRUCT.
+
+The hierarchical structure of widget classes means that all  descendents
+of the core/composite widgets have the same fields in the same locations
+as the  core/composite  widget  structures described  in  the  following
+sections.
+
+For more details see:
+
+               X Toolkit Intrinsics - C Language Interface
+                             X Window System
+                         X Version 11, Release 4
+
+        Copyright (C)  1985,  1986,  1987,  1988,  Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+
+
+------------------------
+2  Core Widget Structure
+------------------------
+
+XptCorePart                                                   [typespec]
+        Typespec for the fields  common to all  core widgets, and  their
+        descendents. The  typespec currently  has the  following  fields
+        available to the user:
+
+            self :XptWidget
+                The widget itself (ie, a pointer to the widget that this
+                field is a part of). This should NEVER be changed.
+
+            widget_class :XptWidgetClass
+                The class of the widget as would be returned by
+                XtClass. This should NEVER be changed.
+
+            parent :XptWidget
+                The parent of the widget as would be returned by
+                -XtParent. This should NEVER be changed.
+
+            being_destroyed :XptBoolean
+                Set to true if the widget has been marked to be
+                destroyed, false otherwise.
+
+            destroy_callbacks :exptr
+                A pointer to the list of callback procedures that will
+                be called when the widget is destroyed, ie the contents
+                of the "XtN destroyCallback" resource/callback-list.
+                This can be converted into an XptCallbackList
+                structure   with  importXptCallbackList   (see REF
+                * XT_CALLBACK). The value defaults to a null pointer.
+
+            constraints :XptPointer
+                Contains a pointer to data that would be used by the
+                widgets parent to constrain the widgets geometry. If the
+                widgets parent is not a subclass of the
+                constraintWidgetClass then this location should contain
+                a null pointer. The value defaults to a null pointer.
+
+            x :XptPosition y :XptPosition
+                The x and y coordinates of the widgets window in pixels
+                (the values of the "XtN x" and "XtN y" resources). The
+                values default to zero.
+
+            width :XptDimension height :XptDimension
+                The width and height of the widgets window in pixels
+                (the values of the "XtN width" and "XtN height"
+                resources). The values default to zero.
+
+            border_width :XptDimension
+                The width of the widgets window border in pixels (the
+                value of the "XtN borderWidth" resource). Its default
+                value is 1.
+
+            managed :XptBoolean
+                Set to true if the widget is being geometry managed by
+                its parent, false otherwise. The default value is
+                false. The same information can be gained via the
+                XtIsManaged procedure. See REF * XT_COMPOSITE for more
+                information on geometry management.
+
+            sensitive :XptBoolean
+                Set to true if the widget is sensitive to user events,
+                false otherwise (the "XtN sensitive" resource). The
+                default value is true.
+
+            ancestor_sensitive :XptBoolean
+                This is false if one of the widgets ancestors is not
+                sensitive to user events, true otherwise (the value of
+                the "XtN ancestorSensitive" resource).
+
+            accelerators :XptTranslations
+                The accelerator translations for the widget (the value
+                of the "XtN accelerators" resource). See REF * XT_TRANS
+                for details of accelerators. The value defaults to a
+                null pointer.
+
+            border_pixel :XptPixel
+                The pixel used for the widgets window border (the value
+                of the "XtN borderColor" resource). The value defaults
+                to "XtDefaultBackground".
+
+            border_pixmap :XptPixmap
+                The background pixmap of the widgets window border, or a
+                null value if no such pixmap exists (the value of the
+                "XtN borderPixmap" resource). The value defaults to
+                "XtUnspecifiedPixmap".
+
+            popup_list :exptr
+                A pointer to a list of the widgets popup widgets. The
+                value defaults to a null pointer.
+
+            num_popups :XptCardinal
+                The number of popup widgets. Its default value is zero.
+
+            name :XptString
+                The widgets resource name. This should NEVER be changed.
+
+            screen :XptScreenPtr
+                A pointer to the screen associated with the widgets
+                window (the value of the "XtN screen" resource), as
+                returned by the XtScreen procedure. This should NEVER
+                be changed.
+
+            colormap :XptColormap
+                The colormap of the widgets window (the "XtN colormap"
+                resource). This is copied from the parent when the
+                widget is created.
+
+            window :XptWindow
+                The window associated with the widget, as returned by
+                XtWindow. Its default value is a null pointer.
+
+            depth :XptCardinal
+                The number of display planes in the widgets window (the
+                value of the "XtN depth" resource).
+
+            background_pixel :XptPixel
+                The background pixel used by the widgets window (the
+                value of the "XtN background" resource). The default
+                value is "XtDefaultBackground".
+
+            background_pixmap :XptPixmap
+                The background pixmap of the widgets window, or a null
+                value if no such pixmap exists (the value of the
+                resource "XtN backgroundPixmap"). The default value is
+                "XtUnspecifiedPixmap".
+
+            visible :XptBoolean
+                Set to true if the widgets window is mapped and is not
+                hidden by another window, false otherwise. The default
+                value is true.
+
+            mapped_when_managed :XptBoolean
+                Set to true if the window should be mapped when it is
+                geometry managed (the "XtN mappedWhenManaged" resource),
+                false  otherwise.  The  default   value  is  true.   See
+                REF * XT_COMPOSITE for details of geometry management.
+
+
+XptCoreWidget                                                 [typespec]
+        The typespec for core widgets.
+
+                p_typespec XptCoreWidget {
+                    core    :XptCorePart
+                };
+
+
+
+
+-----------------------------
+3  Composite Widget Structure
+-----------------------------
+
+XptCompositePart                                              [typespec]
+        Typespec for the  fields common  to all  composite widgets,  and
+        their  descendents.  The  typespec  currently  consists  of  the
+        following fields.
+
+            children :exptr
+                A pointer to a list of the widgets child widgets (the
+                value of the "XtN children" resource). Defaults to a
+                null pointer.
+
+            num_children :XptCardinal
+                The total number child widgets (the "XtN numChildren"
+                resource). Defaults to zero.
+
+            num_slots :XptCardinal
+                The number of slots that the widget has to store child
+                widgets in. Defaults to zero.
+
+            insert_position :XptProcedure
+                The procedure used to insert a new child widget into the
+                widgets list of children (the value of the resource "XtN
+                insertPosition"). Defaults to a special internal
+                intrinsics function called "InsertAtEnd".
+
+
+XptCompositeWidget                                            [typespec]
+        The typespec for a composite widget.
+
+                p_typespec XptCompositeWidget {
+                    core        :XptCorePart,
+                    composite   :XptCompositePart
+                };
+
+
+
+
+--- C.x/x/pop/ref/xpt_widgettypes
+--- Copyright University of Sussex 1991. All rights reserved.

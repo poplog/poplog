@@ -1,0 +1,406 @@
+TEACH RC_OPAQUE_MOVER                                 A.Sloman June 2000
+
+LIB RC_OPAQUE_MOVER
+    mixin rc_opaque_movable; is rc_linepic_movable;
+    mixin rc_opaque_rotatable; is rc_opaque_movable rc_rotatable;
+
+CONTENTS
+
+ -- Introduction
+ -- The problem
+ -- LIB rc_opaque_mover
+ -- Example of opaque movable object
+ -- The effect of the rc_opaque_bg_slot
+ -- Opaque rotatable objects
+
+-- Introduction -------------------------------------------------------
+
+The basic type of picture object provided in RCLIB is rc_linepic,
+defined as a mixin in LIB RC_LINEPIC. It has the unusual feature that
+each object can be represented as an arbitrary picture drawn using the
+facilities of LIB RC_GRAPHIC (See TEACH rc_graphic and HELP rc_graphic
+for details) and the extensions described in HELP rclib.
+
+The rc_linepic facilities are extended to rc_linepic_movable and
+rc_linepic_rotatable to support objects that can be moved or rotated.
+
+Such objects are moved by first undrawing them in their existing
+location then drawing them in the new location.
+
+The undrawing uses the graphic function XOR or EQUIV, which has the
+property that if you draw something twice the picture reverts to its
+original state (whether it should use XOR or EQUIV is determined
+automatically by the rclib routines using LIB rc_setup_linefunction.
+
+-- The problem --------------------------------------------------------
+
+However, the ability to draw something and then redraw to obliterate it
+also means that if the picture is drawn over another picture then the
+result is a messy composite picture, and if the picture is drawn on a
+non-white background the resulting colours may not be as expected.
+
+Some of the messy details are described in HELP RCLIB_PROBLEMS
+
+-- LIB rc_opaque_mover ------------------------------------------------
+This teach file describes an extension that overcomes the problem,
+though still at a cost: the movable objects can move over a coloured
+background and be seen in their true colours, but they will obliterate
+anything they move across!
+
+The extension described here was introduced in June 2000 in the form of
+a new library LIB RC_OPAQUE_MOVER, which provides two extra mixins
+ define :mixin rc_opaque_movable; is rc_linepic_movable;
+ define :mixin rc_opaque_rotatable; is rc_opaque_movable rc_rotatable;
+
+and some new versions of methods used by the low-level picture drawing
+procedures in LIB RC_LINEPIC, namely:
+
+ define :method rc_set_drawing_colour(pic:rc_opaque_movable, colour, window);
+ define :method rc_draw_oldpic(pic:rc_opaque_movable);
+ define :method rc_draw_oldpic(pic:rc_opaque_rotatable);
+
+It also proved useful to alter LIB rc_foreground to introduce a new
+global variable rc_foreground_changeable. This is true by default, but
+if set false then attempts to update rc_foreground will do nothing. So a
+drawing colour can be set by a method or procedure and then made
+unchangeable until the method has completed.
+
+When a picture object is created using these new facilities, the result
+is that when the picture is re-drawn to obliterate it, instead of using
+as foreground the colours that would normally be used to draw the
+picture, instead a background colour is used that is specified by the
+contents of the slot rc_opaque_bg in the object:
+
+o If the value is a string, it should be a colour name and that colour
+  will be used.
+
+o If the value is false, the current background of the window will be
+  used.
+
+o If it is a procedure P, that procedure will be run to set the drawing
+  colour. It will be given the arguments originally given to
+  rc_set_drawing_colour
+
+            P(pic, colour, window)
+
+This method will not work for all uses of rc_linepic. In particular it
+will fail for types of pictures which are specified using drawing
+methods that contain explicit assignments to rc_foreground, or which
+invoke procedures that do. (It might be done by trapping rc_foreground
+at a lower level.)
+
+-- Example of opaque movable object -----------------------------------
+
+Here are some examples taken from TEACH rc_linepic and modified to show
+the effect or using the opaque versions.
+
+First ensure that everything required for the demonstration is compiled
+
+    uses rclib
+    uses rc_linepic
+    uses rc_opaque_mover
+    uses rc_window_object
+    uses rc_mousepic
+
+;;; Create a window for drawing in:
+
+vars win1 = rc_new_window_object("right", "top", 400, 400, true, 'win1');
+
+;;; make it mouse sensitive
+
+rc_mousepic(win1);
+
+
+;;; Now define a class of draggable objects
+define :class dragpic;
+    ;;; this class inherits from three different "mixins"
+    is rc_keysensitive rc_selectable rc_linepic_movable;
+
+    slot pic_name;
+enddefine;
+
+;;; and a print method
+
+define :method print_instance(p:dragpic);
+    printf('<dragpic %P %P %P>', [%pic_name(p), rc_coords(p) %])
+enddefine;
+
+define :instance drag1:dragpic;
+    pic_name = "drag1";
+    rc_picx = 100;
+    rc_picy = 50;
+    rc_mouse_limit = {-30 -30 30 30};
+
+    rc_pic_lines =
+        [WIDTH 3 COLOUR 'blue'
+            [SQUARE {-25 25 50}]
+            [CLOSED {-30 20} {30 20} {30 -20} {-30 -20}]
+        ];
+
+    rc_pic_strings =
+        [[FONT '9x15bold' COLOUR 'red' {-22 -5 'drag1'}]];
+enddefine;
+
+;;; Now draw drag1 on win1
+
+win1 -> rc_current_window_object;
+rc_draw_linepic(drag1);
+
+rc_move_to(drag1, 60, -75, true); ;;; true means show the motion
+rc_move_to(drag1, 75, -50, true);
+repeat 10 times rc_move_by(drag1, -10, 5, true) endrepeat;
+
+;;; make it draggable, and move it to one side
+rc_add_pic_to_window(drag1, win1, true);
+
+
+;;;Draw a blob in the middle of the picture and drag drag1 over the blob
+rc_draw_blob(0, 0, 60, 'pink');
+
+Exactly how it will look when dragged over the pink blob is somewhat
+unpredictable. It will depend on the interactions between the colours
+on your display. But the object will remain visible and when it moves
+off the blob the original appearance of both will be restored.
+
+The change in appearance of rc_linepic_movable objects is discussed in
+    HELP RCLIB_PROBLEMS
+
+We now create a draggable class for opaque movers, and an instance.
+
+define :class dragopaque;
+    ;;; this class inherits from three different "mixins"
+    is rc_opaque_movable rc_keysensitive rc_selectable ;
+    slot pic_name;
+enddefine;
+
+;;; and a print method
+
+define :method print_instance(p:dragopaque);
+    printf('<dragopaque %P %P %P>', [%pic_name(p), rc_coords(p) %])
+enddefine;
+
+define :instance drag2:dragopaque;
+    pic_name = "drag2";
+    rc_picx = -150;
+    rc_picy = -150;
+    rc_mouse_limit = {-30 -30 30 30};
+
+    rc_pic_lines =
+        ;;; two overlapping orange rectangles and a bloue blob
+        [WIDTH 3 COLOUR 'orange'
+            [SQUARE {-25 25 50}]
+            [CLOSED {-30 20} {30 20} {30 -20} {-30 -20}]
+            [rc_draw_blob {0 -25 5 'blue'}]
+        ];
+    rc_pic_strings =
+        [[FONT '9x15bold' COLOUR 'brown' {-22 -5 'drag2'}]];
+enddefine;
+
+;;; Now draw drag2 on win1
+
+win1 -> rc_current_window_object;
+rc_draw_linepic(drag2);
+
+;;; make it draggable
+
+rc_add_pic_to_window(drag2, win1, true);
+
+;;; Check that it is movable
+
+rc_move_by(drag2, 0,5, true);
+rc_move_by(drag2, 0,-5, true);
+
+rc_undraw_linepic(drag2);
+rc_move_to(drag2, -150, 0, true);
+rc_move_to(drag2, 0, 0, true);
+
+rc_draw_blob(0, 0, 60, 'pink');
+rc_draw_blob(0, -100, 60, 'green');
+
+
+Try dragging drag2 around and see how it obliterates things it moves
+over. But it preserves its own colours as it does so.
+
+You can use it to erase the two coloured blobs.
+
+However if the whole background is coloured, drag2 can move without
+changing the background, depending on is in its rc_opaque_bg slot,
+as explained next.
+
+-- The effect of the rc_opaque_bg_slot --------------------------------
+
+;;; Try each of these followed by dragging the object
+;;; Produce a pink blob, and make 'pink' the value of the slot
+;;; rc_opaque_bg in drag2
+rc_draw_blob(0,20,100,'pink');
+'pink' -> rc_opaque_bg(drag2);
+rc_move_to(drag2, 0, 0, true);
+
+;;; Now try dragging it. It leaves the pink background bits unchanged
+;;; but leaves pink trail everywhere else.
+
+;;; Try these then drag drag2
+
+'blue' -> rc_opaque_bg(drag2);
+'red' -> rc_opaque_bg(drag2);
+'white' -> rc_opaque_bg(drag2);
+
+;;; Making its value false will make it leave the
+;;; current background colour when it moves.
+;;; Try making it false (the original default), then move it
+false -> rc_opaque_bg(drag2);
+
+;;; Try changing the background and moving the object
+'yellow' -> rc_background(rc_window);
+;;; make the obect visible where it is
+rc_draw_linepic(drag2);
+
+;;; Try moving on a coloured background with different values for the
+;;; rc_opaque_bg slot, as above
+
+;;; restore white background
+'white' -> rc_background(rc_window);
+;;; make drag2 visible
+rc_draw_linepic(drag2);
+rc_move_to(drag2, 0, 0, true);
+
+
+-- Opaque rotatable objects -------------------------------------------
+
+Objects can also be rotatable, using the rc_rotatable mixin defined in
+LIB RC_LINEPIC and illustrated in TEACH rc_linepic
+
+In LIB rc_opaque_mover and new mixin is introduced, rc_opaque_rotatable
+which is like rc_opaque_movable, except that it also has a slot
+rc_axis and can change its orientation.
+
+The following example is modified from TEACH rc_linepic
+
+First we define a new class rc_op_rotater for rotatable opaque objects.
+
+define :class rc_op_rotater; is rc_selectable rc_opaque_rotatable;
+    slot rc_axis == 0;
+    slot pic_name == "rot0";
+    slot rc_mouse_limit == {-20 -20 20 20};
+enddefine;
+
+define :method print_instance(p:rc_op_rotater);
+    printf('<rotater %P %P %P axis:%P>',
+        [%pic_name(p), rc_coords(p), rc_axis(p) %])
+enddefine;
+
+;;; Make an object in that class consisting of a line with a circle near
+;;; one end, sloping up in direction from 5,5 to 30,30
+
+define :instance rop1:rc_op_rotater;
+    pic_name = "rop1";
+    rc_picx = 50;
+    rc_picy = 100;
+    rc_pic_lines =
+        [WIDTH 2 COLOUR 'brown'
+            [{5 5} {30 30}][COLOUR 'pink' CIRCLE {25 25 5}]];
+enddefine;
+
+
+;;; Create another instance, a rotatable arrow shape
+define :instance rop2:rc_op_rotater;
+    pic_name = "rop2";
+    rc_picx = 100;
+    rc_picy = 50;
+
+    ;;; Make a red arrow with a blue head
+    rc_pic_lines
+        = [WIDTH 3 COLOUR 'red'
+            [{0 0} {30 0}][COLOUR 'blue' {25 8}{30 0}{25 -8}]];
+enddefine;
+
+;;; Draw the rotatable instances
+rc_draw_linepic(rop1);
+rc_draw_linepic(rop2);
+
+rc_add_pic_to_window(rop1, win1, true);
+;;; rop1 can now be dragged by putting the mouse near the end
+;;; of the line without the circle.
+
+rc_add_pic_to_window(rop2, win1, true);
+
+;;; Rotatable objects can be moved
+rc_move_by(rop1, -10, -10, true);
+rc_move_by(rop2, 0, -10, true);
+
+
+;;; They can also be rotated
+rc_axis(rop1)=>
+;;; first undraw rop1 then change axis
+rc_undraw_linepic(rop1); 20 -> rc_axis(rop1); rc_draw_linepic(rop1);
+rc_undraw_linepic(rop1); 30 -> rc_axis(rop1); rc_draw_linepic(rop1);
+rc_undraw_linepic(rop1); -45 -> rc_axis(rop1); rc_draw_linepic(rop1);
+rc_undraw_linepic(rop1); 45 -> rc_axis(rop1); rc_draw_linepic(rop1);
+rc_undraw_linepic(rop1); -90 -> rc_axis(rop1); rc_draw_linepic(rop1);
+rc_undraw_linepic(rop1); -135 -> rc_axis(rop1); rc_draw_linepic(rop1);
+
+;;; then moved in their new orientation
+rc_move_by(rop1, 10, 10, true);
+
+;;; It is more convenient to use rc_set_axis, which is analogous
+;;; to rc_move_to for location
+
+;;; Or using rc_set_axis to cause automatic undrawing when moving
+rc_set_axis(rop1, -45, true);
+rc_set_axis(rop1, 45, true);
+rc_set_axis(rop1, 90, true);
+
+;;; Unlike rop1, whose arrow is set at an angle to its axis,
+;;; rop2 shows the orientation of its axis
+rc_set_axis(rop2, 45, true);
+rc_set_axis(rop2, 135, true);
+rc_set_axis(rop2, -45, true);
+
+;;; rotating and moving can be interleaved
+rc_move_by(rop2, 0, -5, true);
+
+;;; Use rc_turn_by for incremental rotations, like rc_move_by
+rc_turn_by(rop1, 5, true);
+rc_turn_by(rop1, -5, true);
+
+rc_turn_by(rop2, 15, true);
+rc_turn_by(rop2, -5, true);
+
+;;; You can make movies
+
+rc_move_to(rop1, -150, 150, true);
+rc_move_to(rop2, 150, -150, true);
+repeat 180 times
+    rc_turn_by(rop1, 5, true);
+    rc_move_by(rop1, 1, -1, true);
+    rc_turn_by(rop2, -20, true);
+    rc_move_by(rop2, -1, 1.5, true);
+    syssleep(2);
+endrepeat;
+
+If they move over anything they make a mess of it, though the partially
+obliterated objects (e.g. drag2) still there and can be redrawn.
+
+rc_draw_linepic(drag2);
+
+;;; Try again using "trail" instead of true for some of the commands
+rc_move_to(rop1, -150, 150, true);
+rc_move_to(rop2, 150, -150, true);
+repeat 180 times
+    rc_turn_by(rop1, 5, "trail");
+    rc_move_by(rop1, 1, -1, true);
+    rc_turn_by(rop2, -20, "trail");
+    rc_move_by(rop2, -1, 1.5, true);
+    syssleep(2);
+endrepeat;
+
+
+;;; try the above again loop after changing background colour
+'pink' -> rc_background(rc_window);
+'grey20' -> rc_background(rc_window);
+'grey90' -> rc_background(rc_window);
+
+rc_kill_window_object(win1);
+
+--- $poplocal/local/rclib/teach/rc_opaque_mover
+--- Copyright University of Birmingham 2000. All rights reserved. ------

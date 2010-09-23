@@ -1,0 +1,281 @@
+REF XConstants                                    A.Schoter, August 1991
+
+        COPYRIGHT University of Sussex 1991. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<       REF X CONSTANTS       >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This REF  file  contains details  of  various constants  and  structures
+defined by Xlib and used by various libraries.
+
+
+
+---------------------
+1  List of procedures
+---------------------
+
+The procedures below are made available by doing:
+
+         uses xlib, XConstants;
+
+                     Xlib - C Language X Interface,
+                       MIT X Consortium Standard,
+                         X Version 11, Release 4
+
+        Copyright (C) 1985, 1986, 1987, 1988, 1989 Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+Display                                                        [typedef]
+        This structure contains display specific data.
+
+            typedef struct _XDisplay {
+                XExtData *ext_data;
+                struct _XDisplay *next;
+                int fd;
+                int lock;
+                int proto_major_version;
+                int proto_minor_version;
+                char *vendor;
+                long resource_base;
+                long resource_mask;
+                long resource_id;
+                int resource_shift;
+                XID (*resource_alloc)();
+                int byte_order;
+                int bitmap_unit;
+                int bitmap_pad;
+                int bitmap_bit_order;
+                int nformats;
+                ScreenFormat *pixmap_format;
+                int vnumber;
+                int release;
+                struct _XSQEvent *head, *tail;
+                int qlen;
+                unsigned long last_request_read;
+                unsigned long request;
+                char *last_req;
+                char *buffer;
+                char *bufptr;
+                char *bufmax;
+                unsigned max_request_size;
+                struct _XrmHashBucketRec *db;
+                int (*synchandler)();
+                char *display_name;
+                int default_screen;
+                int nscreens;
+                Screen *screens;
+                int motion_buffer;
+                Window current;
+                int min_keycode;
+                int max_keycode;
+                KeySym *keysyms;
+                XModifierKeymap *modifiermap;
+                int keysyms_per_keycode;
+                char *xdefaults;
+                char *scratch_buffer;
+                unsigned long scratch_length;
+                int ext_number;
+                _XExtension *ext_procs;
+                Bool (*event_vec[128])();
+                Status (*wire_vec[128])();
+            } Display;
+
+        ext_data is a hook for extensions  to hang on; next is the  next
+        open Display in the list; fd is a network socket; lock is a flag
+        for determining  whether  someone  is  in  a  critical  section;
+        proto_major_version and  proto_minor_version are  the major  and
+        minor versions of the  server's X protocal respectively;  vendor
+        is the name of  the vendor of  the hardware; resource_mask  is a
+        bit mask for resource ID;  resource_id is the allocator  current
+        ID; resource_shift  is  the  allocator shift  to  correct  bits;
+        resource_alloc is  the  allocator function;  byte_order  is  the
+        screen byte order (LSBFirst or MSBFirst); bitmap_unit  specifies
+        the padding  and  data requirements;  bitmap_pad  specifies  the
+        padding  requiremnts  for  bitmaps;  bitmap_bit_order  specifies
+        LeastSignificant  of  MostSignificant;  nformats  specifies  the
+        number of pixmap formats in the list; pixmap_format is the  list
+        of pixmap formats; vnumber is Xlib's X protocal version  number;
+        release is  the release  version of  the server;  head and  tail
+        specify the input event queue  and qlen specifies the length  of
+        the queue; last_request_read is the sequence number of the  last
+        request read  and request  is the  sequence number  of the  last
+        request; last_req is either the beginning of the last request or
+        a dummy;  buffer is  the  start address  of the  output  buffer,
+        bufptr  is  the index pointer into the output buffer, and bufmax
+        is the maximum address of the output buffer+1;
+
+        max_request_size is the  maximuum number  of 32  bit words  in a
+        request;   synchandler   is    the   synchronization    handler;
+        display_name  is  the   "host:display"  string   used  on   this
+        connection; default_screen is the defaut screen for  operations,
+        nscreen is the numerb of screen on this server, and screens is a
+        pointer to the list of screen; motion_buffer is the size of  the
+        motion buffer;  current  is a  window  XID used  internally  for
+        Keymap notify; min_keycode and  max_keycode are the minimum  and
+        maximum defined keycodes; keysyms are the keysyms of the server;
+        modifiermap   is   the   modifier   keymap   for   the   server;
+        keysyms_per_keycode is the  number of  rows; xdefaults  contains
+        the defaults of the server; scratch_buffer is a place to  hang a
+        scratch buffer, and scratch_length is the length of the  scratch
+        buffer; ext_number  is  the  extension number  of  the  display;
+        ext_procs are the extensions initialized on the display.
+
+        event_vec is  a vector  for  wire to  event; and  wire_vec  is a
+        vector fpr  event  to wire.  These  can  be fixed  size  as  the
+        protocol defines how much address space is available.
+
+
+_XGC                                                           [typedef]
+        All the  Xlib routines  use  this data  structure  to  refer  to
+        graphics contexts.
+
+            typedef struct _XGC {
+                XExtData * ext_data;
+                GContext gid;
+                Bool rects;
+                Bool dashes;
+                unsigned long dirty;
+                XGCValues values;
+            } * GC;
+
+        ext_data is  a hook  to hang  extension data  onto; gid  is  the
+        protocal ID for the graphics context; rects is TRUE if  clipmask
+        is a list of rectangles; dashes is TRUE is dash-list is really a
+        list; dirty  is a  cashe  for dirty  bits;  values is  a  shadow
+        structure of values - see REF * XGCValues.
+
+
+Screen                                                         [typedef]
+        This structure contains information about the screen.
+
+            typedef struct {
+                XExtData *ext_data;
+                struct _XDisplay *display;
+                Window root;
+                int width, height;
+                int mwidth, mheight;
+                int ndepths;
+                Depth *depths;
+                int root_depth;
+                Visual *root_visual;
+                GC default_gc;
+                Colormap cmap;
+                unsigned long white_pixel;
+                unsigned long black_pixel;
+                int max_maps, min_maps;
+                int backing_store;
+                Bool save_unders;
+                long root_input_mask;
+            } Screen;
+
+        ext_data is a  hook to  hang extension data  on; _XDisplay  is a
+        back pointer to  the display structure,  root is the  ID of  the
+        root window; width and height  are the dimensions of the  screen
+        in pixels,  and mwidth  and mheight  are the  dimensions of  the
+        screen in millimeters; ndepths are the number of possible depths
+        and depths  is  a  list  of allowable  depths  for  the  screen;
+        root_depth is the number  of bits per  pixel; default_gc is  the
+        graphics context  for  the  root visual;  cmap  is  the  default
+        colormap; white_pixel and black_pixel  are the pixel values  for
+        black and  white;  max_maps and  min_maps  are the  maximum  and
+        minimum color maps; backing_store is a flag determining 'Never',
+        'WhenMapped' and 'Aways' modes;  root_input_mask is the  initial
+        root input mask.
+
+
+Visual                                                         [typedef]
+        This  structure   contains   information  about   the   possible
+        colormappings.
+
+            typedef struct {
+                XExtData *ext_data;
+                VisualID visualid;
+                int class;
+                unsigned long red_mask, green_mask, blue_mask;
+                int bits_per_rgb;
+                int map_entries;
+            } Visual;
+
+        ext_data is a hook for extension data to be hung on, VisualID is
+        the ID of  the given visual,  class is the  class of the  screen
+        (whether monochrome  etc), bits_per_rgb  is log  base 2  of  the
+        number of distinct color values,  and map_entires is the  number
+        of colormap entries.
+
+
+XGCValues                                                      [typedef]
+        This data  structure  specifies  the  settings  for  a  graphics
+        context.
+
+            typedef struct {
+                int function;
+                unsigned long plane_mask;
+                unsigned long foreground;
+                unsigned long background;
+                int line_width;
+                int line_style;
+                int cap_style;
+                int join_style;
+                int fill_style;
+                int fill_rule;
+                int arc_mode;
+                Pixmap tile;
+                Pixmap stipple;
+                int ts_x_origin;
+                int ts_y_origin;
+                Font font;
+                int subwindow_mode;
+                Bool graphics_exposures;
+                int clip_x_origin;
+                int clip_y_origin;
+                Pixmap clip_mask;
+                int dash_offset;
+                char dashes;
+            } XGCValues;
+
+        function is the logical operation to be performed when  drawing;
+        plane_mask is  the mask  applied to  the plane;  foreground  and
+        background are the pixel values of the foreground and background
+        respectively; line_width is the width that a line will be drawn;
+        line_style  specifies   one  of   LineSolid,  LineOnOffDash   or
+        LineDoubleDash; cap_style specifies one of CapNotLast,  CapButt,
+        CapRound,  or   CapProjecting;  join_style   specifies  one   of
+        JoinMiter, JoinRound or JoinBevel;  fill_style specifies one  of
+        FillSolid,   FillTiled,   FillStipled   or   FillOpaqueStippled;
+        fill_rule specifies one of EvenOddRule or WindingRule;  arc_mode
+        specifies one  of ArcChord  or ArcPieSlice;  tile specifies  the
+        tile pixmap for  tiling operations; stpple  specifies a 1  plane
+        pixmap  for  stipple  operations;  ts_x_origin  and  ts_y_origin
+        specify  the  offset  for  tile  or  stipple  operations;   font
+        specifies the default font  for test operations;  subwindow_mode
+        is one of ClipByChildren or IncludeInferiors;  graphics_exposure
+        specifies whether exposures  should be generated;  clip_x_origin
+        and clip_y_origin specify the origin for clipping; clip_mask  is
+        used for bitmap clipping; dash_offset specifies patterned/dashed
+        line information.
+
+
+XModifierKeymap                                                [typedef]
+        This   data    structure    is   used    by    the    procedures
+        XSetModifierMapping and XGetModifierMapping. See REF * XKeyboard
+        for details.
+
+            typedef struct {
+                int max_keypermod;
+                KeyCode *modifiermap;
+            } XModifierKeymap;
+
+        max_keypermod  is  the  server's  maximum  number  of  keys  per
+        modifier;  modifiermap  is  an  8  by  max_keypermod  array   of
+        modifiers.
+
+
+
+
+--- C.x/x/pop/ref/XConstants
+--- Copyright University of Sussex 1991. All rights reserved.

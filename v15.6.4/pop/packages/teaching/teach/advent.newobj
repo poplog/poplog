@@ -1,0 +1,232 @@
+;;; TEACH ADVENT.NEWOBJ
+;;; Example programming of a simulated "adventure world" using LIB NEWOBJ
+;;; See HELP * NEWOBJ
+;;; LIB NEWOBJ must be loaded before this can be run
+;;; Chris Mellish, February 1985
+;;; Updated for LIB NEWOBJ (with DEFAULTS) Aaron Sloman, June 1985
+
+;;; To make this your own file, called 'advent.p' do:
+;;;         <ENTER>name advent.p
+
+vars players startloc;
+
+;;; The following class is for treasures, etc. which players may pick
+;;; up as they wander around
+
+CLASS object
+SUBCLASS_OF thing
+CLASS_FIELDS
+    value
+    weight
+DEFAULTS
+    0 -> value;
+START_ACTIONS
+    [New object - ^name] =>
+MESSAGE_ACTIONS
+ENDCLASS;
+
+;;; The "adventure world" consists of a number of "room" objects
+
+CLASS room
+SUBCLASS_OF thing
+CLASS_FIELDS
+    inhabitants         ;;; The players currently in this room
+    north               ;;; )
+    south               ;;; ) The adjoining rooms in various directions
+    east                ;;; )
+    west                ;;; )
+    objects             ;;; The objects lying in the room
+DEFAULTS
+    [] -> inhabitants;
+    false -> north;
+    false -> south;
+    false -> east;
+    false -> west;
+    [] -> objects
+START_ACTIONS
+    [New room - name ^name] =>
+MESSAGE_ACTIONS
+    vars player, object;
+    if message matches [?player enters] then
+        [^player ^^inhabitants] -> inhabitants
+    elseif message matches [?player leaves] then
+        delete(player,inhabitants) -> inhabitants
+    elseif message matches [?object taken] then
+        delete(object,objects) -> objects
+    endif
+ENDCLASS;
+
+
+;;; The class for the players. The default strategy for a player is simply
+;;; to do nothing
+
+CLASS player
+SUBCLASS_OF thing
+CLASS_FIELDS
+    health              ;;; lies between 0 and 100, approximately
+    possessions         ;;; objects currently carried by the player
+    location            ;;; room the player is in
+    strategy            ;;; procedure implementing the player's strategy
+    trymove             ;;; procedure to try and move elsewhere
+DEFAULTS
+    100 -> health;
+    [] -> possessions;
+
+    procedure;
+        [^name is making a plan] =>
+    endprocedure -> strategy;           ;;; Default strategy
+
+    procedure;
+        vars dir, place;
+        oneof([north south east west]) -> dir;
+        (dir >--> location) -> place;
+        if place then
+            [^name moves from ^("name" >--> location) to ^("name" >--> place)]=>
+            [^self leaves] >--> location;
+            place -> location;
+        else
+            [cannot move in direction ^dir] =>
+        endif
+    endprocedure; -> trymove;
+START_ACTIONS
+    [^self enters] >--> startloc;       ;;; Tell the room you are there
+    startloc -> location;
+    [^self ^^players] -> players;       ;;; Update the set of players
+    [New player - name ^name in ^("name" >--> location)] =>
+MESSAGE_ACTIONS
+    if message matches [move] and health > 10 then strategy()
+    elseif message matches [hit] then
+        health/2 -> health;
+        if health <= 10 then
+            [^name dies]=>
+            delete(self, players) -> players;
+        endif
+    endif
+ENDCLASS;
+
+;;; More interesting types of player, with more specialised strategies
+
+CLASS greedy
+SUBCLASS_OF player
+CLASS_FIELDS
+DEFAULTS
+    procedure;
+        lvars obs, place, dir;
+        ("objects" >--> location) -> obs;
+        unless obs == [] then
+            [^name takes ^("name" >--> hd(obs))]=>
+            [^(hd(obs)) taken] >--> location;
+            [^(hd(obs)) ^^possessions] -> possessions;
+            [^name now owns ^(length(possessions)) possessions] ==>
+        else
+            trymove()
+        endunless
+    endprocedure -> strategy
+START_ACTIONS
+    [Player ^name is greedy] =>
+MESSAGE_ACTIONS
+ENDCLASS;
+
+
+CLASS vicious
+SUBCLASS_OF player
+CLASS_FIELDS
+DEFAULTS
+    procedure;
+        vars people, place, dir, person;
+        ("inhabitants" >--> location) -> people;
+        unless length(people) == 1 then
+            if people(1) == self then
+                people(2)
+            else
+                people(1)
+            endif -> person;
+            [^name hits ^("name" >--> person)]=>
+            [hit] >--> person;
+        else
+            trymove()
+        endunless
+    endprocedure -> strategy
+START_ACTIONS
+    [Player ^name is vicious] =>
+MESSAGE_ACTIONS
+ENDCLASS;
+
+;;; Top level procedure for the simulation
+
+define play();
+    vars p;
+    repeat
+    quitif(players == []);
+        for p in players do
+            [move] >--> p
+        endfor
+    endrepeat;
+    [no more players] =>
+enddefine;
+
+;;; Creating the objects for a simulation
+
+;;; First set up some objects
+
+vars j, b;
+
+new([object name 'shiny jewels' value 500]) -> j;
+new([object name 'broken bucket' ]) -> b;           ;;; has default value 0
+
+;;; Now set up the rooms
+
+vars startloc, room1, room2;
+
+new([room name 'slimy dungeon' objects [^b] ]) -> startloc;
+new([room name swamp objects [^j] east ^startloc]) -> room1;
+new([room name pit south ^startloc]) -> room2;
+
+with startloc do
+    room1 -> west;
+    room2 -> north;
+endwith;
+
+
+;;; Now the players
+
+vars players;
+[] -> players;
+
+erase(new([player name lazy]));
+erase(new([greedy name seeker]));
+erase(new([vicious name nasty]));
+
+;;; Finally, running the simulation (will need to interrupt it, as
+;;; it will go on for ever)
+
+play();
+
+/*
+-- POSSIBLE EXERCISES ----------------------------------------------------
+
+There are many ways in which this can be extended. Players can be given richer
+strategies, and can build up their own internal models of the world. Objects
+and rooms can exist in various subclasses. Particular rooms and objects can
+have special properties or can cause special events to take place.
+
+In order to make this a good exercise in object-oriented programming, try to
+keep to the following principles:
+
+    - Do not define independent procedures. Everything in the simulation
+      should be done by sending messages and executing procedures attached
+      to objects. Eg. that procedure PLAY is not written in the right spirit.
+      It would be better to have a class of objects (called "schedulers",
+      perhaps) capable of managing a list of players. To run a simulation,
+      we then just send a message to an appropriate scheduler.
+
+    - Make maximum use of inheritance. Note that in LIB NEWOBJ the
+      MESSAGE_ACTIONS are not inherited individually, so that each object
+      gets ALL its MESSAGE_ACTIONS from the smallest including class that
+      specifies any such actions. To enable flexible combinations of
+      inheritance, make the message actions depend on the values of other
+      CLASS_FIELDS. Then it is possible for different combinations of
+      behaviours to be inherited (this was done with the STRATEGY and TRYMOVE
+      fields).
+
+*/

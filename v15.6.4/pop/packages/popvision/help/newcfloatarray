@@ -1,0 +1,53 @@
+HELP NEWCFLOATARRAY                             David Young
+                                                July 2003
+
+
+LIB * NEWCFLOATARRAY provides procedures which make and recognise packed
+arrays of complex single-precision floats. These are suitable for
+passing to external procedures that expect complex arrays with
+alternating real and imaginary values. In addition, a vector class for
+the arrayvectors is defined.
+
+newcfloatarray(bounds_list, element_init) -> float_array
+    The arguments are as for *newarray. The second is optional.
+
+oldcfloatarray(tag, bounds_list, element_init) -> byte_array
+    The last two arguments are as above, with element_init optional.
+
+    The tag argument is an identifier such as a word or integer. If
+    oldcfloatarray is called twice with the same tag, the arrays
+    returned may share storage. This can reduce garbage collection, and
+    this procedure should be used in preference to newcfloatarray for
+    any array which is only needed temporarily. See *oldarray for more
+    details.
+
+iscfloatarray(array) -> boolean
+    Returns <true> if array is an array created with newcfloatarray, or
+    more generally whose arrayvector has the *dataword "cfloatvec". Note
+    that issfloatarray will also return <true> for these arrays.
+
+WARNING: some Pop-11 array procedures will not handle these complex
+arrays properly. Usually unsuitable procedures will mishap when given
+a cfloat array, but not always, so it is important to run some test
+examples to ensure that you are getting the correct behaviour.
+
+A vector class with dataword cfloatvec is defined. This means that the
+constant cfloatvec_key and the procedures iscfloatvec, conscfloatvec,
+initcfloatvec, destcfloatvec, subscrcfloatvec and fast_subscrcfloatvec
+are defined and made available. (See REF * DEFSTRUCT and REF * KEYS.)
+These procedures will all treat the vector as containing complex values,
+and indexed access and update (e.g. v(i)) will work correctly too.
+Printing the vector will show the complex values.
+
+Unfortunately, *datalength and *length will return double the correct
+length for a complex vector - there seems no obvious way to fix this.
+Also, the procedures associated with the key (obtained, for example,
+with class_subscr(cfloatvec_key)) will treat their argument as a vector
+of real floats, of double the expected length, in which the real and
+imaginary parts of the complex vector alternate. The for-form
+*in_vectorclass will likewise only operate on the underlying real
+vector.
+
+
+--- $popvision/help/newcfloatarray
+--- Copyright University of Sussex 2003. All rights reserved. ----------

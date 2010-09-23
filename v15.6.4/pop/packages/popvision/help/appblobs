@@ -1,0 +1,344 @@
+HELP APPBLOBS                               David Young
+                                            Nov 1992, revised Feb 1995
+
+LIB *APPBLOBS provides a procedure that analyses a 2-D array into
+connected regions ("blobs"), and applies user-defined procedures to each
+pixel in each blob, distinguishing between the different blobs.
+Additional routines are provided for counting blobs, obtaining a
+predefined set of statistics about each blob, and for assigning a value
+to all the pixels in each blob, the value being unique to the blob
+("blob colouring"). These easy-to-use procedures are described first.
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Definitions
+      1.1   Blob pixels and background pixels
+      1.2   Definition of a blob
+
+  2   Simple procedures
+      2.1   Counting blobs
+      2.2   Simple blob statistics
+      2.3   Listing blob pixels
+      2.4   Blob colouring
+
+  3   General blob processing
+      3.1   The procedure appblobs
+      3.2   Example of using appblobs
+
+
+-----------------------------------------------------------------------
+1  Definitions
+-----------------------------------------------------------------------
+
+1.1  Blob pixels and background pixels
+--------------------------------------
+
+By default, an array element belongs to a blob if it contains a non-zero
+value. Array elements, here called pixels, containing any sort of exact
+zero are not in any blob, and belong to the background. This definition
+can be changed by redefining the procedure appblobs_test.
+
+appblobs_test(val) -> bool
+    val is the value of an array element. bool should be <true> if the
+    element belongs in a blob, and <false> if the element belongs in the
+    background.
+
+The default definition just uses the test
+
+    val /= 0
+
+but if, for example, all the background pixels were <false> and all the
+blob pixels had some non-false value, you could assign identfn to
+appblobs_test.
+
+
+1.2  Definition of a blob
+-------------------------
+
+A blob is a connected region of blob pixels.  Loosely, when using the
+default appblobs_test, a blob is a set of non-zero pixels that are
+adjacent to one another, and which is surrounded by zero pixels or the
+boundaries of the array.
+
+Blobs can be 8-connected or 4-connected. Under 4-connectivity, two
+pixels are neighbours if they have an edge in common (i.e. one of them
+is above, below, left or right of the other). Under 8-connectivity,
+pixels are also neighbours if they meet at a corner - i.e. the
+diagonally adjacent pixels count as well.  In the example below, empty
+squares stand for non-blob (typically 0) pixels, and squares marked with
+a letter stand for blob (typically non-zero) pixels; the actual values
+of the pixels do not necessarily correspond to the letters.
+
+-------------------------------------------------------------------------
+|   |   |   |   |   |   |   |   |   |   |   |   |   |   |   | f |   |   |
+|---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---|
+|   |   |   |   |   |   |   |   |   |   |   |   |   |   | f | f | f |   |
+|---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---|
+|   |   | a | a | a |   |   |   |   | b |   |   |   | f | f | f | f |   |
+|---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---|
+|   |   | a | a | a |   |   |   |   |   | b |   |   | f |   |   | f |   |
+|---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---|
+|   |   |   |   |   |   |   |   |   |   |   | b |   |   | e | e |   |   |
+|---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---|
+|   |   |   | c |   |   |   |   |   |   |   |   |   | e | e | e |   |   |
+|---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---|
+|   |   |   | c |   | c |   |   |   |   |   |   | e | e | e | e |   |   |
+|---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---|
+|   |   |   | c |   | c |   |   |   |   | d |   |   | e |   |   |   |   |
+|---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---|
+|   |   |   | c | c | c | c |   | d | d | d |   |   |   |   |   |   |   |
+|---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---|
+|   |   |   |   |   | c |   |   | d |   |   |   |   |   |   |   |   |   |
+|---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---|
+|   |   |   |   |   | c | c | c |   |   |   |   |   |   |   |   |   |   |
+-------------------------------------------------------------------------
+
+Under 4-connectivity, there are 8 blobs here, but under 8-connectivity
+there are only 3 blobs. The a pixels clearly form a blob on their own
+under either 4- or 8-connectivity. The 3 b pixels form a single blob
+under 8-connectivity but 3 separate blobs of 1 pixel each under
+4-connectivity. The c pixels and d pixels are 2 blobs under
+4-connectivity but link to form a single blob under 8-connectivity;
+likewise the e and f groups form one or two blobs depending on the
+connectivity.
+
+A more formal definition of "blobness" is recursive: blob pixel P and
+blob pixel Q belong to the same blob if either P and Q are neighbours,
+or P has at least one neighbour that belongs to the same blob as Q. (In
+other words, you can get from P to Q by jumping from neighbour to
+neighbour.) A blob is then defined as just the set of pixels that belong
+to it.
+
+Note that to be topologically consistent, if blobs are 8-connected then
+the background has to be 4-connected, and vice versa.
+
+
+-----------------------------------------------------------------------
+2  Simple procedures
+-----------------------------------------------------------------------
+
+2.1  Counting blobs
+-------------------
+
+blob_count(array, 4_or_8) -> n
+    array is any 2-D array. 4_or_8 must be the integer 4 or the integer
+    8, specifying whether blobs are defined using 4-connectivity or
+    8-connectivity. n is an integer giving the number of blobs in the
+    array.
+
+2.2  Simple blob statistics
+---------------------------
+
+blob_stats(array, 4_or_8) -> list
+    array and 4_or_8 may be as for blob_count. Alternatively, the first
+    argument can be a list as returned by blob_pixels (see next
+    section), in which case 4_or_8 is ignored. The result list returns a
+    list of statistics, with one entry for each blob in the array, as
+    set out below.
+
+Each element of the list is a vector, which contains information about a
+single blob as follows:
+
+        1. no of pixels
+        2. minimum X
+        3. maximum X
+        4. minimum Y
+        5. maximum Y
+        6. mean X
+        7. mean Y
+        8. sd of blob measured along longer principle axis
+        9. sd of blob measured along shorter principle axis
+        10. orientation of principal axis of blob to X-axis
+        11. the X-coordinate of an arbitrary pixel in the blob
+        12. the Y-coordinate of the same pixel
+
+X and Y refer to the first and second indices of array respectively.
+Entries 2-5 give you the bounding rectangle of the blob. Entries 5 and 6
+give you the position of the centroid of the blob.
+
+Entries 8 to 10 give the second-order statistics of the blob. What they
+mean is this: First, rotate the X and Y array axes anticlockwise by the
+angle given by element 10 of the vector. Then, collect up all the X
+indices of the pixels in the blob, measuring X in the rotated
+coordinates, and take the standard deviation of this set of values; that
+gives the result in element 8. Finally do the same for Y indices to get
+the result in element 9. If you measured the correlation between the X
+and Y values in this rotated coordinate frame, it would be zero. Another
+way to think of this is to imagine the blob approximated by an ellipse;
+then the standard deviations are in proportion to the major and minor
+diameters of the ellipse, and the orientation is that of the major axis
+of the ellipse.
+
+Entries 11 and 12 are there to give a starting point for recursive
+routines which might subsequently be used to process the blob.
+
+Note that none of these statistics uses the values actually stored in
+the blob pixels; only the shape of the blob matters.
+
+To make your program more readable and to avoid problems if the library
+is updated, you can access vector elements by symbolic names instead of
+by numbers. The names corresponding to the statistics above are:
+
+    BLOB_N
+    BLOB_MINX
+    BLOB_MAXX
+    BLOB_MINY
+    BLOB_MAXY
+    BLOB_MEANX
+    BLOB_MEANY
+    BLOB_MAJSIZE
+    BLOB_MINSIZE
+    BLOB_ORIENT
+    BLOB_X
+    BLOB_Y
+
+These are defined as macros, so there is no run-time efficiency loss in
+using them. They are defined in LIB * APPBLOBS_STATS_DEFS, so can be
+loaded without loading the rest of LIB APPBLOBS.
+
+2.3  Listing blob pixels
+------------------------
+
+blob_pixels(array, 4_or_8) -> list
+    array and 4_or_8 are as for blob_count. The result list is a list
+    with one entry for each blob. The entry for a blob is itself a list
+    of pairs, with one pair for each pixel in the blob. The elements of
+    the pair are the column and row of the pixel.
+
+2.4  Blob colouring
+-------------------
+
+blob_paint(array, 4_or_8) -> array2
+    array and 4_or_8 are as for blob_count. array2 is a newly-created
+    array the same size and type as array. Each background pixel value
+    in array is copied into array2. However, an integer from 1 to the
+    number of blobs in array is assigned to each blob pixel of array2;
+    the integer is the same for all pixels in a given blob, whilst any
+    two pixels in different blobs have different integers.
+
+ncblob_paint(array, firstval, nextval, 4_or_8)
+    array is a 2-D array which provides the data as before, but is also
+    updated. Background pixels are left alone, but blob pixels are set
+    much as in blob_paint. However, the value actually stored in the
+    blobs can be controlled by the user: firstval will be stored in one
+    of the blobs, and then the procedure nextval will be applied to get
+    the value to store in later blobs. Thus the second blob will contain
+    nextval(firstval), the third nextval(nextval(firstval)) and so on.
+    4_or_8 is as always.
+
+For some applications, it is tempting to colour the blobs, and then make
+another pass through the array processing them in some way. However, it
+is often more efficient to use appblobs, described below, to process
+the blobs on a single pass.
+
+
+-----------------------------------------------------------------------
+3  General blob processing
+-----------------------------------------------------------------------
+
+3.1  The procedure appblobs
+---------------------------
+
+The main procedure, appblobs, provides a very powerful method of
+processing connected regions in arrays. All the procedures described
+above use it, and to see how it is used it may be helpful to look at
+their definitions in LIB * APPBLOBS. The procedure is efficient both in
+time and storage. It is not recursive, and processes arrays
+sequentially, which makes it suitable for application to very large
+arrays (indeed the method could be applied to extremely large arrays
+which were only available in memory one row at a time).
+
+The algorithm for 4-connectivity is essentially that given in Ballard
+D.H. & Brown C.M. (1982), 'Computer Vision', Englewood Cliffs, NJ:
+Prentice-Hall. The same algorithm is modified for 8-connectivity.
+
+appblobs(array, record, merge, 4_or_8) -> list
+    array is the input array. Blobs within it are defined by
+    appblobs_test (see above). 4_or_8 is the integer 4 or the integer
+    8, and specifies the connectivity to use. record and merge are
+    user-defined routines.
+
+    record (x, y, val) -> rec
+        record will be called every time an apparently new blob is
+        encountered when scanning the array. x and y are the array
+        indices for the pixel where the blob was encountered, and val is
+        the value that is stored there. The procedure may return any
+        POP-11 object EXCEPT a reference (see *REFERENCES). This object
+        need not be unique as far as appblobs is concerned, but if the
+        program is intended to record information about each blob, it is
+        likely that record will need to create and return a new
+        structure, and to store in it the information relevant to a
+        one-pixel blob at x,y.
+
+        If record has side-effects, it must not update any pixels in
+        array other than the one at x,y.
+
+    x, y, val -> record (rec)
+        The updater of record is called every time a blob pixel is
+        encountered when scanning the image, except when it appears to
+        be the start of a new blob. x, y and val are as above. rec is
+        the object returned by the base procedure, on the call resulting
+        from the first encounter with the blob containing the current
+        pixel. In other words, if the base procedure returns a new
+        structure on each call, then that structure will only be used
+        for pixels belonging to one blob. The updater of record is free
+        to update the contents of rec (or not) as required to
+        incorporate information about the current pixel.
+
+        If the updater of record has side-effects, it must not update
+        any pixels in array other than the one at x,y.
+
+     merge (rec1, rec2) -> rec3
+        merge is called whenever it is discovered that two apparently
+        different blobs are in fact connected. rec1 and rec2 are the
+        objects returned and possibly updated by record for the two
+        parts of the blob. merge should combine the information in rec1
+        and rec2 as appropriate, and return rec3. rec3 may be any POP-11
+        object (except a reference) but is likely to be a structure like
+        rec1 and rec2 which holds the combined information. Indeed, rec3
+        may be one of rec1 or rec2 to avoid creating new structures.
+
+    list, the result of the procedure, is a list with one element for
+    each blob in array. The elements are objects returned by record and
+    merge. (Some objects returned by record may have been thrown away by
+    merge.)
+
+3.2  Example of using appblobs
+------------------------------
+
+LIB *APPBLOBS contains several examples of effective ways to call
+appblobs. The procedure blob_stats is probably the clearest.
+
+As another example, suppose you want a list of the values stored in each
+blob of an array, together with the number of pixels in each blob. You
+could hold the information in a record with two entries. These
+definitions of record and merge would be appropriate:
+
+    defclass blobrec {npix, vals};
+
+    define record(x, y, g) -> rec;
+        lvars x, y, g, rec;
+        ;;; The number of pixels starts as 1 and the list of values
+        ;;; starts with the current value.
+        consblobrec(1, [^g]) -> rec;
+    enddefine;
+
+    define updaterof record(x, y, g, rec);
+        lvars x, y, g, rec;
+        ;;; Update the number of pixels
+        npix(rec) + 1 -> npix(rec);
+        ;;; Store the current value in the list
+        g :: vals(rec) -> vals(rec)
+    enddefine;
+
+    define merge(rec1, rec2) -> rec1;
+        lvars rec1, rec2;   ;;; re-use rec1, so no rec3
+        ;;; Add the pixels
+        npix(rec1) + npix(rec2) -> npix(rec1);
+        ;;; Combine the lists
+        vals(rec1) <> vals(rec2) -> vals(rec1)
+    enddefine;
+
+--- $popvision/help/appblobs
+--- Copyright University of Sussex 1995. All rights reserved. ----------

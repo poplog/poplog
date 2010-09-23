@@ -1,0 +1,258 @@
+REF NETDISPLAY                                 Julian Clinton  Jan 1990
+                                           Updated J. Clinton  Aug 1992
+
+       Copyright University of Sussex and Integral Solutions Ltd.
+                           All Rights Reserved
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<    FUNCTIONS & VARIABLES    >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<      IN LIB NETDISPLAY      >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Displaying Networks
+ -- Window Display Utilities
+ -- Window Records
+ -- Extent Window Records
+ -- Graphic UI Variables
+ -- Colour Graphics
+
+
+-- Displaying Networks ------------------------------------------------
+
+nn_show_topology(NETNAME, ROWS, COLS, OFFSET, POSITION)      [procedure]
+                -> WINDOW_ID or <false>
+        This function creates a topology window for network specified by
+        NETNAME (a word) with the  specified number of rows and  columns
+        (integers representing the  number of cells  in the window,  one
+        unit per cell). OFFSET is a two item list of the row and  column
+        offset and POSITION is  the initial position  of the window,  or
+        <false> if this is not defined.  The value returned is a  window
+        id or <false> if the window was not created for some reason.
+
+
+nn_show_activs(NETNAME, LAYER, ROWS, COLS, POS)              [procedure]
+                -> WINDOW_ID or <false>
+        This function creates a window  showing the activation of  units
+        in LAYER (an  integer) of  the network specified  by NETNAME  (a
+        word). The window size  is defined by  ROWS and COLS  (integers)
+        which represent the number of cells in the window (one unit  per
+        cell). POSITION  is  the  initial position  of  the  window,  or
+        <false> if this is not defined.  The product of the two  numbers
+        ROWS and COLS must equal the number of units in the layer to  be
+        displayed. The value returned is a  window id or <false> if  the
+        window was not created for some reason.
+
+
+nn_show_bias(NETNAME, LAYER, ROWS, COLS, POS)                [procedure]
+                -> WINDOW_ID or <false>
+        This function  creates a  window showing  the bias  of units  in
+        LAYER (an integer) of the network specified by NETNAME (a word).
+        The window size  is defined  by ROWS and  COLS (integers)  which
+        represent the number of cells in the window (one unit per cell).
+        POSITION is the initial  position of the  window, or <false>  if
+        this is not  defined. The product  of the two  numbers ROWS  and
+        COLS must  equal  the  number  of  units  in  the  layer  to  be
+        displayed. The value returned is a  window id or <false> if  the
+        window was not created for some reason.
+
+
+nn_show_weights_to(NETNAME, LAYER, GROUP, NODE,              [procedure]
+                ROWS, COLS, POSITION) -> WINDOW_ID or <false>
+        This  function  creates  a  window  showing  the  strengths   of
+        connections to the unit  located in LAYER,  GROUP and NODE  (all
+        integers) from the layer below  (nearer the input units) in  the
+        network NETNAME (a word). The window size is defined by ROWS and
+        COLS (integers)  which  represent the  number  of cells  in  the
+        window (one unit per cell). POSITION is the initial position  of
+        the window, or <false>  if this is not  defined. The product  of
+        the two numbers ROWS and COLS must equal the number of units  in
+        the layer  BELOW the  unit specified.  The value  returned  is a
+        window id or  <false> if  the window  was not  created for  some
+        reason.
+
+
+nn_show_weights_from(NETNAME, LAYER, GROUP, NODE,            [procedure]
+                ROWS, COLS, POSITION) -> WINDOW_ID or <false>
+        This  function  creates  a  window  showing  the  strengths   of
+        connections from the unit located in LAYER, GROUP and NODE  (all
+        integers) to the layer  above (nearer the  output units) in  the
+        network NETNAME (a word). The window size is defined by ROWS and
+        COLS (integers)  which  represent the  number  of cells  in  the
+        window (one unit per cell). POSITION is the initial position  of
+        the window, or <false>  if this is not  defined. The product  of
+        the two numbers ROWS and COLS must equal the number of units  in
+        the layer  ABOVE the  unit specified.  The value  returned  is a
+        window id or  <false> if  the window  was not  created for  some
+        reason.
+
+
+-- Window Display Utilities -------------------------------------------
+
+nn_kill_window(WINDOW_ID)                                    [procedure]
+        Takes a window id of a display window and kills the window.
+
+
+nn_kill_windows(NETNAME)                                     [procedure]
+        This procedure  takes  a  network name  and  kills  any  windows
+        displaying parts of that network.
+
+
+nn_show_extent(WINDOW_ID)                                    [procedure]
+        This procedure takes a display  window id and creates an  extent
+        window showing the portion of the network being displayed in the
+        existing window.
+
+
+nn_update_window(WINDOW_ID)                                  [procedure]
+        This procedure  takes  a  window  id  and  redisplays  the  data
+        associated with the network in that window (such as activations,
+        weights etc.).
+
+
+nn_update_windows(NETNAME)                                   [procedure]
+        This procedure takes a network name and updates the  information
+        being shown in any window displaying part of the network.
+
+
+nn_redraw_window(WINDOW_ID)                                  [procedure]
+        This procedure takes a window id and redraws the entire window.
+
+
+-- Window Records -----------------------------------------------------
+
+When a  window is  created, various  pieces of  information need  to  be
+stored about what and how that window is displaying. These are stored in
+record class of type -nn_window- which has the following structure:
+
+    nn_win_net          - name of network displayed in window
+    nn_win_id           - window id
+    nn_win_ext          - extent window id if extent requested
+    nn_win_info         - miscellaneous information about the window
+                          e.g. unit used as source of weights
+    nn_win_rows         - number of rows in cells being displayed in
+                          window (one unit per cell)
+    nn_win_cols         - number of columns in cells being displayed
+                          in window (one unit per cell)
+    nn_win_row_offset   - row offset into network/layer
+    nn_win_col_offset   - column offset into network/layer
+    nn_win_map          - array, size (row, col). Each entry holds
+                          a vector of three integers which describe
+                          the unit displayed in that cell in the window.
+                          The integers are:
+                        the unit layer              (WIN_MAP_LAYER)
+                        the unit group              (WIN_MAP_GROUP)
+                        the unit index within group (WIN_MAP_INDEX)
+
+    nn_win_format       - the format of the window rows and columns
+    nn_win_select       - This slot holds a list of vectors. Each
+                          vector contains four fields:
+                        the row of the unit         (WIN_SELECT_ROW)
+                        the column of the unit      (WIN_SELECT_COL)
+                        the data display function   (WIN_SELECT_FN)
+                        the direction ("to" or "from"
+                            the unit)               (WIN_SELECT_DIR)
+    nn_win_type         - a word specifying the type of window.
+                          Currently one of:
+                                "topology"
+                                "weights2d_to"
+                                "weights2d_from"
+                                "activs2d"
+
+-- Extent Window Records ----------------------------------------------
+
+If  large  networks  are  being  displayed,  it  may  be  impossible  or
+undesirable for the whole network to fit on-screen at once. To allow the
+user to look at different parts  of the network, an "extent" window  may
+be created which shows the whole  network and highlights the area  being
+shown in a standard display window. The information is held in a  record
+class of type -nn_extent_window-.
+
+    nn_ext_net          - name of network displayed in window
+    nn_ext_mouse_at     - store for mouse position
+    nn_ext_id           - window id
+    nn_ext_rows         - number of rows in the network
+    nn_ext_cols         - number of columns in the network
+    nn_ext_row_scale    - number of pixels per row
+    nn_ext_col_scale    - number of pixels per column
+    nn_ext_row_offset   - row offset of highlighted region
+    nn_ext_col_offset   - column offset of highlighted region
+    nn_ext_box_height   - height of highlighted region
+    nn_ext_box_width    - width of highlighted region
+
+
+-- Graphic UI Variables -----------------------------------------------
+
+nn_window_record                                        [property table]
+        Holds the  window  records  of the  display  windows  which  are
+        retrieved with  window id  of the  record. Used  by mouse  event
+        handlers to obtain the record of window from the window id.
+
+
+nn_activs_scale                                               [variable]
+        This value  specifies the  factor that  the unit  activation  is
+        multiplied  by  before  being  passed  to  the  graphic  display
+        utilities. Initial value is 1.
+
+
+nn_bias_scale                                                 [variable]
+        This value specifies the factor that the unit bias is multiplied
+        by before being passed to the graphic display utilities. Initial
+        value is 1.
+
+
+nn_weights_scale                                              [variable]
+        This value  specifies the  factor that  the weight  strength  is
+        multiplied  by  before  being  passed  to  the  graphic  display
+        utilities. Initial value is 1.
+
+
+nn_min_win_height                                             [variable]
+        Specifies the minimum display window height (in pixels). Initial
+        value is 200.
+
+
+nn_max_win_height                                             [variable]
+        Specifies the maximum display window height (in pixels). Initial
+        value is 800.
+
+
+nn_max_win_width                                              [variable]
+        Specifies the maximum display window width (in pixels).  Initial
+        value is 800.
+
+
+nn_extent_width                                               [variable]
+        Specifies the  maximum extent  window width  in pixels.  Initial
+        value is 256.
+
+
+nn_extent_height                                              [variable]
+        Specifies the maximum  extent window height  in pixels.  Initial
+        value is 200.
+
+
+-- Colour Graphics ----------------------------------------------------
+
+nn_use_colour                                                 [variable]
+        Boolean specifying whether activation and weight strength should
+        be displayed as colour. Initial value is <false>.
+
+
+nn_colour_range                                               [variable]
+        The number of  colours used  to display  the range  0.0 to  1.0.
+        Initial value is 16.
+
+
+nn_colour_map                                                [procedure]
+        The  system  colour  map.  The  activation  of  a  unit  or  the
+        connection weight is mapped onto one of these colours. The  size
+        of the colour is twice  the value of -nn_colour_range-.  Initial
+        value is <false>.
+
+
+--- Copyright Integral Solutions Ltd. 1990. All rights reserved. ---

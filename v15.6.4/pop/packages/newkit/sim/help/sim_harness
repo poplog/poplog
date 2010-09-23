@@ -1,0 +1,270 @@
+HELP SIM_HARNESS                                  Aaron Sloman, Feb 1999
+                                              With help from Brian Logan
+                                                     Altered 13 May 2002
+
+Compile the following command first
+    uses simlib
+OR
+    uses newkit
+
+Update
+    if sim_terminate_simulation then sim_stop_scheduler() endif;
+
+LIB SIM_HARNESS
+A collection of tools for running demonstrations based on
+
+    (Library)                       (Described in)
+    LIB SIM_AGENT                   HELP SIM_AGENT, TEACH SIM_AGENT
+    LIB SIM_PICAGENT                HELP SIM_PICAGENT
+    LIB SIM_CONTROL_PANEL           HELP SIM_CONTROL_PANEL
+
+A first draft version of this library defines the following facilities.
+
+(Still incomplete. Likely to be extended/modified.
+Last updated 4 Mar 1999)
+
+For examples of the use of these facilities see TEACH SIM_FEELINGS
+
+
+CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Global variables
+ -- Turning global trace control variables on and off
+ -- Utility Procedures
+ -- The main test harness procedures
+ -- Tracing methods switched by global variables
+ -- User trace variables
+ -- Complete list of procedures and methods 16 Mar 1999
+
+-- Global variables ---------------------------------------------------
+
+global vars
+    all_agents,
+
+    ;;; a list of windows created by run_simulation
+    sim_all_windows,
+
+    ;;; pause every demo_pause_delay cycles, and run
+    ;;; check_finish(cycle);
+    demo_pause_delay = 5,
+
+    ;;; This is a list, explained in HELP POPRULEBASE
+    prb_sayif_trace,
+
+    ;;; make this false to turn off PAUSE actions
+    prb_pausing,
+
+    sim_pr_places = 2,  ;;; number of decimal points in printing
+
+-- Turning global trace control variables on and off ------------------
+
+In LIB SIM_HARNESS mechanisms are provided which help to control trace
+printing.
+
+First there is a global variable:
+
+    sim_alltracevars
+        This list contains variables which will be set false before the
+        simulation starts running. Users can extend this list.
+
+Secondly the procedure run_simulation takes a list of variables to be
+turned on during the run after the variables in sim_alltracevars have
+all been set false.
+
+Thus if you want a variable always to be true or always to be false,
+assign true or false to it and exclude it from both lists. If you want
+it sometimes to be true sometimes false, put it in sim_alltracevars,
+whose contents you need not alter, but use different lists when you
+invoke run_simulation.
+
+The variables in sim_alltracevars will be shown in the control panel
+created by sim_control_panel when you invoke run_simulation
+
+The default value of sim_alltracevars (as of 27 Feb 1999) is this list:
+
+        [
+            ;;; Poprulebase variables (See HELP POPRULEBASE)
+            prb_walk prb_chatty prb_show_conditions
+
+            ;;; SIM_HARNESS variables
+            demo_startrules_trace demo_endrules_trace
+            demo_data_trace demo_message_trace
+            demo_actions_trace
+            demo_cycle_trace demo_cycle_pause
+            demo_end_sim_trace
+            demo_check_popready
+
+            ;;; switch garbage collection tracing on or off
+            popgctrace]
+
+
+-- Utility Procedures -------------------------------------------------
+
+Two printing utilities, useful in defining print_instance methods,
+as illustrated in TEACH SIM_FEELINGS
+
+A procedure for getting rid of all the window_objects held in the
+variable sim_all_windows
+
+ define killwindows();
+
+These are used to define class printing routines.
+ define print_loc_heading(type, name, x, y, heading);
+ define print_loc(type, name, x, y);
+
+-- The main test harness procedures -----------------------------------
+
+ define run_simulation_withvars(
+        agents, num, file, notracevars, tracevars, showedit);
+    Takes a list of all agents, a number of cycles, ....
+
+ define run_simulation(setup_info, num, tracevars);
+    Invokes setup_simulation with the first argument, to create the
+    agents and windows. It then pauses, until RETURN is pressed. It
+    then starts the simulation using the procedure continue_run.
+
+ define continue_run(num, tracevars);
+    This is used to start a simulation running after the agents and
+    windows have been created. It can also be used to re-start after an
+    interrupt or after the number of cycles has been exceeded. It
+    invokes the procedure run_simulation_withvars with its given
+    arguments and other default arguments.
+
+ define check_finish(cycle);
+    ;;; Gives the user opportunities to stop the simulation or
+    ;;; enter a popready break (exited by ENTER cont).
+    ;;; The frequency of the opportunities is determined by
+    ;;; the value of demo_pause_delay
+
+ define ved_cont();
+    ;;; Used to exit a popready break (ENTER cont).
+
+
+-- Tracing methods switched by global variables -----------------------
+
+ define :method sim_agent_running_trace(agent:sim_agent);
+    Switched off if demo_data_trace is false. Otherwise prints
+    database of the agent at the beginning of each time_slice
+
+ define :method sim_agent_messages_out_trace(agent:sim_agent);
+    Switched off if demo_message_trace is false. Otherwise shows
+    messages waiting to go out from agent at the end of the
+    timeslice.
+
+ define :method sim_agent_messages_in_trace(agent:sim_agent);
+    Switched off if demo_message_trace is false. Otherwise shows
+    messages waiting to go into the agent at the beginning of the
+    timeslice.
+
+ define :method sim_agent_actions_out_trace(object:sim_object);
+    See HELP sim_agent
+
+ define :method sim_agent_actions_out_trace(agent:sim_agent);
+    Switched off if demo_actions_trace is false. Otherwise shows
+    actions waiting to be executed by the agent at the end of the
+    timeslide.
+
+ define :method sim_agent_action_trace(object:sim_object);
+    See HELP sim_agent
+
+ define :method sim_agent_action_trace(agent:sim_agent);
+    Switched off if demo_action_trace is false. Otherwise shows
+    information about the agent just before sim_do_actions is run,
+    (previously printed by sim_agent_actions_out_trace after the
+    agent's rules have run. In the meantime other agents may have had
+    their rules run.
+
+ define :method sim_agent_rulefamily_trace(object:sim_object, rulefamily);
+    See HELP sim_agent
+
+ define :method sim_agent_rulefamily_trace(agent:sim_agent, rulefamily);
+    Switched off if demo_startrules_trace is false. Otherwise shows
+    each ruleset/rulefamily before it is run.
+    If demo_data_trace is true, then also prints out the agent's
+    database.
+    Can produce a HUGE amount of printing.
+
+ define :method sim_agent_endrun_trace(object:sim_object);
+    See HELP sim_agent
+
+ define :method sim_agent_endrun_trace(agent:sim_agent);
+    Switched off if demo_endrules_trace is false. Otherwise after the
+    agent has had its rules run this will say so, and then pause. Also
+    if demo_data_trace is also true it will print out the contents of
+    the agent's database before pausing.
+
+ define sim_scheduler_pausing_trace(objects, cycle);
+    Switched off if demo_cycle_trace is false. Otherwise prints that
+    the end of the cycle (timeslice) has been reached.
+    If demo_check_popready is true then every demo_pause_delay times
+    (default every 5 times) it also invokes check_finish (described
+    above).
+
+    Before doing any of the above it looks at the variable
+    sim_terminate_simulation. If that is true, then the simulation
+    run ends. The control panel by default will contain a button
+    that makes this true.
+
+    If that is not true, then it looks at the variable
+    sim_pause_demo. If that is true, then the simulation pauses
+    until the user presses RETURN. Then sim_pause_demo is again
+    made false.
+    The control panel by default will contain a button that makes this
+    true, causing the simulation to pause.
+
+
+ define sim_scheduler_finished(objects, cycle);
+    Switched off if demo_end_sim_trace is false. Otherwise indicates
+    that the end of the cycle has been reaced.
+
+ define :method sim_agent_terminated_trace(object:sim_object
+                                number_run, runs, max_cycles);
+        For details see
+        HELP SIM_AGENT/sim_agent_terminated_trace
+
+ define no_objects_runnable_trace(objects, cycle);
+    Does nothing by default. See
+        HELP SIM_AGENT/no_objects_runnable_trace
+
+-- User trace variables -----------------------------------------------
+
+A user program can declare additional trace control variables, put them
+in sim_alltracevars then and put some of them them into the variable
+tracevars argument (final argument) of run_simulation, if they are to be
+made true during a particular run.
+
+For examples see TEACH SIM_FEELINGS
+
+
+-- Complete list of procedures and methods 16 Mar 1999
+
+ define print_loc_heading(type, name, x, y, heading);
+ define print_loc(type, name, x, y);
+ define check_finish(cycle);
+ define ved_cont();
+ define lconstant obey_list(list);
+ define addall(list);
+ define lconstant applyto_all(proc, list);
+ define :method sim_agent_running_trace(agent:sim_agent);
+ define :method sim_agent_messages_out_trace(agent:sim_agent);
+ define :method sim_agent_messages_in_trace(agent:sim_agent);
+ define :method sim_agent_actions_out_trace(object:sim_object);
+ define :method sim_agent_actions_out_trace(agent:sim_agent);
+ define :method sim_agent_action_trace(agent:sim_agent);
+ define :method sim_agent_rulefamily_trace(agent:sim_agent, rulefamily);
+ define :method sim_agent_endrun_trace(object:sim_object);
+ define :method sim_agent_endrun_trace(agent:sim_agent);
+ define sim_scheduler_pausing_trace(objects, cycle);
+ define sim_scheduler_finished(objects, cycle);
+ define :method sim_agent_terminated_trace(object:sim_object
+ define no_objects_runnable_trace(objects, cycle);
+ define true_vars(list) -> newlist;
+ define run_simulation_withvars(agents, num, file, notracevars, tracevars, showedit);
+ define killwindows();
+ define setup_simulation(setup_info);
+ define continue_run(num, tracevars);
+ define run_simulation(setup_info, num, tracevars);
+
+
+--- $poplocal/local/sim/help/sim_harness
+--- Copyright University of Birmingham 2003. All rights reserved. ------

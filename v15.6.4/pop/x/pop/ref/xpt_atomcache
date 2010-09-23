@@ -1,0 +1,80 @@
+REF XPT_ATOMCACHE                               Jonathan Meyer, Jan 1991
+
+       COPYRIGHT University of Sussex 1990. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<  X SERVER ATOM LOOKUP WITH  >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<         ATOM CACHING        >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+LIB * XPT_ATOMCACHE provides facilities for caching of X atom and X atom
+name lookup. It  takes and  returns atom  names as  Poplog words.  Atoms
+themselves are unsigned integers.
+    INCLUDE * X_ATOMS defines constants for all of the standard built in
+server atoms. This REF file describes these.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Datatypes
+
+  2   Procedures
+
+
+
+------------
+1  Datatypes
+------------
+
+XATOM_NAME                                                    [datatype]
+XATOM                                                         [datatype]
+        An XATOM is an unsigned integer corresponding to an  XATOM_NAME,
+        where the table  to convert between  XATOM's and XATOM_NAMES  is
+        held in an X Server. Atom names are in fact stored in the server
+        as  strings   (case   matters),  but   in   LIB * XPT_ATOMCACHE,
+        XATOM_NAMES are Poplog WORDS. Atoms are an important part of the
+        X Window System, and are used mainly in X Server property tables
+        that hold information about fonts, windows, displays, resources,
+        clipboards etc.
+
+
+
+
+-------------
+2  Procedures
+-------------
+
+LIB * XPT_ATOMCACHE   provides   two   procedures:   XptInternAtom   and
+XptGetAtomName. The two procedures are identical in calling semantics to
+the Xlib procedures  XInternAtom and XGetAtomName,  but provides  client
+side caching. See MAN * XInternAtom.
+
+
+XptInternAtom(display, xatom_name, only_if_exists)           [procedure]
+            -> xatom_or_false
+        Converts xatom_name (a Poplog WORD)  into an XATOM (an  unsigned
+        integer). If only_if_exists is  true then the procedure  returns
+        false if  the  server currently  has  no atom  corresponding  to
+        xatom_name. If only_if_exists  is false then  the X server  will
+        create a  new  atom  if  no  atom  corresponding  to  xatom_name
+        currently exists. The procedure  will therefore return false  if
+        the atom does not exist  and only_if_exists is false, and  XATOM
+        otherwise.
+
+        For example, try:
+
+            XptDefaultSetup();
+            XptInternAtom(XptDefaultDisplay, "WM_PROTOCOLS", false) =>
+
+
+XptGetAtomName(display, xatom) -> xatom_name_or_false        [procedure]
+        Converts xatom  (an  unsigned  integer) into  an  XATOM_NAME  (a
+        WORD), using the conversion table held in the X server with  the
+        specified display. If the xatom does not exist, a BadAtom  error
+        will occur, and the procedure will return FALSE.
+
+
+
+--- C.x/x/pop/ref/xpt_atomcache
+--- Copyright University of Sussex 1990. All rights reserved.

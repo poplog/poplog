@@ -1,0 +1,479 @@
+LABELLING                   Max Clowes & Aaron Sloman, Revised Sept 1988
+
+         INTERPRETING PICTURES OF OVERLAPPING LAMINAE WITH HOLES
+            -----------------------------------------------
+
+     This teach file describes the use of a program which labels  TURTLE
+pictures portraying overlapping  opaque laminae. (The  program and  this
+document were originally produced by Max Clowes. Both have been modified
+by Aaron Sloman.) The object is to help you see how 'laws' of the domain
+of interpretation  can  control  the process  of  producing  a  globally
+consistent interpretation of  a locally ambiguous  image. One method  of
+doing this is depth first search.  There are other methods, e.g.  'Waltz
+filtering' and relaxation. A library program is introduced that you  can
+play with by giving it pictures to interpret.
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction: an example picture
+ -- Accidental alignments
+ -- Depicting interpretations
+ -- Laws of the lamina world
+ -- Pictures of impossible objects
+ -- Representing interpretations in a program
+ -- Using the LAMLABEL library program
+ -- Controlling the search
+ -- LEFT/RIGHT convention
+ -- Watching the labeller at work
+ -- Alternative Images
+ -- See Also
+
+-- Introduction: an example picture -----------------------------------
+
+The picture below was produced by the LIB OVERLAY library program.
+The numbers along the left and bottom are merely to help you identify
+X and Y co-ordinates of points in the picture. (E.g. The bottom right
+hand asterisk has X=27, Y=2.)
+
+Most people see this sort of picture in terms of overlapping plates or
+cards.
+
+     7      ****************
+     6      *              *
+     5      *              *
+     4      *              *
+     3      *              *
+     2 ******              ******
+     1 *    *              *    *
+     0 *    *              *    *
+     9 *    *              *    *
+     8 *    *              *    *
+     7 *    ****************    *
+     6 *                        *
+     5 *                        *
+     4 *                        *
+     3 *                        *
+     2 **************************
+     1
+      123456789012345678901234567890
+
+     This picture is ambiguous, even  if  you  restrict  the  domain  of
+interpretation  to  overlapping  laminas (flat plates). In particular, a
+bounded region can represent either a plate above a background, or  else
+a hole in a plate, so that the bounded region represents background. How
+many interpretations can you find? Notice how on some interpretations  a
+line  'belongs'  to  one region (i.e. it represents the edge of a lamina
+depicted by that region) whereas on other interpretations the same  line
+belongs  to  the  region  on  the  other side.  Can a line belong to two
+regions? Yes if you allow 'cracks', i.e. abutting plates.
+
+
+-- Accidental alignments ----------------------------------------------
+
+     Some interpretations involve 'accidental alignments', so that a TEE
+junction  represents the edge of one object lying exactly along the edge
+of another.  There could even be three abutting plates:
+
+                        *
+                1       *      2
+                        *
+          ***************************
+                        3
+
+Suppose we decide to restrict the domain so that that kind of  thing  is
+ruled  out.  I.e.  no lines are allowed to represent 'cracks'  and a TEE
+junction can represent only  an  occlusion  relation.  Notice  how  that
+constrains  the  interpretation  of  the  LIB OVERLAY picture so that it
+leaves fewer interpretations. How many interpretations does it rule out?
+How many interpretations are left?
+
+
+-- Depicting interpretations ------------------------------------------
+
+     How can we represent these interpretations? If we rule out  cracks,
+then in a consistent interpretation of  a picture every line belongs  to
+exactly  one  region,  on   one  side  of  it.   We  can  represent   an
+interpretation by marking "chevrons" or "arrows" on a line to indicate
+which  region the line  'belongs to'  (or  more accurately,  which  side
+of  the  line depicts the plate of which the line depicts an edge). A
+horizontal  line then has two possible interpretations:
+
+        ***************V**************
+belonging to the lower region, or
+
+        ***************^**************
+
+belonging to  the  upper  region.  Similarly the  symbols  "<"  and  ">"
+indicate an edge belonging  to the left, and  to the right hand  region,
+respectively.
+
+
+     Here then is one possible interpretation of the whole picture.  (It
+was actually produced by the LIB LAMLABEL program, which marks the whole
+line with chevrons.)
+
+     7      VVVVVVVVVVVVVVVV
+     6      >              <
+     5      >              <
+     4      >              <
+     3      >              <
+     2 <^^^^>              <^^^^>
+     1 <    >              <    >
+     0 <    >              <    >
+     9 <    >              <    >
+     8 <    >              <    >
+     7 <    ^^^^^^^^^^^^^^^<    >
+     6 <                        >
+     5 <                        >
+     4 <                        >
+     3 <                        >
+     2 VVVVVVVVVVVVVVVVVVVVVVVVVV
+     1
+      123456789012345678901234567890
+
+     On this interpretation, one of  the regions represents a hole  in a
+bigger plate. Which  region? Did  you see that  interpretation when  you
+first examined  the picture  in its  asterisk form?  It depends  on  the
+possibility of a plate whose outer  edges are not shown in the  picture,
+as if they extended out of sight.
+
+
+-- Laws of the lamina world -------------------------------------------
+
+     Our restricted world has some  interesting 'laws'. For example,  if
+TEE junctions can only represent  occlusions and not abutments, then  in
+the above picture  of a TEE  junction the vertical  line MUST belong  to
+region 1 or 2, and the region 3 CANNOT represent a hole. Why? Suppose it
+did represent  a hole,  then there  must be  an edge  abutting an  edge.
+Where?
+
+     By making use of such 'laws' of the domain we can define the notion
+of  a  consistent  interpretation,  i.e.  one which does not violate the
+laws. A program can then try to  find  a  consistent  interpretation  by
+assiging  interpretations  to  lines in turn, and checking that they are
+consistent with the 'laws'.  If  not,  the  program  tries  a  different
+interpretation  for the last line it has considered. If it has exhausted
+all  options  for  that  line,  it  then  backtracks   and   undoes   an
+interpretation  for  an  earlier  line,  and  tries  a different one, if
+possible. This is another example of DEPTH-FIRST search.
+
+
+-- Pictures of impossible objects -------------------------------------
+
+     Is it  possible  to  produce  a picture  which  has  no  consistent
+interpretation? Suppose we insist  that every plate  is parallel to  all
+others, so that plate A cannot be in front of plate B in one place,  and
+behind it in another  place. Then some pictures  will not be capable  of
+having a  consistent interpretation.  See if  you can  construct  such a
+picture. There  are well  known pictures  which defy  interpretation  in
+terms of THREE  dimensional objects, namely  the devil's pitchfork,  and
+the Penrose triangle,  among others. The  work of the  artist Escher  is
+full of such pictures.
+
+The fact that people (or at  least some people) reject such pictures  as
+anomalous suggests  that  we have  knowledge  of laws,  or  constraints,
+governing   the    world    of    3-D   objects,    and    can    detect
+picture-interpretations which violate those  constraints. This led  some
+people, notably Huffman, and Clowes,  and after them Turner,  Mackworth,
+and Draper,  to  explore  the  constraints, and  try  to  give  computer
+programs the  ability to  use the  same constraints  in controlling  the
+interpretation of line drawings. (See the sections of books by Boden and
+Winston concerned with line-labelling.)
+
+The labelling schemes  of Huffman,  Clowes and others  were relevant  to
+pictures of 3-D objects with  surfaces sloping in various  orientations.
+We shall here consider only the  much simpler world of flat plates.  You
+should try to draw up  a list of rules by  which you could generate  the
+interpretations possible for a picture depicting such a world.
+
+
+-- Representing interpretations in a program --------------------------
+
+One problem is  how to  represent a  line, and  its interpretation  in a
+program. There  is  a Pop-11  library  program called  SEEPICTURE  which
+represents lines by a  list in the  Pop-11 database, giving  orientation
+and the end points, e.g. one of the lines in the above picture is:
+
+        [line hrz [2 12] [7 12]]
+
+We can think of the order of the  co-ordinates  of  the  end  points  as
+defining  a  direction  in which you can travel along the line. Then the
+two possible interpretations for the line can be thought of as  follows:
+if  you  travel  from the first point to the second, the region to which
+the line belongs is on its LEFT or on its RIGHT. So we can add an  extra
+item  to  the line represention, the word "left" or the word "right", to
+indicate which side the line belongs to.
+
+     Look back at the 'labelled' picture above  and  work  out  how  the
+interpretation  given  by  the 'chevrons' would translate into data-base
+descriptions. Here are some examples of line interpretations. You should
+work out the rest. Note that there are altogether 11 line segments to be
+interpreted.
+
+        [line hrz right [2 2] [27 2]]
+        [line vrt left [2 2] [2 12]]
+        [line hrz left [2 12] [7 12]]
+        [line hrz left [22 12] [27 12]]
+        [line vrt right [27 2] [27 12]]
+
+
+     Notice that on the above convention, the following  interpretations
+are equivalent:
+        [line hrz left [27 2] [2 2]]
+        [line hrz right [2 2] [27 2]]
+
+Would the following have been a consistent pair of interpretations,  for
+the two lines meeting at the bottom left corner?
+        [line hrz left [2 2] [27 2]]
+        [line vrt left [2 2] [2 12]]
+
+Would the following have been a consistent pair of interpretations:
+        [line hrz left [2 2] [27 2]]
+        [line vrt right [2 2] [2 12]]
+
+     What sort of test would enable a program to distinguish  consistent
+from  inconsistent  interpretations?  As  there  are  only  two kinds of
+junctions allowed in our pictures, namely ELLs and TEEs  the  rules  for
+consistency can be formulated simply in terms of these two cases.
+
+     Try to work out a second consistent set of interpretations for  the
+lines in the above picture, and draw the picture with labels given. (You
+can draw the lines with a pencil as straight lines,  and  simply  put  a
+single  chevron  on  each  line to indicate which region it belongs to.)
+Compare your diagram with the following set of line interpretations:
+        [line hrz right [2 12] [7 12]]
+        [line vrt right [2 2] [2 12]]
+        [line hrz right [22 12] [27 12]]
+        [line vrt left [27 2] [27 12]]
+        [line hrz left [2 2] [27 2]]
+        [line vrt right [7 7] [7 12]]
+        [line hrz left [7 7] [22 7]]
+        [line vrt left [22 7] [22 12]]
+        [line vrt left [22 12] [22 17]]
+        [line hrz right [7 17] [22 17]]
+        [line vrt right [7 12] [7 17]]
+
+
+-- Using the LAMLABEL library program ---------------------------------
+
+We have a library  program  which  can  find  interpretations  for  such
+pictures.  The program can be loaded thus:
+
+       lib lamlabel;
+
+(You can use LMR to get that line obeyed. See TEACH * MARK, TEACH * LMR)
+
+A sample image can be obtained using the following two commands (try
+them with LMR).
+
+       lib overlay;
+       display();
+
+     The labelling program uses a  depth  first  search  strategy  which
+allows decisions to be undone and steps to be retraced.
+
+     To get your image labelled type:
+       labelpic();
+
+you will be greeted with
+       ** [do you wish to label some lines? yes or no]
+
+This is an invitation for you to try to constrain the interpretation  to
+be found, by telling it how to interpret some of the lines (i.e. as LEFT
+or RIGHT). Respond to this in the first instance with
+
+       no
+
+Whereupon the program should (after a delay which depends on  complexity
+of the  picture)  print  out  a fresh  version  of  the  image  labelled
+according to the convention described above. Four characters are used to
+approximate to the chevron one of which - the 'up-arrow' - doesn't  come
+out too well on some printing devices.
+
+     The LINE entries in the DATABASE have now been  modified  according
+to  the  constraints  imposed  by the interpretation of ELLs and TEEs as
+denoting corners  and  inter-edge  occlusions  respectively.  After  the
+labelled  picture has been printed out you are invited to choose whether
+the labelled lines it portrays should be printed out
+
+        ** [do you want to see the lines? yes or no]
+
+Entries for the JUNCTIONs are unaffected  by  the  labelling  algorithm:
+only the LINEs are labelled.
+
+     Often a picture has more than one consistent labelling.  Additional
+labellings  can  be  requested by an appropriate response to the message
+that follows a labelled picture:
+
+        ** [do you want to continue? yes or no]
+
+When no more labellings can be found the  program  terminates  with  the
+message
+
+        ** [total of <number> labellings found]
+
+To have the same  picture  relabelled  (perhaps  with  different  labels
+dictated by you) type:
+
+       relabelpic();
+
+(This is quicker than LABELPIC  because  it  avoids  calling  SEEPICTURE
+again.)
+
+Try all that with the picture produced by LIB OVERLAY. Then create  your
+own  picture, using the turtle. You can probably save time by saving the
+output of SEEPICTURE in a file and in future using only RELABELPIC. (You
+can save the database using STOREDATA. Alternatively, see HELP FILE;)
+
+
+-- Controlling the search ---------------------------------------------
+
+The invitation by LABELPIC to label one or more lines in the  image  can
+be accepted by typing
+
+       yes
+
+whereupon LABELPIC will respond by typing out the line entries from  the
+DATABASE appropriately numbered, followed by
+
+       **[type in line number and label. when you have finished type no]
+
+     Thus an appropriate response might be
+
+       1 left
+
+which will cause that line to  be  labelled  'LEFT'  in  all  labellings
+produced  by  LABELPIC. (Note that lines are renumbered after each label
+is inserted: every line whose label you assign or alter is moved to  the
+top  and  becomes  line  1.).  Any  number  of lines can be so labelled.
+Inspection of the line labelling in conjunction with  a  labelled  image
+should  disclose  how  the LEFT/RIGHT distinction is used to distinguish
+the sense of occlusion.
+
+
+-- LEFT/RIGHT convention ----------------------------------------------
+
+A labelled line has the following format
+        [LINE ORIENTATION LABEL P1 P2]
+
+A particular line might be
+        [LINE VRT LEFT [2 2][2 17]]
+
+which means that standing on [2 2] looking towards [2 17] the  occluding
+surface is to the LEFT of the LINE.
+
+        [LINE VRT RIGHT [2 2][2 17]]
+
+would denote an occluding surface to the RIGHT of this line.
+
+     The labels you specify will be checked as if they had  been  chosen
+by  the  program  -  in  effect  you  are starting the search with a few
+choices of your own. Locally inconsistent labels will be disallowed  and
+you  will  get  the  message  "directly incompatible with other labels".
+However long range inconsistencies between lines that are  not  adjacent
+will  not  be  discovered  until later - they will result in no complete
+labelling being found.
+
+     You may alter labels you have specified - by giving "left"  instead
+of  "right"  for  instance, or remove a label by giving "undef", i.e. by
+responding to
+       ** [next line and label please]
+with
+       1 undef
+
+
+-- Watching the labeller at work --------------------------------------
+
+The program proceeds  by  selecting  a  currently  unlabelled  line  and
+applying the choice:
+        try:            MARK(IT, "RIGHT")
+        if that fails:  MARK(IT, "LEFT")
+
+Where IT will be some currently unlabelled line PRESENT in the DATABASE.
+This  is done by COMPLETELABEL which is called recursively until no more
+unlabelled lines can be found - when (if) all lines  are  labelled  then
+the  complete labelling is displayed. When neither label can be put on a
+line then earlier choices are undone in an attempt to find a  consistent
+complete labelling.
+
+     The decisions to MARK it one way or the  other  will  be  done  and
+undone  quite  a  lot  as  the  labeller  searches over the space of all
+possible combinations of LEFTs and RIGHTs for each LINE. And it  is  the
+context of each line the ELLs or TEEs it belongs to that decides whether
+it can be so MARKed. This exploration can be monitored at the top  level
+by initiating
+       trace mark;
+
+before calling LABELPIC. Further detail of the reasons for MARK  failure
+can be got by an additional
+
+       trace compatible teecompat ellcompat;
+
+
+-- Alternative Images -------------------------------------------------
+
+You can produce more complex images by using the LIB  OUTLINES  package.
+This  provides  a  very  simple-minded  hidden  line  remover.  The RECT
+procedure can be used for drawing rectangles on top  over  others,  with
+hidden lines removed. To load the package, type:
+
+     lib outlines;
+
+RECT accepts specifications of rectangular laminae in the form
+
+        rect([x y], width, height);
+
+You can get a WINDOWBOX picture thus:
+
+        newpicture(30,30);
+        rect([10 13],9,9);
+        rect([7 10],15,15);
+        rect([2 2],25,15);
+
+
+     RECT  does  not  perform  very  well  and  will   readily   produce
+anomalous-looking  images  if  the  rectangular  laminae  are not rather
+carefully positioned in the PICTURE and drawn in the  correct  sequence.
+You'll  need to experiment to get good pictures. Alternatively, just use
+JUMPTO and DRAWTO.
+
+NOTE: RECT can be induced to draw rectangles at orientations other  than
+      the vertical/horizontal by prefacing a call of RECT with
+             TURN(45);
+      say.
+
+           Please note also that FINDLINES  (in  SEEPICTURE)  will  only
+      detect 4 orientations of line.
+
+      EXERCISE:
+      Try playing with LABELPIC (or RELABELPIC) using your own pictures.
+      Write  a  brief description of what the problem is and explain how
+      depth-first  search   can   be   used   to   find   a   consistent
+      interpretation.
+
+      Work out a set of rules specifying which line-labellings  are  and
+      which  are not consistent, for our lamina domain without 'cracks'.
+      Discuss the  changes  which  would  have  to  be  made  if  cracks
+      (abutting plates) were to be allowed as well.
+
+      READING:
+      See the sections on the interpretation of line drawings,  and  the
+      use  of  line-labelling,  in the books by Boden, and Winston. Read
+      the section on Vision in the Bundy text book.
+
+-- See Also -----------------------------------------------------------
+
+TEACH * MARK, TEACH * LMR
+TEACH * TURTLE, TEACH * VTURTLE
+    - programs for drawing pictures in 2-D arrays
+TEACH * SEEPICTURE
+    - introduces the FINDLINES and FINDJUNCS procedures for analysing
+    POP-11 turtle pictures.
+TEACH * SEARCHING
+    - an introduction to search problems
+TEACH * TOWER
+    - an example of a search problem using depth first search.
+
+--- C.all/teach/labelling
+--- Copyright University of Sussex 1988. All rights reserved.

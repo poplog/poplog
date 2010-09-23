@@ -1,0 +1,47 @@
+#!/bin/bash
+##Altered 25 Dec 2007, to use 'bash' instead of 'sh'
+# --- Copyright University of Sussex 1993. All rights reserved. ----------
+# File:             C.unix/pop/pglibr
+# Purpose:          Update POPLOG module library
+# Author:           John Gibson, Jun 24 1988 (see revisions)
+# Documentation:	SYSDOC * POPC
+
+ARGS=""
+if [ $# -eq 0 ]; then
+	if [ -f W_FILES ]; then
+		ARGS="-r ./ `cat W_FILES`"
+	else
+		echo "pglibr: W_FILES nonexistent"
+		exit 1
+	fi
+fi
+
+poplibr $* $ARGS
+if [ $? -ne 0 ]; then exit 1; fi
+
+if [ "$ARGS" != "" ]; then
+	rm -f `cat W_FILES`
+	rm -f `cat W_FILES | sed -e '1,$s/\.w$/.o/'`
+	rm W_FILES
+	rm -f $popsys/poplink_cmnd		# so that pglink -q complains
+fi
+
+exit 0
+
+# --- Revision History ---------------------------------------------------
+# --- John Gibson, Jul 10 1993
+#		Moved to $popsys
+#		poplibr now assumed defined as a command
+# --- John Gibson, Jul  8 1993  Changed src.wlb to ./ in poplibr args
+# --- Robert John Duncan, Jan 10 1992
+#		Changed always to use safepop11
+# --- Robert John Duncan, Sep 17 1991
+#		Ensured zero exit status on successful completion
+# --- Aaron Sloman, Jan 14 1990
+#		Added documentation cross reference
+# --- John Gibson, Jul 17 1989
+#		Removed </dev/null (now unnecessary)
+# --- John Gibson, May 26 1989
+#		Changed tests on $? to use -ne instead of !=
+# --- John Gibson, Aug 27 1988
+#		Now removes poplink_cmnd when using W_FILES

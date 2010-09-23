@@ -1,0 +1,371 @@
+TEACH ATNS                                   Chris Mellish February 1982
+
+
+This TEACH  file  is  concerned  with some  issues  in  parsing  natural
+language sentences. LIB  GRAMMAR provides basic  facilities for  parsing
+sentences given  a  CONTEXT FREE  grammar  (see *GRAMMAR)  and  *PARSING
+demonstrates a method for producing a top-down parser, again for CONTEXT
+FREE grammars. You  might naturally  be asking  why it  is necessary  to
+consider anything else.
+
+The trouble is that  context free grammars  are theoretically unable  to
+express certain  kinds  of constructions  that  might occur  in  natural
+languages. Even  if  these  theoretical problems  are  not  relevant  in
+practice,  the  straightforward  context   free  grammar  formalism   is
+inelegant in  capturing  certain  grammatical  facts,  and  can  obscure
+important generalisations. Some  examples where straightforward  context
+free treatments are inelegant are:
+
+    - Handling "agreement" between phrases appearing in diverse places
+      (eg number agreement between subjects and verbs in English)
+    - Expressing  the relationships  between structures  which are  very
+      similar except for  the fact that  certain constituents have  been
+      "moved around".
+      (eg yes-no  questions and  relative clauses  are very  similar  to
+      ordinary declarative sentences)
+    - Describing contexts  where a  structure can appear  any number  of
+      times
+      (eg a noun phrase can contain any number of adjectives)
+
+The ATN formalism was devised by Woods to enable people to write parsers
+for grammars more powerful than  simple context free grammars.  Although
+an ATN can  be seen  to some extent  as a  declarative description  of a
+grammar (in  the same  way that  the lists  given to  LIB GRAMMAR  are a
+description of a grammar), independent of  whether the grammar is to  be
+used for generation or  analysis, it is perhaps  more productive to  see
+the ATN formalism as a  PROGRAMMING LANGUAGE for writing parsers.  Given
+this view,  implementing an  ATN  system is  an  example of  writing  an
+INTERPRETER (or compiler) for a programming language.
+
+This TEACH  file does  not provide  a detailed  description of  the  ATN
+formalism. For this, see the  references cited below. See *ATNSUM  for a
+brief summary of the facilities in a basic ATN system.
+
+
+--- REPRESENTING AN ATN ------------------------------------------------
+
+An ATN  is easily  represented as  a list  structure (even  though  this
+representation may not be the best for efficiency reasons). ATNSUM shows
+how an ATN is normally  encoded in LISP lists.  Here we will use  POP-11
+lists instead. This just  means square, instead  of round, brackets.  We
+will assume that the  ATN under current  consideration is assigned  to a
+global variable NETWORK. A  frequent operation is,  given the name  of a
+node, to get a list of all the arcs leaving that node. This procedure is
+readily defined:
+
+    define arcsfrom(n) -> a;
+       network --> [== [^n ??a] ==]
+    enddefine;
+
+
+--- PARSING AS A SEARCH PROCESS ----------------------------------------
+
+Parsing can  be  seen  as  an  example of  a  search  process,  and  the
+implementation style taken here follows closely along the lines given in
+*TOWER. In a  search process  we have a  number of  STATES that  express
+interesting intermediate results  that can  possibly be  followed up  to
+reach solutions. The approach involves constantly removing a state  from
+a global list of states under consideration, partially investigating  it
+and then possibly adding some new states to the list. If the state  that
+we have  just  removed  leads  directly to  a  solution,  then  we  have
+succeeded (although we  might be interested  in alternative  solutions).
+Otherwise, if the global list of states becomes empty then we have tried
+all relevant paths and found no solution.
+
+
+--- STATES IN PARSING --------------------------------------------------
+
+How should we  represent a state  in the parsing  domain? Given the  ATN
+framework, the  information that  one would  need in  order to  resume a
+piece of parsing that has been interrupted is as follows:
+
+   - The REGISTERS. We can represent  the values of the registers by  an
+     association list. To look up the  value of a variable, we find  the
+     first occurrence of a value for it on the list. To update the value
+     of a variable, we put an new entry on the front of the list.
+
+   - The  sequence  of  WORDS  still  to  be  processed.   This  can  be
+     represented as a simple list.
+
+   - A set of ARCS still to be tried from the current node.
+
+   - A sequence of RETURNS.  These are places to  return to when we  POP
+     from a  node.  For  instance,  we might  start  trying  to  parse a
+     SENTENCE and try to parse a NP as its subject. Having finished  the
+     NP, we must resume where we left off in the SENTENCE network.  What
+     do we need to  know in order  to carry on there?  First we need  to
+     know where to go in the network and what to do with the result that
+     the NP processing has  produced. This amounts  to the actions  that
+     appeared in the original PUSH NP arc. Secondly, since each level of
+     processing in an ATN has its own  set of registers, we need to be
+     able to recover the original SENTENCE registers.
+
+We can represent a state of the parsing process by a list of four items,
+corresponding to these four  pieces of information.  In addition, it  is
+convenient to have  four global  variables, REGISTERS,  WORDS, ARCS  and
+RETURNS,  to  hold  this  information   for  the  state  under   current
+consideration. Various actions that are performed by the ATN can then be
+implemented in terms of changing the values of these variables.
+
+
+--- OVERALL CONTROL ----------------------------------------------------
+
+As in  TOWER, we  keep a  list  of all  the states  that might  lead  to
+successful parses of the current input (called STATES). The top level of
+the program  then  involves repeatedly  removing  a state  from  STATES,
+generating the "next states" that follow  from it and putting them  onto
+STATES. When we find a state that represents a successful parse, that is
+announced. If we  run out  of states, we  have found  no solutions.  The
+following fragment implements this control loop, providing a depth-first
+search strategy (which is what  most ATN interpreters provide) with  ALL
+successful parses being announced:
+
+   until states == [] do
+      states --> [[?registers ?words ?returns ?arcs] ??states];
+      if arcs == [] then
+      else
+         arcs --> [?arc ??arcs];
+         [[^registers ^words ^returns ^arcs] ^^states] -> states;
+         if process_arc(arc) then
+            [[^registers ^words ^returns ^arcs] ^^states] -> states;
+         endif
+      endif
+   enduntil;
+   [no (more) parses found]=>
+
+
+--- PROCESSING AN ARC --------------------------------------------------
+
+Each arc in an ATN provides tests to determine whether or not it can  be
+followed. These tests consist of  a general "test" component that  every
+arc has, as well as a specific  test as determined by the "type" of  the
+arc. We can define  a procedure PROCESS_ARC  as follows. This  procedure
+returns TRUE or FALSE, according to whether the arc could be  traversed.
+If the arc can be traversed, then the actions associated with traversing
+the  arc  will  be  performed  (assigning  new  values  to  the   global
+variables). The structure of PROCESS_ARC is therefore as follows:
+
+    define process_arc(arc);
+       vars type, arg, test, actions;
+       arc --> [?type ?arg ?test ??actions];
+       if type = <first arc type>
+          and <any special tests>
+          and dotests(test) then
+             <any special actions>
+       elseif type = <second arc type>
+          and <any special tests>
+          and dotests(test) then
+             <any special actions>
+           ...
+       else
+          return(false)
+       endif
+       doactions(actions);
+       return(true)
+    enddefine;
+
+DOTESTS is  assumed to  be a  procedure which  sees whether  the  "test"
+component of the arc is true, and DOACTIONS is assumed to be a procedure
+that actually performs the actions mentioned on the arc.
+
+
+--- PARTICULAR ARC TYPES -----------------------------------------------
+
+The simplest arc type is the WRD type, which requires that the next word
+in the  input be  some specific  word.  The clause  for this  is  easily
+implemented:
+
+    if type == "wrd"
+       and words matches [^arg ??words]
+       and dotests(test) then
+
+There are no  special actions  associated with this  type (although  the
+actions in the general "actions" component will be carried out). The CAT
+arc is similar, although some mechanism must be implemented to determine
+whether a particular word has some particular category.
+
+The JUMP arc  simply involves changing  which node we  are at. In  fact,
+there is no  explicit representation of  the node we  are at -  merely a
+list of the arcs we can follow  from the current node. Hence a JUMP  can
+be implemented by an assignment to the variable ARCS:
+
+    elseif type == "jump"
+       and dotests(test) then
+          arcsfrom(arg) -> arcs
+
+More complicated is the PUSH arc. When we  do a PUSH, we want to end  up
+at the node specified in  the arc, with a new  set of registers for  the
+new level. In addition, we must remember to carry out the actions on the
+PUSH arc (including the final TO action)  when a POP arc brings us  back
+from the embedded computation. This is done by adding an extra entry  to
+the list of RETURNS:
+
+   elseif type == "push"
+      and dotests(test) then
+         [[^actions ^registers] ^^returns] -> returns;
+         arcsfrom(arg) -> arcs;
+         [] -> registers;
+         [] -> actions;
+
+The POP arc does the reverse of this, taking whatever is on the front of
+the RETURNS  list  and resuming  from  where  the PUSH  took  place.  In
+addition, something  must  be  done  with the  result  of  the  embedded
+computation. There are several cases to consider:
+
+   1) There are no nodes to POP up to, and there are also no words left.
+      In this case, the result represents a parse of the whole input. If
+      we are getting all  solutions, we must print  out the result,  and
+      then fail (return FALSE) to cause other paths to be tried.
+
+   2) There are no nodes to POP up to, but there are words left. In this
+      case, we  have found  some parse  that only  uses up  part of  the
+      input. We must  fail (ie return  FALSE) and hope  that some  other
+      path will lead to a parse of the complete input.
+
+   3) There are some nodes  to POP up to. In  this case, we must  resume
+      the computation at the next higher node. This computation will  be
+      able to access the result of the embedded processing by looking at
+      the * register.
+
+   elseif type == "pop"
+      and dotests(test) then
+         evaluate(arg) -> result;
+            if returns = [] then
+               if words = [] then
+                  [next parse:]=>
+                  result=>
+               endif;
+               return(false)
+            else
+               returns --> [?actions ?registers];
+               [[* ^result] ^^registers] -> registers
+            endif
+
+
+--- OTHER IMPORTANT PROCEDURES -----------------------------------------
+
+In the above description,  we have alluded  to the following  procedures
+that need to be implemented:
+
+    DOTESTS   - evaluates a general "test" and returns TRUE or FALSE
+    EVALUATE  - evaluates a general "expression" ("form")
+    DOACTIONS - executes the actions specified in a general "action"
+
+Each of  these is  fairly simply  defined. Here  is a  possible  partial
+definition for EVALUATE:
+
+    define evaluate(form) -> result;
+       vars name, feat, patt, names, forms, f;
+       if form matches [getr ?name] then
+          registers --> [== [^name ?result] ==]
+       elseif form matches "*" then
+          registers --> [== [* ?result] ==]
+       elseif form matches [quote ?result] then
+       elseif form matches [getf ?feat ?name] then
+          registers --> [== [^name ?result] ==];
+          feat(result) -> result
+       elseif form matches [buildq ?patt ??names] then
+          buildq(patt,names) -> result
+       elseif form matches [append ?forms ?f] then
+          evaluate(forms) <> [^(evaluate(f))] -> result
+       elseif form == [] then
+          [] -> result
+       else mishap('Illegal form',[^form])
+       endif
+    enddefine;
+
+
+--- REPRESENTING THE REGISTERS -----------------------------------------
+
+We have said that the values of the registers are easily represented  in
+terms of  an ASSOCIATION  LIST. In  this representation,  the  following
+would represent  that state  where  register A  held the  word  "apple",
+register B held [] and register C the number 3:
+
+    [ [A apple] [B []] [C 3] ]
+
+When EVALUATE, as defined above, needs  to get the value of a  register,
+it suffices for it to look for the FIRST occurrence of an entry for that
+register in the list.  (Whether the above code  will do this depends  on
+the implementation of -->;  since this much detail  is not specified  in
+the definition of -->,  perhaps it would be  best to write the  matching
+code oneself). Since only the first entry for a register is looked at, a
+change in the value  of a register can  be effected by simply  putting a
+new entry on the front of the list. Thus changing C to be 4 would result
+in:
+
+    [ [C 4] [A apple] [B []] [C 3] ]
+
+Changing the register list only by  adding new items on the front  makes
+saving previous states of the registers simple and fairly efficient. For
+instance, keeping the TL of the  above register list somewhere would  be
+remembering the state of the registers before the change of C to 4  (and
+any subsequent  changes).  There  would  be no  necessity  to  copy  the
+relevant list.
+
+
+--- NOTES ON THE IMPLEMENTATION ----------------------------------------
+
+Given that we have  chosen to implement  a depth-first search  strategy,
+the top level loop always removes from the list STATES the item that was
+put on it last. This means that  we don't need the generality of a  list
+for STATES  -  if  we  were  implementing  the  ATN  in  a  lower  level
+programming language, we might prefer to implement STATES as a STACK for
+efficiency reasons.
+
+Again, because we have implemented a depth-first strategy, we have ended
+up implementing a programming language with a CHRONOLOGICAL BACKTRACKING
+facility similar to that in Prolog. An advantage of the ATN framework is
+that it is fairly  clear what information  has to be  kept in order  for
+choices to  be  remade later.  This  would be  more  complicated  with a
+language like POP-11.
+
+
+Exercises
+=========
+
+Implement an ATN interpreter along the  above lines and use it to  parse
+sentences in  a  small subset  of  English.  Try to  make  your  grammar
+sufficiently sophisticated that it would be awkward or impossible to use
+it with LIB GRAMMAR.  You can follow this  basic exercise up in  various
+ways. Here are some suggestions:
+
+1. Implement the HOLD/VIR facility and use this to look at questions  or
+   relative clauses.
+
+2. Experiment with putting SEMANTIC tests and actions on your ATN  arcs.
+   These can resolve cases of potential SYNTACTIC ambiguity.
+
+3. Experiment with other control strategies for parsing, but still using
+   the same  ATN rules.  For instance,  try breadth  first search.  What
+   advantages and disadvantages do the two methods have?
+
+4. How can the efficiency of  the above ATN interpreter be improved?  Is
+   it possible to avoid  putting states onto STATES  when they are  just
+   about to be removed again?
+
+5. Investigate the idea of a  "well formed substring table" for  keeping
+   track of  phrases  found and  avoiding  duplication of  effort  after
+   backtracking (see the second Woods reference below).
+
+
+References
+----------
+
+Woods, W.A., "Transition Network Grammars for Natural Language Analysis",
+Communications of the ACM, Vol 13 No 10, 1970.
+
+Woods, W.A., "An Experimental Parsing System for Transition Network
+Grammars", in Rustin, R., "Natural Language Processing".
+
+Kaplan, R.M., "Augmented Transition Networks as Psychological Models of
+Sentence Comprehension", in IJCAI-2.
+
+Simmons, R.F., "Semantic Networks:..." in "Computer Models of Thought and
+Language", eds Schank and Colby, has some examples of bits of ATNs.
+
+Winston, P.H., "Artificial Intelligence" has some short sections of
+relevance.
+
+--- C.all/teach/atns ---------------------------------------------------
+--- Copyright University of Sussex 1988. All rights reserved. ----------

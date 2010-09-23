@@ -1,0 +1,188 @@
+REF XPT_CURSORPLANE                             Jonathan Meyer, Aug 1991
+
+       COPYRIGHT University of Sussex 1990. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<< X SERVER CURSOR MANAGEMENT  >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<           LIBRARY           >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This REF file details  the library LIB * XPT_CURSORPLANE which  provides
+facilities for creating 'cursor planes' for widgets, and for setting the
+cursor used in each cursor plane.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   Widget Cursor Planes
+
+  3   Busy Cursor Feedback
+
+  4   Garbage Collector Feedback
+
+  5   Examples
+
+
+
+---------------
+1  Introduction
+---------------
+
+A cursor plane is a transparent window that overlays a widget.  Defining
+the cursor for that cursor plane will then change the shape of the mouse
+cursor within that  widget. Since  the transparent  window overlays  the
+widget, all child widgets  will also display this  cursor, even if  they
+define their own cursors. This is especially useful when you wish to use
+a cursor to indicate that the widget  is in some special state - eg.  to
+indicate that the widget is busy.
+
+Poplog also provides autoloadable facilities for setting a "busy" cursor
+for a widget. Additionally, the Poplog  garbage collector can be set  to
+change the cursor for cursor planes during a garbage collection,  giving
+you useful feedback when Poplog is busy.
+
+The following functions are provided in LIB * XPT_CURSORPLANE:
+
+
+
+
+-----------------------
+2  Widget Cursor Planes
+-----------------------
+
+XptCursorPlaneOn(widget) -> bool                             [procedure]
+bool -> XptCursorPlaneOn(widget)
+        This procedure  enables  or  disables  the  cursor  plane  for a
+        widget, creating  a new  cursor plane  if necessary.  In  update
+        mode, if bool is true the cursor plane is initialized and raised
+        to the front. If bool is false, the cursor plane is disabled and
+        lowered, and hence  has no effect.  When a new  cursor plane  is
+        initialized, it  starts  with a  cursor  setting of  false  (see
+        XptNewCursorPlaneCursor below).
+
+
+XptNewCursorPlaneCursor(widget, cursor_or_false) -> cursor   [procedure]
+        This procedure defines the cursor used by the cursor plane  of a
+        widget. It takes a widget, and either an X Cursor ID (an integer
+        or external_ptr,  as  returned  by  eg.  XCreateFontCursor),  or
+        false. If it is given  a Cursor ID, the  cursor plane is set  to
+        use the specified cursor. If it is given false, the cursor plane
+        has no defined  cursor, and  the default window  cursor will  be
+        displayed  in  widget.  The   previously  installed  cursor   is
+        returned.
+
+
+
+
+-----------------------
+3  Busy Cursor Feedback
+-----------------------
+
+XptBusyCursorOn -> bool                                [active variable]
+bool -> XptBusyCursorOn
+        An active  variable  that  installs or  de-installs  the  "busy"
+        cursor  as   the   current   cursor   for   all   widgets   with
+        -XptBusyCursorFeedback set to true. You can specify what to  use
+        as the busy cursor (see XptBusyCursor below).
+
+
+XptBusyCursor(displayptr) -> cursor                          [procedure]
+cursor -> XptBusyCursor(displayptr)
+        Returns or sets the cursor ID used to indicate that widgets  are
+        "busy". Under OpenLook this defaults  to the cursor returned  by
+        GetOlBusyCursor. Otherwise the default is the standard X "watch"
+        cursor. You can specify this as a resource in your defaults file
+        using the resource name "BusyCursor":
+
+            Poplog.BusyCursor: cursor_name
+
+        You can assign the busy cursor as the cursor of single widget w:
+
+            XptNewCursorPlaneCursor(w, xptbusycursor(XtDisplay(w)))->;
+
+        The active variable XptBusyCursorOn can  be used to install  the
+        busy  cursor   onto   all   cursor   planes   which   have   set
+        XptBusyCursorFeedback.
+
+        Changing a display's busy  cursor while XptBusyCursorOn is  true
+        will cause  the new  busy cursor  to be  shown. This  allows  an
+        application to cycle  through a  series of  cursors (eg.  with a
+        timer) whilst it is are busy.
+
+
+XptBusyCursorFeedback(widget) -> bool                        [procedure]
+bool -> XptBusyCursorFeedback(widget)
+        Enables or  disables switching  of the  cursor plane  cursor  of
+        widget when  XptBusyCursorOn (see  above) changes  from true  to
+        false or visa-versa.
+
+
+
+
+-----------------------------
+4  Garbage Collector Feedback
+-----------------------------
+
+LIB * XptGarbageCursorFeedback  provides   facilities   for   changing a
+widgets cursor during Poplog garbage  collections. You can specify  what
+cursor to use for garbage feedback on a display, and you can turn on and
+off the cursor switching for widgets.
+
+
+XptGarbageCursor(displayptr) -> cursor                       [procedure]
+cursor  -> XptGarbageCursor(displayptr)
+        Returns or sets  the X  Cursor installed on  cursor planes  of a
+        display during  garbage  collections.  By default  this  is  the
+        standard X "exchange" cursor. You can specify this as a resource
+        in your defaults file:
+
+            Poplog.GarbageCursor: cursor_name
+
+
+XptGarbageCursorFeedback(widget) -> bool                     [procedure]
+bool -> XptGarbageCursorFeedback(widget)
+        Enables or disables switching of cursors on the cursor plane  of
+        widget during garbage collections.
+
+
+
+
+-----------
+5  Examples
+-----------
+
+To try: load TEACH * Xpw, then do:
+
+        uses xpt_cursorplane;
+
+        ;;; initialize cursor plane
+        true -> XptBusyCursorFeedback(shell);
+
+Now step through each of these,  moving the mouse cursor into the  'xpw'
+window after executing each line:
+
+        true -> XptBusyCursorOn;
+        false -> XptBusyCursorOn;
+
+        ;;; now for the real trial
+        true -> XptGarbageCursorFeedback(shell);
+
+        ;;; you have 2 seconds to move the mouse into the xpw window
+        ;;; after running this line - otherwise you miss the result:
+        syssleep(200); sysgarbage();
+
+        ;;; a more rigerous test:
+        define test;
+            dlocal XptBusyCursorOn = true;
+            repeat initv(1000) -> endrepeat;
+        enddefine;
+
+        test(); ;;; ctrl-c to interrupt
+
+
+
+--- C.x/x/pop/ref/xpt_cursorplane
+--- Copyright University of Sussex 1990. All rights reserved.

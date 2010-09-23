@@ -1,0 +1,687 @@
+TEACH PARSING                  John Gibson & Chris Mellish, October 1981
+
+=== Parsing Natural Language ===========================================
+
+This handout sketches out a simple 'top down' parser for a subset of
+English, making use of the ideas demonstrated by LIB GRAMMAR. (Have a look
+at TEACH * GRAMMAR). The meaning of 'top down' will become clearer later.
+In addition we illustrate a 'top down' strategy for designing complex
+programs, by sketching out the design of some procedures by assuming that
+other procedures already exist with specified input-output properties,
+then later we define the other procedures (some of which may call the
+original procedures!)
+
+LIB GRAMMAR embodies the idea that a natural language like English can be
+thought of as having an abstract 'syntax', i.e. a set of rules which
+determine the legal arrangements of words from the lexicon to form phrases
+and sentences, where these rules take no account of the 'meanings' (or
+semantics) of words or the sentences built from them (except insofar as words
+with different sorts of meanings will be put into different syntactic
+classes).
+
+The LIB GRAMMAR package allows you to specify a grammar (or use the given
+GRAMMAR1 or GRAMMAR2), which is a list containing a set of possible rules for
+each syntactic symbol, and a lexicon (LEXICON) which contains for each
+lexical category like NOUN a list of words which are members of that
+category. Thus the grammar might look like this:
+
+    : vars grammar;
+    : [
+    :   [s [np vp]]
+    :   [np [pn] [det noun]]
+    :   [vp [v np]]
+    :   ] -> grammar;
+
+and the lexicon like this:
+
+    : vars lexicon;
+    : [
+    :   [noun cat mouse man girl boy book computer hotel]
+    :   [pn aaron steve judith julie john chris]
+    :   [v liked killed thanked bought ate programmed]
+    :   [det each every the a some]
+    :   ] -> lexicon;
+
+As you'll see if you play with LIB GRAMMAR; this set of rules can then be
+employed in two ways: (1) to generate sentences of the language (either by
+making random choices as to which rules are employed or by using a more
+meaningful way of making those choices) and (2) to analyse a given sentence
+in terms of the rules and exhibit its structure with respect to them - this
+is PARSING the sentence.
+
+It is conventional practice to use different symbols for all the main types
+of sub-structures which can occur in a sentence. These symbols are called
+'non-terminals'. The non-terminals in the above grammar are S, NP, VP, PN,
+DET, NOUN and V. On the other hand, the lowest level items (e.g. words in a
+simple grammar) out of which the structures are composed are called
+'terminals'. The possible terminals are given mainly in the lexicon - they
+are the words "aaron", "liked", "each", etc. in the above.
+
+Parsing the sentence usually includes not merely recognising all the legal
+structures, but also producing a 'structural description' in which the
+various substructures are separated out and labelled by their non-terminal
+symbols. For instance, for the sentence:
+
+    each cat thanked john
+
+the grammar would suggest the following structural description:
+
+                  S
+          *---------------*
+          |               |
+          NP              VP
+     *----------*    *----------*
+     |          |    |          |
+    DET         N    V          NP
+     |          |    |          |
+     |          |    |          PN
+     |          |    |          |
+    each        cat  thanked    john
+
+That is, the whole sentence is an S, which divides into two subphrases - an
+NP and a VP. The NP divides itself into two phrases, of types DET and N. Each
+of these involves a single terminal. Also the VP divides up into
+subphrases... and so on. In this example, we have shown the structural
+description diagrammatically, because this form of presentation is easy for
+people to deal with. If we want to have computer programs performing
+operations on structural descriptions, however, we must pick a representation
+that makes it easy for THEM. There are many possible ways of encoding the
+information in a structural description so that it can be manipulated by a
+program. We will use a method based on list structures. If this method is
+used, the above structural description comes out as:
+
+    : [s
+    :   [np
+    :       [det each]
+    :       [noun cat]
+    :       ]
+    :   [vp
+    :       [v thanked]
+    :       [np
+    :           [pn john]
+    :           ]
+    :       ]
+    :   ]
+
+The 'pretty print arrow' (ie '==>') tries to save as much space as possible
+when printing so it will put the closing brackets on separate lines. The
+above tree would come out as:
+
+
+     ** [s [np [det each]
+               [noun cat]]
+           [vp [v thanked]
+               [np [pn john]]]]
+
+The idea is that the structural description of a phrase is represented by a
+list. The first element of this list is a word specifying the non-terminal
+which describes the phrase. The rest of the elements of the list are the
+structural descriptions of the immediate constituents of the phrase. Thus,
+for instance, the structural description for the sentence starts with the
+word S and has two other elements. These are the structural descriptions of
+the nounphrase and verbphrase making up that sentence.
+
+-- EXERCISE 1 ----------------------------------------------------------
+
+(a) What are the appropriate structural descriptions, in diagrammatic and in
+list form, of the following sentences (according to the above grammar)?
+
+    every man bought a book
+    julie killed chris
+
+(b) Extend the grammar to cover a wider variety of sentences, and write down
+structural descriptions for two more sentences that were not allowed by the
+old grammar.
+
+------------------------------------------------------------------------
+
+Of course, the point of parsing a sentence is that we expect to be able to
+use the structure we get to help us interpret the meaning of the sentence
+(although we shall not be concerned with that here); as to whether this is
+the way people understand sentences (i.e. parse first and then interpret the
+'parse tree') is arguable. In fact, many natural language understanding
+systems have appealed to the notion that meaning must be used to guide the
+parsing process, since a complex grammar necessitates a large amount of
+searching and trying different options - which can be very time consuming if
+done blindly. Tracing procedures used in LIB GRAMMAR will show you how much
+blind searching can be involved.
+
+A major source of such searching is the existence of rules allowing
+alternative structures corresponding to a single non-terminal, e.g. different
+forms of NP. Another source of alternatives to be explored is syntactic
+ambiguity of words, e.g. "chair" can be a verb or a noun.
+
+-- DESIGNING A PARSING PROGRAM -----------------------------------------
+
+The operation of parsing a sentence is, then, basically a matter of searching
+through the options in the grammar to find which ones fit the given sentence,
+and this can be performed in many different ways, e.g. depth-first search,
+breadth-first search, etc. The grammar itself can also be organised in
+different ways, e.g. by having a procedure corresponding to each non-terminal
+symbol like S, NP, where each procedure is responsible for parsing its
+particular rule, or by holding each rule as a list in the database and having
+general procedures to compare these rules with the input sentence. The
+procedures described below employ the latter approach. (In LIB GRAMMAR the
+first approach is used starting from lists of rules, the procedure SETUP
+creates parsing procedures for each non-terminal.)
+
+Now to work. We want a procedure, call it PARSE, which will take as arguments
+a non-terminal symbol like S or NP and a list of words, and try to match the
+definition of the symbol to some or all of the words in list. We require the
+procedure to return two things in a list: the 'parse tree' for the symbol and
+the list of words which remain unused. So we will try to get interactions
+like:
+
+    : parse("np", [each cat thanked john])=>
+    ** [[np [det each] [noun cat]] [thanked john]]
+        |------------------------| |------------|
+         Parse tree                 Unused words
+
+The idea is to use the PARSE procedure recursively, so that we start by
+calling:
+
+    : parse("s", [each cat thanked john]) =>
+
+whereupon PARSE will examine the grammar and find the rule
+
+    [s [np vp]]
+causing it to do another call of PARSE
+
+    : parse("np", [each cat thanked john]);
+
+and, if that's ok, another call of PARSE on the remainder of the sentence
+left by the NP call:
+
+    : parse("vp", [thanked john]);
+
+This returns:
+
+    [[vp [v thanked] [np [pn john]]] []]
+     |-----------------------------| ||
+      Parse tree                      Unused words
+
+When the "unused words" is the empty list that implies that the procedure
+managed to use all the words.
+
+We'll adopt the convention that when the result is FALSE, this is a sign that
+the appropriate words were not found in the list.
+
+To build the parse tree for the S symbol the top level call of PARSE just
+makes a 2-element list containing the 'sub-trees' returned by the NP and VP
+calls. At the front of this, it puts an S to show that the whole thing forms
+a sentence.
+
+The NP and VP calls of PARSE will themselves be carrying out the same
+procedure for their sub-symbols. Thus the overall result will be:
+
+    : parse("s", [each cat thanked john])=>
+    ** [[s [np [det each] [noun cat]] [vp [v thanked] [np [pn john]]]] []]
+        |------------------------------------------------------------| ||
+              Parse tree                                         Unused words
+
+i.e. the parse tree is for the whole sentence and there are no words left
+unused. For lists more complex than this, you will generally get a clearer
+printout if you use the pretty print arrow '==>'.
+
+If any call of the procedure PARSE is unsuccessful we'll make it return FALSE
+instead of the parse tree and remaining words.
+
+Notice how we've defined the task to be perfomed by PARSE without specifying
+exactly HOW it's to be achieved, except by the still vague suggestion that a
+recursive call will handle the sub-problems. This sort of 'top down' design
+strategy is often useful in developing a complex program. Now we can begin to
+fill in details. One important consideration is that in parsing a sentence,
+or other higher level structure, we have to use a grammatical rule which says
+that it may be composed of a sequence of other structures. E.g. a NP may be
+represented as [DET NOUN], or an S by [NP VP].
+
+So we need a procedure (call it TRYRULE) which will check the applicability
+of such a rule by finding successive instances of its components in the
+remaining unanalysed words of the given sentence. TRYRULE will do this by
+calling PARSE with each of the elements of the rule (e.g. "NP" then "VP") in
+turn. So TRYULE calls PARSE. Moreover, PARSE, in order to find an instance of
+a given non-terminal, will have to use the grammar to see how it can be
+expanded into a sequence of substructures (e.g. NP becomes [DET NOUN]), and
+to find instances of the sequence in the remaining words of the sentence it
+will have to use TRYRULE. Thus PARSE calls TRYRULE. I.e. the procedures are
+"mutually recursive".
+
+Remembering what we've defined the inputs and outputs of PARSE to be, we can
+specify the inputs and outputs of the procedure TRYRULE. It will take as
+input a single 'grammatical rule', or template, like [np vp] and a list of
+available words to match up to it. If successful it will return as its result
+a two-element list, containing: a list of parse trees (corresponding to
+elements of the rule), and a list of the words remaining to be parsed. E.g.
+
+    : tryrule([det noun], [the cat ate a hotel])=>
+    ** [[[det the][noun cat]] [ate a hotel]]
+        |-------------------| |-----------|
+         List of parse trees   Unused words
+
+TRYRULE simply goes through the symbols in the rule and tries to PARSE each
+one from the remaining words.
+
+    : define tryrule(rule, words) -> result;
+    :   vars subresult, subtree, symbol, trees;
+    :   [] -> trees;
+    :   for symbol in rule do
+    :       parse(symbol, words) -> subresult;
+    :       if subresult = false then
+    :           false -> result;
+    :           return
+    :       endif;
+    :       subresult --> [?subtree ?words];
+    :       [^^trees ^subtree] -> trees;
+    :   endfor;
+    :   [^trees ^words] -> result;
+    : enddefine;
+
+Notice that after successful calls of PARSE (in line 5), the variable WORDS
+will get a new value, by being given part of PARSE's result (the "unused
+words" bit) in line 10. This will be the words given to PARSE less any words
+used up by it (hence it must be smaller).
+
+Consistent with our modular 'top down' strategy for designing complex
+programs, we have defined TRYRULE to use PARSE, without having previously
+designed PARSE. We just hope we'll later be able to design a version of PARSE
+with the correct input-output properties. On the assumption that such a
+procedure is available, you should be able to convince yourself that TRYRULE
+will itself have the desired input-output properties. How can you do this?
+
+For each symbol in the grammar we have not just one rule, but often a list of
+them. For instance the part of our grammar:
+
+    [np [pn] [det noun]]
+
+says that there are two different ways of instantiating the non-terminal NP,
+i.e. two sorts of noun phrase: one which is a PN and one which is a DET
+followed by a NOUN. As it happens, all these non-terminals are defined in the
+lexicon. In general, some of the non-terminals introduced in rules will
+themselves have rules in the grammar. So there are two possible forms of NP,
+and no indication of which form will actually be present in any particular
+sentence to be analysed. Thus if TRYRULE fails to find the first sort of NP
+at a certain point in analysing the sentence, it should be possible to see if
+the second sort can be found. (By now you should be able to see a connection
+between this strategy and the depth-first searching introduced in the TOWER
+demo.)
+
+So we need a procedure TRYRULES to call TRYRULE for each rule of a list of
+rules, until one succeeds, or there are none left. The input should be a list
+of alternative ways of instantiating some non-terminal, e.g. a list of lists
+like:
+
+    [[pn] [det noun]]
+
+and a list of remaining words in the sentence, e.g.
+
+    [the cat on the wall]
+
+The output of TRYRULES when successful should be a list containing:
+
+    (1) the list of parse trees found for the items in the successful rule
+    (2) a list (possibly empty, ie []) of the remaining words
+
+When successful, the two element result will have been built by TRYRULE. See
+above. When all attempts have failed, TRYRULES gives up with result FALSE.
+
+    : define tryrules(rules, words) -> result;
+    :   vars rule, subresult;
+    :   for rule in rules do
+    :       tryrule(rule, words) -> subresult;
+    :       unless subresult = false then
+    :           subresult -> result;
+    :           return
+    :       endunless;
+    :   endfor;
+    :   false -> result;
+    : enddefine;
+
+Notice that TRYRULES calls TRYRULE with its initial WORDS and each rule in
+turn, until it finds one that returns a result that is not "false" (ie until
+it finds a rule that can be successfully used). If it finds a rule that can
+successfully account for some of the next words in WORDS, it immediately
+RETURNs, passing on the result that TRYRULE produced with that rule (a two
+element list). Otherwise, it eventually reaches the end of the list of rules
+and returns the value "false" to indicate that no rule will work. The result
+returned by the call to TRYRULE, if it isn't false, will be a two element
+list, as we saw before. The first element of this will actually be a list of
+the parse trees for the symbols in the rule. The second element will be the
+list of words left over after all the phrases relevant to the rule have been
+found at the start of WORDS.
+
+If you are familiar with the TOWER demo, you can compare TRYRULES roughly
+with the procedure NEXTSTATES. The difference is that NEXTSTATES produces a
+list of the next things to try, which is then stored in a list of remaining
+things to do, and the master program does them later. Here we've made
+TRYRULES actually attempt each alternative extension of the current state
+itself (using the other procedures to perform subtasks). It keeps track of
+its remaining options in the variable RULELIST which is shortened each time
+round the loop.
+
+We are now in a position to write the procedure PARSE itself. We assume that
+the grammar is stored in a global variable called GRAMMAR, and the lexicon in
+a global variable called LEXICON. (This could be avoided by making each of
+our procedures have extra input parameters for the grammar and lexicon to be
+used. Each procedure would pass them on to the rest. But our programs would
+then be more verbose.) Given a SYMBOL we have to look in the grammar for the
+relevant chunk, i.e. the list which starts with this symbol: the rest of that
+list will give the alternative templates for instantiating that symbol. So
+given the symbol S we might hope to find in GRAMMAR a list of the form
+
+    [S [NP VP] ....]
+
+with one or more alternative formats for an S (sentence). If the symbol
+cannot be found in the grammar, then it should be a 'lexical category name',
+like NOUN, so we can look for a corresponding entry in the LEXICON. We use
+MATCHES to dig into the GRAMMAR and the LEXICON looking for the SYMBOL and
+the items associated with it.
+
+Having found a set of alternative 'rules' specifying ways of instantiating
+SYMBOL we let TRYRULES search through them for one that works. It will also
+(see above) indicate which words from wordlist are left over, as well as
+returning a parse tree found.
+
+    : define parse(symbol, words) -> result;
+    :   vars rules, first, rest, subtrees, subwords, subresult;
+    :   if grammar matches [== [^symbol ??rules] ==] then
+    :       tryrules(rules, words) -> subresult;
+    :       if subresult = false then
+    :           false -> result
+    :       else
+    :           subresult --> [?subtrees ?subwords];
+    :           [[^symbol ^^subtrees] ^subwords] -> result;
+    :       endif;
+    :   elseif words matches [?first ??rest]
+    :           and lexicon matches [== [^symbol == ^first ==] ==]
+    :   then
+    :       [[^symbol ^first] ^rest] -> result;
+    :   else
+    :       false -> result;
+    :   endif;
+    : enddefine;
+
+PARSE first determines whether SYMBOL is in the grammar. If so it calls
+TRYRULES with the rules for this syntactic category. TRYRULES will return
+either 'false' it none of the rules were any good or else it will return a
+two element list (first element being a list of parse trees and the second
+being the remaining words). In the former case then PARSE is unsuccessful and
+returns false. In the latter case it must unpcak the result of TRYRULES and
+re-format it.
+
+If, however, SYMBOL is not in the GRAMMAR then PARSE looks for a LEXICON
+entry for the symbol and the first word of the list WORDS. If it cannot find
+to search among the alternative formats. If it is a lexical category, it
+checks that the next word appears under that category in the lexicon. If
+nothing works, the result is FALSE.
+
+There are some quite complicated patterns being matched in this procedure,
+and you should satisfy yourself that you understand the use of the following
+patterns:
+
+    [== [^symbol ??rules] ==]
+    [== [^symbol == ^word ==] ==]
+
+-- EXERCISE 2 ----------------------------------------------------------
+
+By looking at the definition and trying out the procedure on examples,
+work out and write down the answers to the following questions:
+
+(a) What kind of value is the result of PARSE when SYMBOL is:
+        a grammatical symbol?
+        a lexical symbol?
+
+(b) What kind of value does PARSE produce when no parse can be found?
+
+------------------------------------------------------------------------
+
+Now test these procedures with the small grammar and lexicon given above, or
+a modified version of your own:
+
+        [ ... ] -> grammar;
+        [ ... ] -> lexicon;
+        parse("s", [judith thanked the mouse])=>
+
+and try the same with the procedures PARSE, TRYRULES and TRYRULE traced.
+
+Although we can of course use PARSE 'at the top level' to parse any
+non-terminal, it's usually the case that we want to parse a sentence, i.e. an
+S. What's more we want the parse to account for every word in the sentence,
+i.e. we don't want any words left over at the end. I.e., the second element
+of the result of PARSE should be []. So we could write an additional
+procedure to do this for us:
+
+    : define sentence(words) -> tree;
+    :   vars subresult;
+    :   parse("s", words)  -> subresult;
+    :   unless subresult and subresult matches [?tree []] then
+    :       false -> tree
+    :   endunless
+    : enddefine;
+
+You can now go on and try the procedures with a more complicated grammar from
+the LIB GRAMMAR package, e.g. do
+
+        lib grammar;
+        grammar1 -> grammar;
+
+(LEXICON is set up by LIB GRAMMAR). You'll have to look at the grammar and
+lexicon to see what sentences are possible candidates for parsing.
+
+-- TOP DOWN vs BOTTOM UP -----------------------------------------------
+
+Right at the beginning of this demo, we said that we would be presenting a
+'top down' parser. You may well be wondering by now what this means, and why
+it is that PARSE and friends do indeed represent a 'top down' parser.
+
+There are basically two ways that one can go about constructing a structural
+description of a sentence. These two ways reflect whether one is focussing
+primarily on what might be in the description one is making, or if one is
+primarily on what is in the sentence. The first way of working is called "top
+down" parsing, whereas the second is called "bottom up".
+
+Let us look briefly at the mentality of a top down parser. A top down parser
+focuses on the GOALS that have been set. The first goal is to build a
+description of something with category S. The description will end up
+something like (in diagrammatic form):
+
+                S
+                |
+               ...
+
+What can such a description look like in detail? Well, the grammar gives
+various rules stating what kind of things can make an S. One possibility is
+that there is an NP followed by a VP. In this case, the description will
+actually be like:
+
+                S
+        *---------------*
+        |               |
+        NP              VP
+        |               |
+       ...             ...
+
+So the parser sets itself a new goal of finding an NP. If that is successful,
+it will then take on the goal of finding a VP. Looking at the rules for NP,
+maybe the first suggests that an NP could be a PN (proper noun). If this is
+so here, the tree will look like:
+
+                S
+        *---------------*
+        |               |
+        NP              VP
+        |               |
+        PN             ...
+        |
+       ...
+
+Now we have reached a terminal symbol (PN), and for the first time the parser
+consults the sentence being analysed, to see if the next word is indeed a PN.
+If not, it has to choose another rule for NP or S. If so, it continues, with
+the new goal to find a VP. All the time, the parser is picking rules and
+seeing if they will work. The motivation for picking a rule is always that it
+may help to satisfy some goal to find a particular kind of phrase in the
+sentence. The parser is constantly hypothesising possible structural
+descriptions, starting from the TOP of the tree and working DOWN to
+eventually see whether what it has hypothesised is consistent with the
+sentence.
+
+Let us now look at the mentality of a bottom up parser. A bottom up parser
+feels that it is no good hypothesising possible structural descriptions that
+bear no relation to what is in the sentence (as a top-down parser will
+occaisionally do). Instead, the thing to do is work from what is know and to
+see what follows from it. So if the sentence is:
+
+        the cat ate the canary
+
+the first thing that we may notice is that the first word is a DET and the
+second word a NOUN. Thus:
+
+    DET  NOUN
+     |    |
+    the  cat  ate the canary
+
+Given the sequence DET NOUN, we can recognise the presence of an NP. Hence:
+
+         NP
+     *--------*
+     |        |
+     DET      NOUN
+     |        |
+     the      cat   ate the canary
+
+We might now look at the word "ate" and discover that is is a VERB:
+
+         NP
+     *--------*
+     |        |
+     DET      NOUN  VERB
+     |        |     |
+     the      cat   ate  the canary
+
+and so on. At each stage, we are building up bigger structural descriptions
+from smaller ones that we have already obtained. Hopefully, we will end up
+with everything under an S at the end. In bottom up parsing, we are
+developing structural descriptions from the BOTTOM, working UPwards.
+
+So there are two basic ways of carrying out parsing. We might well ask -
+which is better? Different people have different opinions about this, and in
+fact many researchers use a mixture of the two, hoping to gain the advantages
+of both. It may seem from this brief description that bottom up parsing is
+better because there is no searching among possible rules, as occurs in top
+down parsing. However, this advantage disappears when we consider that a
+bottom up parser must make a choice at each stage which two (or more) phrases
+it is going to try and guess form the parts of a larger phrase.
+
+-- UNGRAMMATICAL INPUT -------------------------------------------------
+
+If a given sentence does not conform to the grammatical rules, then PARSE
+just returns false. This is, unfortunately, not very helpful - since it gives
+no indication as to what's wrong with the sentence. In general this is a very
+difficult problem: ideally, if there is only a small thing wrong with the
+sentence (e.g. one word omitted or mis-spelt) we would like a parser to be
+able to cope with this and produce the correct interpretation in the way that
+people often seem able to do. However, I think people are able to do this
+because they possess a sophisticated problem-solving apparatus which can be
+brought very quickly into play when the normal run-of-the-mill understanding
+process fails, and of course we can't hope to capture that here.
+
+-- EXERCISE 3 ----------------------------------------------------------
+
+Type the above procedures into a file and try them out with a little lexicon
+and grammar of your own. Produce some print-out with tracing, and write a
+brief commentary explaining what's happening. Hand this in. Is our parser
+doing a depth-first or a breadth-first search? Why? Also, why is this
+top-down, and not bottom-up parsing?
+
+-- EXERCISE 4 ----------------------------------------------------------
+
+Try adding the rule [np pp] to the rules for NP in the small grammar. PP is a
+category with rules as follows:
+
+        [pp [prep np]]
+
+and PREP is a lexical category including such words as "on", "above", "with".
+A phrase with category PP would be something like "on the moon". The complete
+rules for NP now look like this:
+
+        [np [pn] [np pp] [det noun]]
+
+Now try parsing "judith thanked the mouse" again, with the procedures traced.
+Don't sit there watching it for too long, because when it tries to parse "the
+mouse" it will just carry on forever (or rather it would if you didn't get a
+system error eventually). Can you explain why this happens? Can you think of
+a way of preventing it?
+
+-- EXERCISE 5 ----------------------------------------------------------
+
+With the grammar as in Exercise 4, try parsing "judith on the moon thanked
+the mouse". Make sure that all the words are in the lexicon first. You will
+find that PARSE (or PARSESENT) returns FALSE. Why?  What does this tell us
+about the way in which the different options for a rule must be organised
+with the parser as it stands?
+
+-- EXERCISE 6 ----------------------------------------------------------
+
+Try making up a grammar and lexicon for lexical numbers, i.e. things like
+"one hundred and forty two". The grammar might contain rules like
+
+        [below100 [tens digit] [tens] [digit] [teens]]
+
+and the lexicon things like
+
+        [tens twenty thirty forty ... ]
+        [digit one two three ... ]
+        [teens ten eleven twelve ... nineteen]
+
+Try to think how it might be possible to convert the parse tree produced by
+parsing something like "one hundred and forty two" to the actual number 142,
+i.e. how you might deal with the semantics.
+
+-- EXERCISE 7 ----------------------------------------------------------
+
+The above definitions will not cover the case where we wish to specify a
+terminal symbol in the middle of a grammatical rule. For instance, if we
+wanted to deal with phrases like "the mouse and judith", we might want to
+have rules something like:
+
+        [np [np and np] ...]
+
+(but perhaps changed in accordance with our conclusions in Exercise 4).
+Unfortunately, PARSE will only handle a non-terminal symbol as its first
+argument, and so the current program will not be able to deal with "and" in
+this rule (unlike the LIB GRAMMAR procedures). One solution would be to
+invent a lexical category CONJ (with just one word - "and"), and change the
+rules to:
+
+        [np [np conj np] ...]
+
+Another would be to alter PARSE to accept terminal symbols. Why not try that?
+
+-- SUGGESTED READING ---------------------------------------------------
+
+Terry Winograd
+    A Procedural Model of Language Understanding,
+    in "Computer Models of Thought and Language",
+    Edited by Roger Schank and Kenneth Colby,
+    Published by W. H. Freeman and Company.
+        (Other papers in this collection are also relevant: don't be afraid
+        to explore.)
+
+Ronald M. Kaplan,
+    On Process Models for Sentence Analysis,
+    in "Explorations in Cognition",
+    Edited by Donald A. Norman and David E. Rumelhart,
+    Published by W. H. Freeman and Company
+
+John Lyons,
+    Chomsky,
+    Fontana Modern Masters
+
+Patrick Winston,
+    Artificial Intelligence,
+    Published by Addison Wesley,
+        Second half of chapter two
+        and chapter on 'Augmented Transition Networks.
+
+You might also like to have a look at the demo AI.GRAMMAR, which presents
+some other possible parsing techiques.

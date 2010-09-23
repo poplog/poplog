@@ -1,0 +1,178 @@
+REF XT_APPCON                             Updated: Jason Handby Aug 1991
+                                         Updated: Adrian Howard Nov 1992
+
+       COPYRIGHT University of Sussex 1990. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<     APPLICATION CONTEXT     >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<      HANDLING ROUTINES      >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This REF  file details  the  procedures that  are  supplied by  the  two
+library packages LIB * XT_APPCON and LIB * FAST_XT_APPCON which  provide
+the the Pop-11 interface to the various X Toolkit Intrinsics related  to
+the handling of application contexts.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   LIB XT_APPCON
+
+  3   LIB FAST_XT_APPCON
+
+
+
+---------------
+1  Introduction
+---------------
+
+Each instantiation of an application  has a single application  context,
+used  to  store  information  particular  to  that  invocation  of   the
+application - for example, the  display connection(s) currently used  by
+the application.
+
+A single Poplog  process can  contain more  than one  logical X  toolkit
+application, and hence  multiple application  contexts. Partitioning  of
+application-specific data in this way theoretically avoids  applications
+interfering with each other.
+
+The library LIB * XT_APPCON provides the Pop-11 interface to the various
+X Toolkit Intrinsics  related to the  handling of application  contexts.
+The library LIB * FAST_XT_APPCON (loaded  automatically if you load  the
+library LIB * XT_APPCON) provides a  non-type checking interface to  the
+same procedures.
+
+The procedures provided allow the following functions to be performed:
+
+  o The creation of application contexts.
+  o The destruction of application contexts.
+  o Testing of a widgets application context.
+  o Define a default set of resource values for an application context.
+
+The  exact  structure  of  arguments  and  results  for  the   following
+procedures is as discussed in REF * XPT_TYPES.
+
+For more details about application contexts see chapter 2 of:
+
+For full details see section 2.4.4 of:
+
+               X Toolkit Intrinsics - C Language Interface
+                             X Window System
+                         X Version 11, Release 4
+
+        Copyright (C)  1985,  1986,  1987,  1988,  Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+
+
+----------------
+2  LIB XT_APPCON
+----------------
+
+XtCreateApplicationContext() -> appcontext                   [procedure]
+        Create a  new  application  context and  return  an  application
+        context record structure appcontext.
+
+
+XptCreateApplicationContext(name) -> appcontext              [procedure]
+        Creates a new application context appcontext with the given name
+        (which can be any Poplog item). The application context is  also
+        assigned to the variable XptCurrentAppContext.
+
+
+XtDestroyApplicationContext(appcontext)                      [procedure]
+        Destroy the application context appcontext as soon as it is safe
+        to do so.  If this  procedure is called  called from  a type  of
+        callback procedure the application context will not be destroyed
+        until the callback  has been completed.  This procedure is  also
+        the default destroy action for application context descriptors.
+
+        Destroying  an  application   context  will   destroy  all   its
+        associated displays. This  will in  turn cause  all the  widgets
+        associated with  the application  context to  be destroyed  (see
+        XtCloseDisplay.)
+
+
+XtWidgetToApplicationContext(widget) -> appcontext           [procedure]
+        Given  a  widget   widget,  returns   its  application   context
+        appcontext.
+
+
+XtAppSetFallbackResources(appcontext, stringlist)            [procedure]
+        When   a   display   connection    is   initialised,   and    no
+        application-specific resource file can  be found, the  resources
+        specified in stringlist  are used to  set the resource  database
+        for the application context  appcontext. This enables a  minimal
+        number of resources to be set that enables the application to be
+        used when, for some reason, the application defaults file cannot
+        be located.
+
+        If stringlist is false then  all fallback resources are  removed
+        from the application context appcontext.
+
+        Otherwise, stringlist  should  be a  NULL-TERMINATED  StringList
+        shadowclass structure, as  explained in  REF * XPT_GENERALTYPES.
+        Each string in stringlist should  form a name-value pair of  the
+        form 'NAME:VALUE'. For example, to set the fallback geometry  of
+        the  application  'Foo'  to  '100x100+2+3'  you  could  use  the
+        StringList returned by:
+
+            consXptStringList(#| 'Foo.geometry:100x100+2+2', false |#)
+
+        IMPORTANT NOTE: It  is the users  responsibility to ensure  that
+        stringlist  does  not  become   garbage  between  the  call   to
+        XtAppSetFallbackResources and the time when display  connections
+        are initialised.
+
+        Also   see    * XtDisplayInitialize,   * XtAppInitialize,    and
+        * XptDefaultFallbackResources
+
+
+
+
+---------------------
+3  LIB FAST_XT_APPCON
+---------------------
+
+fast_XtCreateApplicationContext() -> appcontext              [procedure]
+fast_XptCreateApplicationContext(name) -> appcontext         [procedure]
+fast_XtDestroyApplicationContext(appcontext)                 [procedure]
+fast_XtWidgetToApplicationContext(widget) -> appcontext      [procedure]
+fast_XtAppSetFallbackResources(appcontext, stringlist)       [procedure]
+        As for the procedures in LIB * XT_APPCON, but without checks for
+        valid arguments  and no  coercion from  Pop-11 lists/vectors  to
+        ArgList structures.  These procedures  should  only be  used  in
+        fully debugged programs. See REF * XTOOLKIT for full details  of
+        the Poplog X  naming conventions for  non-checking and  checking
+        procedures.
+
+
+XptImportApplicationContext(exptrclass) -> appcontext        [procedure]
+-> XptImportApplicationContext(appcontext) -> appcontext
+        Given  an   external  pointer-class   record  to   an   external
+        application context structure, return  an appcontext record  for
+        it (creating a new one if necessary). If the external pointer is
+        null, then <false> is returned.
+
+        The argument given to the updater can either be: an  application
+        context record, which  it returns unchanged;  or <false>,  which
+        causes a null external pointer  to be returned. This allows  the
+        procedure to  be  used  as  a conversion  procedure  in  a  type
+        specification (see REF * DEFCLASS).
+
+
+XptCurrentAppContext -> appcontext or false                   [variable]
+        Contains the last  application context created,  or false if  no
+        application context  has so  far  been created.  Destroying  the
+        application context  held  in  XptCurrentAppContext  will  cause
+        XptCurrentAppContext to be reset to false.
+
+
+
+--- C.x/x/pop/ref/xt_appcon
+--- Copyright University of Sussex 1990. All rights reserved.

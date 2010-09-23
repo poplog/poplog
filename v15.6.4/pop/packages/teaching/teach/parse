@@ -1,0 +1,319 @@
+TEACH PARSE                                   Steven Hardy, November 1977
+                                              Revised A.Sloman Nov. 1989
+
+                        PARSING NATURAL LANGUAGE
+                        ========================
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- Design for a parser
+ -- Defining np
+ -- Defining qnoun
+ -- Simplifying the programs by defining "parse"
+ -- Going beyond a "bracketer" for sentence sub-structures
+ -- Making the grammar more restrictive
+ -- Further Reading
+
+-- Introduction -------------------------------------------------------
+
+This teach file sketches out a simple 'top down' parser for a subset of
+sentences of a very simplified version of English. It is based in part
+on the ideas in TEACH GRAMMAR, and is intended to help the reader
+understand Terry Winograd's SHRDLU system.
+
+
+The procedure -generate- illustrated in TEACH GRAMMAR generates random
+sentences. Wherever the grammar offers a choice to the sentence
+generator, -generate- picks one at random. Obviously, we don't do this in
+normal conversation; the choices we make are constrained by what we want
+the final sentence to mean.
+
+A parser is a program that takes in a sentence and produces a
+description of the sentence in terms of the grammatical sub-structures
+used in the sentence.
+
+One justification for designing a parser is the assumption that when we
+hear a sentence we should try to discover the sequence of syntactic
+choices it represents as these ought to help us discover the 'meaning'
+of the sentence.
+
+One way to study this 'parsing' would be to write a program that
+works like -generate- in reverse. I.e. the new program should use a
+finished sentence as a guide, and analyse its structure, rather than
+make random choices. For example:
+
+    [the big man loved a happy girl] -> input;
+    sentence() =>
+    ** [[the [big man]] [loved [a [happy girl]]]]
+
+In some cases it may be possible to analyse the sentence in two
+different ways, with different meanings corresponding to them. E.g.
+should
+
+    [they are eating apples]
+
+be analysed as
+
+    [[they] [are] [eating apples]]  (i.e. the apples are for eating)
+
+or as
+
+    [[they] [are eating] apples]]  (i.e. the people are eating apples)
+
+It may not be possible to decide between two such analyses on the basis
+of grammatical rules alone. However, this kind of ambiguity will be
+ignored in what follows.
+
+-- Design for a parser ------------------------------------------------
+
+The parser described below has the following properties:
+
+1) Each syntactic class, like NP and QNOUN, has a separate parsing
+procedure associated with it.
+
+2) These procedures 'read' an instance of the appropriate class from the
+INPUT and return a suitable bracketed representation of that instance
+
+3) If they are unable to do this (perhaps because the INPUT is
+syntactically incorrect) the parsing procedures are to leave the INPUT
+untouched and return FALSE.
+
+We will find it useful to have a procedure to READ a word from the
+INPUT:
+
+    define read() -> result;
+        if input = [] then
+            false -> result
+        else
+            hd(input) -> result;
+            tl(input)-> input
+        endif
+    enddefine;
+
+Notice that this uses -input- as a NON-LOCAL variable. In general this
+is a dangerous thing to do, as it can lead to unexpected interactions
+between programs. There are techniques for reducing this sort of
+interaction by using "sections" (HELP * SECTIONS) or "lexical" scoping
+of variables (HELP * LEXICAL). However, explaining these techniques
+would be a distraction here, so the problem is ignored in this file.
+
+We can now use the procedure -read- to parse, say, an adjective:
+
+    define adj() -> result;
+    vars saved, temp;
+        ;;; Save the input in case it has to be restored
+        input -> saved;
+        false -> result;
+        read() -> temp;
+        if member(temp, [big happy ...]) then
+            temp -> result
+        endif;
+        unless result do
+            ;;; If result is false, -adj- has failed, so restore input
+            saved -> input
+        endunless
+    enddefine;
+
+This must look horrific - need the procedure really be so complicated?
+The straightforward answer is 'no' because I've made the procedure fit
+a general pattern thus:
+
+    define name() -> result;
+        <save current input in case things go wrong>
+        <assume parse will be unsuccessful>
+        <read some components>
+        <if all okay set up successful result>
+        <but if failed then restore input>
+    enddefine;
+
+-- Defining np --------------------------------------------------------
+
+Using these conventions we could also write a program to parse a
+noun phrase:
+
+    define np() -> result;
+    vars saved, t1,t2;
+        input -> saved;
+        article() -> t1;
+        qnoun() -> t2;
+        if t1 and t2 then
+            [^t1 ^t2] -> result
+        endif;
+        unless result do
+            saved -> input
+        endunless;
+    enddefine;
+
+Notice that this procedure wastefully tries to parse a QNOUN even if it
+failed to parse an ARTICLE.
+
+-- Defining qnoun -----------------------------------------------------
+
+The QNOUN procedure is a little tricky to write since there are two
+alternatives for a qualified noun:
+
+    define qnoun() -> result;
+    vars saved, t1,t2;
+        input -> saved;
+        noun() -> t1;
+        if t1 then
+            t1 -> result
+        else
+            saved -> input;
+            adj() -> t1;
+            if t1 then
+                qnoun() -> t2;
+                if t2 then
+                    [^t1 ^t2] -> result
+                endif
+            endif
+        endif;
+        unless  result then
+            saved -> input
+        endunless
+    enddefine;
+
+This procedure tries its first alternative (a noun); if that succeeds
+all is well otherwise QNOUN resets the input (unnecessarily in this case)
+and tries its second alternative.
+
+-- Simplifying the programs by defining "parse" -----------------------
+
+I don't really like the above programs - they are far too long and
+complicated. Perhaps we could simplify them a bit by putting some of the
+common code to a separate procedure, thus:
+
+    define parse(type) -> result;
+    ;;; The input "type" is a procedure that should parse a certain
+    ;;; type of word, phrase, clause, etc
+    vars saved;
+        input -> saved;
+        false -> result;
+        type() -> result;
+        unless result then
+            saved -> input
+        endunless
+    enddefine;
+
+We can use this procedure to rewrite our qualified noun recognizer:
+
+    define qnoun() -> result;
+    vars t1 t2;
+        parse(noun)-> result;
+        if result then return endif;
+        saved -> input;
+        parse(adj) -> t1;
+        unless t1 then return endunless;
+        parse(qnoun) -> t2;
+        unless t2 then return endunless;
+        [^t1 ^t2] -> result;
+    enddefine;
+
+Here is the procedure to parse noun phrases:
+
+    define np() -> result;
+    vars t1, t2;
+        parse(article) -> t1;
+        unless t1 then return endunless;
+        parse(qnoun) -> t2;
+        unless t2 then return endunless;
+        [^t1 ^t2] -> result
+    enddefine;
+
+Notice that this version of NP is 'cleverer' than before - it 'gives up'
+straightaway if it doesn't find an ARTICLE.
+
+-- Going beyond a "bracketer" for sentence sub-structures -------------
+
+By now you ought to have an idea of how to complete a 'bracketer' for
+simple English sentences. However, a good parser can do more than this
+one task.
+
+E.g. try modifying the definition of -adj- so that instead of
+simply returning the adjective found, parse(adj) returns a list
+containing the adjective preceded by the label, adj, e.g.
+
+    parse(adj) =>
+    [adj red]
+
+Similarly parse(noun) should return structures like [noun man].
+
+Then you can modify qnoun so that it returns structures like
+    [qnoun [adj big] [qnoun [noun man]]]
+    [qnoun [adj big] [qnoun [adj old] [qnoun [noun man]]]]
+
+E.g. explore the following possibility:
+
+    define qnoun() -> result;
+    vars t1 t2;
+        parse(noun)-> result;
+        if result then
+            [qnoun ^result] -> result;
+            return
+        endif;
+        saved -> input;
+        parse(adj) -> t1;
+        unless t1 then return endunless;
+        parse(qnoun) -> t2;
+        unless t2 then return endunless;
+        [qnoun ^t1 ^t2] -> result;
+    enddefine;
+
+What kind of structure will this produce for "the big old man"
+
+-- Making the grammar more restrictive --------------------------------
+
+In TEACH GRAMMAR, it is suggested that it may be possible to modify the
+grammar to prevent silly sentences being accepted as grammatical. How
+might you prevent sentences like this being accepted?
+
+    the tiny ant lifted the big red small lorry
+
+Could this be done by adding "features" to grammatical structures
+and requiring features to match up properly?
+
+Here are some suggestions to explore.
+
+We ought to give the parsing procedures a list of expected features and
+expect back a list of actual features. Some check on these not being
+inconsistent should be made, for example the word ANT could have
+features:
+
+    [[type noun] [class animate] [strength low]]
+
+LORRY might be
+
+    [[type noun] [class inanimate] [weight high]]
+
+The verb LIFT might have associated with it some advice to the effect
+that the STRENGTH of its subject ought to 'match' the WEIGHT of its
+object.
+
+If this is too hard we ought, at last, to expect the various adjectives
+in a noun phrase to not have contradictory features. For example knowing
+that BLUE has property [COLOUR BLUE] and RED has [COLOUR RED] ought to
+stop our parser accepting THE RED BLUE BALL.
+
+This discussion of parsing has completely omitted any mention of what
+one ought to do with ungrammatical input. This is obviously a problem
+since, in practise, much of what we hear is ungrammatical. Enabling a
+parser to do something sensible with it is a hard problem.
+
+
+-- Further Reading ----------------------------------------------------
+
+TEACH * GRAMMAR
+TEACH * ISASENT
+TEACH * PARSESENT
+TEACH * TRANSSENT
+TEACH * PARSING
+HELP * FACETS
+    Explains a library program for associating meanings with
+    substructures in a sentence.
+HELP * TPARSE
+    Describes a library program that can find all the different ways of
+    parsing a sentence in accordance with a given grammar.
+
+--- C.all/teach/parse ------------------------------------------------
+--- Copyright University of Sussex 1990. All rights reserved. ----------

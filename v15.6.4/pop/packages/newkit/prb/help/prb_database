@@ -1,0 +1,328 @@
+HELP PRB_DATABASE                                  Aaron Sloman Feb 1997
+
+This file provides information and advice for users who are already
+familiar with the ordinary Pop-11 database and are now switching to
+using LIB POPRULEBASE. This file enlarges on the information provided in
+
+    HELP * POPRULEBASE
+    TEACH * RULEBASE
+    TEACH * POPRULEBASE
+
+CONTENTS
+
+ -- Pop-11 Database procedures don't work with the Poprulebase database
+ -- More detailed information
+ -- Improved efficiency of database searches
+ -- How pattern formats affect efficiency
+ -- Procedures for use with prb_database
+ -- How to replace foreach
+ -- How to replace remove
+ -- How to access the database after prb_run has finished
+ -- -- Another version of the same problem
+ -- Transforming the database before starting prb_run
+
+-- Pop-11 Database procedures don't work with the Poprulebase database
+
+If you are accustomed to using the Pop-11 database, as described in
+TEACH DATABASE, TEACH RIVER2, HELP DATABASE, TEACH DATATHINK, and
+others, then you need to be warned that the database that you are
+accustomed to is different from the one used by LIB POPRULEBASE.
+
+The main difference is that the normal database is a single list of
+database entries (each of them a list), whereas in POPRULEBASE a more
+complex structure is used based on a type of structure implemented as a
+Pop-11 property. (See HELP * NEWPROPERTY, REF * PROPS)
+
+This property provides a mapping from keywords to database entries which
+allows a single long list to be replaced by many short lists.
+
+If used carefully, that will make some programs run much faster.
+
+Unfortunately this means that the following ordinary database facilities
+cannot be used in connection with the Poprulebase database:
+
+Procedures:
+    add, remove, present, allpresent, alladd, flush, which
+
+Looping syntax forms
+    foreach
+    forevery
+
+Global variables
+    database
+    it
+    them
+
+WARNING:
+    prb_present will not work like present for reasons explained
+    in HELP * POPRULEBASE/prb_present
+    Instead you should use prb_in_database
+
+-- More detailed information ------------------------------------------
+
+In Poprulebase the database is not a single list of lists, but is stored
+in a Pop-11 property, held in the global variable prb_database, which is
+local to the procedure prb_run.
+
+In this property all the database entries that start with the same item
+are in a single list associated with that item, whereas entries starting
+with different items are in different lists.
+
+Thus suppose you had an ordinary Pop-11 database of the form
+
+    [[on block1 block2]
+     [on block3 block4]
+     [on block4 table]
+     [colour block1 red]
+     [colour block2 red]
+     [colour block3 blue]
+     [colour block4 green]
+     [size block1 small]
+     [size block2 medium]
+     [size block3 large]
+     [size block4 small]] -> database;
+
+Then all entries would be in a single list containing 11 items.
+
+In poprulebase, however, this would be broken up into three different
+smaller lists, indexed in the property prb_database, by different
+keywords, i.e. "on", "colour", and "size".
+
+The first list, indexed by the word "on", would be
+    [[on block1 block2]
+     [on block3 block4]
+     [on block4 table]]
+
+The second list, indexed by the word "colour", would be
+    [[colour block1 red]
+     [colour block2 red]
+     [colour block3 blue]
+     [colour block4 green]]
+
+The third list. indexed by the word "size", would be
+    [[size block1 small]
+     [size block2 medium]
+     [size block3 large]
+     [size block4 small]]
+
+So, for example prb_database("colour") would return the second list.
+(Note, depending on the implementation details, which may change, the
+list may be in a different order.)
+
+-- Improved efficiency of database searches ---------------------------
+
+In general, if you know the initial keyword of a database entry, or
+class of entries, then searching for it (them) in prb_database will
+require looking through a shorter list than if you stored them all in
+one large database list.
+
+In the example above each list would have only three or four items
+instead of a list of 11 items. For much bigger databases the saving can
+be very much greater.
+
+-- How pattern formats affect efficiency ------------------------------
+
+This saving is obtained only if your search patterns start with a
+constant item, not a variable.
+
+So this pattern would search through only a small subset of entries:
+
+    [on block1 ?block]
+
+whereas this pattern
+
+    [?property block4 ?value]
+
+will have to search through the whole collection of lists since it
+starts with a variable, and therefore the database searching mechanisms
+cannot tell which sublist is required.
+
+It therefore searches all the sublists, though not in a predictable
+order.
+
+This means that unlike the ordinary Pop-11 database, LIB POPRULEBASE
+does not guarantee that the last item added to the database will be the
+first one found.
+
+
+-- Procedures for use with prb_database -------------------------------
+
+Because the ordinary Pop-11 database procedures assume that the database
+is a single list, they will not work with prb_database, which is a
+property containing multiple lists.
+
+So, instead of existing procedures you have to use new ones. Full
+details of procedures available in Poprulebase as provided in
+HELP POPRULEBASE. This table summarises the main points.
+
+    OLD DATABASE            POPRULEBASE              ALTERNATIVE
+    PROCEDURE               PROCEDURE
+
+    add(item)               prb_add(item)
+    alladd(entrylist)       none                    applist(entrylist, prb_add)
+
+    remove(pattern)         prb_flush1(pattern)
+    flush(pattern)          prb_flush(pattern)
+
+    present(pattern)        prb_in_database(pattern)
+     returns true or false   returns entry or false
+
+    allpresent(patternlist) prb_allpresent(patternlist)
+                             returns false or list of items
+
+    null(database)          prb_empty(dbtable)
+
+    lookup(pattern)         none
+
+
+Additional procedures
+
+prb_remove_all(list_of_patterns) -> found
+
+    Removes all the items from prb_database that matches any of the
+    patterns in the list, and returns a list of them.
+
+
+-- How to replace foreach ---------------------------------------------
+
+Alas, at present, there is no nice syntactic form corresponding to
+    foreach <pattern> do <actions> endforeach;
+
+The closest thing is the following, where proc is a procedure
+
+    prb_foreach(pattern, proc);
+
+    Apply proc for every match between pattern and a database item
+    (Compare * foreach and * database)
+
+The procedure is invoked for each matching instance of the pattern in
+the databse (like the body of the foreach loop). If variables are bound
+in the pattern, they can be used in the procedure provided that they are
+not local to the procedure. (They should be declared with the
+appropriate scope.)
+
+So, roughly, replace
+
+    foreach <pattern> do
+
+with
+    prb_foreach(<pattern>,
+        procedure;
+
+and
+    endforeach
+with
+    endprocedure)
+
+except that quitloop and nextloop will no longer work. Instead you have
+to use return for nextloop and exitfrom(prb_foreach) for quitloop.
+
+Also instead of "it" use "prb_found".
+
+prb_foreach is defined in terms of the more general prb_match_apply,
+which may be useful.
+
+Replacing forevery with prb_forevery is even more complicated,
+unfortunately. This is because of the variety of forms of conditions it
+allows.
+
+
+-- How to replace remove ----------------------------------------------
+
+As remove cannot be used, alternatives are provided.
+
+There are two sorts of Rule actions that can be used to remove database
+items, i.e.
+
+    [NOT ...]
+    [DEL ...]
+
+These are both described in HELP * POPRULEBASE
+
+If you want to run Pop-11 code to remove things, e.g. in a rule's
+action, then one of the following should suffice (described in
+    HELP POPRULEBASE)
+
+prb_flush(pattern)
+    Removes all database entries that match the pattern
+
+prb_flush1(pattern)
+    Removes the first found database entry that matches the pattern.
+    (NB this is not necessarily the most recently added entry that
+    matches the pattern).
+
+prb_remove_all(list_of_patterns) -> found
+    Removes all entries that match any of the patterns. Returns a list
+    of all the entries removed from the database.
+
+
+
+-- How to access the database after prb_run has finished --------------
+
+Here is a question asked by a user
+
+> How can I get hold of the current status of the database after the
+> program has finished ?
+
+Search for "prb_finish" in TEACH POPRULEBASE and HELP POPRULEBASE.
+
+Here is an extract from the former file:
+
+The procedure prb_run does not produce any results. However it may
+internally alter the database it is given or the ruleset. So users may
+wish to have access to the final values of prb_rules and prb_database.
+
+This is achieved using the procedure prb_finish, which takes two
+arguments, and by default does nothing, but which can be made to store
+them somewhere, or even to leave them on the stack. If you redefine it
+remember that it is invoked in this form:
+
+     prb_finish(rules, database)
+
+For example, if you want it to print out the final database, you could
+define it thus:
+
+define prb_finish(rules, database);
+    lvars rules, database;
+
+    prb_print_table(database)
+
+enddefine;
+
+Alternatively use the following print command inside prb_finish.
+
+    prb_print_database();
+
+This uses the fact that while prb_run is active the global variable
+prb_database refers to the current database.
+
+
+-- -- Another version of the same problem
+
+> After prb_run has finished, this prints out an empty list
+>   prb_print_database();
+
+You have to invoke it before prb_run exits, e.g. in prb_finish. That's
+because the variable holding the database is local to prb_run, so that
+it can be used with various databases.
+
+-- Transforming the database before starting prb_run ------------------
+
+Another solution is to transform the database to a property before you
+give it to prb_run.
+
+prb_newdatabase( hashlen, items ) -> newdb
+    Given an integer, for a property table size and a default list of
+    database items return a new database containing the items.
+
+The integer can correspond roughly to the number of keys (i.e. the
+number of different first items in the lists in the database).
+
+If you give the property as argument to prb_run, then it can be changed
+by the rules. After prb_run has finished you can examine the database,
+in various ways (the most primitive is appproperty, decribed in
+REF PROPS).
+
+
+--- $poplocal/local/prb/help/prb_database
+--- Copyright University of Birmingham 1997. All rights reserved. ------

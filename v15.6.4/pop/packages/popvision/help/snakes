@@ -1,0 +1,331 @@
+HELP SNAKES                                     David Young
+                                                February 1995
+
+LIB * SNAKES provides facilities for demonstrating and experimenting
+with active contour models.  It does not provide an implementation
+suitable for serious applications, because the range of energy functions
+is limited and the optimisation procedure is very simple.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Algorithm and energy function
+
+  2   Procedures and data structures
+
+  3   Example
+
+-----------------------------------------------------------------------
+1  Algorithm and energy function
+-----------------------------------------------------------------------
+
+The snakes provided by this package may be regarded as consisting of
+straight line segments connecting the control points. They form loops,
+so have no ends.
+
+The algorithm is gradient descent: at each iteration, each control point
+moves in the direction of the local gradient of the energy function -
+that is, it responds to the local force - without taking account of the
+motions of neighbouring points. (More sophisticated algorithms do this.)
+The step size must therefore be made quite small.
+
+The internal force, implemented in snake_adjust, has three components.
+
+Fballoon is a expansion force which pushes neighbouring points away from
+one another. Its X and Y components are given by
+
+    FballoonX = (Yi+1 - Yi-1)
+
+    FballoonY = (Xi-1 - Xi+1)
+
+where (Xi, Yi) are the coordinates of the i'th control point of the
+snake, and i is taken modulo the number of points in the snake so that
+it wraps round. This will cause expansion provided the control points
+are numbered clockwise in image coordinates.
+
+Fstring is the "rubber band" force which pulls neighbouring points
+closer together. Its X and Y components are given by
+
+    FstringX  =  (Xi+1 - Xi) + (Xi-1 - Xi)
+
+    FstringY  =  (Yi+1 - Yi) + (Yi-1 - Yi)
+
+Fplate is the "thin plate" force which resists bending, and is given by
+
+    FplateX  =  - Xi-2 + 4 * Xi-1 - 6 * Xi + 4 * Xi+1 - Xi+2
+
+with a similar equation in Y.
+
+The external or image force, Fext, must be determined by the user, but
+is typically given by the gradient of some image quantity. The total
+adjustment made to a control point on an iteration is
+
+    DeltaX = eta*FballoonX + alpha*FstringX + beta*FplateX + gamma*FextX
+
+with a similar equation in Y, where eta, alpha, beta and gamma are
+user-supplied constants that determine the relative effects of the three
+forces, and the total movement.
+
+Because the algorithm is so simple, instabilities can develop, and the
+constants, particularly beta, need to be small.
+
+
+-----------------------------------------------------------------------
+2  Procedures and data structures
+-----------------------------------------------------------------------
+
+
+snake                                                         [datatype]
+        This is a  3-element record, with  accessors snake_len,  snake_x
+        and snake_y. The first  of these returns  the number of  control
+        points. The other two return circular lists containing the X  or
+        Y coordinates of the  control points. Its class_print  procedure
+        is defined so  that these circular  lists are printed  correctly
+        when the whole record  is printed, but an  attempt to print  the
+        individual lists will result in unterminated recursion.
+
+
+get_snake(image, n, step, line_col, point_col, window)       [procedure]
+                -> (snake, window)
+        This obtains a snake by interaction  with a user. The user  must
+        be at a graphics terminal that can be driven by *rci_show. After
+        this procedure is called,  the user must draw  the snake in  the
+        window using the mouse, clicking the left button to start and to
+        indicate each corner, and the right button to finish. Drawing is
+        done using rc_mouse_draw (see * RC_GRAPHIC). rci_show_scale  may
+        be used to change the scale at which the drawing is to be done.
+
+        image is an array containing only numbers, which is displayed in
+        the window where the mouse is to be drawn.
+
+        n is  the number  of control  points the  snake is  to have,  or
+        <false>. If n is  <false> and step is  non-false, there will  be
+        enough control points to give an average spacing between them of
+        step pixels. If both n and  step are <false>, there will be  one
+        control point for each button click.
+
+        line_col and point_col are strings giving the colours to be used
+        for drawing  the  lines  and the  control  points  respectively.
+        window may be a graphics window (e.g. as returned by  *rci_show,
+        or rc_window after a call to rc_start), in which case it is used
+        for the display and  returned, or <false>, in  which case a  new
+        window is created, displayed, and returned.
+
+        The result  snake is  a  snake record.  The coordinates  of  its
+        control points are correctly related to the array coordinates of
+        image. The result  window is the  window that was  used for  the
+        graphics operations.
+
+
+coords_to_snake(n) -> snake                                  [procedure]
+        This converts a set  of coordinates into  a snake record  with n
+        control points. There must be 2*n numbers on the stack before it
+        is called, in the order x1, y1, x2, y2, x3, y3, ..., xn, yn. For
+        example
+
+            coords_to_snake(1, 1, 1, 3, 3, 3, 3, 1, 4) -> snake
+
+        makes a square snake with a control point at each corner.
+
+
+interp_snake(snake, nnew, stepnew) -> newsnake               [procedure]
+        This interpolates between the control points of snake to  make a
+        new snake with (usually) more control points, evenly spaced.  If
+        nnew is non-false, newsnake will  have nnew control points  (and
+        stepnew is ignored). If nnew is <false>, then stepnew must  be a
+        number, and  newsnake's  control  points will  be  separated  by
+        approximately stepnew pixels from their neighbours.
+
+
+display_snake(snake, image, line_col, point_col, window)     [procedure]
+                -> window
+        This draws  snake, with  colours line_col  and point_col  as  in
+        get_snake.
+
+        If window is not a live graphics window (e.g. it is  <false>), a
+        new window is created, and if image is an array it is  displayed
+        before drawing the snake. image may instead be a boundslist-type
+        specification of a region, which  is treated like an array  with
+        this boundslist but containing no  data (i.e. a blank window  is
+        made). The coordinate system is  set so that control points  are
+        plotted on top of the corresponding elements of image.
+
+        If window is a live graphics  window, the snake is displayed  in
+        it. image must again be either an array or a list, but it is not
+        displayed, so that multiple snakes  can be drawn in one  window.
+        The image argument is used to set the window coordinate  system,
+        so it  should  normally  be  an  array  that  has  already  been
+        displayed in the window, usually using *rci_show.
+
+        The result is the window in which the snake was drawn - either a
+        new one or the one passed in as an argument.
+
+
+snake_imforce(x, y, image) -> (fx, fy)                       [procedure]
+        This returns the gradient of the image at the pixel (x, y). This
+        is useful as  an external  force for  the snake.  The result  is
+        given by
+
+            fx = image(xr + 1, yr) - image(xr - 1, yr)
+
+        where xr and yr are x and y rounded to the nearest integer,  and
+        with a similar equation for fy.
+
+        If x and y  are such that  if the subscripts  to image would  be
+        invalid (i.e.  the  control point  is  outside the  image),  the
+        values returned give the correct adjustment to bring the control
+        point back to the  edge of the image,  if there are no  internal
+        forces. This takes account of the value of gamma in the  current
+        call to  adjust_snake.  This value  is  also available  to  user
+        routines that need to do the same thing via the global  variable
+        snake_gamma.
+
+
+snake_gamma                                                   [variable]
+        Dynamically localised to the value of the gamma argument  during
+        a call to  adjust_snake, so that  external force procedures  can
+        get at  it  to deal  with  emergency situations  such  as  going
+        outside array bounds.
+
+
+snake_nullforce(x, y) -> (0, 0)                              [procedure]
+        This ignores its arguments and  returns two zeros. It is  useful
+        when no external force is wanted for a snake.
+
+
+adjust_snake(snake, eta, alpha, beta, gamma, extforce)       [procedure]
+                        -> (newsnake, adj)
+adjust_snake(snake, alpha, beta, gamma, extforce) -> (newsnake, adj)
+adjust_snake(snake, beta, gamma, extforce) -> (newsnake, adj)
+adjust_snake(snake, gamma, extforce) -> (newsnake, adj)
+        This carries  out one  step of  gradient descent.  snake is  the
+        input snake  record,  and  eta, alpha, beta  and  gamma  control
+        the elastic, bending and external  force contributions as
+        described above. Omitted parameters default to 0.
+
+        extforce is a procedure  of two arguments, returning  two
+        results, thus:
+
+            extforce(x, y) -> (fx, fy)
+
+        where x and y are the coordinates of a control point and fx  and
+        fy  are  the   external  force  on   this  point.  Closures   of
+        snake_imforce on arrays are suitable  for use as this  argument.
+        If other procedures  are used  for extforce they  must check  in
+        case an array is called with invalid subscripts; they can access
+        the current value of gamma via the global snake_gamma.
+
+        The result  newsnake  is  a  new  snake  record  containing  the
+        adjusted control point  positions. The  result adj  is a  number
+        giving the  root-mean-square  adjustment  made  to  the  control
+        points.
+
+
+evolve_snake(image, snake, eta, alpha, beta, gamma,          [procedure]
+                line_col, point_col, minadj, maxiter,
+                display_image, window) -> newsnake
+evolve_snake(image, snake, alpha, beta, gamma, ...
+evolve_snake(image, snake, beta, gamma, ...
+evolve_snake(image, snake, gamma, ...
+        This carries  out repeated  iterations on  a snake  in a  single
+        image, until one  of two  stopping criteria  is met,  optionally
+        displaying the evolving snake.
+
+        If image  is an  array, it  is  taken to  provide data  for  the
+        external force  field: in  calls  to adjust_snake  the  extforce
+        argument is  snake_imforce(%image%).  Otherwise, if  image  is a
+        procedure, it is  taken be  the extforce argument.  If image  is
+        anything else, no external forces are applied to the snake.
+
+        snake, eta, alpha, beta, gamma and newsnake are as for
+        adjust_snake, and line_col and point_col are as for
+        display_snake.
+
+        minadj and maxiter determine when iteration stops. This will  be
+        when either the root-mean-square control point adjustment  falls
+        belwo minadj or the number of iterations gets to maxiter.
+
+        If the  snake  is  being  drawn  as  it  evolves,  display_image
+        controls placement of it in  the window. It should therefore  be
+        the same as an array that has already been displayed in  window,
+        or a 4-element boundslist-type specification used to set up  the
+        window. The  data  in  display_image is  not  itself  displayed.
+        display_image may often be the same as image, but this will  not
+        always be the case,  as when a gradient  array is being used  to
+        drive the snake but display is to be over the original image.
+
+        If window is a live  graphics window, as returned by  *rci_show,
+        display_snake or get_snake,  the snake  will be drawn  in it  at
+        each iteration. Otherwise, no drawing is done (so giving  window
+        as <false> has a different meaning from in display_snake.)
+
+
+-----------------------------------------------------------------------
+3  Example
+-----------------------------------------------------------------------
+
+Get some libraries loaded and read in an image:
+
+    uses popvision
+    uses snakes
+    uses sunrasterfile
+    uses convolve_gauss_2d
+    vars image = sunrasterfile(popvision_data dir_>< 'clock.ras');
+
+Look at the image, then smooth it slightly for driving the snake:
+
+    rci_show(image) -> ;
+    convolve_gauss_2d(image, 2.0, false) -> image;
+
+Here's a snake I made earlier:
+
+    vars snake;
+    coords_to_snake(
+    240,90,255,85,271,85,282,96,288,110,283,126,289,140,284,156,283,171,283,
+    186,271,196,255,198,240,194,231,184,233,168,226,154,218,140,214,125,216,
+    109,225,96, 20) -> snake;
+
+But it has only 20 control points - increase that to 50:
+
+    interp_snake(snake, 50, false) -> snake;
+
+and display it on the smoothed image:
+
+    vars window = false;
+    display_snake(snake, image, 'red', 'yellow', window) -> window;
+
+Carry out one iteration and see its effect; eta and beta are zero so the
+only internal force is the rubber band contraction; gamma is negative
+which makes the snake want to stay on or move towards dark parts of the
+image:
+
+    vars adj;
+    adjust_snake(snake, 0.2, 0, -0.2, snake_imforce(% image %))
+            -> (snake, adj);
+    display_snake(snake, image, 'red', 'yellow', window) -> window;
+
+You can repeatedly execute the last section to drive the snake inwards,
+or do it with less effort with
+
+    evolve_snake(image, snake, 0.4, 0, -0.05, 'purple', 'green',
+            0.1, 100, image, window) -> snake;
+
+The snake shrinks until it is stopped by the relatively  bright clock
+and street light - moving onto these would increase its energy. To look
+at the final position, do
+
+    rci_show(image, window) -> window;
+    display_snake(snake, image, 'red', 'yellow', window) -> window;
+
+To get a new snake to try, execute the next piece of code, then put the
+cursor in the image window and click with the left mouse button on
+successive positions, finishing off by clicking the right mouse button.
+
+    get_snake(image, 50, false, 'red', 'yellow', window)
+        -> (snake, window);
+
+The new snake can now be evolved with the call above.  It might be worth
+experimenting with the values of eta, alpha, beta and gamma.
+
+
+--- $popvision/help/snakes
+--- Copyright University of Sussex 1995. All rights reserved.

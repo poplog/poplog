@@ -1,0 +1,2721 @@
+/*
+TEACH SIM_FEELINGS                                 Aaron Sloman Jul 2000
+                                              With help from Brian Logan
+                                           Slightly modified 13 May 2002
+
+NB For users not at Birmingham:
+
+If you are logged in via a PC running eXceed, and you are using a
+version of RCLIB which is older than Dec 27th 1999, then you may need to
+compile the next two lines for the graphics to work:
+    uses rclib
+    uses rc_exceed
+However, it is better to fetch the latest version of rclib from
+    http://www.cs.bham.ac.uk/research/poplog/rclib.tar.gz
+
+This teach file was completely reorganised during February and March
+1999. Much of the messy detail was moved out into "supporting" libraries
+described in HELP SIM_FACES, HELP SIM_PICAGENT, HELP SIM_HARNESS, and
+HELP SIM_CONTROL_PANEL
+
+
+The old version is now available as TEACH SIM_FEELINGS.OLD
+
+This file is a mixture of commented out text and pop-11 code. You can
+run the demonstration by compiling the file (in VED do: ENTER l1) and
+then following the instructions that are printed out.
+
+Two "mover" objects will try to get to wherever their "target" objects
+are, which may involve going round obstacles.
+
+The program repeatedly pauses. When it does so you can interfere with it
+by using the mouse to move any of the movers, targets or obstacles into
+new locations.
+
+The movers know (by magic) where their targets are, but they don't sense
+other objects unless they are fairly close, and they attend only to
+objects approximately in their line of sight towards their target.
+
+Sometimes the movers change how they feel either because they have been
+moved, or because their targets have been moved, or because they see
+their target, another obstacle or a mover. How each mover feels is
+showin in a face picture. When a feeling changes, the text printed out
+gives the reasons for the change.
+
+By playing with the demonstration you can try to guess how the movers
+work.
+
+After that, read the rest of this teach file to see how the
+demonstration is implemented. You'll find that the movers have simple
+minds constructed from collections of condition-action rules, some of
+which invoke Pop-11 procedures.
+
+You can then try to alter the rules defining the behaviour of the
+movers, or perhaps add some more agents or objects to the demonstration.
+
+So first compile the file and play. After a while, interrupt the program
+by typing CTRL C, then read on.
+
+
+CONTENTS OF THIS FILE
+
+ -- Introduction
+ -- The architecture of movers
+ -- -- The mover's feelings
+ -- -- Two sorts of goals
+ -- -- Veering behaviour
+ -- -- Rules for Feelings
+ -- -- Implications of feelings
+ -- The time-sliced scheduler
+ -- To run the demo
+ -- How the simulation entities are displayed
+ -- Interacting with the demonstration
+ -- Stopping and restarting
+ -- The internal architecture of movers
+ -- Libraries demonstrated by this file
+ -- -- Objectclass
+ -- -- Poprulebase
+ -- -- The pattern matcher
+ -- -- LIB SIM_AGENT
+ -- -- LIB RCLIB
+ -- -- LIB SIM_PICAGENT
+ -- -- LIB SIM_HARNESS
+ -- -- LIB SIM_FACES
+ -- -- LIB SIM_CONTROL_PANEL
+ -- Loading the libraries required
+ -- More detailed specification of the classes and rulesets
+ -- Defining the new classes
+ -- -- The demo_mover class
+ -- -- Inert object classes: demo_inert, demo_obstacle, demo_target
+ -- Define new methods
+ -- -- Printing methods
+ -- -- Sensing method for movers
+ -- -- Modify the method sim_run_agent for movers
+ -- Define rules, rulesets, rulefamilies, rulesystems
+ -- Rulesystem for demo_mover: demo_agent_rulesystem
+ -- Define individual rulesets specifying internal processing for agents
+ -- -- demo_prepare_database_ruleset
+ -- -- demo_new_percept_ruleset
+ -- -- demo_analyse_percept_ruleset
+ -- -- demo_avoid_nearest_ruleset
+ -- -- demo_setup_feeling_ruleset
+ -- -- demo_speed_ruleset
+ -- -- demo_show_feeling_ruleset (with utilities)
+ -- -- demo_report_feeling_ruleset
+ -- -- demo_move_ruleset (and utilities for it)
+ -- -- demo_memory_ruleset
+ -- -- demo_cleanup_ruleset
+ -- Decide on properties of the simulation window, e.g. size, scale
+ -- Utility procedures for creating instances
+ -- -- Creating a new demo_mover
+ -- -- Creating new static objects (obstacles and targets)
+ -- -- Testing the instance creation procedures
+ -- Another utility: demo_finish_setup (dereferencing target names)
+ -- Set up the demo specification in the list sim_setup_info
+ -- Possible exercises
+ -- Define some global variables to control trace printing
+ -- -- Variables to control sayif printing and trace methods
+ -- Run the simulation, using the test harness
+ -- Kill old window and print out instructions
+ -- Further information about SIM_AGENT and other packages used
+ -- Further background information
+ -- Remote access to information about Poplog
+ -- Index of methods procedures classes and rules
+
+-- Introduction -------------------------------------------------------
+
+This is a simple demonstration showing how to use the SIM_AGENT toolkit
+to build a simple (and very shallow) type of agent which appears to
+"manifest feelings" as it moves around in its world.
+
+In this demonstration there are two agents (described as "movers" from
+now on) called r1 (coloured red on the display) and b1 (coloured blue).
+
+The movers try to get to their targets, rt (red target) and bt (blue
+target).
+
+There are also several obstacles, o1, o2, ... o6. In the demonstration
+code you can easily create more obstacles. You could also add more
+targets and movers, but a more challenging exercise later on would be to
+extend the capabilities of movers.
+
+When the simulation starts up all these things are in default initial
+locations, displayed on the screen. You can use the mouse to change
+their locations before the simulation starts running. You can also
+change the locations of movers, targets and obstacles during pauses in
+the simulation.
+
+While the movers move around, trying to get to their targets and trying
+to avoid obstacles and each other, they have "feelings" which change,
+and the changes are shown (crudely) in pictures of their faces,
+depending on what they can see. They also print out their new feelings
+and also the reasons for their feelings.
+
+The targets and obstacles do not move of their own accord, though you
+can use the mouse to move them during pauses.
+
+
+-- The architecture of movers -----------------------------------------
+
+How movers behave depends on what they see and what their feelings are.
+
+What feelings they have depends on what they sense in the environment,
+which is partly determined by their own behaviour. E.g. a mover can
+change its location and thereby detect an obstacle, and become glum.
+
+Thus there is a continual "feedback loop". This diagram gives a first
+approximation to the architecture of a mover embedded in its
+environment. The arrows show flow of information.
+
+
+    ------<-------------ENVIRONMENT------------<-----------------
+   |                                                             ^
+   |                                                             |
+   V                             new         new                 |
+    ->-sense-data->-analyse-->--goals-->--direction->-motion-->--^
+                    data   \                           ^
+                            \-->--new--->--new--->-----^
+                                feelings  speed
+                                  |
+                                  V
+                                  --->---facial expression
+
+
+A more detailed specification of the architecture would describe:
+
+o modules which react to the incoming sense-data on order to decide
+  which ones to ignore and which to attend to, e.g. depending on
+  whether they are relevant to current goals,
+
+o modules which tell whether the mover or its target have been
+  unexpectedly moved,
+
+o modules which decide which goals to adopt (e.g. which location to move
+  towards, and how much to "veer" to avoid an obstacle),
+
+o modules which select the appropriate feeling for the current
+  situation,
+
+o modules which execute the behaviour selected,
+
+o modules which manage the mover's recent memories, e.g. so that it can
+  detect that it has been moved by something, or that its target's
+  location has changed.
+
+and so on.
+
+These modules are all defined below in terms of "rulesets" which run in
+parallel within the "mind" of a mover.
+
+Each ruleset reacts to information within the mover, some of it produced
+by other rulesets and some of it produced by the agent's sensors.
+
+The rulesets react by changing the contents of the mind (internal
+actions) or by initiating behaviour (external actions).
+
+The external actions change the world (in this case the by changing the
+location of the mover).
+
+
+-- -- The mover's feelings
+
+The possible feelings in this demonstration are "neutral", "glum",
+"surprised" and "happy", and these are shown on the screen by
+expressions in the pictures of the movers' faces. In principle you could
+extend this range of feelings after learning how to extend a SIM_AGENT
+program. The demonstration uses a library LIB SIM_FACES which defines the
+above four faces and also a fifth one "frustrated" which you could try
+to incorporate. See HELP SIM_FACES for more on the faces library.
+
+The feeling of an agent depends on what it sees when it looks
+approximately ahead, in the direction of its target, and also on whether
+the agent or its target has been moved unexpectedly.
+
+It cannot see things which are too far away and among the things it
+sees, only those within a certain range can affect its feelings.
+
+Each mover has its own visual range and feeling range. By default they
+are the same, but you can make them different.
+
+-- -- Two sorts of goals
+
+Each mover has only two sorts of goals, one explicit one implicit. The
+explicit goal is to get to the target, and that is achieved by its
+heading in the direction towards its target's location, which it
+"magically" senses, no matter how far away the target is. (Perhaps the
+movers use radar or a radio "homing" signal from the targets.)
+
+The mover continues heading directly towards the target unless some
+obstacle is sensed in the way, in which case it has to take evasive
+action (veering).
+
+The implicit goal is to get round obstacles, and this goal is implicit
+in some rules which make the mover modify its direction of motion when
+it senses an obstacle (which may be another mover, the other mover's
+target or another static object).
+
+-- -- Veering behaviour
+
+The movers have a simple type of "obstacle avoidance" behaviour. If the
+closest perceived object lies between the mover and its target then the
+mover veers slightly to the right or slightly to the left in order to
+avoid bumping into the obstacle. So in this situation the mover will
+veer slightly to the right (where "M" is the mover "O" an obstacle and
+"T" the target:
+
+                        O
+            M ->                   T
+
+How much it veers depends on
+    (i) the distance to the obstacle, and
+    (ii) how big the angle is between the line to the target and the
+         line to the obstacle.
+
+The closer the mover is to the obstruction the larger the angle through
+which it turns. Similarly the more directly ahead the obstacle is, the
+larger the angle. The exact angle is slightly randomised, to ensure
+symmetry breaking when movers get in each others' way.
+
+In principle the best way to veer might be something learnt, e.g. by a
+neural net. In this demonstration a simple decision procedure is used,
+which was developed "by hand" after a little trial and error.
+
+-- -- Rules for Feelings
+
+1. A mover is "happy" when the closest visible entity in its field of
+view is its target.
+
+2. A mover is "glum" when an obstacle is the closest entity.
+
+3. A mover becomes "surprised" when another mover is the closest
+sensed object.
+
+4. A mover becomes "surprised" when it or its target has been moved
+unexpectedly by the user.
+
+5. A mover is "neutral" when no object is visible within the feeling
+range.
+
+An exercise would be to create a feeling corresponding to being blocked
+by obstacles.
+
+-- -- Implications of feelings
+
+In this architecture, a mover's feeling has two consequences: one
+consequence is to change its speed of motion, which can make a
+difference to how it interacts with other things. Roughly the happier it
+is the faster it goes, except when adjacent to the target, when motion
+stops. Neutral feelings produce an intermediate speed.
+
+The other consequence of a feeling is to to change the appearance of
+the face on the screen, though this is a purely cosmetic effect: it has
+no further influence on events in the simulation, since movers cannot
+see one another's faces.
+
+Besides affecting direction and speed of motion, and the visible face,
+the internal processing can also influence what is printed out when the
+program runs, giving us a partial window into the mover's mind.
+
+The program can be run with different amounts of trace printing, showing
+what sorts of internal processes occur.
+
+An exercise would be to extend the behavioural effects of feelings.
+E.g. movers might send each other messages reporting their feelings, or
+asking about feelings.
+
+
+-- The time-sliced scheduler ------------------------------------------
+
+The simulation runs in a succession of "time slices". In each time slice
+each mover runs its sensory mechanisms, its internal processes and then
+its external actions.
+
+Sometimes time slices are referred to as "cycles" because the scheduler
+repeatedly cycles through the list of agents and objects making them do
+their stuff.
+
+The internal processes which happen in a mover are invisible to the
+other mover, but the external processes can cause it to change its
+location, and the other mover can sense that.
+
+A mover's internal processes can be thought of as all running in
+parallel, but in fact in this demonstration they run in sequence in each
+time slice, approximately as follows:
+
+    (a) Analyse new sense data, and note location of target
+    (b) Detect whether the mover or its target has been "forcibly" moved
+        (If so other processing is aborted till the next cycle, and
+        the mover shows surprise.)
+    (c) Work out which sensed items are attended to
+    (d) Find the nearest attended to item
+    (e) Decide how to feel about it
+    (f) Decide whether to veer and by how much
+    (g) Decide speed of motion, depending on feeling
+    (h) Show and report feeling (if changed)
+    (i) Work out how to move (depending on speed and heading)
+    (j) Remember some recent events for next time-slice
+    (k) Clean up the database at end of time-slice
+
+If you think of some of these as processes which extend across the time
+slices (e.g. if not completed in one time slice they continue in the
+next) then you can treat them as running in parallel, using
+"interleaving". Alternatively if we had multiple computers for each
+agent, the processes could really run in parallel on different
+computers.
+
+Some of the processes depend on others, so have to run sequentially, but
+in principle several of these processes could happen in parallel, e.g.
+deciding about veering and deciding how to feel.
+
+Likewise, if there were different sensory modalities (e.g. hearing,
+sight, touch) their data could be processed in parallel, and if there
+were different modes of action they could be generated in parallel, and
+executed in parallel.
+
+It would be possible in principle for this package to be connected to a
+real robot whose sensors would feed in data at the beginning of every
+time slice and whose motors would receive signals from the program at
+the end of every time slice. The robot would then have a (simple) mind
+inside the computer.
+
+But for now, we have only simulated robots in a simulated 2-D world.
+
+
+-- To run the demo ----------------------------------------------------
+
+The programs can be run in various ways. The simplest way to run the
+program is as follows, which makes use of various library packages.
+
+1. Make the sim_agent package available, with the command
+
+    uses simlib
+
+This adds various documentation libraries and code libraries to the
+current search lists.
+
+2. To get this teach file into the Poplog editor VED, give VED the
+command
+
+    teach sim_feelings
+
+(If you are reading it online, you have already done that!)
+
+3. In Ved, compile this file, i.e. give the command
+
+    ENTER l1
+
+4. This will load the sim_agent toolkit, and related libraries,
+including objectclass, poprulebase, rc_graphic, rclib, sim_faces,
+sim_picagent, sim_harness, sim_control_panel, and several others.
+
+This may take a few seconds to a few minutes, depending on the speed and
+loading of the machine you are using and whether the pop-11 system has
+been compiled with some of the facilities already built in (as in
+Birmingham).
+
+5. When compilation has finished you will see a file produced called
+'output.p' which contains instructions.
+
+You can run the basic demonstration by simply activating the final
+pop-11 command printed out in the instructions.
+
+To do that put the VED cursor in the output.p file, and move it onto the
+line with the run_simulation command, then type the "loadline" sequence:
+    ESC d
+
+6. That will run the procedure run_simulation (as explained below),
+which makes the program create various static and mobile entities to run
+the simulation.
+
+It also creates a control panel and a "faces" panel, showing how the
+movers feel. The instructions telling run_simulation what to do are
+built up gradually in the rest of this file.
+
+After the entities are created and the picture displayed, the program
+pauses to allow you to rearrange the objects. When you press RETURN
+(with the mouse pointer in the editor window) the simulation will run
+for a while, and repeatedly pause. During pauses you can move objects
+around, and then continue running using the RETURN key.
+
+When you have understood the various tracing modes (which requires
+learning about poprulesbase and sim_agent) you can play with the trace
+control buttons on the control panel. (Relevant teach files are listed
+at the end of this file.)
+
+
+-- How the simulation entities are displayed --------------------------
+
+Using the specifications given below, the run_simulation procedure
+creates (inside the machine) the simulated entities, which are displayed
+as follwos:
+
+ o The red and blue movers: r1 and b1, represented in the image by a
+   small red square and a small blue square. (These are the only
+   entities which can move of their own accord).
+
+ o the obstacles: o1, o2, ..., represented by circles.
+   (you can move these with the mouse during a pause)
+
+ o the targets: rt and bt, represented by a red and a blue circle.
+   (you can move these with the mouse during a pause)
+
+These movers and objects will be displayed in a window labelled 'The
+World'. The faces of r1 and b1 will be shown near the bottom of the
+window, in the appropriate colour. Initially their expression is
+neutral, but it may change as the movers change their feelings.
+
+
+-- Interacting with the demonstration ---------------------------------
+
+The initial configuration shown makes it necessary for r1 and b1 to move
+through a narrow gap in a wall of obstacles to get to their targets rt
+and bt. They start off some distance from the obstacles, so for a while
+they move without seeing anything.
+
+When the program is set up, and later while it is pausing, you can, if
+you wish, use the mouse to drag the items around on the 'world' window,
+to change the configuration.
+
+If you move the red target rt, then the red mover will try to move
+towards its new location when the program runs. Similarly if you move bt
+the blue object moves towards its new location. You can also move
+obstacles and the two movers themselves.
+
+When you press RETURN the program resumes running, giving each mover in
+turn the ability to "sense" its environment, change its state, perform
+some action (i.e. move or change direction) and show its feelings in the
+face picture, as described above.
+
+From time to time the program will pause again. During each pause you
+can use the mouse to rearrange the movers, obstacles or targets. E.g. if
+a mover has got close to its target you can be mean and move the target
+somewhere else. (It will show surprise.)
+
+Or you can move the mover somewhere else (more surprise).
+
+You can also move obstacles to block the mover's path. (These movers
+have no intelligence: they cannot make a plan to find a detour round a
+long wall of obstacles, though they can get around a narrow obstacle.
+Making them more intelligent could be a worthwhile student project.)
+
+You can also make the movers block each others' paths and watch what
+happens when running resumes.
+
+
+-- Stopping and restarting --------------------------------------------
+
+You can interrupt the program at any time using CTRL-C. This will cause
+the program to abort. Alternatively you can use the control panel to
+stop the program more gracefully, at the end of the current time slice.
+If you do that it will print out instructions for re-starting the
+simulation in its current state.
+
+To re-start the whole program, simply clear the output.p file,
+recompile this file, and then redo the run_simulation command. You can
+change the number specifying how long the simulation should run (the
+number of simulated time slices.
+
+When the program runs various kinds of trace printing will be produced.
+The means of controlling this are described in HELP SIM_HARNESS,
+and also in connection with prb_sayif_trace, below.
+
+Later on you can examine this teach file in detail, editing the rules or
+even creating some new rulesets to make the movers behave differently.
+If you are an expert pop-11 programmer you can try introducing new
+classes of agents and objects and explore much richer interactions
+between them, including verbal communications. However in order to do
+that you'll have to learn about additional features of pop-11, described
+below, and features in the SIM_AGENT library.
+
+
+-- The internal architecture of movers --------------------------------
+
+Each object or mover has a two level structure.
+
+First of all it is an instance of a CLASS and as such has various
+"slots" defined for members of that class containing information either
+about the class or specific to the object. Some of the information is
+intended to be detectable by other agents in the world, using their
+sensors. In particular each object has a location represented by a pair
+of numerical coordinates. If mover A is sufficiently close to mover or
+object B it can detect B and determine its location. (In a different
+simulation each mover might be able to detect every other object or
+agent in the world. SIM_AGENT does not constrain the form of perception
+used.)
+
+Second, each agent has an INTERNAL architecture which provides the
+internal processes such as interpreting sensory data, thinking, changing
+feeling, reacting to new events, and performing actions. This internal
+architecture is built out of condition-action rulesets, which can be
+thought of as running in parallel. The rulesets of each mover operate on
+that mover's internal "database" adding and removing information,
+searching for information, etc.
+
+The process of perception requires sensory information (or communication
+from another agent) to be moved into the agent's internal database so
+that the rules in the internal architecture can operate on it. The
+sensory information is moved in for each agent at the beginning of the
+time slice, by inserting items of the form
+
+    [new_sense_data ..... ]
+
+E.g. it may be
+
+    [new_sense_data rt 18 50 55]
+
+meaning that the object "rt" is sensed at a distance of 18, at location
+with coordinates 50 55. (The format for new sense data is determined by
+a sensor method defined below. It could be different.)
+
+The internal rulesets will operate on such new sensory information along
+with any other information stored from previous time slices.
+
+A ruleset is made of rules. Each rule has conditions and actions. The
+actions will be performed if the rule is selected when the ruleset runs,
+e.g. because it is the first rule in its ruleset whose conditions are
+found to be all satisfied.
+
+Most of the internal actions change the internal information store (the
+agent's database). Some rules may include internal actions which select
+a new external action to be performed. It does this by by storing an
+assertion of ths form in its database:
+
+    [do <procedure_name> <arg1> <arg2> <arg3> ....]
+
+Such an external action will be performed at the end of the time slice,
+after all the internal actions of all the agents have been performed.
+The [do ...] items are then removed from the agent's database.
+
+
+NOTE:
+The rulesets given below are very simple and designed for no other
+purpose than to illustrating some of the features of the toolkit. They
+are not to be interpreted as presenting a theory of how the mind works!
+
+You can explore extensions using different rulesets and rulefamilies.
+(Further features are described in the other HELP and TEACH files
+provided with Poprulebase and Sim_agent.)
+
+
+-- Libraries demonstrated by this file --------------------------------
+
+This file is part of the SIM_AGENT online documentation library. It
+includes both explanatory text and executable code, providing a tutorial
+demonstration of the SIM_AGENT toolkit. The explanatory text is
+"commented out" so that the whole file can be compiled.
+
+It uses a number of libraries which extend Pop-11.
+
+-- -- Objectclass
+
+This package provides object-oriented programming facilities in Pop-11,
+The main features of object oriented programming are described in the
+TEACH OOP file, along with some common misconceptions and confusions.
+
+The program below demonstrates, the following objectclass mechanisms:
+
+    class definitions
+        A class definition specifies a new class of entity, which
+        may inherit features from classes defined previously in
+        libraries, including sim_agent and rclib.
+
+    creation of class instances
+        An instance has a structure and other features defined by
+        the class of which it is an instance and the super-classes
+        in terms of which it is defined.
+
+    method definitions
+        A method definition specifies how a command involving
+        instances of certain classes is to to be interpreted.
+        By using methods which are defined to behave differently
+        for different classes of objects, we can extend the library
+        mechanisms to suit our own classes. For instance, below we shall
+        define the print_instance method differently for different
+        classes. We can also define tracing methods and sensor methods
+        differently.
+
+-- -- Poprulebase
+
+The poprulebase package provides a versatile interpreter for collections
+of condition-action rules. These occur in the following combinations:
+
+    rulesets
+        A ruleset is a set of condition-action rules, defined in
+        the language of poprulebase.
+
+    rulefamilies
+        A rulefamily collects a set of cooperating rulesets
+        into a structure. Only one ruleset is current at a time.
+        This demonstration uses only rulesets, not rulefamilies.
+        (Compare TEACH * SIM_DEMO)
+
+    rulesystems
+        A rulesystem is an ordered collection of rulesets and
+        rulefamilies defining the internal processing of a mover.
+
+        In each time slice, all the rulesets or rulefamilies in each
+        mover's rulesystem will be given a chance to run. This simulates
+        parallel execution of lots of components in an agent's mind.
+
+Rules can be run in different modes, and the programs below show how the
+[DLOCAL ...] format can be used to control the mode of execution of
+different rulesets or even individual rules. This can include both
+varying types of trace printing and also using different "activation
+strategies" for rulesets.
+
+-- -- The pattern matcher
+
+Pop-11 includes a flexible pattern matcher which is used in testing
+conditions of rules. As a side effect it gives variables values which
+can be used in the actions of rules. The syntax for the pattern matcher
+has a number of subtleties which are not discussed in this teach file,
+though they are used in several places in the code. A modified version
+of the standard Pop-11 pattern syntax using "!" as a pattern prefix is
+used below. (This allows pattern variables to be lexically scoped, which
+is not possible with the default Pop-11 pattern syntax.)
+
+-- -- LIB SIM_AGENT
+
+This library provides the main classes for objects and agents, and the
+simulation procedure run_scheduler, along with a set of methods for
+running objects and agents, and tracing methods for showing what is
+going on.
+
+-- -- LIB RCLIB
+
+The graphical interface in this demonstration makes use of the RCLIB
+graphical extensions to Pop-11, built on top of objectclass and the X
+window interface. This defines some classes, mixins (a type of class
+which cannot be used on its own, only in combination with other
+classes), and methods.
+
+The RCLIB methods are used for drawing pictures containing movable
+objects and allowing mouse-based interactions with the running program.
+The RCLIB libraries employed include the following:
+
+    rc_window_object
+    rc_linepic
+    rc_mousepic
+    rc_draw_blob
+    rc_drawline_relative
+
+These provide facilities for creating pictures which can be moved,
+rotated, and accessed via mouse and keyboard.
+
+
+-- -- LIB SIM_PICAGENT
+
+Because we use an object oriented package with multiple inheritance
+(explained briefly in TEACH OOP), we can define our mover classes to
+inherit methods and structures from different previously defined
+classes.
+
+The SIM_PICAGENT library defines mixins and methods combining classes
+from SIM_AGENT and RCLIB, to enable a simulation to run both in a 2-D
+simulated world and on the screen.
+
+So we use the sim_object and sim_agent classes defined in the SIM_AGENT
+library to provide agents with rulesystems, etc. and the rc_selectable
+and rc_linepic_movable mixins defined in the RCLIB library to provide
+graphical capabilities and mouse handling capabilities.
+
+Objects and agents built using SIM_PICAGENT have coordinates sim_x,
+sim_y for their location in the simulated world and coordinates rc_picx,
+rc_picy for their screen coordinates. The user can define the mapping
+between the two sets of coordinates. See HELP SIM_PICAGENT for more
+information.
+
+In particular two mixins defined in sim_picagent are used to define the
+classes used in this teach file.
+
+o sim_movable_agent
+This mixin is used (below) to define the class demo_mover, whose
+instances are the "mover" agents, b1 and r1, which move of their own
+accord. This inherits from the sim_agent class in LIB SIM_AGENT
+
+o sim_movable
+This mixin is used below to define the class demo_inert for objects
+which are shown on the screen and which you can move with the mouse, but
+which do not move themselves. This inherits from the sim_object class
+in LIB SIM_AGENT.
+
+The demo_inert class is divided (below) into two subclasses,
+demo_obstacle and demo_target, whose instances play the roles of
+obstacles and targets in the demonstration.
+
+The class definitions for demo_mover, demo_inert, demo_obstacle and
+demo_target are given below.
+
+(To find out more about object oriented programming, classes, methods
+and inheritance, you can look at TEACH OOP after working through this
+file).
+
+
+-- -- LIB SIM_HARNESS
+
+This library provides methods and utilities to make it easier to run a
+demonstration like this, with selected tracing facilities turned on or
+off. For full details see HELP SIM_HARNESS. In particular it defines
+the procedure run_simulation which we use to start up and run the
+demonstration. It also uses sim_control_panel to create a control panel
+to control the tracing.
+
+-- -- LIB SIM_FACES
+
+This provides a collection of procedures for drawing faces, glum_face,
+happy_face, etc. See HELP * SIM_FACES
+
+Users are invited to contribute additional faces for this library.
+
+It also provides a mixin face_pic for objects with drawn faces and a
+method sim_draw_face, which is used below.
+
+-- -- LIB SIM_CONTROL_PANEL
+
+This library provides a tool for building an initial control panel when
+starting up a demonstration using sim_agent. This is used in the
+procedure run_simulation, invoked below to start the demonstration.
+See HELP * SIM_CONTROL_PANEL
+
+-- Loading the libraries required -------------------------------------
+
+The main Pop-11 libraries used are objectclass, poprulebase, sim_agent,
+rclib, sim_picagent and sim_harness.
+
+When you compile this file, the "uses" commands below, which are outside
+the scope of this Pop-11 comment, will cause all the relevant libraries
+to be compiled, unless they have already been compiled, in which cases
+"uses" does nothing.
+
+*/
+
+;;; Support for object oriented programming
+uses objectclass;
+
+;;; Rule-based mechanisms in Poprulebase
+uses prblib;
+uses poprulebase;
+
+;;; The scheduler and other mechanisms in SIM_AGENT
+uses simlib;
+uses sim_agent;
+
+;;; Simple 2-D geometric reasoning procedures
+uses sim_geom;
+
+;;; Graphical facilities in the RCLIB library
+uses rclib;
+
+;;; Extend sim_agent with graphical classes and methods
+uses sim_picagent
+
+;;; That will make the next three libraries available, so the next three
+;;; "uses" commands will do nothing and are actually redundant here.
+uses rc_linepic;
+uses rc_mousepic;
+uses rc_window_object;
+
+;;; We add two more RCLIB libraries. They are actually autoloadable, but
+;;; we might as well compile them in advance.
+uses rc_draw_blob;
+uses rc_drawline_relative;
+
+;;; A library which provides five faces for showing feelings
+uses sim_faces;
+
+;;; Compile the which provides test and demonstration procedures, such
+;;; as run_simulation, for the user to start up the demonstration.
+;;; It also provides facilities to control trace printing.
+
+uses sim_harness
+
+/*
+
+-- More detailed specification of the classes and rulesets ------------
+
+In order to specify different types of agents and objects we start from
+the classes and mixins defined in the libraries as described above,
+and then create new specialised sub-classes using the syntactic form:
+
+    define :class ....
+
+    enddefine;
+
+If you wish to add more classes of entities or agents, you can copy and
+edit the code below.
+
+-- Defining the new classes -------------------------------------------
+
+In order to define a simulation using the toolkit it is necessary
+to define new classes of objects and agents based on the classes defined
+in the libraries already compiled, especially those in LIB SIM_AGENT
+and LIB SIM_PICAGENT
+
+Those classes have standard methods associated with them, including
+tracing methods and the method called sim_run_agent. Some of the toolkit
+methods are redefined below for the new classes.
+
+The toolkit classes have standard fields or slots, including sim_name,
+sim_ruleset and sim_data, and some slots starting with the prefix "rc_"
+derived from the RCLIB graphical package. New slots introduced for the
+purpose of this demonstration use names starting with the prefix "demo_"
+
+The following classes are introduced below.
+
+    class demo_mover
+        This is the first new subclass of sim_agent. Its instances will
+        be movable objects, namely the agents which seek their targets.
+        The class also inherits structure and methods from the graphical
+        mixins rc_selectable, rc_linepic_movable, and face_pic. Only
+        instances of this class are given rulesystems and sensors.
+
+    class demo_inert
+        The instances of this class do not do any sensing of other
+        objects, and do not move of their own accord, though the user
+        can move them with the mouse, since they inherit from
+        rc_selectable and rc_linepic_movable.
+        Two subclass of this class are defined below.
+
+        class demo_target
+            Instances of this class, are the targets that the agents
+            move towards.
+
+        class demo_obstacle
+            Instances of this class, are the obstacles.
+
+The full class definitions follow.
+
+
+-- -- The demo_mover class
+
+We define the class demo_mover as a subclass of sim_movable_agent,
+defined in LIB SIM_PICAGENT
+
+*/
+
+;;; variables given values later
+global vars demo_agent_rulesystem;
+
+define :class demo_mover; is sim_movable_agent, face_pic;
+
+    ;;; Each mover has a heading and a speed, to be
+    ;;; adjusted while running.
+    slot demo_heading == 0;
+    slot demo_speed == 0;
+
+    ;;; A sensor limit for seeing objects
+    slot demo_visual_range = 80;
+
+    ;;; Final distance to target: stop moving when this close to target
+    slot demo_finish_distance == 18;
+
+    ;;; Objects beyond this distance cause no feelings to occur, even
+    ;;; if sensed.
+    slot demo_feeling_distance == 60;
+
+    ;;; Default set of rulesets to be obeyed. Rules defined below.
+    slot sim_rulesystem = demo_agent_rulesystem;
+
+    ;;; Thing for this mover to look for
+    slot demo_target;
+
+    ;;; Window in which to show the mover's face.
+    slot face_window = "faces_window";
+
+    slot face_rad = 40;
+
+enddefine;
+
+
+;;; Note demo_feeling_distance and demo_visual_range could be
+;;; different for different agents. See exercise below
+
+/*
+
+-- -- Inert object classes: demo_inert, demo_obstacle, demo_target
+
+The class demo_inert is for things that are meant to be features of the
+environment which do not move of their own accord (though they can be
+moved by the user with a mouse.
+
+The class demo_target is for the subclass of static objects which are
+targets for agents to reach.
+
+*/
+
+define :class demo_inert; is sim_movable;
+    ;;; For objects which don't move themselves, but can be moved
+    ;;; using the mouse. (This could be a mixin, as it has no direct
+    ;;; instances.
+    ;;; No internal processing mechanisms
+    slot sim_rulesystem = [];
+enddefine;
+
+define :class demo_obstacle; is demo_inert;
+    ;;; class for obstacles
+enddefine;
+
+define :class demo_target; is demo_inert;
+    ;;; class for target objects
+enddefine;
+
+/*
+
+-- Define new methods -------------------------------------------------
+
+For each class we can define methods which operate on that class.
+Some of them may replace standard methods for superclasses.
+
+In this file, for example, we shall define the following methods for the
+classes mentioned above.
+
+method print_instance
+    Three versions of this are defined, one for movers, one for targets
+    and one for obstacles.
+
+method sim_run_sensors
+    This is defined to override the default version given in
+    LIB SIM_AGENT. Instead a simpler version is used to enable
+    movers to detect objects in their environment, and a different
+    version to ensure that inert objects perceive nothing.
+    In the version of this method defined below for movers, objects
+    further than the agent's demo_visual_range are not noticed.
+    The main library version is more complex and allows each agent to
+    have different sensors with different ranges.
+
+method sim_run_agent
+    This is defined so that after setting up some useful variables
+    and modifying the error handler it uses call_next_method to invoke
+    the default method for running agents defined in LIB SIM_AGENT.
+
+    The SIM_AGENT scheduler has a main loop: and each cycle through that
+    loop is thought of as a time unit in simulated time. In each such
+    "timeslice" the scheduler applies sim_run_agent to each mover.
+
+-- -- Printing methods
+
+The procedures print_loc and print_loc_heading are defined in the
+LIB SIM_HARNESS library.
+*/
+
+
+;;; Specialise the print method for demo_agents, and static objects
+define :method print_instance(item:demo_mover);
+    print_loc_heading(
+        'Mover', sim_name(item), sim_coords(item), demo_heading(item));
+enddefine;
+
+define :method print_instance(item:demo_obstacle);
+    ;;; for printing obstacles
+    print_loc(
+        'Obstacle', sim_name(item), sim_coords(item));
+enddefine;
+
+define :method print_instance(item:demo_target);
+    ;;; for printing targets
+    print_loc(
+        'Target', sim_name(item), sim_coords(item));
+enddefine;
+
+/*
+-- -- Sensing method for movers
+
+We redefine the default method sim_run_sensors, which is given an agent
+and a complete list of entities in the world. The method decides which
+ones the agent can see and how they should be recorded in its intern
+database. It creates one record for each sensed entity. Entities are not
+sensed if they are further than the agent's demo_visual_range away.
+
+Also the agent does not sense itself, though in more complex scenarios
+that might be possible (e.g. looking at your own foot).
+
+The SIM_AGENT library provides a more complex version of this method
+which allows each agent to have several different kinds of sensors
+operating at different ranges. But for present purposes that is not
+necessary.
+
+*/
+
+define :method sim_run_sensors(obj:demo_inert, agents) -> sensor_data;
+    ;;; non-movers don't sense anything
+    [] -> sensor_data;
+enddefine;
+
+define :method sim_run_sensors(agent:demo_mover, entities) -> sensor_data;
+    ;;; Method for running the sensors associated with a mover.
+    ;;; Done just before the agent is "run" by the scheduler, so that
+    ;;; the sense data produced by this method are put into the mover's
+    ;;; internal database before its rulesystems are run.
+
+    lvars entity, range = demo_visual_range(agent);
+
+    ;;; make a list of lists recording detected entities
+    [%
+        for entity in entities do
+            if entity == agent then
+                ;;; ignore this case: a mover does not sense itself
+                else
+                lvars dist = sim_distance(agent, entity);
+
+                if dist <= range then
+                    ;;; not too far away to be seen
+                    [new_sense_data ^entity ^dist %sim_coords(entity)%]
+                endif;
+            endif;
+        endfor;
+    %] -> sensor_data
+enddefine;
+
+
+
+/*
+-- -- Modify the method sim_run_agent for movers
+
+Specialise the sim_run_agent method, to set some additional global
+variables, and then run the normal sim_run_agent method.
+
+*/
+
+;;; Variables to be accessible inside demo_mover instances
+global vars
+    my_target, my_name;
+
+define :method sim_run_agent(agent:demo_mover, agents);
+
+    ;;; Set up environment for running the mover.
+    ;;; This will be extended when the "next_method" runs
+    ;;; i.e. the generic sim_run_agent defined in the library
+
+    dlocal
+        my_target = demo_target(agent),
+        my_name = sim_name(agent);
+
+
+    ;;; Now run the generic version of the method sim_run_agent
+    call_next_method(agent, agents);
+enddefine;
+
+
+/*
+
+
+-- Define rules, rulesets, rulefamilies, rulesystems ------------------
+
+We have to specify the "internal" mechanisms for the different classes
+of agents. This is done as follows, using a hierarchy of sub-mechanisms:
+
+    rulesystems - rulefamilies - rulesets - rules
+
+Rulesystems are the highest level. Each mover has a collection of
+internal mechanisms defined by a rulesystem. This rulesystem is a list
+of rulefamilies and rulesets.
+
+A rulefamily is a collection of related rulesets, only one of which can
+be active at any time. This file does not use rulefamilies.
+
+A ruleset is a collection of condition-action rules. When a ruleset is
+active the rule interpreter finds out which rules have all their
+conditions satisfied, and according to the current "activation regime"
+selects one or more of those rules and runs the corresponding actions.
+
+At the lowest level are the rules themselves. Each rule may have zero or
+more conditions and zero or more actions. By default the conditions are
+merely patterns checked against the mover's database and the actions are
+merely commands to change the database.
+
+However, Poprulebase allows for a much wider variety of conditions and
+actions than this, including conditions and actions that invoke Pop-11
+procedures to interrogate or manipulate arbitrary information
+structures, including communication channels. Those pop-11 procedures
+can also invoke "external" procedures, e.g. written in another language,
+like C. (This is how the graphical interaction works using the X window
+system which is implemented in C). In particular, conditions could be
+controlled by neural nets or other "sub-symbolic" mechanisms, though in
+this demonstration only explicit algorithms are used.
+
+Each agent's rulesystem may contain several rulefamilies and rulesets,
+which may be thought of as running in parallel, though what actually
+happens is that in each time_slice the scheduler takes each object, and
+works through all the rulefamilies and rulesets in its rulesystem.
+
+Different classes of agents can have different rulesystems, containing
+different combinations of rulesets and rulefamilies. In principle they
+can also process the individual rulefamilies in different orders, and
+allocate them different resources in each simulated time interval.
+
+Thus one agent may be capable of thinking and planning faster than
+another. Another may have faster perceptual mechanisms to achieve more
+analysis of sensory data in each time slice.
+
+However in this demonstration the same rulesystem (and therefore the
+same internal processing architecture) is used by all the agents. The
+static objects have no rulesystem.
+
+See  HELP * RULESYSTEMS for more information on this hierarchy of
+mechanisms used for internal processing within each agent.
+
+The demo_mover rulesystem, created below, defines each mover's
+architecture.
+
+(For more information on rulesystems see HELP * RULESYSTEMS )
+
+
+-- Rulesystem for demo_mover: demo_agent_rulesystem -------------------
+*/
+
+define :rulesystem demo_agent_rulesystem;
+    ;;; [DLOCAL [prb_walk = true][vedediting = true]];
+
+    ;;; Set a default cycle limit (number of times the rulesystem runs
+    ;;; in each timeslice)
+    cycle_limit = 1;
+
+    ;;; Compile in a mode which simplifies recompilation
+    debug = true;
+
+    ;;; Specify the rulesets and rulefamilies which make up the
+    ;;; mover's architecture
+
+    ;;; First some rulesets which set up the context for the rest
+    ;;; and may react if the mover or its target has been moved.
+    include: demo_prepare_database_ruleset
+
+    ;;; Then the rulesets which do the main perceptual processing
+    include: demo_new_percept_ruleset
+    include: demo_analyse_percept_ruleset
+
+    ;;; Work out angle to turn to avoid nearest obstacle
+    include: demo_avoid_nearest_ruleset
+
+    ;;; Decide how to feel about nearest obstacle
+    include: demo_setup_feeling_ruleset
+
+    ;;; Decide how fast to move, depending on feeling
+    include: demo_speed_ruleset
+
+    ;;; Show the feeling in pictorial faces
+    include: demo_show_feeling_ruleset
+
+    ;;; Report whether feeling or its reason has changed
+    include: demo_report_feeling_ruleset
+
+    ;;; Work out how to move
+    include: demo_move_ruleset
+
+    ;;; Remember some recent events for next time-slice
+    include: demo_memory_ruleset
+
+    ;;; Clean up the database at end of time-slice
+    include: demo_cleanup_ruleset
+enddefine;
+
+/*
+;;; The rulesystem is a list and can be printed out.
+
+demo_agent_rulesystem ==>
+
+It is mainly a list of words which are names of rulesets. The actual
+rulesets are accessed when the program runs. To facilitate interactive
+development and debugging, the rulesets are accessed via their names, so
+that if a ruleset is changed while a program is running the new version
+will be used on the next cycle of the scheduler.
+
+*/
+
+/*
+-- Define individual rulesets specifying internal processing for agents
+
+To set up a simulation, we need to define a set of condition-action
+rules. Each rule is in a "ruleset." The rulesets are listed in the
+rulesystem definition above. They are defined separately below, after
+some utility procedures and methods which they use.
+
+-- -- demo_prepare_database_ruleset
+
+This is the first ruleset run on each cycle. Make sure the mover knows
+target coordinates, its own coordinates, which target it has, etc.
+
+*/
+
+global vars sim_mindiff = 0.01;
+
+define diff_num(n1, n2);
+    ;;; used for checking that two non-integers are similar
+    abs(n1 - n2) > sim_mindiff
+enddefine;
+
+define :ruleset demo_prepare_database_ruleset;
+    [DLOCAL
+        ;;; Uncomment next line for more tracing
+        ;;; [prb_walk = true]
+        ;;; Uncomment next line for more tracing
+        ;;; [prb_show_conditions = true]
+
+        ;;; Run every rule instance immediately, and do all of them.
+        ;;; I.e. don't make a list of them and then run them.
+        [prb_allrules = true] [prb_sortrules = false]
+     ];
+
+  RULE check_agent_was_moved
+    ;;; See if location is already known
+    [last_move_to ?old_x ?old_y][->>It]
+    ;;; Find the current location (magic?)
+    [LVARS [[new_x new_y] = sim_coords(sim_myself)]]
+    ;;; See if the agent has moved
+    [WHERE diff_num(old_x, new_x) or diff_num(old_y, new_y)]
+        ==>
+    [DEL ?It]
+    ;;; Uncomment for debugging
+    [SAY [VAL my_name]: OOPS forcibly moved to ?new_x ?new_y]
+    ;;; allow later rules to react to new location
+    [agent_was_moved ?new_x ?new_y]
+    [NOT stopped]
+
+ RULE last_location
+    ;;; In case no previous move record current location
+    [NOT last_move_to ==]
+        ==>
+    [LVARS [[x y] = sim_coords(sim_myself)]]
+    [last_move_to ?x ?y]
+
+  RULE check_target_moved
+    ;;; See if the target location is already known
+    [old_target_loc ?old_x ?old_y][->> It]
+    ;;; find the target location (assume radio transmission?)
+    [LVARS [[new_x new_y] = sim_coords(demo_target(sim_myself))]]
+    ;;; See if the target has moved
+    [WHERE old_x /= new_x or old_y /= new_y]
+        ==>
+    ;;; remember observed location
+    [DEL ?It]
+    [SAY [VAL my_name]: OOPS target now at ?new_x ?new_y]
+    [SAYIF goal 'NEW GOAL: go to' [?new_x ?new_y]]
+    ;;; allow later rules to react to new target location
+    [target_moved ?new_x ?new_y]
+    [old_target_loc ?new_x ?new_y]
+    [NOT stopped]
+
+  RULE record_target_loc
+    ;;; See if the target location is already known
+    [NOT old_target_loc ==]
+    ;;; find the target location (assume radio transmission?)
+        ==>
+    ;;; remember observed location
+    [LVARS [[new_x new_y] = sim_coords(demo_target(sim_myself))]]
+    [old_target_loc ?new_x ?new_y]
+
+  RULE setup_data   ;;; always runs
+    ;;; Move data from agent slots to database
+    ;;; First get the slot values and make them available to poprulebase
+    ;;; local variables.
+        ==>
+    [LVARS
+        [speed = demo_speed(sim_myself)]
+    ]
+    ;;; Clear out old values
+    [NOT my_speed ==]
+    ;;; Install new values
+    [my_speed ?speed]
+
+  RULE setup_old_feeling
+    [NOT old_feeling ==]
+        ==>
+    [old_feeling nothing ==]
+
+  RULE setup_end
+        ==>
+    [STOP]
+enddefine;
+
+/*
+;;; print this to look at the ruleset as a list
+demo_prepare_database_ruleset ==>
+
+*/
+
+/*
+-- -- demo_new_percept_ruleset
+
+Repeated runs will not produce the same behaviour, unless the value of
+the Pop-11 variable ranseed is reset each time, because the evasive
+action when agents are close to obstacles or other agents is partly
+random. See the uses of the procedure random.
+*/
+
+
+define :ruleset demo_new_percept_ruleset;
+    ;;; For dealing with sensor inputs
+    ;;; This is the first perception ruleset.
+    ;;; Classify sensory input and set things up for subsequent rules
+    [DLOCAL
+        ;;; Uncomment next line to "walk" through perception actions
+        ;;; [prb_walk = true] [vedediting = true]
+
+        ;;; Uncomment next line to trace condition checking
+        ;;; [prb_show_conditions = true]
+
+        [prb_allrules = true]
+        ;;; make sure actions are performed immediately
+        [prb_sortrules = false]];
+    [VARS sim_myself];   ;;; make this accessible as a ?variable
+
+  RULE see_no_more_stopped
+    ;;; when the mover has stopped, just ignore sensory data
+    [OR [stopped] [agent_was_moved ==]]
+        ==>
+    ;;; Clear out all new sensory data
+    [NOT new_sense_data ==]
+    ;;; Suppress continued cycling of this ruleset
+    [STOP]
+
+  RULE see_target_near
+    ;;; Check if the target is close at hand
+    [NOT stopped]
+    [VARS my_target]
+    [new_sense_data ?my_target ?my_target_dist = =]
+    [WHERE my_target_dist < demo_finish_distance(sim_myself)]
+        ==>
+    [seen_target_stopping ?my_target]
+    ;;; Clear out all other sensory stuff
+    [NOT new_sense_data ==]
+    [LVARS [name = sim_name(my_target)]]
+    [SAYIF sense [VAL my_name] sees target ?name close ahead]
+    [stopped]
+    [STOP]
+
+  RULE see_something
+    ;;; other sensed agents or obstacles or targets
+    ;;; [DLOCAL [prb_walk = true] [vedediting = true]]
+    [NOT stopped]
+    [new_sense_data ?thing ?thing_dist ?thingx ?thingy][->> It]
+        ==>
+    [DEL ?It]
+    ;;; Record obstacle and its relative heading for subsequent processing
+    [LVARS
+        [dir = sim_heading_from(sim_coords(sim_myself), thingx, thingy)]
+        [name = sim_name(thing)]]
+    [seen_obstacle ?name ?thing_dist ?dir]
+
+    ;;; This can generate masses of printing
+    [SAYIF sense [VAL my_name] sees ?name dist ?thing_dist ?dir]
+
+  RULE no_more_data
+    [NOT new_sense_data ==]
+        ==>
+    [STOP]
+enddefine;
+
+
+/*
+demo_new_percept_ruleset ==>
+*/
+
+/*
+-- -- demo_analyse_percept_ruleset
+
+This ruleset runs when obstacles have been found. The rules do two main
+things:
+    (a) remove sensory records for items outside the mover's field of
+        view.
+    (b) select the nearest of the remaining items
+
+*/
+
+define heading_to_target(mover) -> dir;
+    sim_heading_from(sim_coords(mover), sim_coords(demo_target(mover)))
+        ->> dir -> demo_heading(mover);
+enddefine;
+
+define attend_to_obstacle(mover, dist, dir) -> result;
+    ;;; Used below in RULE prune_view_field
+    ;;; Decide whether to attend to the obstacle.
+    ;;; Result is true or false.
+
+    ;;; Find the magnitude of the angle between the mover's heading
+    ;;; and the direction towards the target.
+    lvars
+        ang = abs(sim_degrees_diff(heading_to_target(mover), dir)),
+        range = demo_visual_range(mover);
+
+    ;;; Use narrower field of view as distance increases
+    ;;; The numbers below are somewhat arbitrary, but in principle
+    ;;; this might be replaced by a trainable neural net.
+    ;;; Relate these numbers to those in determine_veer, below.
+
+    (
+       (dist < 17 and ang < 110)
+    or (dist < 20 and ang < 70)
+    or (dist < 35 and ang < 60)
+    or (dist < 45 and ang < 55)
+    or (dist < 55 and ang < 50)
+    or (dist < 60 and ang < 35)
+    or (dist < 65 and ang < 25)
+    or (dist < range and ang < 15)
+    ;;; attend to everything almost directly ahead
+    or (ang < 10)
+    ) -> result
+enddefine;
+
+global vars demo_seen_trace = false;    ;;; used below.
+unless member("demo_seen_trace", sim_alltracevars) then
+    [^^sim_alltracevars demo_seen_trace] -> sim_alltracevars;
+endunless;
+
+define :method sim_agent_actions_out_trace(object:sim_object);
+    ;;; By default, no tracing for static objects
+enddefine;
+
+define :method sim_agent_endrun_trace(object:sim_object);
+    ;;; do nothing for objects
+enddefine;
+
+
+define find_nearest_obstacle(mover) -> found;
+    ;;; Used below in RULE get_nearest
+    ;;; find the seen obstacle nearest to the mover
+
+    dlocal prb_database = sim_data(mover);
+
+    lvars
+        info,
+        closest = 999999,   ;;; arbitrary large number
+        item,
+        ;;; get a list of seen obstacles
+        obstacles = prb_collect_values(![?info [seen_obstacle ??info]]);
+
+    ;;; find the nearest
+    for item in obstacles do
+        lvars newdist = item(2);
+        if newdist < closest then
+            newdist -> closest;
+            item -> found;
+        endif
+    endfor;
+
+    if demo_seen_trace then
+        [^my_name : Nearest ^found]=>
+        ;;; Uncomment to pause
+        ;;; readline() ->;
+    endif;
+enddefine;
+
+
+define :ruleset demo_analyse_percept_ruleset;
+    [DLOCAL
+        ;;; [prb_walk = true] [vedediting = true]
+        ;;; Uncomment next line to trace condition checking
+
+        ;;; [prb_show_conditions = true]
+        ;;; prb_allrules is made false in one rule below
+        [prb_allrules = true] [prb_sortrules = false]
+    ];
+
+    [VARS sim_myself];   ;;; make this accessible as a ?variable
+
+  RULE stop_if_stopped
+    ;;; not really needed. May speed things up
+    [OR [stopped] [agent_was_moved ==]]
+        ==>
+    [STOP]
+
+  RULE prune_view_field
+    ;;; get rid of items out of field of view
+    [seen_obstacle ?name ?thing_dist ?dir][->> It]
+    [WHERE not(attend_to_obstacle(sim_myself, thing_dist, dir))]
+        ==>
+    [DEL ?It]
+    [SAYIF sense [VAL my_name] ignores ?name ?dir]
+
+  RULE get_nearest
+    ;;; make sure that if something is found here no more
+    ;;; rules run
+    [DLOCAL [prb_allrules = false]]
+    [seen_obstacle ==]
+        ==>
+    [LVARS [nearest = find_nearest_obstacle(sim_myself)]]
+    [nearest_obstacle ??nearest]
+    [SAYIF sense [nearest_obstacle ??nearest]]
+    [STOP]
+
+  RULE no_more
+        ==>
+    [STOP]
+
+enddefine;
+
+/*
+
+-- -- demo_avoid_nearest_ruleset
+
+This ruleset examines the nearest attended to object and works out
+whether to veer, and if so by how much.
+
+*/
+
+define determine_veer(mover, thing, dist, dir) -> veerangle;
+    ;;; Decide by how much agent should veer left or right to avoid
+    ;;; the thing.
+    ;;; The result has a random element for symmetry breaking.
+
+    ;;; The amount to turn depends on the distance of the thing
+    ;;; and the direction dir of the thing. Turn more if the obstacle
+    ;;; is closer, or more directly ahead.
+    ;;; The algorithm below is partly arbitrary. It could be
+    ;;; replaced by a trained neural net.
+
+    lvars
+        ;;; Find angle between mover's heading and dir - it is positive
+        ;;; if thing is to right of heading, otherwise negative
+        ang = sim_degrees_diff(heading_to_target(mover), dir),
+        absang = abs(ang),
+
+        range = demo_visual_range(mover),
+
+        ;;; Work out amount to turn. Relate numbers to those in
+        ;;; procedure attend_to_obstacle
+        veerangle =
+            if thing = demo_target(mover) then
+                ;;; don't veer to avoid mover's target
+                0
+            elseif dist < 17 then
+                ;;; obstacle very close large diversion needed
+                90 + random(20)
+            elseif dist < 20 then abs(80 - absang)  + random(5)
+            elseif dist < 35 then abs(50 - absang)  + random(3)
+            elseif dist < 45 then abs(40 - absang)  + random(3)
+            elseif dist < 55 then abs(30 - absang)  + random(3)
+            elseif dist < 60 then abs(10 - absang)
+            elseif dist < 65 then abs(5 - absang)
+            elseif dist < range then
+                abs(15 - absang)
+            else 0,
+            endif;
+        ;;; Question. Could a neural net learn that sort of thing?
+
+    if ang > 0 then abs(veerangle) else -abs(veerangle) endif -> veerangle;
+    ;;; Uncomment for debugging
+    ;;; [VEERING for ^thing at ^dist ang ^ang by ^veerangle]=>
+
+enddefine;
+
+
+define :ruleset demo_avoid_nearest_ruleset;
+    [DLOCAL
+        ;;; [prb_walk = true] [vedediting = true]
+        [prb_allrules = false] [prb_sortrules = false]];
+
+  RULE determine_veer1
+    [OR [stopped] [agent_was_moved ==]]
+        ==>
+    [veering 0]
+
+  RULE determine_veer2
+    [nearest_obstacle ?name ?dist ?dir]
+    [WHERE name /== sim_name(my_target)]
+        ==>
+    [LVARS [veer = determine_veer(sim_myself, valof(name), dist, dir)]]
+    [veering ?veer]
+    [SAYIF veering [VAL my_name]: veering by ?veer to avoid ?name ?dist ?dir]
+
+  RULE determine_veer3
+    ;;; default case
+        ==>
+    [veering 0]
+enddefine;
+
+/*
+
+-- -- demo_setup_feeling_ruleset
+
+These rules work out how the mover should feel, depending on what it has
+perceived.
+
+*/
+
+define feeling_for(mover, nearest, dist) -> feeling;
+    ;;; Mover is an agent, nearest the name of the nearest visible
+    ;;; attended to object, dist its distance.
+    ;;; Work out feeling towards nearest item
+
+    ;;; Get the thing from its name.
+    lvars thing = valof(nearest);
+
+    if dist > demo_feeling_distance(mover) then
+        [neutral [^nearest toofar]]
+    elseif thing == demo_target(mover) then
+        [happy [^nearest in sight]]
+    elseif isdemo_inert(thing) then
+        ;;; it is an obstacle
+        [glum [^nearest obstructing]]
+    else
+        ;;; it must be another mover
+        [surprised [^nearest nearby]]
+    endif -> feeling;
+enddefine;
+
+define :ruleset demo_setup_feeling_ruleset;
+    [DLOCAL
+        [prb_allrules = false] [prb_sortrules = false]
+        ;;; [prb_walk = true] [vedediting = true]
+    ];
+
+  RULE arrived
+    [seen_target_stopping ?my_target]
+        ==>
+    [feeling happy [?my_target reached]]
+
+  RULE agent_was_moved
+    [agent_was_moved ?new_x ?new_y]
+        ==>
+    [feeling surprised [I was moved]]
+
+  RULE target_moved
+    [target_moved ?new_x ?new_y]
+        ==>
+    [LVARS [name = sim_name(my_target)]]
+    [feeling surprised [?name was moved]]
+
+  RULE default_feeling
+    [NOT nearest_obstacle ==]
+        ==>
+    [feeling neutral [nothing seen]]
+
+  RULE react_to_nearest
+    [nearest_obstacle ?name ?dist =]
+        ==>
+    [LVARS [feeling = feeling_for(sim_myself, name, dist) ]]
+    [feeling ??feeling ]
+
+    RULE default
+    ==>
+    [STOP 'Problem in demo_setup_feeling_ruleset']
+enddefine;
+
+/*
+-- -- demo_speed_ruleset
+
+This ruleset works out how fast the agent should move, depending on its
+feeling.
+*/
+
+/*
+;;; test
+speed_for_feeling("happy") =>
+speed_for_feeling("glum") =>
+speed_for_feeling("morose") =>
+
+*/
+define speed_for_feeling(feeling) -> speed;
+    ;;; Given a feeling, which is a word, work out speed to move
+    ;;; Maybe feeling_speeds should be a global variable,
+    ;;; or the associations should be in the database.
+    lconstant
+        feeling_speeds =
+            [happy 5 neutral 4 glum 2 surprised 1];
+
+    prb_assoc(feeling, feeling_speeds) -> speed;
+
+    unless speed then
+        mishap('Unrecognised feeling', [^feeling])
+    endunless;
+enddefine;
+
+define :ruleset demo_speed_ruleset;
+    ;;; Relate current speed to feeling. Move faster if neutral
+    ;;; or happy
+    ;;; [DLOCAL [prb_walk = true] [vedediting = true] ];
+  RULE stop_moving
+    [OR [stopped] [agent_was_moved ==]]
+    ==>
+    [POP11 0 -> demo_speed(sim_myself)]
+    [NOT my_speed ==]
+    [my_speed 0]
+    [STOP]
+
+  RULE set_speed
+    ;;; Adjust speed to feeling
+    [feeling ?feeling =]
+    [LVARS [speed = speed_for_feeling(feeling)]]
+    [my_speed ?oldspeed][->>It]
+    ;;; check if speed needs to change.
+    [WHERE oldspeed /= speed]
+        ==>
+    ;;; set up new speed
+    [POP11 speed -> demo_speed(sim_myself)]
+    [DEL ?It]
+    [my_speed ?speed]
+    [SAYIF sayfeel
+        [VAL my_name] ': changing speed to' ?speed because ?feeling]
+    [STOP]
+enddefine;
+
+
+
+/*
+-- -- demo_show_feeling_ruleset (with utilities)
+
+This ruleset causes the current feeling to be displayed in the mover's
+face, and reported in its printout, but only if the feeling has changed
+since the last cycle.
+*/
+
+
+define :ruleset demo_show_feeling_ruleset;
+    ;;; This is part of the mover's "mental architecture", which
+    ;;; determines whether to show a feeling
+    ;;; If necessary show current feeling in the face, using
+    ;;; the above methods
+
+  RULE update_feeling
+    ;;; See if feeling has changed, and if so report it
+    ;;; If current feeling is different from previous feeling,
+    ;;; show the change.
+
+    [feeling ?feeling ==]
+    [old_feeling ?oldfeeling ==]
+    [WHERE feeling /= oldfeeling]
+        ==>
+    [do sim_draw_face ?feeling]
+enddefine;
+
+/*
+-- -- demo_report_feeling_ruleset
+The agent's feeling can also be reported in its print out, if it is a
+new feeling OR if the reason for the feeling has changed.
+*/
+
+define :ruleset demo_report_feeling_ruleset;
+
+  RULE report_new
+    ;;; if feeling or reason has changed report change
+    [feeling ?feeling ?reason]
+    [old_feeling ?oldfeeling ?oldreason]
+    [WHERE feeling /= oldfeeling or reason /= oldreason]
+        ==>
+    [SAYIF sayfeel [VAL my_name]
+        ': I now feel' ?feeling because ??reason]
+enddefine;
+
+
+/*
+-- -- demo_move_ruleset (and utilities for it)
+
+The next procedure is an "external action" procedure called during the
+second pass of the scheduler, after all the internal actions of all the
+agents have been performed. It is set up by an internal action of this
+form, below:
+    [do demo_do_move_to ?oldx ?oldy ?newx ?newy]
+It causes the agent's location to change.
+*/
+
+global vars demo_move_trace = false;
+
+unless member("demo_move_trace", sim_alltracevars) then
+    [^^sim_alltracevars demo_move_trace] -> sim_alltracevars;
+endunless;
+
+define demo_do_move_to(mover, oldx, oldy, newx, newy);
+    ;;; Move action for agents
+
+    dlocal pop_pr_places = sim_pr_places;
+
+    lvars (x, y) = sim_coords(mover);
+
+    if diff_num(x, oldx) or diff_num(y, oldy) then
+        [OOPS [old ^oldx ^oldy] [new ^x ^y][TO ^newx ^newy]] =>
+        sim_name(mover) ><' ABORTING MOVE agent was moved'=>
+    else
+
+        if demo_move_trace then
+            [Move_agent ^(sim_name(mover)) from(^oldx ^oldy) to(^newx ^newy)]=>
+        endif;
+
+        (newx, newy) -> sim_coords(mover);
+    endif;
+
+enddefine;
+
+define new_loc(myx, myy, my_heading, ang, speed) ->(newx, newy);
+    ;;; Work out new location of agent, given old location, heading
+    ;;; to target, angle to veer, and current speed.
+
+    lvars new_heading = my_heading + ang;
+
+    myx + speed*cos(new_heading) -> newx;
+    myy + speed*sin(new_heading) -> newy;
+
+    ;;; uncomment for debugging
+    ;;; [NEW LOCATION ^(my_name) ^newx ^newy]=>
+enddefine;
+
+
+define :ruleset demo_move_ruleset;
+    ;;; Work out how to move, using heading and veer angle
+    ;;; [DLOCAL [prb_walk = true][vedediting = true] ];
+
+  RULE no_move
+    [stopped]
+        ==>
+    ;;; No move required
+    [STOP]
+
+  RULE agent_was_moved
+    ;;; If agent was moved don't move, but remember current location
+    [agent_was_moved ?x ?y]
+        ==>
+    [NOT last_move_to ==]
+    [last_move_to ?x ?y]
+    [STOP]
+
+  RULE demo_move_to
+    ;;; The mover has not stopped at its target
+    ;;; find the current goal and veer angle
+    [veering ?ang]
+    [my_speed ?speed]
+    [last_move_to ?oldx ?oldy]
+        ==>
+    [LVARS
+        [[myx myy] = sim_coords(sim_myself)]
+        [my_heading = heading_to_target(sim_myself)]
+        [[newx newy] = new_loc(myx, myy, my_heading, ang, speed)]
+    ]
+    [SAYIF acting 'moving to' ?newx ?newy]
+    ;;; Set up the action with parameters,to be done at the end of the
+    ;;; time slice.
+    [do demo_do_move_to ?oldx ?oldy ?newx ?newy]
+    ;;; Update memory of move
+    [NOT last_move_to ==]
+    [last_move_to ?newx ?newy]
+    [STOP]
+
+  RULE no_move
+        ==>
+    [SAY 'WARNING: NO MOVE HAPPENED']
+    [PAUSE]
+
+enddefine;
+
+/*
+-- -- demo_memory_ruleset
+Remember some old values for the next cycle.
+More sophisticated memory functions are possible
+*/
+
+define :ruleset demo_memory_ruleset;
+    ;;; remember some old things
+    [DLOCAL
+        [prb_allrules = true] [prb_sortrules = false]
+        ;;; [prb_walk = true] [vedediting = true]
+    ];
+
+  RULE clear_short_term_memories
+    ;;; always runs
+        ==>
+    [NOT old_my_coords ==]
+    [NOT old_feeling ==]
+
+    ;;; prepare new short term memories
+  RULE remember_locations
+    ==>
+    [LVARS [[myx myy] = sim_coords(sim_myself)]]
+    [old_my_coords ?myx ?myy]
+
+  RULE remember_feeling
+    [feeling ??feeling]
+    ==>
+    [old_feeling ??feeling]
+
+enddefine;
+
+/*
+-- -- demo_cleanup_ruleset
+Remove all data from current processing before next cycle.
+*/
+
+define :ruleset demo_cleanup_ruleset;
+    ;;; Clear all the temporary working memory for this cycle.
+
+    ;;; [DLOCAL [prb_walk = true] [vedediting = true] ];
+
+  RULE cleanup
+    ==>
+    [NOT stopped]
+    [NOT target_loc ==]
+    [NOT feeling ==]
+    [NOT seen_obstacle ==]
+    [NOT nearest_obstacle ==]
+    [NOT seen_target_stopping ==]
+    [NOT agent_was_moved ==]
+    [NOT target_moved ==]
+    ;;; cleanup records from previous actions
+    [NOT veering ==]
+    [NOT new_sense_data ==]
+
+enddefine;
+
+
+/*
+-- Decide on properties of the simulation window, e.g. size, scale ----
+
+Some of these variables are used in lib sim_picagent. See
+HELP SIM_PICAGENT/mapping
+*/
+
+;;; Warning if you change origin or scale, you may have to alter
+;;; window size.
+
+global vars
+
+    sim_window, ;;; variable to hold the main window
+    faces_window, ;;; where the faces appear
+
+    ;;; Specify mapping between simulation world and picture
+    ;;; world
+    sim_picxorigin = 0,
+    sim_picyorigin = 0,
+    ;;; try altering the next two to 1.5 after trying these values
+    sim_picxscale = 1,
+    sim_picyscale = 1,  ;;; assume rc_yscale has desired sign
+
+    ;;; Specify window location, size and coordinate frame,
+    ;;; scaled by the above two variables.
+
+    ;;; Window location on screen
+    window_x = 700,
+    window_y = 15,
+
+    ;;; Window size, adjusted by the scale variables
+    window_width = round(abs(350*sim_picxscale)),
+    window_height = round(abs(350*sim_picyscale)),
+
+    ;;;             rc_xorigin,      rc_yorigin, rc_xscale, rc_yscale
+    window_frame = {%175*sim_picxscale, 180*sim_picyscale, 1, -1 %},
+    ;;; See HELP RC_WINDOW_OBJECTS, HELP RCLIB
+
+    ;;; This four element vector is used for the sim_picframe slot
+    ;;; of the main simulation window. See HELP SIM_PICAGENT
+    window_transform =
+        {^sim_picxorigin ^sim_picyorigin ^sim_picxscale ^sim_picyscale},
+
+    window_title = 'TheWorld',
+    ;
+
+
+/*
+-- Utility procedures for creating instances --------------------------
+
+*/
+
+define show_and_name_instance(word, obj, win);
+    ;;; Used when an object is first created, to draw it and make it
+    ;;; mouse sensitive.
+
+    ;;; An object has been created, with the word as its sim_name
+    ;;; Declare its name as a variable, and make the object its valof
+
+    ident_declare(word, 0, 0);
+    obj -> valof(word);
+
+    ;;; add the object to the window, or windows.
+    if islist(win) then
+        rc_add_containers(obj, win);
+    else
+        rc_add_container(obj, win);
+    endif;
+
+enddefine;
+
+
+/*
+-- -- Creating a new demo_mover
+
+We define the procedure new_mover, like new_obstacle and new_target, so
+that it takes a list of specifications for an instance, and the window
+(or windows) in which it should be drawn. This is so that an automatic
+simulation creation procedure defined in SIM_HARNESS can be given
+an instance creation procedure, a list of specifications, and the
+window, to create the instance. Different kinds of agents and objects
+will need different specifications.
+
+For example we define new_mover to take a list like this as its first
+argument, giving the mover's name, face x and y coordinates in the face
+picture, simulation x and y coordinates, the name of its target, and its
+colour:
+    [b1  50 -50 120 -70 bt 'blue']
+
+new_obstacle is simpler. Its list of specifications could be like these:
+    [o1 -40 75]
+    [o2 -22 70]
+    [o3  -5 68]
+
+I.e. for each obstacle we have a name, and the x and y simulation
+coordinates.
+
+Likewise for new_target, except that these instances also need their
+colour to be specified:
+    [bt -50 145 'blue']
+    [rt 110 155 'red']
+
+We can now define the creation procedures which use that information.
+They are tested below, after all have been defined.
+
+*/
+
+
+define new_mover(args, win) -> mover;
+    ;;; Procedure for creating new instances of demo_mover
+    ;;; Args is a seven element list, giving
+    ;;; name, facex, facey, x, y, target,colour
+
+    lvars
+        ;;; Extract the contents of args into these variables
+        (name, facex, facey, x, y, target, colour)= explode(args);
+
+    ;;; Assumes that the main window (called 'The world') has been
+    ;;; created already.
+
+    ;;; target is a word. later it will be replaced by its valof.
+
+    instance demo_mover;
+        rc_pic_strings = [{-6 -5 ^(name >< nullstring)}];
+        rc_pic_lines =
+            [WIDTH 3 COLOUR ^colour [SQUARE {-9 9 18}]];
+        sim_name = name;
+        demo_target = target;
+        face_colour = colour;
+        face_xloc = facex*sim_picxscale;
+        face_yloc = facey*sim_picyscale;
+    endinstance -> mover;
+
+    sim_set_coords(mover, x, y);
+
+    ;;; Now draw the face at the bottom of the main window
+    sim_draw_face(mover, "neutral");
+
+    ;;; Display the object and make its name usable.
+    show_and_name_instance(name, mover, win);
+enddefine;
+
+
+/*
+-- -- Creating new static objects (obstacles and targets)
+
+*/
+
+;;; Procedures to create a new obstacle or a new target
+define new_obstacle(args, win) -> obj;
+    ;;; args is a three element list, containing a name and x, y
+    lvars (name, x, y) = explode(args);
+
+    instance demo_obstacle;
+        sim_name = name;
+        rc_pic_strings = [{-6 -5 ^(name >< nullstring)}];
+        ;;; Make obstacles have line thickness 1, targets 2.
+        rc_pic_lines = [COLOUR 'green' WIDTH 1 [CIRCLE {0 0 9}] ]
+    endinstance -> obj;
+
+    sim_set_coords(obj, x, y);
+
+    ;;; Display the object and make its name usable.
+    show_and_name_instance(name, obj, win);
+enddefine;
+
+define new_target(args, win) -> obj;
+    ;;; args is a four element list,
+    ;;; containing a name, x, y, and a colour
+    lvars (name, x, y, colour) = explode(args);
+
+    instance demo_target;
+        sim_name = name;
+        rc_pic_strings = [{-6 -5 ^(name >< nullstring)}];
+        ;;; Make obstacles have line thickness 1, targets 2.
+        rc_pic_lines = [COLOUR ^colour WIDTH 2 [CIRCLE {0 0 9}] ]
+    endinstance -> obj;
+
+    sim_set_coords(obj, x, y);
+
+    ;;; Display the object and make its name usable.
+    show_and_name_instance(name, obj, win);
+
+enddefine;
+
+/*
+-- -- Testing the instance creation procedures
+
+;;; Later we'll see how the whole scenario can be created from a list
+;;; specifying what sorts of windows and objects there are. To test
+;;; things we can first create the entities explicitly. We keep
+;;; these tests inside comments brackets, as they are not part of the
+;;; final program
+;;;
+;;; We can test the three instance creation procedures, defined above
+;;; new_mover(args, win) -> mover;
+;;; new_obstacle(args, win) -> obj;
+;;; new_target(args, win) -> obj;
+
+;;; First create a pair of test windows
+vars
+    testwin =
+        rc_new_window_object(
+            500,10,400,400,true,'Testwin', newsim_picagent_window),
+
+    ;;; This one does not need to be of type sim_picagent_window
+    faces_window =
+        rc_new_window_object (520,430,250,100,{125 0 1 -1},'Faces');
+;
+
+;;; Create two movers and show their default faces, using
+;;; new_mover, defined above
+;;; Check that they can be moved with the mouse
+vars
+    b1 = new_mover([b1  50 -50 120 -70 bt 'blue'], testwin),
+    r1 = new_mover([r1  -50 -50 -80 -55 rt 'red'], testwin);
+
+;;; Move them around and check how they print out
+b1 =>
+r1 =>
+
+;;; Now create some obstacles
+vars obstacles =
+       [[o1 -40 75]
+        [o2 -22 70]
+        [o3  -5 68]
+        [o4  30 68]
+        [o5  46 70]
+        [o6  65 75]];
+
+vars x, name;
+for x in obstacles do
+    hd(x) -> name;
+    new_obstacle(x, testwin) -> valof(name)
+endfor;
+
+;;; move the obstacles around and check how they print out
+
+o1 =>
+o2 =>
+;;; etc
+
+;;; Now the targets
+vars
+    bt = new_target([bt -50 145 'blue'], testwin),
+
+    rt = new_target([rt 110 155 'red'], testwin);
+
+bt=>
+rt=>
+
+
+*/
+
+
+/*
+
+-- Another utility: demo_finish_setup (dereferencing target names)
+
+If you make a slot in a class instance have as value a word which is the
+name of another instance, it may be useful to replace the name with the
+actual instance after all the instances have been created. That is done
+in the procedure demo_finish_setup, below.
+*/
+
+vars all_agents; ;;; used below and in LIB SIM_HARNESS
+
+define demo_finish_setup();
+    ;;; Run at the end of setup_simulation
+    ;;; Agents have the names of their targets in their demo_target
+    ;;; slot. Replace them with the actual targets, corresponding
+    ;;; to their names. Use "valof" to get the actual objects.
+
+    lvars agent ;
+    for agent in all_agents do
+        if isdemo_mover(agent) then
+            valof(demo_target(agent)) -> demo_target(agent);
+        endif;
+    endfor;
+
+enddefine;
+
+
+/*
+-- Set up the demo specification in the list sim_setup_info
+
+To set up the demo, we build a list of information which will be given
+to the procedure setup_simulation, defined LIB SIM_HARNESS, via the
+procedure run_simulation
+
+Having defined classes, rulesets, rulefamilies and rulesystems, we then
+build a list specifying how to create the windows required and how to
+create a set of instances of the agent and object classes, giving them
+some initial slot values (e.g. location values) to start up. Search
+below for the lists
+
+    the_obstacles the_targets the_movers
+    sim_setup_info
+
+to see how the complete set of objects and agents is created when the
+demonstration starts up.
+
+The list sim_setup_info created below is used to start the simulation,
+by giving it as first argument to the procedure
+
+    run_simulation(setup_info, num, tracevars);
+
+defined in LIB SIM_HARNESS.
+
+*/
+
+global vars sim_setup_info =
+
+    [
+        /*
+        1. A list or vector of parameters for rc_new_window_object
+        specifying:
+            window_x, window_y, window_width, window_height,
+            window_frame, window_title
+        */
+        [WINDOW
+            [sim_window
+                {^window_x ^window_y ^window_width ^window_height
+                ^window_frame ^window_title ^window_transform}]
+
+            [faces_window
+                {^(window_x+20) ^(window_y+window_height) 250 100
+                {125 0 1 -1}  'Faces' {0 0 1 1}}]
+        ]
+
+        [STARTWINDOW sim_window]
+
+        /*
+        2. A list of entities in lists of the form
+            [ <varname <object creator> <object spec> <object spec> ....]
+        */
+        [ENTITIES
+
+            [the_movers [sim_window]   new_mover
+            /*
+             Each mover is defined by seven parameters, which are
+             provided in a list of this form:
+                 [name facex facey x y target colour]
+             The first parameter is the name of the mover.
+             The second and third parameters give the place on the
+                window where the mover's face is to be drawn. The next two
+             give the mover's location. The last two are the name of
+             the target, and the mover's colour (a string).
+             Locations may be shifted according to the origin and scale
+             specified above
+            */
+                [b1  50 -50 120 -70 bt 'blue']
+                [r1  -50 -50 -80 -55 rt 'red']
+            ]
+
+            [the_obstacles [sim_window] new_obstacle
+            /*
+             Each obstacle is specified by its name, its x and y
+             coordinates,
+            */
+                [o1 -40 75]
+                [o2 -22 70]
+                [o3  -5 68]
+                [o4  30 68]
+                [o5  46 70]
+                [o6  65 75]
+            ]
+
+            [the_targets [sim_window] new_target
+            /*
+            Each target is specified by its name, location and colour,
+            a string
+            */
+                [bt -50 145 'blue']
+                [rt 110 155 'red']
+            ]
+        ]
+
+        /*
+         3. A list of instruction strings to be printed out after
+         the picture has been built and objects and agents created.
+        */
+        [INSTRUCTIONS
+            'MOVE THE AGENTS OBSTACLES AND TARGETS TO DESIRED LOCATIONS'
+            'THEN PRESS THE <RETURN> KEY TO MAKE THE PROGRAM RUN' ''
+        ]
+        /* 4. A procedure to be run when setup complete, defined below*/
+        [FINAL demo_finish_setup]
+    ];
+
+;;; Notice how easy it is to alter the above list in order to create a
+;;; new simulation. E.g. later you can experiment with more obstacles,
+;;; or with more agents and targets
+
+
+/*
+-- Possible exercises -------------------------------------------------
+
+1. Try giving different visual ranges or feeling ranges to different
+movers, and see how that affects their behaviour.
+
+E.g. alter the default slot values for either or both of r1, or b1
+for these slots:
+
+    slot demo_feeling_distance
+    slot demo_visual_range
+
+2. Try adding more obstacles to see how that affects the behaviour of
+the movers.
+
+3. Try adding more movers with their own targets.
+
+4. Try making the movers able to detect when they get stuck behind a
+barrier made of obstacles. One simple way would be to let a mover detect
+when it has made not progress after (say) 5 time_slices. Add a new
+"feeling" type for that state, e.g. "frustrated", and use the
+frustrated_face procedure described in HELP SIM_FACES, to display it.
+(Or make your own face procedure.)
+
+5. Try extending the reactive behaviours so that when a mover detects
+that it is stuck it changes its pattern of behavour, e.g. for the
+next 5 time slices it should move away from its target or in random
+directions. Or it could move left or right along the obstacles for a
+while.
+
+6. More challenging: see if the agent can make a plan to get round
+obstacles.
+
+7. Even more challenging: see if you can make the agent can learn for
+itself how to get round obstacles. (First read AI text books on
+learning.)
+
+8. Try introducing more types of feelings and facial expressions to
+demonstrate them.
+
+9. Try giving the movers a certain amout of energy which gets used up
+while they move. When they get to their targets their energy can then be
+increased. The target is then a sort of food supply.
+
+What should happen when the energy supply gets low? A new feeling?
+What should happen when the energy supply runs out completely.
+
+10. Try giving the movers the ability to push obstacles, but when they
+do so their energy may be depleted far more rapidly. So they may have to
+decide whether to go to the food supply first. You'll need to think of
+some tasks which require pushing things around, to make this
+interesting.
+
+11. Try adding more social interactions between the movers, including
+linguistic communications based on the [message_out...] and
+[message_in...] formats described in TEACH SIM_AGENT.
+
+12. Try replacing the sim_run_sensors method described above with one
+that allows each agent to have different sensors that can detect
+different types of things (vision, sound, taste...)
+
+
+*/
+
+
+
+
+/*
+
+-- Define some global variables to control trace printing -------------
+
+*/
+
+global vars
+
+    ;;; Maximum number of decimal places shown in trace printing
+    sim_pr_places = 2,
+
+    ;;; If this is true, entities created by setup_simulation
+    ;;; will be listed when the demonstration starts up.
+    sim_show_entities = true,
+
+    ;;; Turn on as many pop-11 debugging options as possible, and
+    ;;; allow normally "constant" procedure definitions to be recompiled
+    pop_debugging = true,
+
+    ;;; Windows created by run_simulation will be stored in this list.
+    sim_all_windows,
+;
+
+/*
+-- -- Variables to control sayif printing and trace methods
+
+Several of the default methods and procedures defined in
+LIB SIM_AGENT concerned with trace printing are redefined in LIB
+SIM_HARNESS. See HELP SIM_HARNESS for more detailed explanations.
+
+The changes enable trace printing to be more easily turned on and off by
+setting global boolean variables held in the list sim_alltracevars,
+or using the control panel created by sim_control_panel, invoked
+by run_simulation.
+
+
+For more information on trace methods, see HELP SIM_HARNESS/Tracing
+
+The variable sim_alltracevars holds a list (initially defined in LIB
+SIM_HARNESS) containing all the true/false trace control variables. They
+are made false to start off. New trace switching variables introduced in
+this file were added to the list sim_alltracevars above.
+
+The variable mintracevars, defined below, lists a subset of variables
+which should be made true in a particular demonstration. You can
+give the the list mintracevars to the procedure run_simulation.
+
+For the role of the variable prb_sayif_trace in controlling SAYIF
+actions in rules, see
+    HELP POPRULEBASE/SAYIF
+
+*/
+
+
+global vars
+    ;;; The default list mintracevars is defined in LIB SIM_HARNESS, but
+    ;;; can be overridden here, or switched using the control panel
+    ;;; created automatically.
+
+    mintracevars = [demo_endrules_trace demo_cycle_trace demo_cycle_pause ],
+
+
+    ;;; Only SAYIF actions with keys in this list will be run. You can
+    ;;; add this list to include extra words which you use in SAYIF
+    ;;; actions. (The control panel mechanism needs to be modified to
+    ;;; allow the contents of this list to be changed easily.)
+    prb_sayif_trace = [goal sayfeel veering],
+
+    ;;; If uncommented instead of the above, the following will produce
+    ;;;     more tracing:
+    ;;; prb_sayif_trace = [goal sense sayfeel veering acting],
+
+ ;
+
+;;;  global list of objects and agents, created in run_simulation
+global vars all_agents;
+
+;;; In case recompiling, get rid of old agents.
+[] -> all_agents;
+
+;;; Increase popmemlim to reduce garbage collection time.
+;;; Experiment with the number.
+max(popmemlim, 1000000) -> popmemlim;
+;;; Note the second number is the maximum number of *words* in memory
+;;; not bytes.
+
+
+/*
+
+-- Run the simulation, using the test harness
+
+The test harness is defined in LIB * SIM_HARNESS, it provides
+procedures to run the simulation.
+
+It uses the specification list sim_setup_info to create agents
+and objects puts them into the list all_agents, which is given
+to the main sim_agent procedure, sim_scheduler, with a number specifying
+how many time-slices to simulate. See TEACH SIM_AGENT
+
+In order to make it easy to control the environment in which this runs,
+a test harness procedure, run_simulation is defined, which calls
+sim_scheduler after setting a number of variables.
+
+The procedure continue_run, invokes this with a standard set of
+parameters. The procedure run_simulation can be used to invoke a setup
+procedure and then invoke continue_run. These procedures are defined
+below.
+
+    run_simulation(sim_setup_info, 30, mintracevars);
+*/
+
+
+/*
+-- Kill old window and print out instructions
+*/
+
+;;; When re-compiling the file get rid of any windows from a previous
+;;; run:
+
+if identprops("killwindows") /== undef
+and isprocedure(valof("killwindows"))
+then
+    valof("killwindows")();
+endif;
+
+
+define instruct_demo();
+printf('\
+When you run the demonstration simulation it will pause frequently.\
+To end a pause, press the RETURN key.\
+During a pause, you can move the objects around in the\
+"World" window, using button 1 on the mouse.\
+\
+The "face" window will show you how the red and blue "mover"\
+objects (R1 and B1) feel as they attempt to get to their\
+"targets" (TR and TB respectively), possibly impeded by obstacles.\
+\
+To interrupt the program while running, type CTRL C.\
+\
+For more information read the teach file (TEACH SIM_FEELINGS).\
+\
+A control panel will appear containing "trace" control buttons which\
+you can turn on and off to get more or less trace printing.\
+\
+To setup and run the program for 300 cycles give this pop-11 command\
+(where the third argument is a list of tracing variables to be set\
+true). In VED you can obey the command using ESC d, with the VED\
+cursor on this line:\
+\
+    run_simulation(sim_setup_info, 300, mintracevars);');
+enddefine;
+
+instruct_demo();
+
+
+/*
+
+-- Further information about SIM_AGENT and other packages used --------
+
+This file uses the SIM_AGENT toolkit which is made of a collection of
+smaller packages developed at Birmingham extending the Poplog system.
+
+A full understanding of the mechanisms used here requires knowledge of
+Pop-11 and also the following concepts and libraries. For an
+introduction to Pop-11 see
+
+    TEACH * PRIMER
+
+(Also available for purchase in a printed form.)
+
+For information on object oriented programming in Pop-11 see
+    TEACH * OOP
+    HELP  * OBJECTCLASS, TEACH * OBJECTCLASS_EXAMPLE
+
+The toolkit uses Poprulebase, which enables you to construct and run
+rulesets consisting of collections of condition-action rules associated
+with a database of changing information. For information about rulesets
+and how to construct and run them see:
+    TEACH * RULEBASE
+    TEACH * POPRULEBASE
+    HELP  * POPRULEBASE
+
+You need to understand the Pop-11 pattern matcher:
+
+    HELP * MATCHES
+    HELP * READPATTERN
+
+This demonstration is based on the LIB * SIM_AGENT package described
+here and in the tutorial introduction
+    TEACH * SIM_AGENT
+
+A more complete overview is given in:
+    HELP * SIM_AGENT
+
+A key feature of the package is that it allows each agent to have an
+architecture which is a rulesystem which is composed of rulefamilies and
+rulesets, where a rulefamily is a collection of rulesets only one of
+which is active at any one time. All this is explained in
+
+    HELP * RULESYSTEMS,
+
+It helps also to be familiar with the RCLIB graphical extension to
+Pop-11 as explained in
+    TEACH * RCLIB_DEMO.P
+    TEACH * RC_LINEPIC
+
+and for more detail
+    HELP * RCLIB
+    HELP * RC_LINEPIC
+
+-- Further background information -------------------------------------
+
+Poplog was mainly developed at Sussex University and Integral Solutions
+Ltd. The core language Pop-11 is a vastly extended version of the
+language Pop-2 originally developed for Artificial Intelligence research
+at Edinburgh University. The extensions incorporated in Pop-11 were
+produced at Sussex University in the school of Cognitive and Computing
+Sciences (where this author was located until 1991), although users in
+other places made important suggestions and provided libraries.
+
+A major extension to Pop-11 was developed around 1993 by Steve Knight
+Leach at Hewlett Packard research laboratories. This was the Objectclass
+library. He runs a web site providing information about Pop-11 and
+Poplog and programs which can be run remotely. See
+     http://www.popforum.org.uk/
+
+If you know Common Lisp, you can think of Pop-11 as being very similar
+to Common Lisp, with a different syntax. Objectclass is an object
+oriented extension to Pop-11, analogous to CLOS, an object oriented
+extension to Common Lisp.
+
+-- Remote access to information about Poplog --------------------------
+
+If you do not have access to Poplog, a lot of information about Poplog
+and Pop-11 can be found in the Birmingham Poplog ftp directory
+
+    ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/
+
+There is also an online introduction to Pop-11
+
+    ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/primer/START.html
+
+From now on it is assumed that the reader is using the Poplog system, so
+that references are given to the online documentation accessible via the
+editor.
+
+Other readers can browse subdirectories of the ftp directory,
+e.g.
+    ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/sim/
+    ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/prb/
+    ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/rclib/
+
+*/
+
+
+/*
+-- Index of methods procedures classes and rules ----------------------
+(In VED: use "<ENTER> g define" to access required item)
+(Recreate this index by "<ENTER> indexify define")
+
+ define :class demo_mover; is sim_movable_agent, face_pic;
+ define :class demo_inert; is sim_movable;
+ define :class demo_obstacle; is demo_inert;
+ define :class demo_target; is demo_inert;
+ define :method print_instance(item:demo_mover);
+ define :method print_instance(item:demo_obstacle);
+ define :method print_instance(item:demo_target);
+ define :method sim_run_sensors(obj:demo_inert, agents) -> sensor_data;
+ define :method sim_run_sensors(agent:demo_mover, entities) -> sensor_data;
+ define :method sim_run_agent(agent:demo_mover, agents);
+ define :rulesystem demo_agent_rulesystem;
+ define diff_num(n1, n2);
+ define :ruleset demo_prepare_database_ruleset;
+ define :ruleset demo_new_percept_ruleset;
+ define heading_to_target(mover) -> dir;
+ define attend_to_obstacle(mover, dist, dir) -> result;
+ define find_nearest_obstacle(mover) -> found;
+ define :ruleset demo_analyse_percept_ruleset;
+ define determine_veer(mover, thing, dist, dir) -> veerangle;
+ define :ruleset demo_avoid_nearest_ruleset;
+ define feeling_for(mover, nearest, dist) -> feeling;
+ define :ruleset demo_setup_feeling_ruleset;
+ define speed_for_feeling(feeling) -> speed;
+ define :ruleset demo_speed_ruleset;
+ define :ruleset demo_show_feeling_ruleset;
+ define :ruleset demo_report_feeling_ruleset;
+ define demo_do_move_to(mover, oldx, oldy, newx, newy);
+ define new_loc(myx, myy, my_heading, ang, speed) ->(newx, newy);
+ define :ruleset demo_move_ruleset;
+ define :ruleset demo_memory_ruleset;
+ define :ruleset demo_cleanup_ruleset;
+ define show_and_name_instance(word, obj, win);
+ define new_mover(args, win) -> mover;
+ define new_obstacle(args, win) -> obj;
+ define new_target(args, win) -> obj;
+ define demo_finish_setup();
+ define instruct_demo();
+
+--- $poplocal/local/newkit/sim/teach/sim_feelings
+--- Linked to $poplocal/local/teach/sim_feelings
+--- Copyright University of Birmingham 2002. All rights reserved. ------
+
+*/

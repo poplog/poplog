@@ -1,0 +1,762 @@
+REF XT_ACTION                                     Adrian Howard Jun 1991
+                         Updated by Adrian Howard, Jason Handby Aug 1991
+
+       COPYRIGHT University of Sussex 1990. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<   ACTION TABLE MANAGEMENT   >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+After a  cursory overview  of the  subject, this  REF file  details  the
+procedures supplied  by the  two  library packages  LIB * XT_ACTION  and
+LIB * FAST_XT_ACTION which provide the Pop-11 interface to the various X
+Toolkit Intrinsics  related  to the  management  of action  tables,  and
+support for related data-structures.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Overview of  Action Tables
+
+  2   External Callback
+
+  3   Action Procedures And Action Names
+
+  4   ActionHook Procedures
+
+  5   LIB XT_ACTION
+      5.1   The XptActionsPtr Shadowclass
+      5.2   The XptActionList Shadowclass
+      5.3   Action Management Procedures
+
+  6   LIB FAST_XT_ACTION
+
+  7   Miscellaneous
+
+
+
+-----------------------------
+1  Overview of  Action Tables
+-----------------------------
+
+In most cases  the relation between  user events (key  presses etc)  and
+widget behaviour  is not  hard-wired. Instead,  the translation  manager
+provides a changeable mapping between  events and widget behaviour.  The
+translation manager does  this by  using translation  tables and  action
+tables.
+
+A widgets translation table  is used to specify  a mapping between  user
+events and  procedure names,  while action  tables specify  the  mapping
+between these procedure names and the procedures themselves.
+
+All  widgets  initially  have  a  (possibly  empty)  action  table.   An
+application can also register its own action tables using the procedures
+described later in this file.
+
+When a widget is realized  (see * XtRealizeWidget), the action names  in
+its translation  table  are  bound  to  procedures  by  the  translation
+manager. The  translation manager  searches for  the names  by  scanning
+through the action tables in the following order:
+
+      # Action tables relating to the widgets class and superclasses, in
+        subclass to superclass order.
+
+      # Action tables relating to the parents class and superclasses, in
+        subclass to superclass order (and similarly for its parents, and
+        so on).
+
+      # Action tables registered with XtAppAddActions (see below)
+
+This means that when  an action named "Foo"  is requested from a  widget
+WIDGET, the procedure  which performs  this action may  not be  directly
+associated  with  the  widget  WIDGET,  but  may  be  "inherited"   from
+elsewhere.
+
+As soon as the translation manager finds the name, the search is stopped
+and the associated procedure is bound  to the action name. Since  widget
+supplied actions are  looked for first,  application registered  actions
+cannot override  widget supplied  actions.  If the  translation  manager
+cannot find the name, a warning is issued.
+
+A set of action hook procedures can also be specified by an application.
+These will be called just before any action routine is executed.
+
+The library LIB * XT_ACTION provides the Pop-11 interface to the various
+X Toolkit Intrinsics related  to the management  of action tables,  plus
+support for  related data-structures.  The library  LIB * FAST_XT_ACTION
+(loaded by LIB * XT_ACTION) provides  the non-checking interface to  the
+same procedures.
+
+The procedures supplied by these libraries allow the following functions
+to be performed:
+
+     # Declaring and registering an action table.
+     # Adding, removing and calling "action hook" procedures.
+     # Coercion between Pop-11 and external action (hook) procedures.
+
+For details of  the section  of the Poplog  X interface  related to  the
+management of translation tables,  see REF * XT_TRANS. For more  details
+about actions see chapter 10 of:
+
+               X Toolkit Intrinsics - C Language Interface
+                             X Window System
+                         X Version 11, Release 4
+
+        Copyright (C)  1985,  1986,  1987,  1988,  Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+
+
+--------------------
+2  External Callback
+--------------------
+
+Since action(hook) procedures are called from outside Poplog they  use a
+special  "external   callback"   mechanism.   This   is   explained   in
+REF * XT_CALLBACK.  You  should   read  the   following  sections   from
+REF * XT_CALLBACK if you have not done so already:
+
+     #  Overview - External Callbacks
+     #  Generic External Callbacks Under The Poplog X Interface
+     #  Possible Problems With Default External Callback Coercion
+
+
+
+
+-------------------------------------
+3  Action Procedures And Action Names
+-------------------------------------
+
+Many of  the procedures  in  LIB * XT_ACTION and  * FAST_XT_ACTION  take
+action procedures. These are either appropriate external procedures,  or
+Pop-11 procedures  that  are coerced  with  the  XptExportAction(Cached)
+procedures.
+
+External  procedures   should  be   external  function   closures   (see
+REF * EXTERNAL), or  of the  type XptProcedure.  The external  procedure
+should expect  to  be called  in  the  same format  as  the  following C
+function prototype:
+
+  typedef void (*XtActionProc)(Widget, XEvent *, String *, Cardinal *);
+
+As with all handling  of external objects in Pop-11, care must be  taken
+with garbage collection (see REF * EXTERNAL_DATA).
+
+A Pop-11 action procedure P should expect to be called as follows:
+
+    P(widget, xeventptr, ext_stringlist, cardinal);
+
+The first argument  specifies the widget  that caused the  action to  be
+called (it  should not  be assumed  that this  widget is  realised).  In
+Pop-11 the widget is passed as  a normal widget descriptor (as  returned
+by XptImportWidget).
+
+The second argument  is an  XptXEventPtr external  pointer class  record
+that points to the XEvent structure (see REF * XPT_XEVENT)  representing
+the event that caused the action to be called.
+
+The third argument is an external pointer class record that points  to a
+list of null-terminated  strings. These strings  represent arguments  to
+the action specified  in the  translation table. This  can be  converted
+into an XptStringList shadowclass structure (see REF * XPT_GENERALTYPES)
+with the  importXptStringList  procedure.  The  final  argument  is,  in
+Pop-11, the number of strings in this list. With external procedures the
+final argument is a pointer to the number, not the number itself.
+
+IMPORTANT NOTE: It is an error  for toolkit action procedures to  return
+items on the stack.
+
+The following is an example of a possible action procedure:
+
+    loadinclude xpt_xevent.ph;  ;;; Load XEvent structure details
+    uses xpt_generaltypes;      ;;; For XptStringList support
+
+    ;;; Display details of action
+    define an_action(widget, xeventptr, stringlist, n);
+        lvars widget, xeventptr, stringlist, n;
+        lvars xevent_type;
+
+        ;;; Get the type of the XEvent
+        exacc :XEvent xeventptr.type -> xevent_type;
+
+        ;;; Turn the pointer to the list of null-terminated strings into
+        ;;; an XptStringList structure (see REF * XPT_GENERALTYPES)
+        importXptStringList(stringlist, n) -> stringlist;
+
+        nl(1);
+        npr('an_action CALLED');
+        spr('Widget: ');            npr(widget);
+        spr('XEvent type');         npr(xevent_type);
+        spr('StringList passed');   npr(stringlist);
+
+    enddefine;
+
+As explained earlier each  action procedure is  associated with a  name.
+This can be any character  string. Strings starting with the  characters
+"Xt" are reserved  by the intrinsics  for future standard  enhancements.
+Strings starting with the  characters "Xpt" are  reserved by Poplog  for
+future standard enhancements.
+
+Care must  be taken  when using  Pop-11 action  procedures. It  must  be
+remembered that the Pop-11 procedure is NOT what is registered with  the
+intrinsics, the  COERCED  procedure  is.  If  you  are  coercing  Pop-11
+procedures yourself, you must ensure that the COERCED procedure does not
+become garbage during the lifetime of the action procedure. This can  be
+done by  explicitly  keeping  track of  the  external  function  closure
+returned  by  the  coercion  procedures  XptExportAction(Cached)  or  by
+supplying a true HOLD argument to them.
+
+
+
+
+------------------------
+4  ActionHook Procedures
+------------------------
+
+Some of  the procedures  in  LIB * XT_ACTION and  * FAST_XT_ACTION  take
+action  hook   procedures.  These   are  either   appropriate   external
+procedures,  or   Pop-11   procedures   that  are   coerced   with   the
+XptExportActionHook(Cached) procedures.
+
+External procedures should  be external function  closures (for  details
+see REF * EXTERNAL), or of the type XptProcedure. The external procedure
+should expect  to  be called  in  the  same format  as  the  following C
+function prototype:
+
+    typedef void (*XtActionHookProc)
+        (Widget, XtPointer, String, XEvent *, String *, Cardinal *);
+
+As with all handling of external  objects in Pop-11, care must be  taken
+with garbage collection (see REF * EXTERNAL_DATA).
+
+A Pop-11 action hook procedure P should expect to be called as follows:
+
+   P(widget, client_data, string, xeventxptr, ext_stringlist, cardinal);
+
+The first argument specifies the widget  that caused the action hook  to
+be called, it  should not be  assumed that this  widget is realised.  In
+Pop-11 the widget is passed as  a normal widget descriptor, as  returned
+by XptImportWidget.
+
+The second  argument will  be, in  Pop-11, the  arbitrary Pop-11  object
+given to XtAppAddActionHook  when the  action hook  was registered.  For
+external procedures this will be a pointer to the object, not the object
+itself.
+
+The third item is the name of  the action that is to be dispatched.  The
+last three arguments are the  same as those that  will be passed to  the
+action that is to be dispatched.
+
+IMPORTANT NOTE: It  is an error  for toolkit action  hook procedures  to
+return items on  the stack, or  to alter  any data pointed  to by  their
+arguments (with the exception of the client data).
+
+The following is an example of a possible action procedure:
+
+    loadinclude xpt_xevent.ph;  ;;; Load XEvent structure details
+    uses xpt_generaltypes;      ;;; For XptStringList support
+
+    ;;; Display details of action hook
+    define an_actionhook(
+        widget, client_data, action_name, xeventptr, stringlist, n
+    );
+        lvars widget, client_data, action_name, xeventptr, stringlist,
+            n;
+        lvars xevent_type;
+
+        ;;; Get the type of the XEvent
+        exacc :XEvent xeventptr.type -> xevent_type;
+
+        ;;; Turn the pointer to the list of null-terminated strings into
+        ;;; an XptStringList structure
+(see REF * XPT_GENERALTYPES)
+        importXptStringList(stringlist, n) -> stringlist;
+
+        nl(1);
+        npr('-an_action hook- CALLED');
+        spr('Widget: ');            npr(widget);
+        spr('Client data: ');       npr(client_data);
+        spr('Action name: ');       npr(action_name);
+        spr('XEvent type');         npr(xevent_type);
+        spr('StringList passed');   npr(stringlist);
+
+    enddefine;
+
+Care must be taken when using Pop-11 action hook procedures. It must  be
+remembered that the Pop-11 procedure is NOT what is registered with  the
+intrinsics, the  COERCED  procedure  is.  If  you  are  coercing  Pop-11
+procedures yourself, you must ensure that the COERCED procedure does not
+become garbage during the  lifetime of the  action hook procedure.  This
+can be done by explicitly keeping track of the external function closure
+returned by the  coercion procedures  XptExportActionHook(Cached) or  by
+supplying a true HOLD argument to them.
+
+
+
+
+----------------
+5  LIB XT_ACTION
+----------------
+
+The following sections describe the  facilities provided by the  library
+LIB * XT_ACTION.
+
+
+
+5.1  The XptActionsPtr Shadowclass
+----------------------------------
+initXptActionsPtr() -> actionsptr                            [procedure]
+        Creates a new  instance of an  XptActionsPtr shadowclass  record
+        that points to  an XptActionsRec containing  a null action  name
+        and procedure.  See REF * XPT_GENERALTYPES  For details  of  the
+        XptActionsRec typespec.
+
+
+fillXptActionsPtr(string, xptprocedure, actionsptr)          [procedure]
+            -> actionsptr
+        Takes an  XptActionsPtr shadowclass  record actionsptr,  updates
+        the fields  of the  XptActionsRec it  points to  with the  given
+        action name  and  action  procedure,  and  returns  the  updated
+        actionsptr. Values of false for string or xptprocedure  indicate
+        null pointers.
+
+
+consXptActionsPtr(string, xptprocedure) -> actionsptr        [procedure]
+        Constructs an instance  of an  XptActionsPtr shadowclass  record
+        that points to an XptActionsRec  with an action name string  and
+        an action procedure xptprocedure.  Both string and  xptprocedure
+        can have values of false to indicate null pointers. For  details
+        of the XptActionsRec typespec see REF * XPT_GENERALTYPES.
+
+
+destXptActionsPtr(actionsptr) -> (string, xptprocedure)      [procedure]
+        Returns the  action  name  and procedure  of  the  XptActionsRec
+        pointed to by actionsptr (an XptActionsPtr shadowclass  record).
+        Returned values of false indicate null pointers.
+
+
+XptARString(actionsptr) -> string or false                   [procedure]
+string or false -> XptARString(actionsptr)
+        Returns or updates the action  name stored in the  XptActionsRec
+        pointed to by actionsptr (an XptActionsPtr shadowclass  record).
+        A value of false indicates a null pointer.
+
+
+XptARProc(actionsptr) -> xptprocedure                        [procedure]
+xptprocedure -> XptARProc(actionsptr)
+        Returns  or  updates   the  action  procedure   stored  in   the
+        XptActionsRec  pointed  to   by  actionsptr  (an   XptActionsPtr
+        shadowclass record). The xptprocedure can have a value of false,
+        indicating a null pointer.
+
+
+isXptActionsPtr(item) -> bool                                [procedure]
+        Returns true  if item  is an  XptActionsPtr shadowclass  record,
+        false otherwise.
+
+
+refreshXptActionsPtr(actionsptr) -> actionsptr               [procedure]
+        "Refreshes" the XptActionsPtr shadowclass record actionsptr from
+        its external representation, returning the refreshed record. See
+        REF * SHADOWCLASS for details of refreshing shadowclass records.
+
+        IMPORTANT NOTE:  Refreshing actionsptr  will  cause it  to  lose
+        reference to any Pop-11 objects. A separate reference will  need
+        to be kept if the objects are not to become garbage.
+
+
+importXptActionsPtr(exptrclass) -> actionsptr                [procedure]
+        Takes  an  external   pointer  class  record   pointing  to   an
+        XptActionsRec   structure,   and   returns   the   XptActionsPtr
+        shadowclass record referring to the same structure (creating  it
+        if necessary.)
+
+
+XptActionsPtr_shadowkey -> shkey                              [constant]
+        The shadowkey for  XptActionsPtr shadowclass  records. For  more
+        details of shadowkeys, see REF * SHADOWCLASS.
+
+
+
+5.2  The XptActionList Shadowclass
+----------------------------------
+initXptActionList(n) -> actionlist                           [procedure]
+        Construct an XptActionList shadowclass structure consisting of n
+        XptActionsRec  structures  containing  null  action  names   and
+        procedures.
+
+        See REF * XPT_GENERALTYPES  for  details  of  the  XptActionsRec
+        typespec.
+
+        XptActionList shadowclass records have their  external_ptr_props
+        set to the constant XDT_ACTIONLIST (see REF * XPT_CONSTANTS)  to
+        enable "weak" type  checking (See  REF * XptDescriptor for  more
+        details).
+
+
+fillXptActionList(actionsptr_1, ..., actionsptr_n,           [procedure]
+                actionlist) -> actionlist
+        Copies the contents of the XptActionsRec structures, pointed  to
+        by the  N XptActionsPtr  records, into  actionlist.  actionlist,
+        with its new  contents, is  returned as  the result.  actionlist
+        must be an N element XptActionList shadowclass structure.
+
+
+consXptActionList(actionsptr_1, ..., actionsptr_n, n)        [procedure]
+            -> actionlist
+        Construct an n  element XptActionList  shadowclass structure  by
+        copying the contents of the XptActionsRec structures pointed  to
+        by  the  top  n  elements  of  the  stack  (which  all  must  be
+        XptActionsPtr shadowclass records).
+
+        See REF * XPT_GENERALTYPES  for  details  of  the  XptActionsRec
+        typespec.
+
+        Also see initXptActionList.
+
+
+destXptActionList(actionlist)                                [procedure]
+            -> (actionsptr_1, ..., actionsptr_n, n)
+        This  procedure  returns  an  XptActionsPtr  record  for   every
+        XptActionsRec  structure  in  actionlist,  plus  the  number  of
+        structures n in that list.
+
+        NOTE: The XptActionsPtr structures  returned refer to COPIES  of
+        the items  in actionlist,  not  the items  themselves.  Changing
+        ACTIONSPTR_X will  NOT alter  actionlist. See  REF * SHADOWCLASS
+        for a more detailed explanation.
+
+
+subscrXptActionList(n, actionlist) -> actionsptr             [procedure]
+actionsptr -> subscrXptActionList(n, actionlist)
+        Returns  an  XptActionsPtr   record  actionsptr   for  the   Nth
+        XptActionsRec structure in the XptActionList actionlist.
+
+        NOTE: actionsptr  refers  to  a COPY  of  the  XptActionsRec  in
+        actionlist. Changing actionsptr will  NOT alter actionlist.  See
+        REF * SHADOWCLASS for a more detailed explanation.
+
+
+isXptActionList(item) -> bool                                [procedure]
+        Returns true if item is an XptActionList shadowclass  structure,
+        false otherwise.
+
+
+refreshXptActionList(actionlist) -> actionlist               [procedure]
+        "Refreshes" the XptActionList  shadowclass structure  actionlist
+        from  its  external  representation,  returning  the   refreshed
+        structure.  See  REF * SHADOWCLASS  for  details  of  refreshing
+        Pop-11 representations from external representations.
+
+        IMPORTANT NOTE:  Refreshing actionlist  will  cause it  to  lose
+        reference to any Pop-11  objects. Separate references will  need
+        to be kept if the objects are not to become garbage.
+
+
+importXptActionList(exptrclass, n) -> actionlist             [procedure]
+        Takes an external pointer class record pointing to a series of n
+        XptActionsRec  structures,   and   returns   the   XptActionList
+        referring to those same structures (creating it if necessary).
+
+
+XptActionList_shadowkey -> shkey                              [constant]
+        The shadowkey for XptActionList shadowclass structures. For more
+        details of shadowkeys see REF * SHADOWCLASS.
+
+
+
+5.3  Action Management Procedures
+---------------------------------
+XtAppAddActions(appcontext, actionlist, cardinal)            [procedure]
+        Registers the  action table  specified  by actionlist  with  the
+        translation  manager.  appcontext   specifies  the   application
+        context. actionlist is an XptActionList shadowclass structure of
+        length cardinal.
+
+        If more than one  action procedure is  registered with the  same
+        name, the most recently registered  action will be used. If  the
+        same name appears twice in  actionlist, the first occurrence  is
+        used.
+
+        IMPORTANT NOTE: the system will NOT automatically coerce  Pop-11
+        procedures into an external form  when this routine is used.  It
+        is  also  the  USERS   RESPONSIBILITY  to  prevent  the   action
+        procedures in actionlist becoming garbage.
+
+
+XptAppAddActionList(appcontext, list)                        [procedure]
+        Registers  the  action   table  specified  by   list  with   the
+        translation  manager.  appcontext   specifies  the   application
+        context. list is of the form:
+
+            [ [string_1 widentproc_1] [string_2 widentproc_2] ...]
+
+        string_n represents the  name that will  be associated with  the
+        action  procedure  widentproc_n.   Pop-11  words,  idents,   and
+        procedures are coerced to  external forms where necessary  using
+        XptExportAction.
+
+        If more than one  action procedure is  registered with the  same
+        name, the most recently registered  action will be used. If  the
+        same name appears twice in list, the first occurrence is used.
+
+        References to the (possibly  coerced) action procedures in  list
+        are kept by appcontext so they cannot become garbage during  the
+        lifetime of the application context.
+
+
+XtAppAddActionHook(appcontext, widentproc, client_data)      [procedure]
+            -> actionhookid
+        Adds the action hook procedure referred to by widentproc to  the
+        specified application context  appcontext with  the client  data
+        client_data.  If  widentproc  is   a  Pop-11  word,  ident,   or
+        procedure, it, and client_data, are coerced automatically into a
+        suitable external form with XptExportActionHook.
+
+        Just  before  any  action  is  executed,  all  the  action  hook
+        procedures that have been added will be called in reverse  order
+        of registration.
+
+        actionhookid is a unique  record that keeps  a reference to  the
+        action hook procedure that has just been added. This can be used
+        by XtRemoveActionHook  to  remove  the  action  hook  procedure.
+        appcontext also  retains a  reference  to actionhookid,  so  the
+        latter can safely be discarded if the action hook is never to be
+        removed.
+
+        Action hook  procedures  are destroyed  automatically  when  the
+        application context is destroyed.
+
+
+XtRemoveActionHook(actionhookid)                             [procedure]
+        Removes the action hook  specified by actionhookid (as  returned
+        by XtAppAddActionHook) from whatever application context it  was
+        generated by. This  procedure is the  default destroy action  of
+        actionhookid records.
+
+
+XtCallActionProc(widget, string, xeventptr, stringlist,      [procedure]
+            cardinal)
+        Invoke the  action  procedure  named  string  on  the  specified
+        widget. The action  procedure which is  actually called will  be
+        found by  a search  of the  action tables  as described  in  the
+        'Overview -  Action Tables'  section.  If the  action  procedure
+        named string cannot be found, a warning message is displayed and
+        the procedure returns.
+
+        xeventptr is an  XptXEventPtr pointing to  the XEvent  structure
+        (see  REF * XPT_XEVENT)  that  will  be  passed  to  the  action
+        procedure named  string. xeventptr  can be  false to  indicate a
+        null pointer.
+
+        stringlist is the XptStringList structure (for more details  see
+        REF * XPT_GENERALTYPES) of length cardinal  that will be  passed
+        to the action procedure named string.
+
+
+
+
+---------------------
+6  LIB FAST_XT_ACTION
+---------------------
+
+fast_XtAppAddActions(appcontext, actionlist, cardinal)       [procedure]
+fast_XptAppAddActionList(appcontext, list)                   [procedure]
+fast_XtAppAddActionHook(appcontext, xptprocedure,            [procedure]
+            client_data) -> actionhookid
+fast_XtRemoveActionHook(actionhookid)                        [procedure]
+fast_XtCallActionProc(widget, string, xeventptr, stringlist, [procedure]
+            cardinal)
+        Non-checking versions  of  the  procedures  in  LIB * XT_ACTION.
+        There operation is the same except that:
+
+            # There is no checking for valid arguments.
+            # NO coercion of Pop-11 procedures is performed.
+
+        These procedures should only be used in fully debugged programs.
+        See REF * XTOOLKIT  for  full details  of  the Poplog  X  naming
+        conventions for non-checking and checking procedures.
+
+
+XptExportAction(widentproc, hold) -> efc                     [procedure]
+        This procedure coerces a Pop-11 action procedure widentproc into
+        an external function closure efc  that is suitable to be  passed
+        as an  external action  procedure. NOTE:  If XptExportAction  is
+        called on different occasions with  the same widentproc it  will
+        return DIFFERENT external  function closures  which perform  the
+        same operation.
+
+        If the Boolean argument hold is true then a reference to efc  is
+        added to  the fixed  hold  list to  prevent it  getting  garbage
+        collected. To remove the efc from the list, use free_fixed_hold.
+        See REF * EXTERNAL_DATA  for more  details. It  should be  noted
+        that application context records attempt to keep a reference  to
+        their action procedures  (see REF * XptDescriptor)  so the  user
+        does not have to have hold true, or keep a reference to the efc,
+        when   the   efc   is   added   as   a   toolkit   action   with
+        XptAppAddActionList.
+
+        The procedure operates by creating an external function  closure
+        of the procedure XptActionWrapper. The value of efc is given by:
+
+            exfunc_export(
+                XptActionWrapper(%widentproc%),
+                XptCallbackFlags,
+                hold
+            );
+
+
+XptExportActionHook(widentproc, client_data, hold)           [procedure]
+                -> (efc, item)
+        This  procedure   coerces  a   Pop-11  action   hook   procedure
+        widentproc, and an arbitrary Pop-11 object client_data, into  an
+        external function closure efc  and a Pop-11 item item, that  are
+        suitable to  be passed  as a  action hook  procedure/data  pair.
+        IMPORTANT  NOTE:  If  the  procedure  is  called  on   different
+        occasions with  the same  widentproc  and client_data,  it  will
+        return DIFFERENT external  function closures  which perform  the
+        same operation.
+
+        If the Boolean argument hold is true then a reference to efc  is
+        added to  the fixed  hold  list to  prevent it  getting  garbage
+        collected. To remove the efc from the list, use free_fixed_hold.
+        See REF * EXTERNAL_DATA  for more  details. It  should be  noted
+        that application context records attempt to keep a reference  to
+        their action hook  procedures (see  REF * XptDescriptor) so  the
+        user does not have to have hold true, or keep a reference to the
+        efc, when the efc is added as a toolkit action hook procedure.
+
+        The procedure operates by creating an external function  closure
+        of the procedure XptActionHookWrapper. The value of efc is given
+        by:
+
+            exfunc_export(
+                XptActionHookWrapper(%widentproc, client_data%),
+                XptCallbackFlags,
+                hold
+            );
+
+        Since the client_data  is passed  to widentproc by  the call  to
+        XptActionHookWrapper the  action hook  client data  item has  no
+        effect in  the toolkit  action hooks  calls. item  is  therefore
+        always returned containing a value of false.
+
+
+XptExportActionCached(widentproc, hold) -> efc               [procedure]
+        This procedure coerces a Pop-11 action procedure widentproc into
+        an external function closure efc  that is suitable to be  passed
+        as an action procedure to the Intrinsics.
+
+        The arguments and results are as for a call to  XptExportAction,
+        the  difference  being  that  the  resultant  external  function
+        closure efc  is  cached.  This means  that  different  calls  to
+        XptExportActionCached WILL  return  the same  external  function
+        closure efc; if the same widentproc is used (the cache considers
+        the arguments  to  be the  same  if -sys_=-  returns  true  when
+        applied to them).
+
+        The entry in the cache for efc becomes garbage when efc  becomes
+        garbage. It  should be  noted that  application context  records
+        attempt to  keep a  reference to  their action  procedures  (for
+        details see REF * XptDescriptor)  so the user  does not have  to
+        have hold true, or keep a reference to the efc, when the efc  is
+        added as a toolkit action procedure.
+
+
+XptExportActionHookCached(widentproc, client_data, hold)     [procedure]
+            -> (efc, item)
+        This  procedure   coerces  a   Pop-11  action   hook   procedure
+        widentproc, and an arbitrary Pop-11 object client_data, into  an
+        external function closure efc and  a Pop-11 item item, that  are
+        suitable to be passed as a action hook procedure/data pair.
+
+        The   arguments   and   results   are   as   for   a   call   to
+        XptExportActionHook, the  difference  being that  the  resultant
+        external  function  closure  efc  is  cached.  This  means  that
+        different calls  to  XptExportActionHookCached WILL  return  the
+        same external function closure efc;  if the same widentproc  and
+        client_data are used  (the cache considers  the arguments to  be
+        the same if -sys_=- returns true when applied to them).
+
+        The entry in the cache for efc becomes garbage when efc  becomes
+        garbage. XptExportActionHookCached  is  used  to  coerce  Pop-11
+        action hook procedures in XtAppAddActionHook. It should be noted
+        that application context records attempt to keep a reference  to
+        their action hook  procedures (REF * XptDescriptor for  details)
+        so the user does not have to have hold true, or keep a reference
+        to the  efc, when  the efc  is added  as a  toolkit action  hook
+        procedure.
+
+
+XptActionWrapper(exptrclass, widentproc)                     [procedure]
+        Closures of  the  procedure  XptActionWrapper are  used  by  the
+        XptExportAction(Cached) procedure  to create  external  function
+        closures that can be used as toolkit action procedures. For more
+        details of external function closures see REF * EXTERNAL.
+
+        exptrclass should be an  external pointer class record  pointing
+        to an instance of the following structure:
+
+            l_typespec extdata {
+                widget      :XptWidget,
+                event       :XptPointer,
+                params      :exptr.:XptString[],
+                num_params  :exptr.:XptCardinal,
+            };
+
+        Each field of the above structure is pushed onto the stack.  The
+        procedure referred to  by widentproc,  which should  be a Pop-11
+        toolkit  action  procedure,  is  then  executed  by  a  call  to
+        XptCallbackHandler with a type of "action".
+
+
+XptActionHookWrapper(exptrclass, widentproc, client_data)    [procedure]
+        Closures of the procedure  XptActionHookWrapper are used by  the
+        XptExportActionHook(Cached)  procedures   to   create   external
+        function closures  that  can  be used  as  toolkit  action  hook
+        procedures. For more details  of external function closures  see
+        REF * EXTERNAL.
+
+        exptrclass should be an  external pointer class record  pointing
+        to an instance of the following structure:
+
+            l_typespec extdata {
+                widget      :XptWidget,
+                client_data :XptPointer,
+                name        :XptString,
+                event       :XptPointer,
+                params      :exptr.:XptString[],
+                num_params  :exptr.:XptCardinal,
+            };
+
+        The "widget"  field  of  the above  structure,  the  client_data
+        passed  to  XptActionHookWrapper,   and  the  "name",   "event",
+        "params", and  "num_params" fields  of the  above structure  are
+        then pushed onto the stack, ready for the call of the  procedure
+        referred to by widentproc. client_data, which can be any  Pop-11
+        object, replaces whatever is in  the "client_data" field of  the
+        structure referred to by exptrclass.
+
+        The procedure  referred  to  by widentproc,  which  should  be a
+        Pop-11 toolkit action hook procedure, is then executed by a call
+        to XptCallbackHandler with a type of "actionhook".
+
+
+
+
+----------------
+7  Miscellaneous
+----------------
+
+The library LIB * XT_KEYBOARD provides the procedures XptGetActionKeysym
+and XtGetActionKeysym which  may be  of use in  action procedures.  They
+allow the KeySym which caused an  action to occur to be identified.  See
+REF * XT_KEYBOARD for details.
+
+
+
+--- C.x/x/pop/ref/xt_action
+--- Copyright University of Sussex 1991. All rights reserved.

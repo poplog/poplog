@@ -1,0 +1,74 @@
+#!/bin/csh -f
+# --- Copyright Integral Solutions Ltd. 1990. All rights reserved. ----------
+# File:             $popneural/src/c/compall
+# Purpose:          Compile all C code
+# Author:           Julian Clinton, Jan 1990
+# Related Files:    backprop.c, backprop.p, backprop.o, backfordef.p
+
+set echo
+
+if ($#argv == 1) then
+    setenv HOST_TYPE $1
+endif
+
+if ($HOST_TYPE == sun4) then
+gcc -c -O backprop.c
+gcc -c -O complearn.c
+gcc -c -O ranvecs.c
+mv *.o $popneural/bin/sun4
+else if ($HOST_TYPE == sun4r5) then
+gcc -o backprop.so  -O -fPIC -shared backprop.c
+gcc -o complearn.so  -O -fPIC -shared complearn.c
+gcc -o ranvecs.so  -O -fPIC -shared ranvecs.c
+mv *.so $popneural/bin/sun4r5
+else if ($HOST_TYPE == pclinux) then
+gcc -o backprop.so  -O3 -fPIC -shared backprop.c
+gcc -o complearn.so  -O3 -fPIC -shared complearn.c
+gcc -o ranvecs.so  -O3 -fPIC -shared ranvecs.c
+mv *.so $popneural/bin/pclinux
+else if ($HOST_TYPE == decstation) then
+gcc -c -G 0 -g3 -O backprop.c
+gcc -c -G 0 -g3 -O complearn.c
+gcc -c -G 0 -g3 -O ranvecs.c
+mv *.o $popneural/bin/decstation
+else if ($HOST_TYPE == irisr5) then
+gcc -c -O -g3 backprop.c
+gcc -c -O -g3 complearn.c
+gcc -c -O -g3 ranvecs.c
+ld -shared -o backprop.so backprop.o
+ld -shared -o complearn.so complearn.o
+ld -shared -o ranvecs.so ranvecs.o
+mv *.so $popneural/bin/irisr5
+rm -f *.o
+else if ($HOST_TYPE == axposf) then
+gcc -c -O backprop.c
+gcc -c -O complearn.c
+gcc -c -O ranvecs.c
+ld -shared -expect_unresolved pop_\* -o backprop.so backprop.o -lc
+ld -shared -expect_unresolved pop_\* -o complearn.so complearn.o -lc
+ld -shared -expect_unresolved pop_\* -o ranvecs.so ranvecs.o -lc
+mv *.so $popneural/bin/axposf
+rm -f *.o
+else if ($HOST_TYPE == hp9000_700) then
+gcc -c +z -O backprop.c
+gcc -c +z -O complearn.c
+gcc -c +z -O ranvecs.c
+ld -b -o backprop.sl backprop.o
+ld -b -o complearn.sl complearn.o
+ld -b -o ranvecs.sl ranvecs.o
+mv *.sl $popneural/bin/hp9000_700
+rm -f *.o
+endif
+
+# Revision History
+# Aaron Sloman 1 Mar 2000
+#   Changed to use gcc, tested on Sparc+Solaris and on PC+linux
+# Julian Clinton, 28 Sep 1995
+#   Added support for PC/Linux and Alpha/OSF.
+#   Removed support for Sun 3, HP 9000/3xx and non-shared IRIX
+# Julian Clinton, 11 Jul 1994
+#    Added support for IRIX 5.0 (irisr5).
+# Julian Clinton, 7 Mar 1994
+#    Added support for Solaris 2.x (sun4r5).
+# Julian Clinton, 17 Aug 1993
+#   Added support for HP 9000/7xx, HP 9000/3xx and DECstation

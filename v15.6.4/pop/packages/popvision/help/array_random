@@ -1,0 +1,281 @@
+HELP ARRAY_RANDOM                               David Young
+                                                July 1996
+
+LIB * ARRAY_RANDOM provides a procedure for setting the contents of a
+region of an array to pseudo-random values. These may be drawn from a
+uniform or from an approximately Gaussian distribution. Repeatable
+sequences are possible.
+
+See also HELP * ERANDOM.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   The procedures
+
+  2   Notes
+      2.1   Types of array passed in
+      2.2   Types of array created
+      2.3   Uniform distribution limits
+      2.4   Quantisation of uniform distributions
+      2.5   Method for Gaussian distribution
+      2.6   Pseudo-random number generator used
+
+  3   Examples
+      3.1   Gaussian distributions
+      3.2   Uniform distributions
+      3.3   Use of the region argument
+      3.4   Repeatable sequences
+
+
+-----------------------------------------------------------------------
+1  The procedures
+-----------------------------------------------------------------------
+
+array_random(distrib_spec, array, region) -> array
+        distrib_spec specifies the distribution from which the random
+        numbers are drawn. In general, it should be a 3-element list or
+        vector. The first element must be the word "uniform" or the word
+        "gaussian". In the uniform case, the second and third elements
+        are numbers giving the lower and upper limits of the
+        distribution, and it matters whether they are integers or floats
+        - see the notes below. In the Gaussian case, these elements give
+        the mean and standard deviation of the distribution.
+            The word "uniform" may be used as shorthand for [uniform 0.0
+        1.0], unless array is a packed array of bytes (e.g. as created
+        by *newbytearray), in which case "uniform" stands for [uniform 0
+        256], i.e. the full range of possible values from 0 to 255.
+            The word "gaussian" may be used as shorthand for [gaussian
+        0.0 1.0], i.e. a mean of 0 and an s.d. of 1.
+            A number x may be used as shorthand for [uniform 0 x].
+            The value <false> is equivalent to "uniform".
+
+        array may be an array (of any number of dimensions), in which
+        case its values are updated and it is returned. Alternatively,
+        this argument may be a list, in which case a new array with this
+        boundslist is created and returned. Finally, this argument may
+        be <false>, in which case region must be a list and a new array
+        is created and returned, with boundslist given by region. See
+        the note below on array types.
+
+        region may be a list giving a boundslist-type specification of
+        the part of array whose contents are to be updated, or else the
+        boundslist of the array to create if none was supplied. (See
+        REF * ARRAYS for how boundslists work.) Alternatively, region
+        may be <false>, in which case every element of the array is
+        updated.
+
+array_random_seed -> (seed1, seed2, seed3)
+seed1, seed2, seed3 -> array_random_seed
+        This active variable returns or sets the seeds for the random
+        number generator so that repeatable sequences can be obtained.
+            On updating, the three seeds should normally be positive
+        integers. Only the low 16 bits of each are used. One or more
+        seeds can also be given as <false>, in which case the generator
+        is initialised from system variables which will change from
+        session to session.
+            After a call to array_random_seed, the same random numbers will
+        be produced as after a previous call with the same values of the
+        seeds (except when a seed is <false> of course). This means that
+        identical results will be produced, provided that the subsequent
+        array types and sizes are also the same.
+            It is almost always a mistake to call array_random_seed for
+        any other purpose. In particular, repeatedly setting the seed
+        from the system clock or another external source will usually
+        degrade the statistical properties of the results.
+            The seeds used by array_random are all private; calls to
+        array_random and array_random_seed have no effect on the
+        sequences produced by other calls to either the Pop-11 or
+        external random number generators, with the exception of
+        *erandom.
+            If array_random_seed has not been set the first time
+        array_random is called, the generator is initialised using
+        system variabes which will change from session to session.
+
+
+-----------------------------------------------------------------------
+2  Notes
+-----------------------------------------------------------------------
+
+2.1  Types of array passed in
+-----------------------------
+
+Any array can be given as an argument, though the routine will be
+fastest if it is given a packed array of bytes (e.g. one created by
+*newbytearray or *newsarray) or of single-precision floats (e.g. one
+created by *newsfloatarray). The array can have any number of dimensions
+and can be offset in its arrayvector. However, if the array is a packed
+array of bytes (or any other form of packed integer array) only uniform
+distributions with integer limits are allowed.
+
+2.2  Types of array created
+---------------------------
+
+If the array input argument is given as <false>, the array returned will
+be created with *newsfloatarray, unless the distribution is uniform and
+the bounds are integers in the range 0 to 256 inclusive, in which case
+the array will be created with *newbytearray.
+
+2.3  Uniform distribution limits
+--------------------------------
+
+If a value returned in the array is x, the lower limit is u0 and the
+upper limit is u1, then u0 <= x < u1. In other words, x lies in the
+range [u0, u1). This applies to both integers and floats. That is why
+the upper limit for byte arrays, mentioned above, is 256 and not 255.
+(See *array_hist for more discussion of why this convention is sensible
+and consistent.)
+
+2.4  Quantisation of uniform distributions
+------------------------------------------
+
+If both limits for a uniform distribution are Pop-11 integers, then the
+values generated will all be whole numbers. This applies even if the
+array is the type created by *newsfloatarray - the results will all be
+equal to integers even though the representation is floating point. If
+the array is a full array (as created by *newarray) then the values will
+be stored in integer representation.
+
+If either limit is a Pop-11 "decimal" (i.e. floating point - see
+REF * NUMBERS), then the results will generally have fractional parts,
+and will be stored in floating point representation.
+
+2.5  Method for Gaussian distribution
+-------------------------------------
+
+The Gaussian distribution is obtained using the Box-Muller method as
+described in Numerical Recipes in C by W.H. Press et al.
+
+2.6  Pseudo-random number generator used
+----------------------------------------
+
+A suitable external library routine is called. To see what is being used
+in the current implementation, look at LIB * ARRAY_RANDOM.C.
+
+
+-----------------------------------------------------------------------
+3  Examples
+-----------------------------------------------------------------------
+
+These example can be run from a suitable graphics terminal which allows
+display of images and graphs. Whilst 2-D arrays are used here, note that
+array_random works with arrays with any number of dimensions.
+
+The indented examples are designed to be executed in the order they
+appear.
+
+Load libraries:
+
+    uses popvision
+    uses rc_graphplot
+    uses rci_show
+    uses array_random
+    uses array_hist
+    uses array_mxmn
+
+    2 -> rci_show_scale;        ;;; makes differences clearer
+
+3.1  Gaussian distributions
+---------------------------
+
+Generate a 2-D array of Gaussian-distributed values, mean 20, s.d. 5:
+
+    vars arr;
+    array_random([gaussian 20 5], false, [1 100 1 100]) -> arr;
+
+Display it:
+
+    rci_show(arr) -> ;
+
+Get the histogram to see the distribution:
+
+    vars nlo, hist, nhigh;
+    array_hist(arr, false, 5, 50, 35) -> (nlo, hist, nhigh);
+
+Check how many of the 10,000 values fell outside the range 5-35:
+
+    nlo =>
+    nhigh =>
+
+Display the distribution, using a procedure that maps from histogram
+vector indices to bin centre values to set the x-scale correctly (see
+*array_hist):
+
+    rci_show([1 200 1 150]) -> rc_window;       ;;; create a window
+    rc_graphplot(1, 1, 50,
+        procedure(x); 5 + (30/50)*(x - 0.5) endprocedure, 'x',
+        hist, 'N');
+
+The curve should look approximately Gaussian (bell-shaped), but will
+have wiggles in it.
+
+3.2  Uniform distributions
+--------------------------
+
+As a second example, uniform numbers are generated to fill a byte array,
+and the results are inspected in the same way, with the addition that
+we check that the whole range has been used, and there is no point in
+looking at nlo and nhigh:
+
+    newbytearray([1 100 1 100]) -> arr;
+    array_random(false, arr, false) -> arr;
+    array_mxmn(arr, false) =>       ;;; should print 255 0
+    rci_show(arr) -> ;      ;;; should appear rather more speckly
+    array_hist(arr, false, 0, 256, 256) -> ( , hist, );
+    [undef undef 0 undef] -> rcg_usr_reg;   ;;; true 0 on y-axis
+    rc_graphplot(1, 1, 256,
+        procedure(x); x-1 endprocedure, 'x',
+        hist, 'N');
+    undef -> rcg_usr_reg;       ;;; reset default for graphs
+
+To make the uniform distribution look more uniform, use bigger bins for
+the histogram, or increase the size of the array.
+
+Note that uniform distributions that exceed the range of permissible
+values for byte arrays are truncated - in the next case, producing a
+sparse array of randomly-varying peaks:
+
+    array_random([uniform -2000 200], arr, false) -> arr;
+    rci_show(arr) -> ;
+
+The difference between integer and decimal distribution limits is shown
+by:
+
+    newsfloatarray([1 100 1 100]) -> arr;
+    array_random([uniform 0 2], arr, false) -> arr;
+    rci_show(arr) -> ;      ;;; integers only, so binary
+    array_random([uniform 0.0 2.0], arr, false) -> arr;
+    rci_show(arr) -> ;      ;;; grey levels show many different values
+
+3.3  Use of the region argument
+-------------------------------
+
+Here is an example of using the region argument to affect part of an
+array only:
+
+    array_random(false, arr, [20 40 10 90]) -> arr;
+    rci_show(arr) -> ;
+
+3.4  Repeatable sequences
+-------------------------
+
+Setting the seed of the random number generator allows the same data
+to be generated more than once.
+
+    vars seed1 = 1224, seed2 = 5678, seed3 = 91011;
+    seed1, seed2, seed3 -> array_random_seed;
+    array_random(false, false, [1 100 1 100]) -> arr;
+    rci_show(arr) -> ;
+
+Now any number of calls to array_random, array_random_seed and the
+random number generators can be made, but setting the seed as it was
+will always recreated the same array, thus:
+
+    seed1, seed2, seed3 -> array_random_seed; ;;; set to same value
+    vars arr1;
+    array_random(false, false, [1 100 1 100]) -> arr1;
+    rci_show(arr1) -> ;             ;;; compare with previous image
+    arr = arr1 =>                   ;;; and an exact check - shd be true
+
+
+--- $popvision/help/array_random
+--- Copyright University of Sussex 1996. All rights reserved.

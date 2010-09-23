@@ -1,0 +1,66 @@
+TEACH MAKESENT                             Steven Hardy, November 1982
+
+This file follows on from TEACH ISASENT. The next file in the sequence is
+TEACH PARSESENT. This file can be skipped without serious loss. Unless you
+have the time and the inclination to work through THIS file, then go on to
+TEACH PARSESENT immediately.
+
+-- MAKING SENTENCES ----------------------------------------------------
+
+A simple systematic change can be made to the ISA programs to turn them into
+MAKE programs which generate rather than recognize them. The 'lexical
+recognizers' are easiest to convert. Instead of:
+
+    define isafoo(word) -> result;
+        if member(word, [...]) then
+            true -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+We would have:
+
+    define makefoo() -> result;
+        oneof([...]) -> result
+    enddefine;
+
+Notice that MAKEFOO doesn't have any parameters and its result is a word and
+not a truth value.
+
+The 'syntax procedures' are slightly harder to modify. Suppose a syntax
+procedure has three main options. That is it looks like:
+
+    define isafoo(list) -> result;
+        if list matches [...] then
+            true -> result
+        elseif list matches [...] then
+            true -> result
+        elseif list matches [...] then
+            true -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+The MAKE form of this will have the overall pattern:
+
+    define makefoo() -> result;
+        vars option; oneof([1 2 3]) -> option;
+        if option = 1 then
+            [...] -> result
+        elseif option = 2 then
+            [...] -> result
+        else
+            [...] -> result
+        endif
+    enddefine;
+
+The various lists assigned to the result will be modified forms of the
+original pattern. The pattern:
+
+    [??x:isafoo ?y:isabaz ??z:isagrum]
+
+will be turned into
+
+    [^^(makefoo()) ^(makebaz()) ^^(makegrum())]

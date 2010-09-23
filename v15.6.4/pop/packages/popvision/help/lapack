@@ -1,0 +1,622 @@
+HELP LAPACK                                                  David Young
+                                                             August 2003
+                                 Slightly modified A.Sloman January 2005
+
+LIB * LAPACK provides an interface between Pop-11 and the Lapack and
+BLAS libraries of routines for linear algebra (matrix operations).
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   Installation
+      2.1   Checking whether Lapack is available from Pop-11
+      2.2   Installing Lapack
+      2.3   Telling LIB * LAPACK where to find the libraries
+      2.4   Testing new installations
+
+  3   Scope of the library
+
+  4   Documentation
+
+  5   Conventions applying to all procedures
+      5.1   Procedure names
+      5.2   Argument sequences
+      5.3   Array-region arguments
+      5.4   Vector and matrix arguments
+      5.5   Incremented vector arguments
+      5.6   Types of array arguments
+      5.7   The INFO result
+      5.8   Work arrays
+
+  6   Procedures
+      6.1   BLAS procedures
+      6.2   Lapack procedures
+      6.3   Additional procedures
+
+-----------------------------------------------------------------------
+1  Introduction
+-----------------------------------------------------------------------
+
+Lapack and BLAS together provide a suite of high-quality routines for
+linear algebra. For more details, see their web sites:
+
+    http://www.netlib.org/lapack/
+    http://www.netlib.org/blas/
+
+The libraries are freely available, and optimised versions are also
+incorporated into some commercial products, such as Sun's Performance
+package.
+
+LIB * LAPACK offers a straightforward way to call many of these routines
+from Pop-11. It offers:
+
+    * loading of the external procedures;
+
+    * simplified calling sequences;
+
+    * argument consistency checking;
+
+    * translation from Pop-11 arrays and array regions to external
+    representations;
+
+    * efficient management of workspace arguments.
+
+In this file, the external Fortran library is referred to as Lapack, and
+the Pop-11 interface library as LAPACK.
+
+A higher-level interface is provided by *LAPOP.
+
+-----------------------------------------------------------------------
+2  Installation
+-----------------------------------------------------------------------
+
+2.1  Checking whether Lapack is available from Pop-11
+-----------------------------------------------------
+
+To see whether Lapack is available, try the following
+
+    uses popvision, lapack;
+    vars x = newsfloatarray([1 5], identfn);
+    xDOT(x,[],false, x,[],false) =>
+
+If there are no warnings or mishaps and "** 55.0" is printed, Lapack is
+available on your system and you can skip the rest of this section.
+
+If there were warnings or mishaps, it may be necessary to install Lapack
+and BLAS, to tell LIB * LAPACK where to find them, or both.
+
+2.2  Installing Lapack
+----------------------
+
+Lapack may be installed in different places on different systems. You
+should check with the documentation or a system manager to find out
+where the libraries should be on your system - they may be already
+installed.
+
+If they are not, you can download Lapack and BLAS from the sites
+mentioned above, and carry out an installation using the documentation
+provided.
+
+2.3  Telling LIB * LAPACK where to find the libraries
+-----------------------------------------------------
+
+If Lapack and BLAS have been installed, it is worth running the test
+above again to see if the library can now find them. If there is still a
+mishap, you can specify their location by setting the variable
+lapack_libraries to a list of strings, giving the linker options
+necessary to locate the libraries and associated routines such as the
+Fortran run-time library. This forms the input file list to exload - see
+REF * EXTERNAL for further guidance.
+
+For example on a Sun Solaris system with the Performance package
+installed, the correct setting is
+
+    vars lapack_libraries =
+        ['-L/opt/SUNWspro/lib' '-lsunperf' '-lF77' '-lM77' '-lsunmath'];
+
+- though this case is already built in to the system.
+
+This is the linux version, added at Birmingham 7 Jan 2005
+You may need something different.
+
+    vars lapack_libraries =
+        ;;; link options obtained from running f77 -v
+        ['-L/usr/lib'
+        '-L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/'
+        '-llapack'
+        ;;; Not sure if this is needed
+        ;;; '-lg2c'
+        '-lm'
+        ;;; Not sure if this is needed
+        ;;; '-lgcc_s'
+        ];
+
+It may be difficult to get this list correct. Problems may either be
+manifested by compile-time errors when libraries are not found, or with
+dynamic linking by run-time errors, when particular symbols (usually
+procedure names) cannot be resolved. It may be helpful to see what
+libraries are linked when a Fortran program that calls a Lapack routine
+is compiled, linked and run - there may be flags to the compiler-driver
+that allow you to see this.
+
+The variable must be set before LAPACK is loaded.
+
+Alternatively, the LAPACK library file itself may be edited to include
+the correct file list for your system. The conditional statements under
+"External Routines" should be changed to add a test that identifies your
+system and sets up the variable as required. You could also let the
+author (d.s.young@sussex.ac.uk) know so that master copies of the
+library can be updated.
+
+Please also inform A.Sloman@cs.bham.ac.uk so that the version at the
+Poplog distribution site can be updated.
+
+2.4  Testing new installations
+------------------------------
+
+If the library is linked to a new installation of Lapack, it is
+important to run test examples and to check that the results returned
+are as expected, to ensure that the conventions for Fortran argument
+passing are being respected.
+
+-----------------------------------------------------------------------
+3  Scope of the library
+-----------------------------------------------------------------------
+
+The library does not provide an interface to every Lapack or BLAS
+routine. At the time of writing, access to 164 external procedures is
+given through 61 Pop-11 procedures. Single-precision real,
+double-precision real, single-precision complex and double-precision
+complex cases are included.
+
+Routines omitted are, by and large, those appearing in Lapack 3.0 or
+later and those that use specialised storage schemes such as packed
+symmetric matrices with variable length columns.
+
+The library can readily be extended to include more recent routines.
+If it is extended to cover special storage cases, it would be good also
+to provide Pop-11 support for accessing these.
+
+A few procedures are provided which do not simply call a single
+Lapack/BLAS routine. These provide matrix functions which cannot be
+carried out so efficiently at a higher level, because of the calling
+conventions for LAPACK. They are generally cases where a Lapack vector
+routine needs to be called in a loop to operate on a whole matrix.
+
+-----------------------------------------------------------------------
+4  Documentation
+-----------------------------------------------------------------------
+
+The individual routines are not documented within Poplog (apart from the
+few which do not map directly onto Lapack routines, described below).
+Probably the best sources of documentation are the web sites mentioned
+above. The Lapack Users' Guide is also available in print.
+
+Documentation may also be installed with the routines. On Unix systems,
+MAN pages should be available. To access these, replace the "x" in the
+Pop-11 routine name with "S" (or in cases where the routine only takes
+complex arguments, replace it with "C"). For example, to learn what xDOT
+does, the ved command "<ENTER>man SDOT" may usually be used; for xDOTC
+do "<ENTER>man CDOTC".
+
+-----------------------------------------------------------------------
+5  Conventions applying to all procedures
+-----------------------------------------------------------------------
+
+5.1  Procedure names
+--------------------
+
+Pop-11 procedure names are derived from the external procedure names by
+replacing the "precision letter" - S, D, C or Z - with "x". Usually this
+is the initial character of the name (though IxAMAX is an exception).
+
+The actual external procedure called will depend on the type of the
+array arguments.
+
+5.2  Argument sequences
+-----------------------
+
+The argument sequences are as for the external procedures, except that:
+
+    * CHARACTER*1 options are replaced by Pop-11 strings;
+
+    * each array argument is followed by a region specification - see
+    below;
+
+    * problem size arguments (N, NRHS etc.) are omitted;
+
+    * leading dimension arguments (LDA etc.) are omitted;
+
+    * workspace arguments are omitted;
+
+    * INFO is omitted;
+
+    * scalar arguments that are output-only are omitted;
+
+    * function results, and the values of output scalar arguments, are
+    returned on the stack.
+
+In general each Pop-11 routine has a single argument sequence. However
+there are certain routines where the sequence changes, depending on the
+argument types - for example xGEEV. This is because the external
+procedures require different sequences for real and complex data, and it
+was felt better to reflect this in the interface rather than break the
+rules above.
+
+5.3  Array-region arguments
+---------------------------
+
+Wherever an array appears as an argument to an external routine, the
+Pop-11 procedure requires two arguments, an array and a region
+specification. The region spec is a list giving the region of the array
+to process. It has the form
+
+    [element1 element2]
+
+or
+
+    [row1 row2 col1 col2]
+
+for 1-D and 2-D arrays respectively, giving the minimum and maximum
+subscripts in each dimension. This is the same as the form of the
+*boundslist used to specify array dimensions when an array is created.
+
+The region spec may be the empty list []. This is equivalent to giving
+the boundslist of the array (i.e. the whole array is used), but is
+handled more efficiently.
+
+For efficiency, array data are never copied - a pointer to the array, or
+an element of it, is passed to the external routine, even if only part
+of the array is being processed. This means that if an external
+procedure changes the data in an array, it will be changed on exit from
+the Pop-11 procedure. Thus you cannot necessarily expect arrays that you
+might think of as inputs to be unchanged after a call to a LAPACK
+routine - you need to check the documentation.
+
+For this reason, no distinction is made in the interface between input
+and output arrays. You have to supply all the arrays required, and
+whether the elements are accessed, updated or both is determined by the
+external routine.
+
+5.4  Vector and matrix arguments
+--------------------------------
+
+Lapack/BLAS routines expect either 1-D vectors or 2-D matrices. There is
+some flexibility allowed in how these are presented:
+
+    * A 1-D array may be supplied where a 2-D array is expected, and is
+    treated as a 2-D array with one column.
+
+    * A 2-D array may be supplied where a 1-D array is expected,
+    provided the region specified contains only a single column, or part
+    of one.
+
+Note that the first subscript refers to the row, and the second to
+the column.
+
+5.5  Incremented vector arguments
+---------------------------------
+
+Some BLAS routines expect 1-D vectors to be followed by an integer
+increment, which specifies that only every N'th element of the vector
+should be accessed. When calling the LAPACK procedure, the equivalent
+argument, which must be an integer or <false>, is given after the region
+spec. There are various possibilities:
+
+    * If the increment is an integer N, the corresponding array/region
+    argument should be as for a 1-D input. Every N'th element, starting
+    with the first, will be processed.
+
+    * If the increment is <false>, and the array/region is a row (or
+    part of a row) of a 2-D array, that row (or part) will be processed.
+    (The external routine is actually passed the leading dimension of
+    the array as the increment.)
+
+    * If the increment is <false> and the array/region contains a single
+    column, or part of one, an increment of 1 is assumed.
+
+    * Other cases will cause a mishap.
+
+5.6  Types of array arguments
+-----------------------------
+
+Floating point array arguments must be "packed" arrays (that is, made
+specially to contain numerical data, not ordinary Pop-11 arrays which
+have a "full" arrayvector). They must be created with the variable
+*poparray_by_row set to <true> (that is, they are stored "by column",
+oddly enough).
+
+You can create suitable arrays using the procedures in *popvision:
+
+    *newsfloatarray - single precision real
+    *newdfloatarray - double precision real
+    *newcfloatarray - single precision complex
+    *newzfloatarray - double precision complex
+
+You can also generate suitable arrays using *defclass and *newanyarray.
+Arrays that are to be treated as complex must have either "cfloatvec" or
+"zfloatvec" as the dataword of the arrayvector, depending on the
+precision - see HELP * EXCALL for more information.
+
+All the floating point array arguments in a call to a LAPACK procedure
+must be the same type, except where the specification calls for a mix of
+real and complex arguments. In the latter case, each argument must be
+real or complex as required, and they must all have the same precision.
+
+Integer array arguments must be packed arrays of integers. They can be
+created using the popvision procedure *newintarray.
+
+5.7  The INFO result
+--------------------
+
+Lapack (but not BLAS) routines return an INFO result. If this is
+negative, it indicates an error in an argument, and this will cause a
+mishap. If it is positive, it indicates a numerical problem. This will
+trigger an exception, which may be trapped but otherwise will just print
+a warning.
+
+The procedure lapack_lasterror will return the most recent INFO result:
+
+lapack_lasterror() -> int
+
+5.8  Work arrays
+----------------
+
+Arrays whose primary purpose is workspace are omitted from the Pop-11
+routines' argument sequences.
+
+Work arrays are created using *oldarray and are recycled. Each procedure
+maintains its own work arrays, which are reused if the procedure is
+called again for the same size of problem before the next garbage
+collection. If the procedure is called for a smaller problem, the
+arrayvectors are reused.
+
+Where necessary, ILAENV is called to find the optimum work array
+dimensions. Where the documentation does not specify an algorithm to
+determine the optimum size, the minimum size is used on the first call
+to a given routine with given problem dimensions. On return, the first
+element of the work array is inspected to determine the optimum size,
+and this is used on subsequent calls.
+
+-----------------------------------------------------------------------
+6  Procedures
+-----------------------------------------------------------------------
+
+6.1  BLAS procedures
+--------------------
+
+xSWAP(x, xr, incx, y, yr, incy)
+        Exchange vectors
+
+xSCAL(alpha, y, yr, incy)
+        Scale vector
+
+xCOPY(x, xr, incx, y, yr, incy)
+        Copy vector
+
+xAXPY(alpha, x, xr, incx, y, yr, incy)
+        alpha * x + y
+
+xDOT(x, xr, incx, y, yr, incy) -> result
+        Real dot product
+
+xDOTU(x, xr, incx, y, yr, incy) -> result
+        Complex dot product
+
+xDOTC(x, xr, incx, y, yr, incy) -> result
+        Dot product of x and conjg(y)
+
+xNRM2(x, xr, incx) -> result
+        Euclidean norm
+
+xASUM(x, xr, incx) -> result
+        Sum of absolute values
+
+IxAMAX(x, xr, incx) -> result
+        Index of element with largest absolute value (abs(realpart) +
+        abs(imagpart))
+
+xGEMV(trans, alpha, a, ar, x, xr, incx, beta, y, yr, incy)
+        Matrix-vector product alpha*A*x + beta*y or alpha*A'*x + beta*y
+
+xGER(alpha, x, xr, incx, y, yr, incy, a, ar)
+        Outer product alpha * x * y' * A  (real)
+
+xGERU(alpha, x, xr, incx, y, yr, incy, a, ar)
+        Outer product alpha * x * y' * A  (complex)
+
+xGERC(alpha, x, xr, incx, y, yr, incy, a, ar)
+        Outer product alpha * x * conjg(y') * A  (complex)
+
+xSYR(uplo, alpha, x, xr, incx, a, ar)
+        alpha * x * x' + A (real)
+
+xHER(uplo, alpha, x, xr, incx, a, ar)
+        alpha * x * conjg(x') + A (complex)
+
+xSYR2(uplo, alpha, x, xr, incx, y, yr, incy, a, ar)
+        alpha * (x*y' + y*x') + A (real)
+
+xHER2(uplo, alpha, x, xr, incx, y, yr, incy, a, ar)
+        alpha*x*conjg(y') + conjg(alpha)*y*conjg(x') + A (complex)
+
+xGEMM(transa, transb, alpha, a, ar, b, br, beta, c, cr)
+        Matrix-matrix product alpha*A[']*B['] + beta*C
+
+xSYMM(side, uplo, alpha, a, ar, b, br, beta, c, cr)
+        alpha*A*B + beta*C or alpha*B*A + beta*C, A symmetric
+
+xHEMM(side, uplo, alpha, a, ar, b, br, beta, c, cr)
+        alpha*A*B + beta*C or alpha*B*A + beta*C, A hermitian
+
+xSYRK(uplo, trans, alpha, a, ar, beta, c, cr)
+        alpha*A*A' + beta*C or alpha*A'*A + beta*C
+
+xHERK(uplo, trans, alpha, a, ar, beta, c, cr)
+        alpha*A*conjg(A') + beta*C or alpha*conjg(A')*A + beta*C
+        (complex)
+
+xSYR2K(uplo, trans, alpha, a, ar, b, br, beta, c, cr)
+        alpha*A*B'+alpha*B*A'+beta*C or alpha*A'*B+alpha*B'*A+beta*C
+
+xHER2K(uplo, trans, alpha, a, ar, b, br, beta, c, cr)
+        alpha*A*conjg(B') + alpha*B*conjg(A') + beta*C
+        or alpha*conjg(A')*B+alpha*conjg(B')*A+beta*C (complex)
+
+6.2  Lapack procedures
+----------------------
+
+xLACGV(x, xr, incx)
+        Complex conjugate vector (complex)
+
+xLACPY(uplo, a,ar, b,br)
+        Copy matrix
+
+xGESV(a,ar, ipiv,ipivr, b,br)
+        Solve A*X = B, A square
+
+xSYSV(uplo, a,ar, ipiv,ipivr, b,br)
+        Solve A*X = B, A symmetric
+
+xHESV(uplo, a,ar, ipiv,ipivr, b,br)
+        Solve A*X = B, A hermitian (complex)
+
+xPOSV(uplo, a,ar, b,br)
+        Solve A*X = B, A symmetric positive definite
+
+xGESVX(fact, trans, a,ar, af,afr, ipiv,ipivr, equed, r,rr,
+    c,cr, b,br, x,xr, ferr,ferrr, berr,berrr) -> rcond
+        Solve A*X = B, expert driver
+
+xSYSVX(fact, uplo, a,ar, af,afr, ipiv,ipivr,
+    b,br, x,xr, ferr,ferrr, berr,berrr) -> rcond
+        Solve A*X = B, A symmetric, expert driver
+
+xHESVX(fact, uplo, a,ar, af,afr, ipiv,ipivr,
+    b,br, x,xr, ferr,ferrr, berr,berrr) -> rcond
+        Solve A*X = B, A hermitian, expert driver (complex)
+
+xPOSVX(fact, uplo, a,ar, af,afr, equed, s,sr,
+    b,br, x,xr, ferr,ferrr, berr,berrr) -> rcond
+        Solve A*X = B, A symmetric positive definite, expert driver
+
+xGELS(trans, a,ar, b,br)
+        Solve A*X = B, least squares solution
+
+xGELSX(a,ar, b,br, jpvt,jpvtr, rcond) -> rank
+        Solve A*X = B, least squares solution, expert driver
+
+xGELSS(a,ar, b,br, s,sr, rcond) -> rank
+        Solve A*X = B, least squares solution, using SVD
+
+xGGLSE(a,ar, b,br, c,cr, d,dr, x,xr)
+        Minimise ||c - A*x|| subject to B*x = d
+
+xGGGLM(a,ar, b,br, d,dr, x,xr, y,yr)
+        Solve Gauss-Markov linear model: find x to minimise ||y||
+        subject to A*x + B*y = d
+
+xSYEV(jobz, uplo, a, ar, w, wr)
+        Eigenvalues and eigenvectors of symmetric matrix (real)
+
+xHEEV(jobz, uplo, a, ar, w, wr)
+        Eigenvalues and eigenvectors of hermitian matrix (complex)
+
+xSYEVD(jobz, uplo, a, ar, w, wr)
+        Eigenvalues and eigenvectors of symmetric matrix using
+        divide-and-conquer (real)
+
+xHEEVD(jobz, uplo, a, ar, w, wr)
+        Eigenvalues and eigenvectors of hermitian matrix using
+        divide-and-conquer (complex)
+
+xSYEVX(jobz, range, uplo, a,ar, vl,vu, il,iu,
+    abstol, w,wr, z,zr, ifail,ifailr, func) -> m
+        Eigenvalues and eigenvectors of symmetric matrix, expert driver
+        (real)
+
+xHEEVX(jobz, range, uplo, a,ar, vl,vu, il,iu,
+    abstol, w,wr, z,zr, ifail,ifailr, func) -> m
+        Eigenvalues and eigenvectors of hermitian matrix, expert driver
+        (complex)
+
+xGEEV(jobvl, jobvr, a,ar, w,wr, [wi, wir], vl,vlr, vr,vrr)
+        Eigenvalues and eigenvectors of square nonsymmetric matrix
+
+xGEEVX(balanc, jobvl, jobvr, sense, a,ar, w,wr, [wi, wir],
+    vl,vlr, vr,vrr, scale,scaler, rconde,rconder, rcondv,rcondvr)
+    -> (ilo, ihi, abnrm)
+        Eigenvalues and eigenvectors of square nonsymmetric matrix,
+        expert driver
+
+xGESVD(jobu, jobvt, a, ar, s, sr, u, ur, vt, vtr)
+        Singular value decomposition
+
+xSYGV(itype, jobz, uplo, a,ar, b,br, w,wr)
+        Generalised eigenproblem: A*x = lambda*B*x or A*B*x = lambda*x
+        or B*A*x = lambda*x, A symmetric, B symmetric positive definite
+        (real)
+
+xHEGV(itype, jobz, uplo, a,ar, b,br, w,wr)
+        Generalised eigenproblem: A*x = lambda*B*x or A*B*x = lambda*x
+        or B*A*x = lambda*x, A hermitian, B hermitian positive definite
+        (complex)
+
+xGEGV(jobvl, jobvr, a,ar, b,br, alpha,alphar, [alphai, alphair],
+    beta,betar, vl,vlr, vr,vrr)
+        Generalised eigenvalues and eigenvectors: (A - wB)*r = 0 where w
+        = alpha/beta, or conjg(l')*(A - wB) = 0
+
+xGGSVD(jobu, jobv, jobq, a,ar, b,br, alpha,alphar, beta,betar,
+    u,ur, v,vr, q,qr) -> (k, l)
+        Generalised singular value decomposition: U'*A*Q = D1*(0 R),
+        V'*B*Q = D2*(0 R)
+
+6.3  Additional procedures
+--------------------------
+
+xLPCOL(a,ar,ia, b,br,ib)
+        Copies column IA of A to column IB of B. IA and IB are matrix
+        indices; that is the leftmost column of each array region is
+        column 1, regardless of the underlying array indices.
+
+xLPROW(a,ar,ja, b,br,jb)
+        Copies row JA of A to row JB of B JA and JB are matrix indices;
+        that is the top row of each array region is row 1, regardless of
+        the underlying array indices.
+
+xLPTRANS(a,ar, b,br)
+        Transposes a matrix
+
+xLPADJOINT(a,ar, b,br)
+        Forms the adjoint (the complex conjugate of the transpose) of a
+        matrix (complex)
+
+xLPRESHAPE(aorder, border, a,ar, b,br)
+        Copies sequentially from A to B, taking elements from A by
+        column if the string AORDER starts with 'c' or 'C' and by row if
+        it starts with 'r' or 'R', and writing into B with the order
+        similarly determined by BORDER
+
+xLPRITOC(a,ar, b,br, c,cr)
+        Copies real matrix A to the real part of complex matrix C, and
+        real matrix B to the imaginary part of C
+
+xLPCTORI(c,cr a,ar, b,br)
+        Copies the real part of complex matrix C to the real matrix A,
+        and the imaginary part of C to the real matrix B
+
+xLPRTOC(a,ar, c,cr)
+        Copies real matrix A to the real part of complex matrix C, and
+        sets the imaginary part of C to zero
+
+xLPSCAL(alpha, a,ar)
+        Multiplies each element of A by the scalar alpha
+
+xLPAXPY(alpha, a,ar, b,br)
+        Assigns alpha*A+B to B
+
+
+--- $popvision/help/lapack
+--- Copyright University of Sussex 2005. All rights reserved.

@@ -1,0 +1,90 @@
+HELP SQUARED_GRADIENTS                              David Young
+                                                    February 1995
+
+LIB * squared_gradients provides a procedure to calculate the squared
+total gradient at each point in an image.
+
+For straightforward use, the procedure can be called thus:
+
+squared_gradients(arrin, sigma, false, false) -> arrout
+        arrin is a 2-D array containing numbers. The procedure is
+        fastest if arrin is created using *newsfloatarray.
+
+        sigma is a positive number giving the standard deviation of the
+        Gaussian mask used for smoothing.
+
+        arrout is an arrout containing estimates of total squared
+        gradient. That is, arrout(x, y) is an estimate of
+
+                             2                        2
+            (d/dx arrin(x,y))   +   (d/dy arrin(x, y))
+
+        The estimates are formed by convolving arrin with the first
+        derivatives of Gaussian functions, using *convolve_gauss_2d.
+        arrout will be smaller than arrin by a few pixels on each side;
+        the size of the margin omitted depends on sigma, and is chosen
+        such that arrout only contains data where a proper estimate can
+        be made. The size of the margin may be obtained using
+        diffgaussmask_limit(sigma) (see *gaussmask).
+
+It is possible to control the region of the array for which the
+calculation is performed, and to supply an output array to reduce
+garbage creation, as follows:
+
+squared_gradients(arrin, sigma, arrout, region) -> arrout
+        arrin and sigma are as above.
+
+        If not <false>, arrout may be an array, preferably created using
+        *newsfloatarray, which will receive the results and which will
+        be returned. Alternatively, arrout may be a 4-element list, in
+        which case a new array with this boundslist is created and
+        returned. Finally, arrout may be a 5-element list, in which case
+        its head is used to initialise the new array and its tail
+        becomes the boundslist.
+
+        If not <false>, region must be a boundslist-type specification
+        of the region of arrout in which results are to be stored.
+
+        If arrout is non-false and region is <false>, then region is set
+        to the boundslist of arrout.
+
+        If arrout is <false> and region is non-false, then a new array
+        whose boundslist is region is created and returned.
+
+        If both region and arrout are <false>, then region is set to the
+        largest region that will receive valid data given arrin and
+        sigma, as above.
+
+        If arrout and region are both non-false, then region must lie
+        within the bounds of arrout.  Any part of arrout that is outside
+        region is left unchanged (or if arrout was specified as a list,
+        will have the initialisation value).
+
+        In all cases, if part of region is outside the region which can
+        receive valid data given arrin and sigma, that part is set to
+        zero.
+
+For example, to make a new output array which is the same size as the
+input array, but which will have zeros in the margin where there are no
+valid results, do
+
+    squared_gradients(arrin, sigma, boundslist(arrin), false) -> arrout
+
+To fill as much as possible of an existing array array2 with results,
+without affecting any of its elements for which there are no results
+available, it is necessary to do
+
+    squared_gradients(arrin, sigma, array2,
+        region_intersect(array2,
+            region_expand(arrin, -diffgaussmask_limit(sigma))
+        )
+    ) -> array2;
+
+The boundlist manipulation routines used here are from
+* BOUNDSLIST_UTILS. The result of the call to region_expand gives the
+valid output data region, and this is intersected with the output array
+bounds to give the region in which to store data.
+
+
+--- $popvision/help/squared_gradients
+--- Copyright University of Sussex 1995. All rights reserved.

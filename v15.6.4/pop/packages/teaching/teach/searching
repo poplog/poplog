@@ -1,0 +1,1303 @@
+TEACH SEARCHING                                    Aaron Sloman Nov 1993
+                                                        Updated Jan 2000
+                                                        (More exercises)
+
+                                                        Updated Nov 1998
+                                                (Fixed bug in is_in_list
+                                              reported by Katja Osswald)
+
+Developing a general problem-solving program based on state-space
+searching.
+
+
+CONTENTS
+
+ -- Introduction
+ -- Prerequisites
+ -- State space searching
+ -- Generalising the problem-solver
+ -- Defining the general problem solver
+ -- A strategy for defining solve_problem
+ -- -- Setting up some local variables
+ -- -- Going into the searching loop
+ -- -- Exercise: define is_in_list
+ -- -- Exercise: complete the definition of solve_problem
+ -- -- A sample is_in_list
+ -- -- A sample definition of solve_problem
+ -- -- Exercise: add some trace printing
+ -- -- Exercise: make it find ALL solutions
+ -- -- Limiting the search for all solutions
+ -- Testing solve_problem
+ -- -- Testing it on the tower problem.
+ -- Another test problem, finding ancestors
+ -- How to solve the ancestor problem
+ -- Making check_ancestor less intelligent
+ -- Route finding
+ -- Further optional exercises:
+ -- Pruning a search space
+ -- A heuristically guided search strategy
+ -- Exercise: solving the river problem
+ -- Exercise: a number game
+ -- Parsing and searching
+ -- Other relevant teach files and libraries
+ -- Further reading
+
+-- Introduction -------------------------------------------------------
+
+This teach file shows you how to use Pop-11 to develop a fairly general
+problem-solving program based on a strategy for exhaustively searching
+through a "state space" or search space.
+
+The basic techniques were explained in the file TEACH TOWER, but the
+program developed there would solve only the tower-building problem. The
+objective here is to show how to generalise that program. This is done
+by building a skeleton program that manages the general searching
+strategy, in such a way that it can be given a few problem-specific
+procedures in order to solve a particular problem.
+
+The problem specific procedures will be used to recognize a goal state,
+to compare states to see if they are equivalent, and to create
+successors to any state in the search space.
+
+-- Prerequisites ------------------------------------------------------
+
+In order to be able to work successfully through this teach file you
+should have worked through TEACH TOWER, and you should be
+familiar with the syntax for defining procedures, the syntax for looping
+constructs, and the syntax for conditionals.
+
+It will be useful to have some fluency with list processing facilities
+in Pop-11 and the use of the matcher. Teach files that provide
+introductions to these topics are
+
+    TEACH MATCHES
+    TEACH MOREMATCH
+    TEACH MATCHARROW
+    TEACH LISTS
+
+Summary overview files can be found in HELP MATCHES, HELP LISTS, and
+TEACH POPCORE, as well as the Pop-11 Primer.
+
+You should also know how to format program files, possibly with the help
+of this command to produce a template commented file header:
+    ENTER fileheader
+and this command, as described in HELP * VED_PROCHEADER, to produce a
+header for each procedure that you define.
+    ENTER procheader
+
+See TEACH * VEDNOTES for a reminder of techniques for marking and
+compiling or formatting portions of a program file.
+
+
+-- State space searching ----------------------------------------------
+
+TEACH * TOWER gives an introduction to searching for a solution to a
+problem. We now adopt a more general approach to the problem of
+controlling search, making use of the idea of a search space, with an
+initial state, one or more goal states, operators which move from one
+state to another, and heuristics for 'pruning' the search.
+
+First a reminder of the procedures defined in TEACH TOWER.
+
+define solve_tower(inlist, target) -> outlist;
+    This takes a list of block sizes, and a target size for the tower to
+    be built, and returns either false, if there is no solution, or a
+    list of the block sizes that will solve the problem.
+
+define nextstates(this_state) -> newalternatives;
+    This takes a list representing a current state in the search,
+    represented by the selection made so far in the state and the
+    remaining block sizes to select from. It returns a set of new states
+    that can be reached in one step from the input state, by adding one
+    of the remaining blocks to the "so_far" list.
+
+define sumlist(numlist) -> total;
+    This takes a list of numbers and returns a single number got by
+    adding up the list. it was used to define a test for whether the
+    problem had been solved.
+
+-- Generalising the problem-solver ------------------------------------
+
+How can we generalise this program? The general idea is to replace
+specific features of this problem with generalisations.
+
+(This a major characteristic of the growth of knowledge: try to
+generalise what you have so far learnt, in such a way as to cover a
+wider range of cases. It happens constantly in science and in
+engineering, and particularly in software engineering.)
+
+For example, instead of assuming a specific form of representation for
+states in the search space we can allow that any form is permitted that
+the user finds convenient.
+
+So we don't assume, as in the solve_tower program that the initial state
+or subsequent states can be represented as two lists of numbers: we'll
+allow any representation to be chosen by the user. However, the choice
+will have consequences. E.g. the user will have to provide some
+procedures that manipulate the representation chosen, and some
+representations are harder to manipulate than others.
+
+Second, instead of assuming that a goal state is to be recognised by
+adding up numbers in a list and comparing the result with a target as in
+TEACH TOWER, we make no assumptions except that the user will provide a
+procedure, called is_goal_state which can be applied to a state of the
+form chosen, plus some information defining the current goal (such as
+the height of the tower to be built), and will return a boolean (true or
+false) result. So for each problem, the user will have to define a
+procedure of this form:
+
+    define is_goal_state(state, current_goal) -> boole;
+
+Third, instead of assuming a specific technique for generating new
+"successor" states from a given state, we assume that the user will
+provide a nextstates procedure, tailored to the problem, which, when
+given a state will return a list of new states.
+
+    define nextstates(state) -> newstates;
+
+In TEACH TOWER we had a specific form of that procedure for the
+tower-building problem. So we should be able to use that in testing
+out our general problem solver when we have defined it.
+
+Finally, in order to prevent a program going round in circles we shall
+need to be able to tell whether a particular new state is one that has
+previously been tested, so that time is not wasted examining it again.
+For this purpose we expect the user to define a procedure same_state
+that takes two states and returns a boolean result depending on whether
+the two states are equivalent:
+
+    define same_state(state1, state2) -> boole;
+
+Then the general problem solver can keep a "history" list of the states
+that have already been examined, and whenever new states are generated
+it can discard any of them that are "the same" as a state already on the
+history list.
+
+
+-- Defining the general problem solver --------------------------------
+
+We are going to assume that a user who has a problem to solve
+
+    1. will choose a format for states,
+    2. will provide an initial state,
+    3. will provide some information regarding the current goal
+    4. will define the above three procedures (the goal recogniser, the
+    nextstates generator, and the circularity detector)
+
+and then will run our general problem solving procedure, which will have
+to be given the above items as inputs. It will return a result which is
+either the solution state or else false if it cannot solve the problem.
+
+So our procedure will take five inputs
+
+    - an initial state
+    - information defining the current goal
+    - a procedure to recognise a goal state
+    - a procedure to generate "successor" states from a given state
+    - a procedure to tell if two states are the same
+
+The procedure skeleton will be
+
+    define solve_problem
+        (initial, current_goal, isgoal, nextstates, samestate) -> result;
+
+
+    enddefine;
+
+You may like to try having a go at defining this procedure, in a file of
+your own called 'solver.p' before reading on. If you found the file
+TEACH TOWER easy you may be able to write the solve_problem
+definition yourself. But it is likely that you will need help, as
+follows.
+
+-- A strategy for defining solve_problem ------------------------------
+
+The next few sections give you fragments of the definition of the
+procedure solve_problem. You can try to assemble them into a complete
+procedure, using the skeleton given above.
+
+-- -- Setting up some local variables
+
+We shall start by setting up a list called "history" which will contain
+all the states that have been used to generate new states. Initially
+history will be an empty list. The following can therefore go into the
+procedure.
+
+    lvars history = [];
+
+We'll also keep a list of the states that have have not yet been
+examined to see if they are solutions. At first this will contain only
+the initial state. Later it will contain states that have been generated
+by nextstates, i.e. they are "successors" of previous states. We'll We
+can start this list off containing just the initial state.
+
+    lvars alternatives = [ ^initial ];
+
+Later on states will be removed from and added to this list. So you need
+to know how to manipulate lists to do that. The pattern matcher makes
+this easier in Pop-11 than in most other languages.
+
+Add both of those declarations to your procedure definition, with
+appropriate comments explaining what the variables are for.
+
+-- -- Going into the searching loop
+
+The procedure can repeatedly do the following, using this syntax form:
+
+    repeat ... endrepeat
+    1. If there are no more states in the alternatives list, then return
+    from solve_problem, after assigning false to the result, to indicate
+    failure.
+
+
+        if null(alternatives) then
+            false -> result;
+            return();
+        else
+
+
+    2. Otherwise select the first state from the alternatives list, call
+    it current_state, and leave the rest of the alternatives to be
+    alternatives for next time.
+
+
+        alternatives --> [?current_state ??rest];
+        rest -> alternatives;
+
+
+    and then do the following.
+
+    2.a Check if current_state is a goal state: if it is, then assign it
+    to be the result and return from solve_problem
+
+        if isgoal(current_state, current_goal) then
+            current_state -> result;
+            return();
+        else
+
+    2.b. Put the current_state on the history list, to make sure it will
+    not be treated as a candidate in future:
+
+        [ ^current_state ^^history ] -> history;
+
+    2.c. Now use the nextstates procedure provided as input to
+    solve_problem, to generate some new states to explore.
+
+        lvars states;
+
+        nextstates(current_state) -> states;
+
+    2.d. If that list is empty, then program needs to restart the loop
+    looking at other states on alternatives. Otherwise:
+
+    2.e. Check through all the new states and remove any that are in the
+    history list (to avoid searching round in circles). For this we are
+    going to need a procedure is_in_list, which will be defined below.
+    It can be used as follows, to prune repeated states.
+
+        lvars state;
+        for state in states do
+            unless is_in_list(state, history, samestate) then
+                [ ^state ^^alternatives] -> alternatives
+            endunless;
+        endfor;
+
+    2.f. Put remaining states into the list alternatives,
+        as shown in the following line, above:
+
+                [ ^state ^^alternatives] -> alternatives
+
+
+That completes the set of things to be repeated. After all this the
+program returns to step 1, and uses a new current_state.
+
+
+-- -- Exercise: define is_in_list
+
+Step 6 above used a procedure called is_in_list whose header should be
+something like this:
+
+    define is_in_list(newitem, list, sameitem) -> boole;
+
+It takes a new item (a state), a list of items, a comparison procedure,
+and returns a boolean result, which is true if the first item is "the
+same", according to the comparison procedure, as an element of the list.
+
+Try to complete the definition of is_in_list, after you've produced a
+commented heading describing it (use ENTER procheader). There are
+several ways of doing this, of which the simplest is to use a loop in
+which the newitem is compared with each element of the history list in
+turn:
+
+    lvars olditem;
+
+    for olditem in list do
+        if sameitem(newitem, olditem) then
+            true -> boole;
+            return();   ;;; no need to search any further.
+        endif
+    endfor;
+
+If the program gets through the loop without finding anything the same
+it should make the result false.
+
+Complete the definition of is_in_list in your file called solver.p
+Test it on some following examples.
+
+In order to test it you will need a procedure that can be given as the
+third argument to is_in_list, i.e. a procedure to be applied to two
+states which returns true if they are equivalent, otherwise false. Here
+is a possible definition of such a comparison procedure: it says two
+lists are the same if they have the same head.
+
+define same_head(list1, list2) -> boole;
+    ;;; return true if and only if the head of list1 is identical with
+    ;;; the head of list2
+
+    hd(list1) = hd(list2) -> boole
+
+enddefine;
+
+
+QUESTION: what is it about our representation of states that makes it
+sufficient to look at the first item in the representation when checking
+whether two states are equivalent? (Think about how states are
+represented.)
+
+You can then use this to test your definition of is_in_list on these
+examples, and others you create:
+
+is_in_list([a b c], [[c 2] [b 4] [a 5] [d 6]], same_head) =>
+** <true>
+is_in_list([a b c], [[c 2] [b 4] [e 5] [d 6]], same_head) =>
+** <false>
+
+is_in_list([b c],  [[c 2] [b 4] [e 5] [d 6]], same_head) =>
+** <false>
+
+Work out for each of your tests whether the result should be true or
+false and then see if your program gets it right. Put those, and other
+tests, inside a commented out collection of tests for the procedure, in
+the same file.
+
+
+-- -- Exercise: complete the definition of solve_problem
+
+Using the procedure is_in_list, if you have managed to define it,
+complete the definition of solve_problem.
+
+If you have trouble defining is_in_list you can copy the definition
+below.
+
+When you have completed solve_problem, compare your version with the one
+given below.
+
+-- -- A sample is_in_list
+
+define is_in_list(newitem, list, sameitem) -> boole;
+    ;;; return true if and only if the newitem is the same as something in
+    ;;; in the list, as compared using the procedure sameitem
+
+    ;;; By declaring the lvar sameitem as being of type procedure we can
+    ;;; make the program run a bit faster.
+    lvars procedure sameitem;
+
+    lvars olditem;
+
+    for olditem in list do
+        if sameitem(newitem, olditem) then
+            ;;; found an olditem which is the same, so return with true
+            true -> boole;
+            return();
+        endif
+    endfor;
+    ;;; did not find anything that was the same, so
+    false -> boole
+enddefine;
+
+
+Test that procedure (or your version) using the examples given above.
+
+NOTE: the input local variable "sameitem" was declared with the prefix
+"procedure", as in
+
+        lvars procedure sameitem;
+
+This has two consequences. One is that if you forget to give the program
+a procedure as its third input you will get an error message
+
+;;; MISHAP - ASSIGNING NON-PROCEDURE TO PROCEDURE IDENTIFIER
+;;; INVOLVING:  <whatever it was> sameitem
+
+Also, because it checks once that the value is a procedure, the compiler
+can optimise the loop in which sameitem is called repeatedly, by not
+checking on each occasion round the loop that it really is a procedure.
+That shortcut can make a program go somewhat faster.
+
+-- -- A sample definition of solve_problem
+
+If you have not managed to define solve_problem you can use the
+following, copied into your file solver.p.
+
+If you have managed to create a definition, compare your solution with
+this one.
+
+define solve_problem
+    (initial, current_goal, isgoal, nextstates, samestate) -> result;
+    lvars
+        initial,        ;;; the initial state
+        current_goal,   ;;; the second argument for isgoal
+        procedure (isgoal, nextstates, samestate),  ;;; three procedures
+        result;
+
+    lvars
+        alternatives = [^initial],  ;;; the list of alternative states
+        history = [] ;              ;;; the list of previous states
+
+    lvars current_state, rest;      ;;; pattern variables
+
+    repeat
+        if null(alternatives) then
+            ;;; failed
+            false -> result;
+            return();
+        else
+            alternatives --> ! [?current_state ??rest];
+            rest -> alternatives;
+
+            ;;; Check if current_state is a goal state
+            if isgoal(current_state, current_goal) then
+                ;;; problem solved
+                current_state -> result;
+                return();
+            else
+                ;;; Keep a history list, avoid circles
+                [ ^current_state ^^history ] -> history;
+
+                ;;; generate successor states to current_state
+                lvars states;
+                nextstates(current_state) -> states;
+
+                ;;; put all the "new" states onto the alternatives list
+                lvars state;
+                for state in states do
+                    unless is_in_list(state, history, samestate) then
+                        [ ^state ^^alternatives] -> alternatives
+                    endunless;
+                endfor;
+                ;;; now go back to the beginning of the repeat loop
+            endif
+        endif
+    endrepeat
+enddefine;
+
+
+-- -- Exercise: add some trace printing
+
+When a program like this runs it is useful if it can be made to print
+out a record of its exploration.
+
+You could modify it with some print commands that will be obeyed only if
+a global variable chatty_solve is true:
+
+;;; declare a global variable
+vars chatty_solve = true;
+
+Then at various points inside the procedure solve_problem add print
+commands such as
+
+    if chatty_solve then
+        [Current state is ^current_state] ==>
+    endif;
+    if chatty_solve then
+        [New states are ^states ] ==>
+    endif;
+
+
+-- -- Exercise: make it find ALL solutions
+
+The above procedure solve_problem stops as soon as a solution is found,
+because of this part
+
+            if isgoal(current_state, current_goal) then
+                ;;; problem solved
+                current_state -> result;
+                return();
+
+Sometimes a problem has two or more alternative solutions.
+(Think of some examples of such problems.)
+
+There may be good reasons not to use the first solution found.
+(Think of good reasons).
+
+Try changing the procedure so that if there are no solutions it produces
+the empty list as its result, and if there are several solutions it
+produces all of them.
+
+-- -- Limiting the search for all solutions
+
+WARNING:
+
+Some problems have an infinite number of solutions. If you test it on
+such problems it will go on forever, or at least until the machine runs
+out of space, or wears out, or...
+
+So you could consider giving it some rules for termination. E.g. you
+could give it an extra argument N, which is the maximum number of
+solutions to be found.
+
+Alternatively you could use N to limit the maximum number of nodes
+to be examined on the search tree.
+
+Some problems have solutions which vary in quality. You might be able to
+give solve_problem a criterion for comparing quality of solution, and
+make it stop when it finds a solution whose quality is above some
+limit.
+
+-- Testing solve_problem ----------------------------------------------
+
+It is now necessary to test solve_problem. Remember that in order to
+test it on a particular problem you will first have to choose a
+representation for the problem, then you will have to provide an initial
+state using that representation, and you will have to define the three
+procedures required as input to solve_problem, namely isgoal,
+nextstates, samestate.
+
+-- -- Testing it on the tower problem.
+
+Start by trying it out on the problem described in TEACH TOWER.
+The main procedures are almost defined in that file, but will need to be
+slightly modified:
+
+Using the procedure sumlist, defined in TOWER you can define a
+procedure for recognising goal states adding up to a target thus:
+
+define is_tower_goal(state, target) -> boole;
+    sumlist(hd(state)) = target -> boole
+enddefine;
+
+The procedure nextstates defined in TOWER can be used unchanged.
+
+We can then define a procedure to recognise that two states are the
+same, simply by testing them for equality as two lists.
+
+define same_tower_state(state1, state2) -> boole;
+    state1 = state2 -> boole
+enddefine;
+
+
+(Remember to put commented headers for each of those in your file.)
+
+Then we can test out solve_problem on the tower problem. Remember that,
+as defined in TEACH TOWER each state has the form of a list containing
+two lists, the sofar list (initially empty) and the remainder list,
+initially the set of block sizes available. Thus we could have an
+initial state of the form
+
+    [ [] [1 2 3 4] ]
+
+and a target to build a tower of size 8, and try to
+solve the problem as follows.
+
+Our commands are too long to fit on one line, but you can mark and load
+a command that extends over one line.
+
+solve_problem(
+    [[] [1 2 3 4]], 8, is_tower_goal, nextstates, same_tower_state) =>
+
+This might produce the following goal state:
+
+** [[4 3 1] [2]]
+
+Here's another problem:
+
+solve_problem(
+    [[] [5 2 3 4]], 9, is_tower_goal, nextstates, same_tower_state) =>
+
+This might produce the following goal state:
+
+** [[4 3 2] [5]]
+
+You can get more information about what is going on if you trace some of
+the procedures given to solve_problem. E.g. try
+
+trace is_tower_goal, nextstates;
+
+then re-run the test examples.
+
+
+-- Another test problem, finding ancestors ----------------------------
+
+Start a new file ancestors.p for this problem, and make sure that it
+includes, near the top, the command
+
+    load solver.p
+
+so that when you compile this file it also compiles your solver program.
+
+Here's the problem. Suppose you have a set of parent child relationships
+stored in a database (see TEACH * DATABASE).
+
+For example you could set up a database like this:
+
+define start_family_tree();
+[
+    ;;; Tom Jones is father of Dick Jones
+    [father [tom jones] [dick jones]]
+    [father [tom jones] [sue smith]]
+    ;;; Ginny Jones is mother of Dick Jones
+    [mother [ginny jones] [dick jones]]
+    [mother [ginny jones] [sue smith]]
+    [father [dick jones] [mary jones]]
+    [mother [sue smith] [joe smith]]
+    [mother [sue smith] [fred smith]]
+    [father [jack smith] [joe smith]]
+    [father [jack smith] [fred smith]]
+    [father [fred smith] [angela green]]
+    [mother [hannah smith] [angela green]]
+    [mother [angela green] [willy green]]
+    ] -> database;
+enddefine;
+
+
+Then the following command will set up the initial database:
+
+start_family_tree();
+
+Try drawing the family tree corresponding to that database. Strictly you
+will have to draw a net, because branches can split both going up and
+going down. (Why?)
+
+Notice that the database is a collection of facts about two person
+relationships. We represent such a fact with a list starting with the
+name of the relation and followed by the names of the two subjects of
+the relationship. Because we refer to people by a combination of first
+name and surname we represent each person by a list of two names. There
+are many other alternatives, e.g. give each person a unique number and
+use the numbers in the relationships, while storing the mapping between
+names and numbers separately in the database. Which representation of
+information is best will depend on the uses of the database.
+
+Now suppose you had to find out whether someone A is an ancestor of
+someone else B. How would you use the diagram to answer that? How would
+you use the information in the database? E.g is [ginny jones] an
+ancestor of [angela green] ? Is [jack smith] an ancestor of [dick
+jones]?
+
+Try to answer those questions. Pay attention to how you do it. Would
+your method work for a very large database? Was it systematic and
+guaranteed to get the answer right?
+
+One way of thinking about the problem is in terms of the family tree
+diagram. The question "Is A an ancestor of B?" can then be interpreted
+as a question about whether there is a descending route from A to B in
+the diagram. The human visual system is quite good at finding answers to
+questions like that, though not so good when the route to be found is in
+a tangled maze. (Why?)
+
+Using the database, finding a route is finding a chain of people,
+starting from A and ending at B where each person is either father or
+mother of the next one. You may like to try to write a program to do
+that using the solve_problem procedure, defined above. Remember that you
+will have to define an initial state, a goal state and a collection of
+procedures to give to solve_problem to enable it to search.
+
+Question: is it better to start searching from A or from B?
+
+If you find the task too difficult, after making a real attempt, read
+on.
+
+-- How to solve the ancestor problem ----------------------------------
+
+It is better to search up from descendants because each person has only
+two parents whereas they may have arbitrarily many children. Thus
+searching down the tree may involve exploring far more wasted branches
+than searching up.
+
+You need to set up a search space consisting of a start node B, and all
+paths from B to ancestors of B. The solve_problem procedure could be
+given the task of searching for a path through the family tree starting
+from B and ending with A. If such a path is found, it would answer the
+question positively: A is an ancestor of B. Otherwise it could return
+the result FALSE.
+
+You could represent a state in the search space as consisting of a
+list of names representing a path found so far through the family tree.
+For example if we wanted to find out whether [ginny jones] is an
+ancestor of [angela green] we would have a succession of states showing
+routes up the tree from [angela green]
+
+    [[angela green]]                 ;;; initial state
+    [[fred smith] [angela green]]    ;;; a successor state
+    [[hannah smith] [angela green]]  ;;; another successor state
+
+If we use this representation, then it is easy to tell whether the
+problem has been solved: check whether the target person A is the first
+item of the list.
+
+Thus we can define the following procedures to use with solve_problem
+
+define is_ancestor_goal(state, target) -> boole;
+    ;;; The state is a list of names defining a route up the family tree
+    ;;; Does it start with target?
+    state matches [^target == ]  -> boole
+enddefine;
+
+However, we also have to create a procedure for generating new states
+from a given state. Remember that a state is a list of names of people
+
+    [personN ... person3 person2 person1]
+
+where person1 represents a parent of person2, person2 a parent of
+person3, and so on. Person1 is the one given as the original alleged
+descendant, and personN is the latest person found in searching up the
+tree from person1.
+
+Then in order to find successors to this state we need to find
+individuals who are ancestors of personN, and form a set of new routes
+up the tree from each of them. First we need a procedure to find the
+immediate ancestors. We can use the database searching procedure foreach
+(described in TEACH FOREACH)
+
+define immediate_ancestors(person) -> list;
+
+    lvars next;  ;;; a pattern variable used with foreach below
+    ;;; start making a list
+    [%
+        ;;; first collect all those to whom person is father
+        foreach ! [father ?next ^person ] do
+            next;   ;;; just leave the next person on the stack
+        endforeach;
+
+        ;;; now collect all those to whom person is mother
+        foreach ! [mother ?next ^person] do
+            next;   ;;; just leave the next person on the stack
+        endforeach;
+
+    %] -> list
+enddefine;
+
+
+That procedure uses a complex collection of Pop-11 tools and techniques:
+
+(a) the pattern matcher,
+(b) the Pop-11 database,
+(c) two foreach loops,
+(d) putting the value of a variable on the stack,
+(e) using "decorated" list brackets [% ... %] to collect items from the
+stack into a single list.
+(f) using "!" to allow the pattern variables to be lvars variables.
+
+You can test it as follows
+
+    immediate_ancestors([angela green]) =>
+    ** [[fred smith] [hannah smith]]
+
+    immediate_ancestors([sue_smith]) =>
+    ** []
+
+
+Try out some more tests using your own database of family relationships
+and put them in the appropriate place in your file.
+
+Using the procedure immediate_ancestors we can define a procedure to
+create extensions to a state represented as a route up the tree
+
+define family_next_states(state) -> newstates;
+    ;;; <add a comment explaining what the procedure does>
+
+    ;;; make a list of new states that start with one descendant
+    ;;; and the rest of state
+    lvars nextpeople, person;
+    immediate_ancestors(hd(state)) -> nextpeople;
+
+    ;;; Now make a list of the new states
+    [%
+        for person in nextpeople do
+            ;;; make a new state and leave it on the stack, to go into
+            ;;; the list being created by [% ... %]
+            [^person ^^state]
+        endfor
+    %] -> newstates
+
+enddefine;
+
+
+Now test it
+
+    family_next_states([[angela green]]) ==>
+    ** [[[fred smith] [angela green]] [[hannah smith] [angela green]]]
+
+Note that the output was a list of TWO lists, each containing two lists.
+
+    [[fred smith] [angela green]]
+and
+    [[hannah smith] [angela green]]
+
+Make sure you understand how those lists were produced. You could try
+tracing the matcher (See TEACH TRACE):
+
+    trace matches;
+
+That will cause a lot of trace printing when you run your tests. You can
+turn it off with the command
+
+    untrace matches;
+
+Warning: if you trace the matcher, then if a variable was previously
+successfully matched it remembers its value until the next time it is
+matched against something else. So the trace output will be a little
+confusing at first.
+
+Try extending the first list:
+
+    family_next_states([[fred smith] [angela green]]) ==>
+    ** [[[jack smith] [fred smith] [angela green]]
+        [[sue smith] [fred smith] [angela green]]]
+
+Again there are two extensions, each containing three names. You may
+of course get a different answer with your database of names.
+
+All we need now is a test for whether a state is the same as one we
+have tried before and for this problem it is easy - just see if the two
+states are the same
+
+define family_same_state(state1, state2) -> boole;
+    state1 = state2 -> boole
+enddefine;
+
+You should now be able to use the solve_problem procedure to see whether
+one person is a descendant of another. We can define a new procedure
+called check_ancestor which does the work, as follows:
+
+define check_ancestor(person1, person2) -> result;
+    ;;; <add a summary comment>
+
+    ;;; use solve_problem to do the work
+    solve_problem
+        ([^person2],        ;;; start state (must be a list with a name)
+        person1,            ;;; goal state information
+        is_ancestor_goal,      ;;; goal state recogniser
+        family_next_states,    ;;; generator for next states
+        family_same_state      ;;; circle detector procedure
+        ) -> result
+enddefine;
+
+
+Create a commented procedure header (ENTER procheader) and put some
+tests in an appropriate place, e.g.
+
+check_ancestor([ginny jones], [angela green]) ==>
+** [[ginny jones] [sue smith] [fred smith] [angela green]]
+
+Compare this case, with a different target descendant
+
+check_ancestor([ginny jones], [tom jones]) ==>
+** <false>
+
+Try some other tests using an extended version of the database.
+
+
+-- Making check_ancestor less intelligent -----------------------------
+
+An optional assignment:
+
+If you start searching down the tree from parents to children you may
+have any number of children to contend with for a given parent. Thus the
+search space may include lots of branching paths.
+
+To see what difference that makes try defining a new set of procedures
+to solve the ancestor problem by searching down the tree rather than up
+the tree. Then compare the amount of wasted searching done by the two
+versions, by tracing the procedure that generates next states, e.g.
+
+trace family_next_states;
+check_ancestor([ginny jones], [angela green]) ==>
+
+If you change the program so that it starts with the alleged descendant
+and searches back up the tree to try to find the ancestor then, because
+each individual can have at most two parents the amount of branching
+will be strictly limited. This means that in general searching in the
+reverse direction will be a lot more efficient.
+
+Try changing the definition of check_ancestor and the two procedures
+
+        is_ancestor_goal
+        family_next_states
+
+so that the searching goes from ancestor to descendant. You could call
+the new procedure check_descendant. Add some families with lots of
+children and explore the differences in searching up and down the tree.
+
+-- Route finding ------------------------------------------------------
+Optional assignment:
+
+The check_ancestor and check_descendant procedures work on a database
+that contains information about family relationships. If instead you had
+a database of information about places and roads or paths linking them
+then a similar program could be asked to find a route between two
+places.
+
+The program would have to be given a start location and a destination
+location and would have to keep trying to extend partial routes to see
+if they can eventually be used to reach the destination.
+
+A possible project would be to use the solve_problem procedure, or a
+modified form of it, to search through the database to find a route.
+
+If you try this you will have to consider various questions:
+
+    1. Do you want the program to find any route, or only the
+       shortest route?
+       That would require a modification of solve_problem so that
+       it no longer stopped as soon as it had found a goal state.
+       Rather it might have to continue until it had found all goal
+       states, which it could put in a list. Or it could be given
+       a limit such as 5 so that it stopped after finding 5 possible
+       solutions. Alternatively you could make it use a breadth first
+       search to find the shortest route.
+
+    2. What information would have to be stored about the portions of
+       the route. E.g. Do you need only to record that there's a path
+       from A to B, as in
+
+            [path A B]
+
+       or do you also need to specify the distance, and the direction,
+       as in
+            [path A B 5 NNE]
+       or should time rather than distance be specified. Or both?
+
+    3. Would you explicitly store reverse links, e.g.
+            [path A B]
+            [path B A]
+       or should you make the program use the fact that if there's
+       a path from A to B, then there will also be a path from B to A?
+
+    4. What's a good form for the final solution if it is going to help
+       people actually get from one place to another? E.g. should the
+       program also print out descriptions of the intermediate
+       locations, information about landmarks passed on the route, etc.
+
+
+Notice that in its current form the program solve_problem does a
+depth-first search, because all new states are put at the front of the
+alternatives list and on each loop a new state is taken from the front.
+If the new states that are generated by nextstates are put at the back
+of the list and the next current_state is taken from the front of the
+list, the strategy will change to a breadth-first search. (Why?)
+For finding routes this may be more sensible, as it is guaranteed to
+find the route requiring the smallest number of steps first. (Why?)
+
+-- Further optional exercises: ----------------------------------------
+
+You could generalise solve_problem to take an extra boolean parameter,
+such that if it is true then the problem space is searched depth first,
+and if it is false it is searched breadth first.
+
+Alternatively you could generalise it to take an additional procedure
+which is used to select a state from the alternatives list on the basis
+of some kind of heuristic strategy. Then it could do depth-first,
+breadth-first or best-first search.
+
+-- Pruning a search space ---------------------------------------------
+
+Very often a search space will take a very long time for a simple-minded
+program to explore.
+
+This is because finding a goal state normally requires exploring
+different combinations of operations, and since the different
+combinations can be very numerous, there is a danger of a "combinatorial
+explosion".  To illustrate, if you have to make twenty moves to solve
+your problem, and at each stage there are two options to choose from,
+the possible combinations of moves may number:
+
+    2 * 2 * 2.....twenty times = over a million.
+
+In Pop-11 the "exponentiation" operator is "**" so 2 to the power 20 is
+
+    2 ** 20 =>
+    ** 1048576
+
+Sometimes solving a problem requires far more than 20 choices. But the
+total number of routes through the search space goes up very rapidly
+indeed as the length of the routes increases. For example if a problem
+requires 40 steps, each of which involves 2 options, the total number of
+routes to explore is
+
+    2 ** 40 =>
+    ** 1099511627776
+
+which is a very much bigger number. If each route took 1/1000th of a
+second to explore, the process would take
+
+    (1099511627776/1000)/60         minutes
+or
+    (1099511627776/1000)/60/60      hours
+or
+    (1099511627776/1000)/60/60/24   days
+or
+    (1099511627776/1000)/60/60/24/365 years
+
+I.e. 34 years and 316 days
+
+Most of us cannot wait that long for solutions to problems, so an
+intelligent system should be able to find short cuts. However, that
+is not always easy.
+
+Exercise: work out how many years it would take to explore the search
+space for a problem requiring 30 choices, each with 3 options, assuming
+that 10,000 paths can be explored every second. The answer is over 652
+years.
+
+Now try a problem requiring 40 choices, each with 4 options, assuming
+that ten million paths can be explored every second. You may find the
+result very surprising
+
+-- A heuristically guided search strategy -----------------------------
+
+There are several different ways in which heuristics can be added to a
+searching program like solve_problem.
+
+One possibility is to have a procedure that always selects the next
+state from the alternatives list on the basis of some measure of merit
+of the alternatives.
+
+Another is to ensure that the list is built up on the basis of some
+order of merit. E.g. instead of always adding all new states at the
+front of the alternatives list, or adding all of them at the back,
+a new insert_state procedure could be created which takes a state, and
+a list of states, and inserts the new state into the list at a location
+that corresponds to its merit in relation to the other states.
+
+Then the selection program will always take the first state off the
+list, as that will be the best one. This process of sorting when the
+insertion is done could be somewhat more efficient than always searching
+the alternatives list to find the best state, on every cycle.
+
+Another way to cut down the search is to have some way of telling that
+certain states should be rejected completely because they will never
+lead to a solution.
+
+An example from the tower problem is rejecting a state if the total in
+the sofar list is already greater than the height of the tower, or
+perhaps rejecting it if each of the alternative blocks would cause the
+total to be too high if added to the sofar list. (What's the difference
+between those two strategies?)
+
+It is not always so easy to tell that a state can be completely
+rejected. One form of expertise that human beings develop in connection
+with complex problem solving is learning to recognise hopeless cases.
+
+Thus a chess master, when considering a certain move, may be able to
+tell that it is hopeless and not bother to explore it further, whereas a
+novice might have to go on considering possible extensions of the move
+to see where they could lead. How an expert recognises good and bad
+cases without detailed exploration of alternatives is an important
+research topic: the ability seems to depend on a sophisticated mechanism
+for learning abstract patterns and recognising new instances of those
+patterns.
+
+-- Exercise: solving the river problem --------------------------------
+
+In TEACH RIVER you saw how you could create a procedure made of a
+sequence of commands that solved the river crossing problem: i.e. got
+the man, the fox, the chicken and the grain across from the left bank to
+the right bank, without anything getting eaten.
+
+How did you work out the sequence of moves? Could you create a program
+to do it, based on the procedure solve_problem. You would have to choose
+a representation for states. E.g. one representation would be two lists
+of items, those on the left bank and those on the right bank. In that
+case the start state would be
+
+    [[man fox chicken grain] []]
+
+and the goal state would be
+
+    [[] [man fox chicken grain]]
+
+Alternatively you could choose simply to represent what is
+currently on the left bank. In that case the initial state would be
+
+    [man fox chicken grain]
+
+and the goal state would be
+
+    []
+
+i.e. nothing on the left bank.
+
+From a given state you would have to specify how to generate successor
+states. This is slightly complicated as you'll have to represent the
+rules of the game so that illegal states are not generated, e.g.
+
+    [[fox chicken][man grain]]
+
+and you will also have to ensure that nothing moves from one side to the
+other without the man also moving.
+
+Try defining such a nextstates generator, and use it, with an
+appropriate goal recogniser and circularity recogniser to get
+solve_problem to find the solution to the river puzzle.
+
+See if you can make it accept any legal state of the river world as a
+start state and any legal state as a goal state.
+
+
+-- Exercise: a number game --------------------------------------------
+
+Suppose that you are given three operations that can be performed on a
+number:
+
+    O1: double the number
+    O2: subtract two from the number
+
+Then you can be given a problem in the following form: Given a number N1
+and a number N2 is it possible to get from N1 to N2 by repeatedly
+applying O1, or O2 in any order?
+
+E.g. can you get from the number 9 to the number 11 ?
+
+In some cases the transition is impossible. See if you can write a
+program that (a) tells which cases are impossible and (b) if the
+transition is possible works out the shortest sequence of moves:
+
+    number_transition(5, 18) =>
+    ** [double double subtract]
+
+-- Parsing and searching ----------------------------------------------
+
+The file TEACH GRAMMAR introduces the idea of a grammar for a "natural"
+language like English, and shows how given a grammar in the form of a
+set of rules it is possible to tell whether a sentence is grammatical
+according to the rules. In fact the process of checking a sentence
+against a grammar often involves searching for the best way to break up
+the sentence and match the parts against the grammatical rules. The
+search can be more difficult if there are ambiguous words (e.g. "bank",
+"lead").
+
+TEACH ISASENT shows one way of using the Pop-11 matcher to help with
+searching for a way of parsing a sentence.
+
+Although it may not be obvious, the matcher has to do some searching if
+it contains "segment" pattern elements, i.e. "==" or "??". For example
+suppose you have a pattern of the form:
+
+    [??first [== cat == ] ??rest]
+
+That pattern can be used to detect whether a list of lists contains an
+embedded list that includes the word "cat". An example is:
+
+    vars first, rest;
+
+    [[a dog][bird bath][a cat sleeps][every owl]]
+        matches
+    [??first [== cat == ] ??rest] =>
+    ** <true>
+
+    first =>
+    ** [[a dog] [bird bath]]
+
+    rest =>
+    ** [[every owl]]
+
+In order to solve this problem the matcher has to try allocating
+different initial segments to the variable ??first until it finds one
+that uses up all the lists before a list containing the word "cat".
+
+Checking whether the list contains "cat" also involves searching, by
+matching the first "==" against larger and larger initial segments of
+the list, until the next word is cat. If that is found, then the
+remaining items in the top level list go into a list assigned to ??rest.
+This is a rather simple searching problem.
+
+There is quite a powerful facility in the Pop-11 library which is based
+on the matcher and the Pop-11 database which can be used to solve some
+more complicated searching problems that require simultaneously matching
+several patterns against a database of lists. It is called "forevery"
+and is described in HELP * FOREVERY
+
+-- Other relevant teach files and libraries ---------------------------
+
+TEACH * SCHEMATA
+
+Introduces the task of matching a story against a set of scripts or
+frames to find the "best" match. This can then be used to predict items
+of information missing from the story.
+
+TEACH * SEMNET1
+TEACH * SEMNET2
+
+An introduction to semantic nets and their uses. The second file shows
+how to use LIB SEMNET to solve some searching problems.
+
+HELP * SEMNET
+
+Describes LIB SEMNET, a library program for manipulating semantic nets,
+in which relationships like routes or family relations are represented.
+It includes some utilities for finding "derived" links like the ancestor
+relation.
+
+TEACH * ROUTE
+
+Introduces a route-finding program that works on information about the
+London Underground system.
+
+-- Further reading ----------------------------------------------------
+
+Exercises on searching using Pop-11 can be found in
+
+    Sharples, M. et al. (1989)
+        Computers and Thought
+        MIT Press.
+
+    Chris Thornton & Benedict du Boulay (1992)
+        Artificial Intelligence Through Search
+        Kluwer Academic (Paperback version Intellect Books)
+        (This one also includes Prolog examples)
+
+Standard text books on AI give information about problem solving,
+searching search spaces, the A* (A-star) algorithm, etc.
+
+Examples are:
+
+    Boden, M.A. (1977, 1986).
+        Artificial Intelligence and Natural Man
+        Harvester Press and Basic Books, 1977.
+        Second edition 1986. MIT Press
+
+    Charniak, E & McDermott D, (1985)
+        Introduction to Artificial Intelligence
+        Addison Wesley.
+        (Chapter 5 of this book covers much of the same ground as
+        this teach file, except that it uses the programming language
+        Lisp)
+
+    Rich, Elaine and Kevin Knight. (1991).
+        Artificial Intelligence
+        Second Edition,
+        New York: McGraw-Hill.
+
+    Winston, P.H. (1984 - 3rd edition 1992).
+        Artificial Intelligence
+        Reading, Mass: Addison-Wesley.
+
+    Stuart Russell and Peter Norvig (1995),
+        Artificial Intelligence, A Modern Approach,
+        Prentice Hall, 1995,
+
+    Nils J. Nilsson (1998),
+        Artificial Intelligence: A New Synthesis,
+        Morgan Kaufmann, San Francisco,
+
+And many more
+
+If you feel at home with logic you may find this useful
+
+    Nilsson, Nils J. (1980)
+        Principles of Artificial Intelligence
+        Tioga Publishing Company, California
+
+--- $poplocal/local/teach/searching
+--- Copyright University of Birmingham 2000. All rights reserved. ------

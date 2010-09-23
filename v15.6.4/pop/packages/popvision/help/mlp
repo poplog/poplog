@@ -1,0 +1,717 @@
+HELP MLP                                        David Young
+                                                August 1998
+
+                         MULTI-LAYER PERCEPTRONS
+
+This help file describes facilities in LIB * MLP, which implements
+multi-layer perceptrons, a class of artificial neural network
+popularised by the book "Parallel Distributed Processing" (D.E.
+Rumelhart, J.L. McClelland & the PDP Research Group, MIP Press, 1986),
+Vol. 1, Chapter 8 (referred to below as the PDP book). The
+back-propagation algorithm is used to carry out gradient descent
+training.
+
+For a tutorial introduction with examples, see TEACH * MLP.
+
+Where the terms "lower" and "higher" are used, the net is to be pictured
+with the inputs at the bottom.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Net records
+      1.1   Net creation and resetting
+      1.2   Simple weight and bias access and update
+      1.3   Net parameter access and update
+      1.4   Net array access
+      1.5   Transfer function specification
+
+  2   Data records
+      2.1   Record creation
+      2.2   Data record access
+
+  3   Net training and testing
+      3.1   Training
+      3.2   Testing
+
+  4   Other facilities
+      4.1   Printing
+      4.2   Copying
+      4.3   Random number generation
+
+
+--------------
+1  Net records
+--------------
+
+1.1  Net creation and resetting
+-------------------------------
+
+
+mlp_makenet(nin, nunits, wtrange, eta) -> net                [procedure]
+mlp_makenet(nin, nunits, wtrange, eta, alpha) -> net
+mlp_makenet(nin, nunits, wtrange, eta, alpha, decay) -> net
+        Creates and returns a network record. The arguments are:
+
+        nin
+            An integer giving the number of inputs.
+
+        nunits
+            A vector giving the number of units in each layer of the
+            network, starting with the lowest hidden layer (if there is
+            one) and finishing with the output layer. If the all the
+            units are to use the logistic output function as in the PDP
+            book, then each entry in nunits can be simply an integer.
+
+            Alternative output functions can be specified. If the entry
+            for a layer is a 2-element vector, then the first element of
+            this inner vector must be an integer giving the number of
+            units in the layer, and the second element may be either a
+            word giving the transfer function to be used by every unit
+            in the layer, or a vector of words giving the individual
+            transfer functions to be used by each unit in turn (see the
+            examples in TEACH * MLP). The length of this innermost
+            vector must be equal to the number of units specified. The
+            words available are
+
+                o "identity" for the identity function
+                o "tanh" for the hyperbolic tangent
+                o "logistic" for the logistic function
+                o "logistic_fast" for a fast approximation
+
+            The "logistic_fast" option gives a substantial speedup over
+            "logistic" by using an approximation to the exponential
+            function which relies on the hardware representation of
+            floating-point quantities. See N.N. Schraudolph (1998) 'A
+            fast, compact approximation of the exponential function',
+            Technical report IDSIA-07-98, IDSIA, Lugano, Switzerland,
+            submitted to Neural Computation. It works on Sun Solaris
+            machines with the gcc compiler, and should be tested before
+            being tried on other machines. The approximation is fairly
+            close but on delicate problems the results should be
+            compared with those from the ordinary logistic function.
+
+        wtrange
+            A number specifying the range of the initial random weights
+            and biases. A uniform distribution from -wtrange/2 to
+            +wtrange/2 is used. If wtrange is negative, the weights and
+            biases are set to zero.
+
+        eta
+            A number specifying the learning rate as in the PDP book.
+            The basic learning rule for a given weight or bias (provided
+            it is unclamped) is
+
+                w' = w - eta * Ew
+
+            where w is a weight value, w' is its value after update, and
+            Ew is an estimate of the derivative of the error with
+            respect to this weight. In continuous training, this
+            equation is applied after every example, whilst in batch
+            training it is applied after each batch of examples. See the
+            note in TEACH * MLP about how eta's effective value is
+            affected by alpha.
+
+        alpha
+            A number specifying the momentum as in the PDP book, when
+            training is continuous. If omitted, defaults to 0.0, i.e. no
+            momentum. In continuous training, the derivative estimate
+            used to update a weight is updated after each example using
+
+                Ew' = Ewc + alpha * Ew
+
+            where Ewc is the derivative estimate for the current
+            example, obtained using the backpropagation algorithm. This
+            amounts to passing Ewc values through a smoothing filter
+            with exponentially decreasing values to obtain Ewc.
+
+            In batch training, alpha is ignored, and Ew is obtained by
+            averaging the values of Ewc over the batch.
+
+        decay
+            A number specifying the amount of weight decay to carry out
+            after each example is presented during learning. If
+            specified, then alpha must also be specified. If omitted or
+            negative, no weight decay occurs. If non-negative, then
+            after an example has been presented and the weights and
+            biases all updated, every unclamped weight and bias is
+            multiplied by decay.
+
+
+wtrange -> mlp_resetnet(net)                                 [procedure]
+        Resets a net to an untrained state as if it had just been
+        created. The weights and biases are set to random values from a
+        uniform distribution from -wtrange/2 to +wtrange/2, unless
+        wtrange is negative, in which case they are set to zero. The
+        activations and rate of change arrays are all set to zero.
+
+
+1.2  Simple weight and bias access and update
+---------------------------------------------
+
+
+mlp_weight(level, unit1, unit2, net) -> float                [procedure]
+num -> mlp_weight(level, unit1, unit2, net)
+        Returns or updates a specified weight or bias. level is an
+        integer: 1 means the weights from the inputs to the lowest
+        hidden layer, 2 means those from the lowest hidden layer to the
+        next layer, and so on. unit1 and unit2 are integers specifying
+        the unit in the lower layer and the unit in the upper layer
+        respectively. unit1 may be 0 or <false> to specify the bias for
+        unit2. net is a network record.
+
+        For frequent large-scale weight setting or access direct access
+        to the weight arrays is possible using the procedures below.
+
+
+mlp_clamp(level, unit1, unit2, net) -> bool                  [procedure]
+bool -> mlp_clamp(level, unit1, unit2, net)
+        Returns or updates the clamped status of a weight or bias.
+        level, unit1, unit2 and net are as for mlp_weight. <true> means
+        that the weight or bias is not changed during training. (Note
+        that the use of this procedure does not involve mlp_clamped,
+        described below, which is only needed if the clamped status is
+        changed by direct access to the arrays, as described under
+        mlp_etas and mlp_etbs below.)
+
+
+1.3  Net parameter access and update
+------------------------------------
+
+
+mlp_nlevels(net) -> int                                      [procedure]
+        Returns the number of layers of units, not including "input
+        units". For the most common architecture of 1 hidden layer and 1
+        output layer, this returns 2.
+
+
+mlp_ninunits(net) -> int                                     [procedure]
+        Returns the number of inputs.
+
+
+mlp_nhunits(net) -> vec                                      [procedure]
+        Returns a vector of integers giving the number of units in each
+        layer, starting with the lowest hidden layer and ending with the
+        output layer.
+
+
+mlp_noutunits(net) -> int                                    [procedure]
+        Returns the number of output units (same as
+        last(mlp_nhunits(net))).
+
+
+mlp_ntunits(net) -> int                                      [procedure]
+        Returns the total number of units (not including "input units")
+        in the net.
+
+
+mlp_nweights(net) -> int                                     [procedure]
+        Returns the total number of weights in the net (not counting
+        biases).
+
+
+mlp_eta(net) -> num                                          [procedure]
+num -> mlp_eta(net)
+        The forward procedure returns the global value of the learning
+        rate. This may have been overriden for individual biases or
+        weights. The updater sets the learning rate for all biases or
+        weights that have not been clamped.
+
+
+mlp_alpha(net) -> num                                        [procedure]
+num -> mlp_alpha(net)
+        Returns or updates the momentum constant for learning. This
+        applies to all unclamped weights and biases.
+
+
+mlp_clamped(net) -> bool_or_word                             [procedure]
+bool_or_word -> mlp_clamped(net)
+        This is used to record whether weights or biases have been
+        clamped, but calling the updater does not actually cause
+        anything to be clamped. Returns <true> if it is certain that a
+        weight or bias has been clamped, <false> if it is certain that
+        none has, and "maybe" if it is possible that a weight or bias
+        has been clamped somewhere in the network. Users who clamp or
+        unclamp weights or biases by direct access to the etas and etbs
+        arrays must also assign the correct value to mlp_clamped. It is
+        always safe to assign the word "maybe" to this updater.
+
+
+1.4  Net array access
+---------------------
+
+
+mlp_activs(net) -> vec                                       [procedure]
+        Returns a vectorclass object of arrays containing the current
+        activations of the units after a call to mlp_response, or the
+        current errors after a call to mlp_learn. vec(1) is the array
+        for the lowest hidden layer (if there is one) up to last(vec)
+        which is for the output layer. For a given array wts in the
+        vector, wts(i) is the activation or error of the i'th unit in
+        the layer, numbered from 1. The elements of vec can not be
+        updated, though the elements of the arrays can.
+
+
+mlp_actvec(net) -> floatvec                                  [procedure]
+floatvec -> mlp_actvec(net)
+        floatvec is a vector of single precision floats which combines
+        all the arrays in the vector returned by mlp_activs. It consists
+        in effect of the arrayvectors of the individual level arrays
+        concatenated in order. Thus the first element stores the
+        activation of the first unit in the lowest layer; the last
+        element is the activation of the last unit in the output layer.
+        The length of the vector is the number returned by mlp_ntunits.
+
+        If the updater is used, the new vector must be a packed vector
+        of floats (not a full vector) and must be the correct length.
+        This following restriction applies to the updaters of all the
+        combined vector access procedures, unless otherwise stated.
+
+
+mlp_biases(net) -> list                                      [procedure]
+mlp_bsvec(net) -> floatvec                                   [procedure]
+floatvec -> mlp_bsvec(net)
+        As mlp_activs and mlp_actvec but containing the unit biases.
+
+
+mlp_bschange(net) -> list                                    [procedure]
+mlp_bschvec(net) -> floatvec                                 [procedure]
+floatvec -> mlp_bschvec(net)
+        As mlp_activs, but containing the most recent adjustments made
+        by the learning algorithm to the unit biases.
+
+
+mlp_etbs(net) -> list                                        [procedure]
+mlp_etbvec(net) -> floatvec                                  [procedure]
+floatvec -> mlp_etbvec(net)
+        As mlp_activs, but containing the learning rates associated with
+        the unit biases. If a learning rate is made negative, then the
+        associated bias is clamped, i.e. it is not changed during
+        training. If the sign of a learning rate is changed, the
+        appropriate value must be assigned to mlp_clamped(net).
+
+
+mlp_tranfns(net) -> list                                     [procedure]
+mlp_tranfnvec(net) -> intvec                                 [procedure]
+intvec -> mlp_tranfnvec(net)
+        As mlp_activs, but containing the integers indexing the transfer
+        (output) functions associated with the units. See mlp_transfuncs
+        below for the meaning of the integer codes. If the updater is
+        used, the vector must be an integer vector and its contents must
+        all be in the range of integers returned by mlp_transfuncs.
+
+
+mlp_weights(net) -> vec                                      [procedure]
+        Returns a vectorclass object of weight arrays. vec(1) has the
+        weights from the inputs to the lowest hidden layer (if there is
+        one), vec(2) from the lowest hidden layer to the second hidden
+        layer, and so on up to last(vec) which has the weights from the
+        top hidden layer to the output layer. For a given array wts in
+        the vector, wts(i, j) is the weight from the i'th unit in the
+        lower layer to the j'th unit in the higher layer (the opposite
+        of the subscript ordering used in the matrix notation of the PDP
+        and other books). The elements of vec cannot be updated, though
+        the elements of the arrays can.
+
+
+mlp_wtvec(net) -> floatvec                                   [procedure]
+floatvec -> mlp_wtvec(net)
+        floatvec contains all the weights in the network. It is a vector
+        which is in effect the concatenation of the arrayvectors of the
+        arrays in the list returned by mlp_weights, in order. Its length
+        is the value returned by mlp_nweights.
+
+
+mlp_wtchange(net) -> list                                    [procedure]
+mlp_wtchvec(net) -> floatvec                                 [procedure]
+floatvec -> mlp_wtchvec(net)
+        As mlp_weights but containing the latest adjustments made to the
+        weights after a call to mlp_learn.
+
+
+mlp_etas(net) -> list                                        [procedure]
+mlp_etavec(net) -> floatvec                                  [procedure]
+floatvec -> mlp_etavec(net)
+        As mlp_weights but containing the learning rates for the
+        individual weights. If a learning rate is negative, the
+        corresponding weights is clamped, i.e. it is not changed during
+        training. If the sign of a learning rate is changed, the
+        appropriate value must be assigned to mlp_clamped(net).
+
+
+1.5  Transfer function specification
+------------------------------------
+
+
+mlp_transfuncs(word) -> int                                   [constant]
+        This is a property which returns the integer codes corresponding
+        to the words used to specify transfer (output) functions. See
+        TEACH * MLP for how to find what words are available.
+
+
+---------------
+2  Data records
+---------------
+
+2.1  Record creation
+--------------------
+
+
+mlp_makedata(data, niter, ransel) -> datarec                 [procedure]
+mlp_makedata(data, mask, pstart, pinc, pend,
+                        niter, ransel) -> datarec
+mlp_makedata(data, nunits, nstart, nstep, nend,
+                        niter, ransel) -> datarec
+        This procedure produces a data record suitable for training or
+        testing the networks defined above. The same procedure is used
+        to produce records for the inputs, targets and outputs of a
+        network. All the arguments except data are optional. Most uses
+        of the procedure do not require the full complexity, and
+        examples are given in TEACH * MLP.
+
+        In the first form, the arguments are as follows:
+
+        data
+            An array of data. If this was created with *newsfloatarray
+            or some other procedure that returns a packed array of
+            single precision floats, and the array is not offset in its
+            arrayvector, mlp_makedata puts a pointer to the array into
+            datarec. Otherwise a new array is created and the data are
+            copied to it. Putting a pointer into the record uses less
+            memory and is faster, and also means that the results of
+            testing can be accessed by reference to the original
+            variable.
+
+            If data is 1-dimensional, then it is taken to hold a single
+            example at any time (of input data, targets or output
+            results). The value in data(i) corresponds to the i'th input
+            or output unit (depending on whether datarec is used as
+            input, or target or output). The length of data will match
+            the number of inputs or number of outputs of some net.
+
+            If data is 2-dimensional, then each column (in the matrix
+            convention that the first subscript is the row number and
+            the second is the column number) refers to one example. That
+            is,  data(i,j) is the value for the i'th input or output
+            unit and the j'th example. The array's dimensions are (no.
+            of input or output units) x (no. of examples).
+
+        niter
+            This is optional, but if present then ransel must also be
+            given. When datarec is used as a target record,
+            niter sets the number of iterations for which the net is to
+            be trained. It defaults to 1.
+
+            If niter is an integer or <false>, then continuous learning
+            is used (the weights and biases are updated after every
+            example), and niter examples are shown to the network on a
+            single call to mlp_learn. The value <false> means that only
+            a single back propagation of errors is carried out.
+
+            If niter is a structure (such as a pair, a vector or a
+            list) batch learning is carried out. The first value in
+            niter gives the number of batches to be presented, whilst
+            the second gives the number of examples in each batch. If
+            the second element is <true>, the number of examples in each
+            batch is set equal to the number of examples in the training
+            data. Weight updating occurs at the end of each batch.
+
+        ransel
+            This is optional, but if present then niter must also be
+            given. When datarec is used as a target record, the boolean
+            ransel specifies whether training examples are to be
+            selected in a random order from the example set (<true>), or
+            cyclically (<false>).
+
+        In the second form, the arguments are:
+
+        data
+            As for the first form, but the array may have any number of
+            dimensions. Each example is represented by a group of
+            elements in the array; these elements have a fixed set of
+            offsets relative to one another, but may have a variety of
+            absolute coordinates in the array.
+
+        mask
+            This is a list of vectors. The length of the list is equal
+            to the number of input or output units, and the length of
+            each vector is equal to the number of dimensions of data.
+            Each vector gives the offset of an array element relative to
+            an arbitrary origin. A set of elements of data defined
+            relative to a valid origin forms a single example.
+
+            If mask is omitted, it defaults to the set of offsets which
+            allows data to be tesselated without overlap given the set
+            of origins specified by pinc, which may not also be omitted.
+
+        pstart
+            This is a vector of integers, with length equal to the
+            number of dimensions of data, giving the coordinates of the
+            origin for the example with the lowest values for its
+            coordinates. The element specified by pstart must lie inside
+            the bounds of data.
+
+            If pstart is omitted, it defaults to the set of smallest
+            possible values given the boundslist of data and the offsets
+            in mask. If pstart is omitted, pend must also be omitted.
+
+        pinc
+            This is a vector of positive integers which specifies the
+            amount to jump along each dimension of data to move the
+            origin from one valid example to the next.
+
+            If pinc is omitted, it defaults to {1 1 1 ...} where there
+            are as many 1's as data has dimensions, i.e. the data are
+            sampled as densely as possible and if the examples involve
+            more than a single element then they overlap. If pinc is
+            omitted, then pstart and pend must also be omitted.
+
+            If mask is omitted, then the product of the elements of pinc
+            must equal the number of input or output units.
+
+        pend
+            Like pstart, but giving the origin position with the
+            highest-valued coordinates. If omitted, defaults to the
+            highest values possible and pstart must also be omitted.
+            Each element of pend must be greater than or equal to the
+            corresponding element of pstart.
+
+        niter, ransel
+            As for the first form.
+
+        The third form is shorthand for a particular case of the second
+        form, where time series data of a simple sort are involved. The
+        arguments are:
+
+        data
+            As for the first form, but must be a 1-dimensional array.
+            Examples are taken from contiguous sections of the array.
+
+        nunits
+            An integer giving the number of input or output units.
+
+        nstart
+            An integer giving the start point in the array of the
+            example with the lowest coordinates. If omitted, it defaults
+            to the lower array bound, and nend must be omitted also.
+
+        ninc
+            An integer giving the amount to move along the array between
+            examples. If this is equal to 1, the examples overlap as
+            much as possible; if it equals nunits then the examples abut
+            one another but do not overlap.
+
+        nend
+            An integer giving the start point in the array of the
+            example with the highes coordinates. If omitted, it defaults
+            to the upper array bound minus nunits, and nstart must be
+            omitted also.
+
+        niter, ransel
+            As for the first form.
+
+
+mlp_fullindex -> bool                                         [variable]
+bool -> mlp_fullindex
+        This variable determines how mlp_makedata encodes the example
+        positions in the data array. If it is <true> then index arrays
+        are built which substantially increase the size of the data
+        record, but which permit the training and response procedures to
+        run as fast as possible. If it is <false> then a more concise
+        but slightly slower representation is used. This variable must
+        have the same value for the creation of all the records used in
+        a single call to mlp_learn, mlp_response or mlp_target.
+
+
+2.2  Data record access
+-----------------------
+
+
+mlpdata_data(datarec) -> arr                                 [procedure]
+arr -> mlpdata_data(datarec)
+        Returns or updates the data array held in the record.
+
+        On update arr must have the same *boundslist as the original
+        data argument to mlp_makedata. If arr is a packed single float
+        array (i.e. one created by *newsfloatarray or the like), and is
+        not offset in its arrayvector, then a pointer to it will be
+        placed in datarec. Otherwise its contents will be copied to a
+        new array.
+
+
+mlpdata_niter(datarec) -> int                                [procedure]
+int -> mlpdata_niter(datarec)
+        Returns or updates the number of iterations to be used if the
+        record is a target for training.
+
+
+mlpdata_nbatch(datarec) -> int                               [procedure]
+int -> mlpdata_nbatch(datarec)
+        Returns or updates the number of examples to be taken in a batch
+        if the record is a target for training. The value 1 means that
+        continuous learning is to be used.
+
+
+mlpdata_datvec(datarec) -> arr                               [procedure]
+        Returns the arrayvector of the data array held in the record.
+
+
+mlpdata_ransel(datarec) -> int                               [procedure]
+bool -> mlpdata_ransel(datarec)
+        Returns or updates the flag as to whether examples are selected
+        randomly when the record is a target for training. The value
+        returned is 0 for false or 1 for true.
+
+
+mlpdata_nunits(datarec) -> int                               [procedure]
+        The number of input or output units the net is expected to have
+        when the data are used for training or testing.
+
+
+mlpdata_negs(datarec) -> int                                 [procedure]
+        The number of different examples of data held in the record.
+
+
+mlpdata_offset_mask                                          [procedure]
+mlpdata_mask_origs                                           [procedure]
+mlpdata_ndim                                                 [procedure]
+        These refer to the fields that carry the internal coding of the
+        positions of the examples in the data array, and are not useful
+        to users.
+
+
+---------------------------
+3  Net training and testing
+---------------------------
+
+3.1  Training
+-------------
+
+
+(input_rec, target_rec) -> mlp_learn(net) -> (err, errvar)   [procedure]
+mlp_learn(input_rec, target_rec,
+            nunits, wtrange, eta, alpha, decay) -> (net, err, errvar)
+        Trains a network.
+
+        In the first form, input_rec and target_rec must have been
+        created with mlp_makedata and net with mlp_makenet. The
+        parameters for training are as set up by those procedures. The
+        number of units for input_rec must match the number of inputs
+        for net, and the number of units for target_rec must match the
+        number of outputs for net. The number of examples in input_rec
+        and target_rec must match. The weights and biases of net are
+        updated.
+
+        Repeated calls can be used to continue training until the error
+        is acceptable. Training parameters and data can be changed
+        between calls.
+
+        The results err and errvar are numbers which record the mean
+        error and the variance of the error during the training run.
+
+        In the second form, a net is created, then trained and returned.
+        nunits, wtrange, eta, alpha and decay are as for mlp_makenet and
+        the other arguments and results are as above.
+
+        The number of training iterations (i.e. the number of batches
+        presented to the network) is given by the niter and nbatch
+        fields of the target record. Each example involves a forward
+        pass of data through the network followed by backpropagation of
+        errors. If nbatch is 1, training is continuous and weight
+        updating occurs after every example. Otherwise, the weight
+        changes are averaged over nbatch examples and then the weights
+        are updated. In either case, nbatch*niter examples are presented
+        to the network in a single call to mlp_learn, and a total of
+        niter weight updates takes place. If niter is 0, however, a
+        single backward pass but no forward pass is carried out - it is
+        assumed that the activations have been set by a previous call to
+        mlp_response, and the weights are updated in continuous mode.
+        This is useful in conjunction to mlp_target - see the example in
+        TEACH * MLP.
+
+
+net -> mlp_target(datarec)                                   [procedure]
+        This allows separate nets to be cascaded for training. A call to
+        this procedure must be preceded by a call to mlp_learn. datarec
+        must be a data record suitable for use as an input record for
+        net, containing a single example. It is updated so that it
+        provides suitable training data for any network which had
+        supplied the most recent input to net.
+
+
+3.2  Testing
+------------
+
+
+mlp_response(input_rec, net) -> output_rec                   [procedure]
+(input_rec, net) -> mlp_response(output_rec)
+        This applies the net to each example in input_rec and stores the
+        results in the corresponding part of output_rec.
+
+        In the first form an appropriate output record is created and
+        returned. The form of the output record will be that
+        corresponding to the first kind of call to mlp_makedata.
+
+        In the updating form the contents of output_rec are updated; it
+        can be produced by any kind of call to mlp_makedata.
+
+        The number of units for input_rec must match the number of
+        inputs for net. For the updater, the number of units for
+        output_rec must match the number of outputs for net and the
+        number of examples in input_rec and output_rec must match.
+
+
+-------------------
+4  Other facilities
+-------------------
+
+4.1  Printing
+-------------
+
+
+mlp_printactivs(net)                                         [procedure]
+        Prints the current activation values of the net. Should be
+        called after a call to mlp_response, as the activation arrays
+        store errors rather than activations after a call to mlp_learn.
+
+
+mlp_printweights(net)                                        [procedure]
+        Prints the current weights and biases of the net.
+
+
+4.2  Copying
+------------
+
+
+mlp_copypart(net1, level, unit1, unit2) -> net2              [procedure]
+(net1, level, unit1 unit2) -> mlp_copypart(net2, net2_unit)
+        The forward procedure copies the subtree of net1 that is below
+        the units from unit1 to unit2 in the given level into a new net
+        which is returned.
+
+        The updater copies the same subtree of net1 into net1, updating
+        the weights and biases that lie below the units from net2_unit
+        onwards in the given layer.
+
+
+4.3  Random number generation
+-----------------------------
+
+
+(int_1, int_2, int_3) -> mlp_random_seed               [active variable]
+mlp_random_seed -> (int_1, int_2, int_3)
+        Returns or updates the three values which represent the state of
+        the random number generator, which is used to produce random
+        weights on net creation and also to select examples at random
+        from the training set. Saving and restoring these values allows
+        training runs to be repeated exactly.
+
+        If any of the values assigned to mlp_random_seed is <false>,
+        then the seeds are taken from varying system variables such as
+        the real-time clock. This is done automatically when the random
+        number generator is first used, and should not normally be done
+        by a user's program, as the distribution is better if the
+        generator is allowed simply to continue running.
+
+
+--- $popvision/help/mlp
+--- Copyright University of Sussex 1998. All rights reserved.

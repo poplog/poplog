@@ -1,0 +1,637 @@
+REF XTOOLKIT                                            R.Evans Mar 1991
+                                         Revised: Adrian Howard Jul 1992
+
+        COPYRIGHT University of Sussex 1990. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<   THE X TOOLKIT INTERFACE   >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This REF  file  discusses the  overall  organisation of  the  X  toolkit
+interface and  provides  pointers  to  documentation  of  more  specific
+points. See  REF * X  for  a  more  general  overview  of  all  Poplog's
+X-related facilities.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   The Poplog X Toolkit Interface
+
+  3   Naming Conventions
+      3.1   X Toolkit Procedures
+      3.2   X Toolkit Constants
+      3.3   Poplog Extensions To The Toolkit
+      3.4   Other Externally-Defined Libraries
+      3.5   Data Conversion Procedures
+      3.6   Type Specifications
+      3.7   Library And Documentation Filenames
+      3.8   Documentation Cross-references
+      3.9   Conventions For Other packages
+
+  4   Loading X Toolkit Routines
+
+  5   Calling X Toolkit Routines
+
+  6   Creating Argument Data Structures
+
+  7   Callbacks
+
+  8   Event Handling
+
+  9   X Toolkit Default Initialisation
+
+ 10   Garbage Collector Feedback
+
+ 11   Version identification
+
+ 12   Further Documentation
+
+ 13   Known Bugs and Problems
+
+
+
+---------------
+1  Introduction
+---------------
+
+The X  Toolkit is  a high  level 'object  oriented' interface  to  the X
+facilities written in  C and  provided as part  of the  X standard.  The
+Poplog X Toolkit interface provides support for application  programmers
+to use the X Toolkit facilities in a convenient and interactive fashion.
+
+For full details of the X Toolkit itself, the programmer should  consult
+the "X  Toolkit  Intrinsics  Programming  Manual"  and  the  "X  Toolkit
+Intrinsics  Reference   Manual",   available   from   several   sources.
+Documentation for  the Poplog  X  Toolkit interface  should be  read  in
+conjunction with this material.
+
+Note: at the present time there is no explicit support for widget  class
+programming (the creation of new widget classes) within Poplog.
+
+
+
+
+---------------------------------
+2  The Poplog X Toolkit Interface
+---------------------------------
+
+The Poplog X Toolkit consists of a number of distinct components:
+
+    #   A  set  of  near-transparent  bindings  (Pop-11 procedures)  for
+        routines in  the C  X Toolkit  library needed  for  applications
+        programming. These are near-transparent  in that they do  almost
+        no argument checking or  processing at all  (and they carry  the
+        prefix 'fast_'  to emphasise this --- see  'Naming  Conventions'
+        below). Thus  they  offer a  very  faithful interface  to  the C
+        Toolkit.
+
+    #   Facilities for the automatic management  of core X Toolkit  data
+        structures. These  are  discussed in  REF * XptDescriptor.  They
+        allow Toolkit use to take advantage of Poplog's automatic memory
+        management facilities, particularly valuable during  interactive
+        development and large dynamic applications.
+
+    #   Support libraries  providing  argument  type-checking  and  easy
+        creation of argument  data structures These  also contribute  to
+        the convenient  interactive development  environment,  including
+        the provision of run-time type-checking not readily available in
+        the C Toolkit.
+
+    #   Additional  facilities   (beyond the  Toolkit's XtMainLoop)  for
+        synchronous and  asynchronous event  handling. These  facilities
+        allow Poplog  to  support  one  or  more  X  applications  while
+        retaining its  traditional interactive  model if  desired.  So X
+        applications can be run while simultaneously editing in Ved,  or
+        running other more conventional Poplog programs.
+
+    #   Higher level  support  and  application  packages:  A  range  of
+        additional support libraries and  packages is provided and  more
+        will  become  available  shortly.  See  REF * XT_LIBS  for  more
+        information.
+
+
+
+
+---------------------
+3  Naming Conventions
+---------------------
+
+The C X Toolkit uses  a wide range of conventions  for the names of  the
+various symbols it defines. In mapping these 'name-spaces' into  Pop-11,
+the C names have been  preserved wherever possible, and the  conventions
+extended in hopefully reasonable ways. In some cases, the danger of name
+clashes, or  explosion  of  run-time  symbols  have  meant  that  slight
+variations have been necessary. However  the aim throughout has been  to
+provide predictable names once the  underlying rules are known. In  this
+section, those underlying rules are described.
+
+
+
+3.1  X Toolkit Procedures
+-------------------------
+The names  of procedures  directly imported  from the  C Toolkit  retain
+their C  Toolkit  names. This  name  refers to  the  most  user-friendly
+variant of  the procedure,  that is,  the one  that does  type-checking,
+argument coercions etc.. The form of the procedure that does no checking
+(and only limited coercions - see below) is the C Toolkit name  prefixed
+with 'fast_'. These two forms are present for all the supported  Toolkit
+procedures. A third form which is available for certain procedures  only
+is the underlying 'external' procedure record (not a Pop-11 procedure at
+all), and this  will have  the C name  prefixed with  'raw_'. This  form
+generally only exists for procedures which might be passed as  arguments
+to other procedures (eg raw_XtCallbackExclusive). Thus for example,  the
+C procedure 'XtCreateWidget' might have the following forms in Poplog:
+
+        XtCreateWidget      --- type checking, user-friendly version
+        fast_XtCreateWidget --- non-checking, non-coercing version
+        raw_XtCreateWidget  --- external record version
+
+(although in fact the raw form is not provided in this case).
+
+
+
+3.2  X Toolkit Constants
+------------------------
+A number of  X Toolkit constants  are defined in  various Poplog  header
+files and libraries. In general, these constants are imported  literally
+(eg XtIMInput, XtIMTimeOut). However there is one important exception to
+this rule.  The  set  of  constants  used  by  the  resource  management
+facilities, and  prefixed  'XtN',  'XtC'  and  'XtR',  are  not  defined
+directly, but should instead be referenced using the macros XtN, XtC and
+XtR  described  in   REF * XT_LIBS.  (Thus  instead   of  the   constant
+'XtNstring', one should write 'XtN string').
+
+
+
+3.3  Poplog Extensions To The Toolkit
+-------------------------------------
+A number  of procedures  provide  convenient functionality  beyond  that
+provided by the  Toolkit itself.  These Poplog  extensions include  both
+extensions to the 'core' interface (such as XptAppTryEvents see  below),
+and higher  level  support  libraries. To  distinguish  these  from  the
+Toolkit procedures, and avoid the risk of name clash, these routines are
+prefixed with  'Xpt' instead  of 'Xt'.  otherwise they  follow the  same
+conventions as Toolkit  procedures: compound word  names have the  first
+letter  of  each  word  capitalised.  In  addition  the  Poplog-internal
+convention of 'fast_' and 'raw_' forms also applies.
+
+
+
+3.4  Other Externally-Defined Libraries
+---------------------------------------
+Some  of  the  other  substantial  externally-defined  libraries   adopt
+essentially the same pattern as above.  They define their own prefix  in
+place of 'Xt' to use as the basis of their names. Thus the Poplog widget
+set interface uses  'Xpw', and  the OpenLook widget  set interface  uses
+'Xol'.
+
+
+
+3.5  Data Conversion Procedures
+-------------------------------
+Several sets of  procedures are  provided for  various manipulations  on
+data  structures,  and  these  also  have  (reasonably)  uniform  naming
+schemes. The  first  set consists  of  procedures for  'importing'  data
+structures created  by the  Toolkit routines  (that is,  turning  'bare'
+pointers to the  external data  into properly  managed Poplog  records).
+These are  prefixed 'XptImport'  followed by  the data-type  name  (thus
+XptImportWidget,  XptImportDisplay  etc..).   The  second  consists   of
+procedures for 'coercing'  data from a  friendly Poplog form  to a  less
+friendly,  but  still  essentially  Poplog  form.  These  are   prefixed
+'XptCoerce' followed by the thing to be coerced (thus  XptCoerceString).
+The third  small  set is  a  set  of 'implicit  access'  procedures  for
+accessing externally data  fields. These are  prefixed 'XptExacc'  (thus
+XptExaccPopObj).  All   these  sets   are   described  more   fully   in
+REF * XPT_COERCE).
+
+Another small set of procedures is used for 'coercing' Pop-11 procedures
+and arguments into various Xt  procedure forms (callbacks for  example).
+All these  have the  preface 'XptExport'  (thus XptExportCallback).  See
+individual  Xt  libraries  for   more  details  (REF * XT_CALLBACK   for
+example).
+
+
+
+3.6  Type Specifications
+------------------------
+Various of  the  Toolkit  libraries introduce  type  specifications  for
+external data types. These are generally the C names prefixed with 'Xpt'
+(thus XptString, XptArgList). A special case is where the C name  starts
+with 'Xt', in which cases the 'Xt is dropped (so XptPointer rather  than
+XptXtPointer).
+
+
+
+3.7  Library And Documentation Filenames
+----------------------------------------
+Filenames fall into  two categories: those  which are intentionally  the
+name of some  identifier in the  system (typically autoloadable  library
+names), and those which are not.
+
+For the former, the identifier  name has been used verbatim  (respecting
+case differences) for the file name, thus LIB * XptGeometrySpec  defines
+the procedure XptGeometrySpec.
+
+For the  latter,  the all  lower-case  convention preferred  for  Poplog
+filenames  has  been  retained.  The  names  generally  have  two  parts
+separated  by  an  underscore.  The  first  corresponds  to  the  prefix
+convention described  above (Xt,  Xpt, Xol  etc..) while  the second  is
+arbitrary.  Thus  the  core   Toolkit  libraries  are   LIB * xt_widget,
+LIB * xt_action   etc.    while   Poplog    extension   libraries    are
+LIB * xpt_coretypes, LIB * xpt_generaltypes.
+
+
+
+3.8  Documentation Cross-references
+-----------------------------------
+The addition of X-related facilities  to Poplog have increased the  need
+for mixed-case library and documentation filenames. This is somewhat  at
+odds with the  existing convention for  filename references, which  have
+used  all-uppercase  (for   prominence  in   the  text)   to  refer   to
+all-lowercase actual filenames. To retain compatibility, text references
+in all-uppercase refer to all-lowercase files, but mixed-case references
+should  be  taken  as  verbatim.  This  strategy  does  not  cope   with
+all-uppercase filenames, and  for this reason  such filenames have  been
+(and should be by users) avoided.
+
+
+
+3.9  Conventions For Other packages
+-----------------------------------
+Higher  level  self  contained  packages  generally  go  their  own  way
+regarding naming  conventions, often  not referring  to their  X-related
+nature at all  (eg LIB * RC_GRAPHIC).  Needless to say,  some degree  of
+internal  standardisation  within   any  sizeable   package  is   highly
+desirable.
+
+
+
+
+-----------------------------
+4  Loading X Toolkit Routines
+-----------------------------
+
+The routines comprising the basic  Toolkit interface are contained  in a
+set of libraries which  have to be explicitly  loaded. These are  listed
+and discussed in more detail  in REF * XT_LIBS and their own  individual
+ref files. So generally  before you can do  any Toolkit programming  you
+have to load  up some  of these libraries.  All the  libraries have  two
+versions: one which  loads the  'fast' versions of  the procedures,  and
+another which defines the checking versions  in terms of the fast  ones.
+Generally, for  doing  development  work, you  will  probably  want  the
+checking versions, and so  can ignore the  fast versions completely.  If
+you are producing a cut-down optimised application, you may wish to load
+the fast libraries alone and use those.
+
+Note: actually the above picture is slightly inaccurate. As discussed in
+REF * XT_LIBS, some  of the  fast routines  are actually  in the  system
+core.
+
+
+
+
+-----------------------------
+5  Calling X Toolkit Routines
+-----------------------------
+
+Once loaded the X  Toolkit routines are  ordinary Pop-11 procedure  like
+any other. However the arguments they expect and the results they return
+fall into three broad classes
+
+1)  Data structures  created by  the  Toolkit routines  themselves,  and
+    viewed  by  Poplog  largely  as  opaque  handles  with  no  internal
+    structure.  These  include  widgets,  widget  classes,   application
+    contexts, displays, etc.
+
+2)  Data types which have a very direct Poplog analogue which one  would
+    want to use (even if the Poplog and external representations are not
+    identical). These comprise numbers (integer and decimals), booleans,
+    strings and callback procedures.
+
+3)  Data structures intended to  be created by  the user. These  include
+    ArgLists, CallbackLists etc.
+
+There are two aspects  of argument passing which  need to be  considered
+for these three classes of data: coercion and type checking. Coercion is
+the process of  mapping whatever  is supplied  as the  argument for  the
+Pop-11 procedure call onto  what is seen by  the external (C)  procedure
+call. Type checking is the process of deciding whether the the  argument
+to the Pop-11 procedure is valid or not.
+
+Looking at coercion first,  all Poplog calls  to external procedures  do
+the following coercions (see REF * EXTERNAL for full details):
+
+    #   Poplog (big)integers -> machine integers
+    #   Poplog boolean -> Toolkit boolean (XtTrue/XtFalse)
+    #   Poplog decimals -> machine floats
+    #   Poplog ddecimals -> machine doubles
+    #   Poplog external-class data -> value of external_ptr field
+    #   Other Poplog data -> address of structure
+
+In addition, fast and checking Toolkit routines carry out the  following
+coercions:
+
+    #   Poplog string -> null-terminated string
+    #   Poplog callback procedure+arg -> external callback+arg
+
+These coercions only  occur on  actual arguments, not  on fields  within
+data structures  passed  as arguments,  for  which the  user  must  take
+responsibility (to  help with  this, the  coercion procedures  used  are
+available to users -- see REF * XPT_COERCE).
+
+Together, these two sets  of coercions deal with  the class 2  arguments
+above, so users  can freely  pass numbers, booleans,  string and  Pop-11
+procedures (in callback contexts) to the Toolkit procedures. Class 1 and
+class 3 arguments are subject to the first set of coercions but not  the
+second. (As  we shall  see, generally  both classes  are represented  by
+external-class data structures, which get coerced to their  external_ptr
+field.)
+
+Turning to type-checking (which only applies to the checking versions of
+the  routines),  we  see  that   checking  of  class  2  structures   is
+straightforward, since  they  have  proper  Poplog  types.  For  class 1
+arguments, the system uses the 'weak type' checking mechanism  described
+in REF * XptDescriptor. In essence, it checks that a class 1 argument is
+external  class,   with   an   external_ptr_props   field   with   valid
+type-checking data in it  (eg the word "Widget"  for a widget). This  is
+simple, but flexible, and robust enough where weak types are manipulated
+only  by  well-written  library  code.  And  since  class  1  data   are
+intrinsically opaque pointers  to external  data, it  imposes almost  no
+significant restriction on the actual Poplog representation used.
+
+Class 3  arguments are  more problematic.  The Toolkit  interface  could
+provide full  and specific  support  for the  range of  data  structures
+allowed (eg  new  recordclasses for  each  one), giving  them  a  status
+somewhat more like class 2's. Instead, however, a more flexible approach
+is adopted. The same weak type checking mechanism is used to check class
+3's as for  class 1's.  This restricts  class 3's  to be  external-class
+structures (so  a  Poplog  vector  of  Poplog  strings  which  might  be
+perfectly well-structured and acceptable to the fast routines cannot  be
+made  acceptable  to  the  checking  ones),  but  this  is  not  a  huge
+restriction in practice,  as discussed in  REF * XptDescriptor. It  also
+allows the same degree of flexibility about the precise details of  data
+structure creation.
+
+In summary, then,  the fast  procedures will  coerce numbers,  booleans,
+strings and  procedures, but  leave  anything else  unchanged  (allowing
+'quick and dirty' structure creation if desired). The checking  routines
+use weak type checking  on all arguments except  the above named,  which
+are checked by Poplog key as usual.
+
+
+
+
+------------------------------------
+6  Creating Argument Data Structures
+------------------------------------
+
+As discussed above, the Toolkit's weak  type checking allows a range  of
+possible  data  structures  to  be   passed  as  arguments  to   Toolkit
+procedures.  It  provides  support  for  doing  this  generally  in  one
+particular way. That  is, for  each structure  type, there  will be  one
+supported mechanism for creating instances of it.
+
+Class 1  structures  are  generally returned  as  results  from  Toolkit
+routines so creation is not really an issue: the object returned will be
+an XptDescriptor for  the underlying  external object, and  that is  the
+supported representation for it. In cases where one wants to  explicitly
+create an XptDescriptor  (for example,  where one has  a 'raw'  external
+pointer), the 'XptImport' procedures  discussed in REF * XPT_COERCE  can
+be used to create one.
+
+Class 3 structures have to be created by the user and passed out to  the
+Toolkit routines. The  Toolkit libraries use  the shadowclass  mechanism
+(see REF * SHADOWCLASS) to  achieve this.  That is,  for each  data-type
+required by a Toolkit routine, the (checking) version of the appropriate
+library will define a shadowclass for that type. Shadowclasses are  like
+recordclasses except that they create external-class records  containing
+the data fields. This allows them to support a wider range of  typespecs
+than recordclasses, and in addition  makes them suitable for direct  use
+as arguments to Toolkit routines.
+
+
+
+
+------------
+7  Callbacks
+------------
+
+As discussed above, Poplog will  attempt to automatically coerce  Pop-11
+procedures used as  callback arguments into  externally callable  forms.
+Callback is being  used here in  a general sense:  we include all  cases
+where a procedure can be passed as  an argument to another to be  called
+at  some  future  time   (this  currently  includes:  callbacks,   input
+callbacks,  timeout  callbacks,  ActionHooks,  action  procedures).  For
+detailed information on callbacks see REF * XT_CALLBACK.
+
+
+
+
+-----------------
+8  Event Handling
+-----------------
+
+The X Toolkit applications are event-driven.  That is, most of the  work
+done by  an application  occurs  in event  handling routines  which  are
+called when  the  user causes  certain  events to  occur  (for  example,
+pressing a mouse  button.) Poplog  supports two ways  of dealing  with X
+Toolkit events.
+
+Applications may invoke  XtAppMainLoop, which repeatedly  waits for  the
+next event  and  then  processes  it. If  invoked  from  within  Poplog,
+XtAppMainLoop will take  control and  never return, so  from that  point
+only X  applications will  operate. This  is not  generally  recommended
+except for completed applications.
+
+Instead, the procedure  XptAsyncAppContext can  be used  to make  Poplog
+process  Toolkit  events   asynchronously,  for  up   to  32   different
+application contexts simultaneously. Asynchronous processing is  enabled
+by default on XptDefaultAppContext (see below).
+
+Although it makes no  functional difference, it is  useful to know  that
+when asynchronous  processing is  enabled for  one or  more  application
+contexts, the  servicing of  events by  Poplog is  achieved  differently
+depending on  whether the  system is  in a  wait state  or is  executing
+program code.
+
+There are  three kinds  of wait  state: waiting  for input  from a  slow
+device like a terminal (e.g. while in Ved), waiting for a child  process
+to die (with syswait), and simply hibernating (e.g. with syshiberate  or
+syssleep). During  these states,  Poplog is  actually waiting  with  the
+Toolkit routine XtAppProcessEvent,  and so Xt  events will generally  be
+dealt with  immediately.  When  more than  one  application  context  is
+enabled for asynchronous  processing, the  one waited on  is always  the
+last for which any event occurred; a Toolkit timer is then used to  poll
+for pending events on the others.
+
+When Poplog is not in a  wait state, i.e. is actually executing  program
+code, an adaptive low-level timer mechanism  is used to poll for  events
+on all  asynchronous application  contexts,  using the  Toolkit  routine
+XtAppPending. In this mode, an event on an application context  causes a
+trap procedure to be  run inside whatever else  the system is doing  (at
+least, as soon as  it can be);  the normal action  of this procedure  is
+then   to   process   any   events   available   (usually   by   calling
+XptAppTryEvents). Needless to say, the response to events will depend on
+what the system  is currently  doing: in  particular, they  will not  be
+dealt with during  garbage collections.  The adaptive  timer varies  the
+polling rate according to the  frequency at which events are  happening,
+giving a fast response to short-term bursts of events while  maintaining
+a minimal long-term polling overhead.
+
+
+
+
+-----------------------------------
+9  X Toolkit Default Initialisation
+-----------------------------------
+
+The X Toolkit interface provides a procedure for establishing a  default
+connection to  the  default  server, assign  command-line  arguments  if
+given, and  creating  an  application  context  around  it.  This  saves
+individual libraries from having to worry  about such things - they  can
+just look for the default display and create widgets on it. For  details
+see * XptDefaultSetup and REF * XT_INIT.
+
+
+
+
+------------------------------
+10  Garbage Collector Feedback
+------------------------------
+
+The X Toolkit interface include  a facility to permit garbage  collector
+feedback, that is, some visual  indication that a garbage collection  is
+taking place. This  facility uses the  system variable  XptGarbageWidget
+and is activated by setting this  variable to be a widget. The  feedback
+facility operates  by  invoking  a  Toolkit  'action  procedure'  called
+'XptGarbageFeedback' on  the  widget  supplied as  the  garbage  widget.
+Before garbage collection starts,  this action is  called with a  single
+argument, namely the string describing  the reason for the callback,  as
+displayed in a GC trace output immediately after 'GC-' (ie one of 'auto'
+'user' 'fopn' 'save'  etc.). When  garbage collection  is complete,  the
+action is called again, this time with no arguments.
+
+All application contexts created  or imported by  Poplog have a  default
+value for the 'XptGarbageFeedback' action attached to them. This default
+action sets the supplied widget insensitive when the garbage  collection
+starts, and sensitive  when it finishes.  This allows quite  a range  of
+widgets to be  sensibly used as  the garbage feedback  widget simply  by
+assigning them to XptGarbageWidget.
+
+However this  default action  can be  overridden, either  by  defining a
+different value for  the action in  some widget class  definition or  by
+adding a new definition  for the action  to the appropriate  application
+context using XtAppAddActions etc.. Note, however that since the  action
+is called  when there  is no  Poplog heap  space left,  it must  be  a C
+procedure not a  Poplog one. USING  A POPLOG PROCEDURE  FOR THIS  ACTION
+WILL CAUSE  UNPREDICTABLE  RESULTS -  MOST  LIKELY CRASHING  THE  POPLOG
+SYSTEM.
+
+A user-defined action procedure should use the 'num_params' argument  to
+detect whether the garbage collection  is starting or finishing, and  is
+free to use  the reason string  if it  wishes to vary  the feedback  for
+different kinds of  garbage collection. The  action procedure must  take
+responsibility for flushing the output  queue and processing any  server
+responses in order that the feedback becomes visible, since Poplog  will
+not otherwise  service  X  requests until  the  garbage  collection  has
+finished.
+
+
+XptGarbageWidget                                              [variable]
+        This variable contains the widget which is to be used to provide
+        garbage collector feedback. If its  value is not a valid  widget
+        descriptor, no garbage  collector feedback  occurs. Its  default
+        value is false.
+
+
+XptGarbageFeedback                                           [Xt action]
+        This is the name of the action invoked by the garbage  collector
+        to allow  for  garbage collection  feedback.  It is  invoked  on
+        XptGarbageWidget  with  a  single  'reason'  argument  when  the
+        garbage  collection  starts,  and  with  no  arguments  when  it
+        finishes. The default value, attached to all Poplog  application
+        contexts, sets the  widget insensitive for  the duration of  the
+        garbage collection.
+
+
+
+
+--------------------------
+11  Version identification
+--------------------------
+
+Version identification in the X Toolkit  is a little confused. An  early
+convention used the symbol XtVersion to define the release level of  the
+Toolkit in use.  Since release 4,  the symbol XtSpecificationRelease  is
+the recommended way of defining the release level. Poplog provides  both
+symbols, although the former may be withdrawn in subsequent releases.
+
+Note: the values are compiled into Poplog and not determined dynamically
+from  the  local  X  installation.  Poplog  is  currently  incapable  of
+rigorously  checking  that  it  is   running  in  an  fully   compatible
+environment to the one it was linked in.
+
+
+XtSpecificationRelease                                        [constant]
+        The release level of the X Toolkit (currently 4)
+
+
+XtVersion                                                     [constant]
+        The X Toolkit version (currently 11004)
+
+
+
+
+-------------------------
+12  Further Documentation
+-------------------------
+
+REF * X
+    An Overview of Poplog X facilities
+REF * XptDescriptor
+    Details of data structure management
+REF * XT_LIBS
+    Libraries and associated support
+REF * SHADOWCLASS
+    Using shadowclasses for data structure creation
+
+TEACH * Xpw
+    Introduction to the Poplog widget set
+TEACH * OPENLOOK
+    Introduction to the OpenLook widget set
+TEACH * MOTIF
+    Introduction to the Motif widget set
+TEACH * ATHENA
+    Introduction to the Athena widget set
+TEACH * RC_GRAPHIC
+    Tutorial introduction to RC_GRAPHIC
+TEACH * RC_GRAPHPLOT
+    Tutorial to graph plotting package
+
+
+
+
+---------------------------
+13  Known Bugs and Problems
+---------------------------
+
+Here we summarise a few known problems:
+
+    1)  Making saved  images  after the  Toolkit  has even  been  merely
+        initialised does not work.
+
+    2)  The system can get into bad error loops - eg infinite XIO errors
+        if the X connection gets shut unexpectedly. A single CTRL \ will
+        give you a  setpop from which  work can be  saved - unclear  how
+        safe it is to go on working in the same processes though.
+
+    3)  A number of facilities  that really ought  to be present aren't,
+        e.g error handlers, WorkProcs ... .
+
+
+
+--- C.x/x/pop/ref/xtoolkit
+--- Copyright University of Sussex 1991. All rights reserved.

@@ -1,0 +1,744 @@
+TEACH RC_GRAPHPLOT                                 David Young, Nov 1990
+                                        Revised: Adrian Howard, Jul 1993
+                                         Revised: Aaron Sloman, Sep 2009
+
+LIB * RC_GRAPHPLOT is a Pop-11 library for drawing graphs of functions
+and data, with axes and annotations. This file provides an introduction
+to it. See HELP * RC_GRAPHPLOT for a summary.
+
+It uses LIB * RC_GRAPHIC, a more general graphics interface which at the
+time of writing is interfaced to the X Windows system. You may
+occasionally want to refer to TEACH * RC_GRAPHIC for more information
+about this, but the graph plotting library can be used with no knowledge
+of the underlying system.
+
+There is a simpler routine available as LIB * RC_DRAWGRAPH (see
+TEACH * RC_GRAPHIC) which is smaller and faster to compile. However, it
+lacks most of the functionality of this package - for instance, it will
+not do automatic scaling or axis annotations.
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+  2   Getting started and finishing off
+  3   Plotting a function on the y-axis
+  4   Plotting data on the y-axis
+  5   Plotting a function or data on the x-axis
+  6   Plotting x and y together - separate data sets or functions
+  7   Plotting x and y together - combined data set or function
+  8   Plotting points instead of lines
+  9   Drawing several graphs on the same axes
+ 10   Setting axis limits explicitly
+ 11   The window region
+ 12   Setting the window region
+ 13   Changing the axis style
+ 14   Drawing on graph paper
+ 15   Finding data limits without plotting
+ 16   Note regarding functions with side effects
+ 17   Drawing graphs in several windows at once
+ 18   Other changes to graph style
+ 19   Drawing graphs in XpwGraphic widgets
+
+
+-----------------------------------------------------------------------
+1  Introduction
+-----------------------------------------------------------------------
+
+There is one main procedure, which is called once to produce each graph.
+The function or the data for the graph can be supplied in a variety of
+formats. (A slightly different version of the main procedure has to be
+used for some kinds of x-y data or functions.) There are many global
+variables, to which you can assign new values in order to change the
+kind of graph produced, but which for many purposes can be ignored.
+
+You will need to know how to open, close, raise and lower windows in the
+windowing system you are using, using the mouse or keyboard.
+
+
+-----------------------------------------------------------------------
+2  Getting started and finishing off
+-----------------------------------------------------------------------
+
+The examples in this file can be tried out by marking and loading them -
+see TEACH * MARK and TEACH * LMR. The first thing to do is to make sure
+the X facilities are available by loading this line:
+
+    uses popxlib;
+
+See the "Getting started" section in TEACH * RC_GRAPHIC for more
+information about this step.
+
+Then load the graph plotting library with
+
+    uses rc_graphplot;
+
+This may take some time, if X facilities need to be loaded. Start up a
+window with:
+
+    rc_start();
+
+or if you prefer a different shape use rc_new_window - see
+TEACH * RC_GRAPHIC. You can also change the shape and position using the
+mouse.
+
+If, when you have finished drawing graphs or doing other graphics, you
+want to get rid of the window, you can assign false to the variable
+rc_window. The window will disappear at the next garbage collection, and
+in the meantime you can close (iconify) the window with the mouse.
+Alternatively, you can do
+
+    XptDestroyWindow(rc_window);
+
+to destroy it immediately (see * XptDestroyWindow.)
+
+
+-----------------------------------------------------------------------
+3  Plotting a function on the y-axis
+-----------------------------------------------------------------------
+
+Suppose, for the sake of example, you want a graph of the logarithm
+function, for values of the independent variable from 1 to 10. This does
+it:
+
+    vars region;
+    rc_graphplot( 1, 1/10, 10, 'X', log, 'log(X)') -> region;
+
+The first three arguments say that you want the function to plotted with
+the independent variable going from 1 to 10 in steps of 0.1. The order
+of these arguments is like a Pop-11 for loop, that goes
+
+    for x from xmin by xinc to xmax do
+
+i.e. the first is where to start, the second is how much to jump for
+each new point, and the third is where to stop.
+
+The third argument, 'X', is a string that is to printed as a label on
+the horizontal axis (usually called the x-axis).
+
+The fourth argument is just the function to be plotted. In this case
+it's available as part of the Pop-11 system.
+
+The final argument is the label to be printed on the vertical axis (the
+y-axis).
+
+You can ignore the result, stored here in region, for now.
+
+Here is another example, using a function defined specially.
+
+    define myfunc(x) -> y;
+        ;;; A function to be plotted - actually a polynomial
+        lvars x y;
+        2 * x**4  +  x**3  -  16 * x**2  +  50 -> y
+    enddefine;
+
+    rc_graphplot( -3, 1/10, 3, 'X',      myfunc, 'Y') -> region;
+
+
+SLOWING DOWN DRAWING:
+
+You can make it draw more slowly by altering the global variable
+rc_graphic_delay, whose default value is FALSE.
+
+The value can be either an integer, in which case that is taken to
+specify a number of hundredths of a second, or a decimal number, in
+which case it is taken to represent the sleep time in seconds.
+
+    20 -> rc_graphic_delay;
+        ;;; sleep for 1/5 seconds.
+
+    1.5 -> rc_graphic_delay;
+        ;;; sleep for 1.5 seconds.
+
+Use a small integer for most graphs, e.g.
+
+    2 -> rc_graphic_delay;
+
+Do display without any delay do:
+
+    false  -> rc_graphic_delay;
+
+
+
+
+-----------------------------------------------------------------------
+4  Plotting data on the y-axis
+-----------------------------------------------------------------------
+
+Suppose you have done an experiment and recorded some data you would
+like to plot, and that you have stored them in a Pop-11 data structure
+such as a list, a vector, an array, or a string. To simulate this, load
+these two lines of code:
+
+    vars mydata;
+    [13 12 7 3 1 1 19 29 25 20 undef 15 10 3 -3 2 1] -> mydata;
+
+The "undef" value means that something went wrong and there is no value
+for this time. Let's say the data were collected at 5-second intervals,
+starting at 20 seconds into the experiment. This would then be an
+appropriate call to the routine:
+
+    rc_graphplot( 20, 5, 100, 'time (s)', mydata, 'Data') -> region;
+
+The arguments are just the same as for plotting the function, except
+that the list (or vector etc.) of data goes in place of the function
+name. See below for how to change from plotting a line to plotting data
+points as individual symbols.
+
+
+-----------------------------------------------------------------------
+5  Plotting a function or data on the x-axis
+-----------------------------------------------------------------------
+
+So far, the data have been plotted as y-values, with x as the
+independent variable. To have y independent, you give the arguments to
+graphplot with the function or data first, e.g.:
+
+    rc_graphplot( log, 'log(Y)', 1, 1/10, 10, 'Y') -> region;
+
+or
+
+    rc_graphplot( mydata, 'Data', 20, 5, 100, 'time (s)');
+
+
+-----------------------------------------------------------------------
+6  Plotting x and y together - separate data sets or functions
+-----------------------------------------------------------------------
+
+If you have two sets of data, and you want to plot one set against the
+other, you simply pass these to graphplot with the x data first, each
+set followed by its label. The data can be lists, vectors, arrays, or
+any other subscriptable structure. In this example, the two vectors
+might represent the x and y coordinates of moving object, for example.
+
+    vars xvals, yvals;
+    { 2  3  2  3  5  7  8  7  8  6  4} -> xvals;
+    {20 24 28 30 31 28 33 26 19 23 24} -> yvals;
+    rc_graphplot(xvals, 'X', yvals, 'Y');
+
+Often such data need to be plotted as individual points rather than
+joined with lines. For how to do that, see below.
+
+If either x or y is a procedure rather than a data structure, or both x
+and y are procedures, then some extra arguments are necessary to provide
+their input values. These must be given before the x and y
+specifications, in exactly the same way as x and y would be. Here is an
+example, defining a couple of demonstration functions first (their
+details don't matter, but note that each takes one argument and returns
+one result):
+
+    define x_func(t) -> x;
+        lvars x t;
+        cos(11 * t) -> x
+    enddefine;
+
+    define y_func(t) -> y;
+        lvars y t;
+        sin(7 * t) -> y
+    enddefine;
+
+Now plot one against the other, varying their input parameter t from 0
+to 360 degrees in 1-degree steps (* popradians should be false for
+this):
+
+    rc_graphplot(0, 1, 360, x_func, 'X', y_func, 'Y') -> region;
+
+(The first three arguments here could be replaced by a data structure
+giving the parameter values, or by another function of no arguments and
+one result, which must return termin when finished.)
+
+You can plot a function on one axis against data on the other.
+
+
+-----------------------------------------------------------------------
+7  Plotting x and y together - combined data set or function
+-----------------------------------------------------------------------
+
+Sometimes, it may be more convenient to store x-y data as a single data
+structure containing pairs of values, or to plot the results of a single
+function which returns x and y values together. To do this, you will
+need to load a different version of graphplot - LIB * GRAPHPLOT2, thus:
+
+    uses rc_graphplot2
+
+This does not stop you using graphplot as before - it just makes an
+extra procedure available, which is largely just the same as graphplot,
+and is controlled by the same globals. If you just want graphplot2, you
+can load it without graphplot. If you have already loaded graphplot,
+graphplot2 will be quick to load.
+
+Suppose the x-y data has been stored as a list of vectors (but it could
+have been a list of lists, a vector of vectors, an array of pairs, or
+what you will). Here's some simulated data - actually the same values as
+we had in the previous example - followed by the call to graphplot2:
+
+    vars xyvals;
+    [{2 20} {3 24} {2 28} {3 30} {5 31} {7 28} {8 33} {7 26} {8 19}
+        {6 23} {4 24}] -> xyvals;
+    rc_graphplot2( xyvals, 'X', 'Y') -> region;
+
+Now the two labels follow the single data set in the calling sequence.
+
+Alternatively, the values could have been stored just as numbers in the
+list (or whatever) with x and y values alternating.
+
+    [2 20 3 24 2 28 3 30 5 31 7 28 8 33 7 26 8 19 6 23 4 24] -> xyvals;
+    rc_graphplot2( xyvals, 'X', 'Y') -> region;
+
+Finally, a function that takes one argument (a parameter such as time)
+and returns two results, x and y, can be plotted. Here is a definition
+of such a function, and the call to graphplot2 to plot it:
+
+    define xy_func(t) -> (x,y);
+        lvars t x y;
+        t * cos(t) -> x;
+        t * sin(t) -> y
+    enddefine;
+
+    rc_graphplot2(0,2,3200, xy_func, 'X', 'Y') -> region;
+
+If you find that this causes a mishap with the message "ROM: MEMORY
+LIMIT (popmemlim) EXCEEDED", don't worry - it's just that the procedure
+has to store a lot of values between finding the scales and plotting the
+curve. Increase the value of the variable * popmemlim (say add 100000 to
+it) and do the example again.
+
+
+-----------------------------------------------------------------------
+8  Plotting points instead of lines
+-----------------------------------------------------------------------
+
+You might prefer to plot points on the graph instead of drawing lines
+between the data points or function values. This can be done by changing
+the value of one of the many controlling global variables, like this:
+
+    "plus" -> rcg_pt_type;
+    rc_graphplot(xvals, 'X', yvals, 'Y') -> region;
+
+You will find that the individual points are plotted with "plus" signs.
+Other words that you can assign to rcg_pt_type are "square", "cross",
+"plus" and "circle". More might be added in due course. You can assign a
+plotting procedure of your own to rcg_pt_type - it must take two
+arguments, x and y. To get back to drawing lines, do this:
+
+    "line" -> rcg_pt_type;
+
+You can assign a number to rcg_pt_cs to change the size of the symbol.
+
+
+-----------------------------------------------------------------------
+9  Drawing several graphs on the same axes
+-----------------------------------------------------------------------
+
+So far, the program has started setting the scales from scratch for each
+graph, and has cleared the window between graphs. Often, however, you
+will want to put several curves or sets of data on the same axes. Let's
+plot some data, and a curve (the square root function) that happens to
+fit them approximately, on the same axes. We start by setting up some
+more synthetic data and plotting them.
+
+    vars moredata;
+    [0.1 0.9 1.3 1.8 1.95 2.2 2.5 2.9 3.1 3.2 3.4 3.45 3.5] -> moredata;
+    "cross" -> rcg_pt_type;
+    rc_graphplot(0, 1, 12, 'X',   moredata, 'Y') -> region;
+
+(You may have noticed that the crosses at the ends of the graph get cut
+in half by clipping. You can avoid this either by lengthening the x-axis
+(see below for how to do it), or by assigning false to rc_clipping.)
+
+We'll now change the plotting style so that the theoretical function
+comes out as a line:
+
+    "line" -> rcg_pt_type;      ;;; make it look different
+
+Now we change some more global variables and plot the curve:
+
+    false -> rcg_newgraph;      ;;; don't clear the window
+    region -> rcg_usr_reg;      ;;; use same axes as before
+    undef -> rcg_win_reg;       ;;; use same bit of window as before
+    rc_graphplot(0, 1/10, 12, false,    sqrt, false) -> region;
+
+These three assignments do slightly different things, to allow for the
+wide variety of different situations in which the package might be used.
+This may seem over-complex, but it allows very accurate control by the
+user. For more details of what these variables do, see below and
+HELP * RC_GRAPHPLOT; for straightforward use the recipe above will
+suffice.
+
+Setting the labels in the call to graphplot to false means that the axes
+are not redrawn.
+
+You can plot as many graphs on the same axes as you like. Clipping is
+normally used to stop new curves or data points going into the border,
+but you can allow this to happen by assigning false to rc_clipping. To
+start a new set of axes with automatic scaling, reset the global
+variables like this:
+
+    true -> rcg_newgraph;       ;;; clear the window for each graph
+    undef -> rcg_usr_reg;       ;;; find region from the data
+    0.1 -> rcg_win_reg;         ;;; map onto window
+
+Do this before running the following examples.
+
+
+-----------------------------------------------------------------------
+10  Setting axis limits explicitly
+-----------------------------------------------------------------------
+
+So far, graphplot has set the positions and lengths of the axes for us
+automatically. Skip this section unless you have layout needs which are
+not met by the behaviour you've encountered so far. You can override the
+default behaviour like this:
+
+    [-10 20  -5 5] -> rcg_usr_reg;  ;;; [xmin xmax ymin ymax]
+    rc_graphplot(0, 1/10, 12, 'X', sqrt, 'sqrt(X)') -> region;
+
+This says that you want the x-axis to go from -10 to +20, and the y-axis
+to go from -5 to +5, even though you have actually asked for the curve
+to be plotted over a smaller range of values than this.
+
+You can put some undef values in the list for rcg_usr_reg, and the
+corresponding limits will be determined from the data. For example, this
+plots the first data set we used, with a longer x-axis, from 0 to 120,
+but still with automatic setting of the y-axis length.
+
+    [0 120 undef undef] -> rcg_usr_reg;
+    rc_graphplot( 20, 5, 100, 'time (s)',    mydata, 'Data') -> region;
+
+To go back to fully automatic setting, assign undef to the variable:
+
+    undef -> rcg_usr_reg;       ;;; find region from the data
+
+
+-----------------------------------------------------------------------
+11  The window region
+-----------------------------------------------------------------------
+
+When a graph is displayed on the screen it alters the coordinate frame
+of the window to match that of the graph. This allows you to overlay
+graphics using LIB * RC_GRAPHIC using the same coordinate system as the
+graph.
+
+When a graph is displayed the following global variables will be
+affected:
+
+    rc_xmax
+    rc_xmin
+    rc_xorigin
+    rc_xscale
+    rc_ymax
+    rc_ymin
+    rc_yorigin
+    rc_yscale
+
+For details see HELP * RC_GRAPHIC. If you wish to store the old
+coordinate frame, you can use LIB * RC_CONTEXT, see HELP * RC_GRAPHIC.
+
+
+-----------------------------------------------------------------------
+12  Setting the window region
+-----------------------------------------------------------------------
+
+So far we have allowed graphplot to fit the graphs neatly into the
+window. Again, skip this section if that suffices for you. You can
+change the size of the border left round the graph area, by assigning to
+rcg_win_reg a number giving the fraction of the window to leave as a
+border, like this:
+
+    0.3 -> rcg_win_reg;
+    rc_graphplot(0, 1/10, 12, 'X',    sqrt, 'sqrt(X)') -> region;
+
+You can be more explicit, if you remember that window coordinates have
+their origin at the top left of the window, and that y runs from top to
+bottom and x from left to right. Given this, you can tell graphplot to
+use a region specified in these coordinates, like this:
+
+    [inches 3 5  4 2] -> rcg_win_reg;
+    rc_graphplot(0, 1/10, 12, 'X',    sqrt, 'sqrt(X)') -> region;
+
+The first element of the list gives the units - see
+HELP * RC_GRAPHIC/RC_SET_SCALE for how this works. If you omit the first
+element, the values are taken to be in pixels.
+
+If rc_win_reg is set to undef, then the current user coordinates are
+used for the graph - the program doesn't worry about where these place
+the graph physically on the screen. Back to normal now:
+
+    0.1 -> rcg_win_reg;
+
+
+-----------------------------------------------------------------------
+13  Changing the axis style
+-----------------------------------------------------------------------
+
+By default, a pair of axes is drawn.  You can switch to a box instead:
+
+    "box" -> rcg_ax_type;
+    rc_graphplot(0, 1, 360,  x_func, 'X',   y_func,  'Y') -> region;
+
+To go back to axes assign the word "axes" to rcg_ax_type; to switch off
+axis drawing altogether, assign false to the variable.
+
+You can switch off individual axes in the call to graphplot, by giving
+false as the label argument. If you want an axis but without a label,
+pass nullstring as the label argument. You can also change the number
+and length of the tick marks, and the axis numbering - see below and
+HELP * RC_GRAPHPLOT.
+
+
+-----------------------------------------------------------------------
+14  Drawing on graph paper
+-----------------------------------------------------------------------
+
+As an example of changing the appearance using the global variables,
+this section shows how you can provide a grid under the graph by a few
+assignments before calling rc_graphplot. An example (ensure * popradians
+is false):
+
+    "box" -> rcg_ax_type;       ;;; Box is needed
+    1 -> rcg_tk_len;            ;;; Make the tick marks the full size
+    1 -> rcg_mk_len;            ;;; Make the main marks full size
+    2 -> rcg_mk_lw;             ;;; emphasise the main marks
+    2 -> rcg_pt_lw;             ;;; thicken up the curve
+    rc_graphplot(-360, 1, 360,  'X',  cos, 'cos(X)') -> region;
+
+Back to normal:
+
+    "axes" -> rcg_ax_type;
+    0.01 -> rcg_tk_len;
+    0.02 -> rcg_mk_len;
+    0 -> rcg_mk_lw;
+    0 -> rcg_pt_lw;
+    rc_graphplot(-360, 1, 360,  'X',  cos, 'cos(X)') -> region;
+
+
+-----------------------------------------------------------------------
+15  Finding data limits without plotting
+-----------------------------------------------------------------------
+
+You may wish to simply find out what the limits of your data are,
+without drawing a graph or changing the window scales. To do this,
+switch off all of graphplot's side effects, and just look at the result
+it returns, which gives the limits of the axes it would have used.
+
+    false -> rcg_newgraph;  ;;; don't clear window
+    false -> rcg_pt_type;   ;;; don't plot data
+    false -> rcg_ax_type;   ;;; don't draw axes
+    undef -> rcg_win_reg;   ;;; don't change scale
+    rc_graphplot(0, 1, 12, 'X', moredata, 'Y') -> region;
+    region =>
+    ** [0 12 0 4]
+
+The list gives the minimum and maximum x values, then the minimum and
+maximum y values for the graph. Note, however, that by default the
+dependent variable's limits are rounded out so that the axes can begin
+and end on roundish numbers. To switch this behaviour off, do this:
+
+    false -> rcg_ax_space;
+
+Now we obtain the exact data limits - note the change in the y values:
+
+    rc_graphplot(0, 1, 12, 'X', moredata, 'Y') -> region;
+    region =>
+    ** [0 12 0.1 3.5]
+
+If you try plotting graphs with rcg_ax_space set false, you will find
+that the curve or data points will go right up to the axis limits -
+usually this is ugly. The variable in question says roughly what
+fraction to add to the axes when their lengths are rounded up. Back to
+normal:
+
+    0.2 -> rcg_ax_space;
+    true -> rcg_newgraph;
+    "line" -> rcg_pt_type;
+    "axes" -> rcg_ax_type;
+    0.1 -> rcg_win_reg;
+
+
+-----------------------------------------------------------------------
+16  Note regarding functions with side effects
+-----------------------------------------------------------------------
+
+Some users will want to pass functions to graphplot that have side
+effects - e.g. they may remember previous results using global
+variables, or monitor the state of some other system such as a neural
+network or an operating system parameter. Such functions will normally
+cause no problems for graphplot - it will call them once only for each
+point to be plotted, even when automatic scaling is in use.
+
+Here's an example, where a global variable is used to generate a random
+walk in one dimension - the graph goes up or down at random on each
+step.
+
+    vars r = 0;  ;;; random variable - start at zero
+
+    define ranwalk(t) -> y;     ;;; t is ignored.
+        lvars t y;
+        r + 2 * random0(2) - 1 -> r; ;;; update r: 1 up or 1 down
+        r -> y          ;;; return it
+    enddefine;
+
+    rc_graphplot(1,1,200, 't',  ranwalk, 'random');
+
+If automatic scaling is in use, the values are stored until the graph is
+ready to be drawn; if the scales have been specified in advance (see
+above), each value will be plotted as soon as it is available. If two
+functions are being plotted, and automatic scaling is in use for x, then
+graphplot will find all the x-values before any of the y-values. If y is
+automatically scaled but x is not, then all the y-values will be found
+first. If there is no automatic scaling, graphplot will call the x
+function and the y function alternately. If these things matter, use
+graphplot2, which always takes the values in pairs.
+
+
+-----------------------------------------------------------------------
+17  Drawing graphs in several windows at once
+-----------------------------------------------------------------------
+
+Before doing this, remember that you can display several graphs in one
+window, either on the same axes or on different axes in different
+regions of the window, using the facilities described above.
+
+If you want to use several windows, see TEACH * RC_GRAPHIC and
+HELP * RC_GRAPHIC, if the example below is not clear. Note that a window
+must be available before you call rc_graphplot, because it saves the
+current line settings for the existing window as soon as it is called.
+
+This example plots two graphs in two windows, assuming that the first
+window is already open (if you have worked through this file, you did
+that in the "getting started" section). In this example, the second
+window is put to the left of the first one on the screen - this is
+easily changed. The window you are reading is likely to be obscured -
+make sure you know how to make it reappear using the mouse.
+
+    ;;; needed to hold the window identifier
+    vars window1;
+
+    rc_graphplot(1, 1/10, 10, 'X', log, 'log(X)') -> region;
+
+    rc_window -> window1; ;;; save the current window as "window1"
+
+    false -> rc_window;     ;;; make a new one on the next call
+
+    rc_window_x - rc_window_xsize -> rc_window_x;   ;;; go left
+
+    rc_start();             ;;; create the new window
+
+    rc_graphplot(1, 1/10, 10, 'X', exp, 'exp(X)') -> region;
+
+To go back to the first window, you could do this:
+
+    vars window2;
+    rc_window -> window2;       ;;; save the current window
+    window1 -> rc_window;       ;;; draw in first window
+    rc_graphplot(1, 1/10, 10, 'X', sqrt, 'sqrt(X)') -> region;
+
+To restore the environment associated with a window (scales, positions
+and so on) see HELP * RC_GRAPHIC/RC_CONTEXT. To use LIB * RC_CONTEXT
+with LIB * RC_GRAPHPLOT, you may want to extend the list rc_context_vars
+with the graphplot variables - see HELP * RC_GRAPHPLOT for a list of
+these.
+
+You can use * XptDestroyWindow to remove the window (see "Getting
+started and finishing off".)
+
+
+-----------------------------------------------------------------------
+18  Other changes to graph style
+-----------------------------------------------------------------------
+
+The numerical axis annotations are done using * pr, so you can redefine
+that or change the global variables associated with it to alter the way
+the numbers are printed.
+
+You can change the line-drawing behaviour of all the components (the
+curve itself and the bits of the axes) by assignments to global
+variables. Possibly most useful are those that change the number of axis
+marks and ticks. See HELP * RC_GRAPHPLOT for more details. For changing
+colour, and the like, see TEACH * RC_GRAPHIC - at present you can only
+have one colour for each call of RC_GRAPHPLOT.
+
+
+-----------------------------------------------------------------------
+19  Drawing graphs in XpwGraphic widgets
+-----------------------------------------------------------------------
+
+This section can be skipped if you are not interested in using
+LIB * RC_GRAPHPLOT with widgets you have created in your own X
+applications.
+
+LIB * RC_GRAPHPLOT expects rc_window to hold an XpwGraphic widget for it
+to draw in. You can set this to a widget in your own application, rather
+than using the one created for you by rc_start.
+
+First we create a procedure to draw a graph as normal.
+
+    define draw_graph();
+        ;;; NEED TO DLOCAL ALL OF THE RC_GRAPHIC VARIABLES THAT WE
+        ;;; MODIFY SO THEY DON'T AFFECT OTHER CALLS TO rc_graphplot
+        dlocal  rcg_ax_type, rcg_tk_len, rcg_mk_len,
+                rcg_mk_lw, rcg_pt_lw, rcg_win_reg;
+
+        ;;; SET THE REGION OF THE WINDOW THAT WE ARE PLOTTING IN
+        [pixels 60 390 10 290] -> rcg_win_reg;
+
+        ;;; SET SOME OTHER RC_GRAPHPLOT VARIABLES
+        "box" -> rcg_ax_type;       ;;; Box is needed
+        1 -> rcg_tk_len;            ;;; Make the tick marks full size
+        1 -> rcg_mk_len;            ;;; Make the main marks full size
+        2 -> rcg_mk_lw;             ;;; emphasise the main marks
+        2 -> rcg_pt_lw;             ;;; thicken up the curve
+
+        ;;; CALL RC_GRAPHPLOT WITH THE GRAPH YOU WISH TO DRAW
+        rc_graphplot(-360, 1, 360, 'X', cos, 'cos(X)') -> ;
+    enddefine;
+
+Then we define a procedure which will locally redefine rc_window, and
+draw a graph with a procedure we supply.
+
+    ;;; DRAW A GRAPH USING PROCEDURE p IN THE WIDGET w
+    define plot_with_widget(p, w);
+        lvars p, w;
+        ;;; MAKE SURE rc_window HOLDS OUR
+        dlocal rc_window = w;
+        p();
+    enddefine;
+
+We can then make out own widget
+
+    ;;; INITIALIZE THE TOOLKIT
+    XptDefaultSetup();
+
+    uses xt_widget;
+    uses xtApplicationShellWidget;
+    uses xpwGraphicWidget;
+
+    ;;; CREATE A SHELL WIDGET
+    vars shell =
+        XtAppCreateShell(
+            'test', 'Test',
+            xtApplicationShellWidget,
+            XptDefaultDisplay,
+            []
+        );
+
+    ;;; CREATE A GRAPHICS WIDGET IN THE SHELL
+    vars graphic =
+        XtCreateManagedWidget(
+            'graphic', xpwGraphicWidget, shell,
+            [{width 400} {height 300}]
+        );
+
+    ;;; PUT THE WIDGET ON SCREEN
+    XtRealizeWidget(shell);
+
+and draw a graph in it.
+
+    ;;; DRAW THE GRAPH
+    plot_with_widget(draw_graph, graphic);
+
+See also TEACH * Xpw.
+
+
+--- C.x/x/pop/teach/rc_graphplot
+--- Copyright University of Sussex 2009. All rights reserved.

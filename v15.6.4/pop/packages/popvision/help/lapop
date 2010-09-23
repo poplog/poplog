@@ -1,0 +1,807 @@
+HELP LAPOP                                      David Young
+                                                September 2003
+
+LIB * LAPOP provides a set of procedures for linear algebra.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   Conventions applying to all procedures
+      2.1   Input, output and update array arguments
+      2.2   Array-region arguments
+      2.3   Vector and matrix arguments
+      2.4   Precision and real-complex mode
+      2.5   Types of array arguments and efficiency
+
+  3   Procedures
+
+  4   Examples
+      4.1   Setup and simple operations
+      4.2   Eigenvectors and eigenvalues
+      4.3   Recycling arrays
+      4.4   Array regions
+      4.5   Complex data
+
+-----------------------------------------------------------------------
+1  Introduction
+-----------------------------------------------------------------------
+
+The library provides a set of procedures for performing some of the
+standard operations of linear algebra. It does not attempt to cover all
+possible operations on arrays, but rather those specific to their use as
+representations of matrices: matrix multiplication; exact and
+least-squares solution of linear equations; eigenvalues and
+eigenvectors; singular value decomposition.
+
+Both real and complex calculations are supported.
+
+The calling sequences and conventions are as simple as possible, and the
+library is flexible with respect to the types of data arrays. However,
+it may be used in a way that maximises efficiency - for example, garbage
+generation may be kept low if that is important.
+
+The library is supported by the external Lapack package. A fuller and
+more direct interface is provided by the Pop-11 *LAPACK library, and
+this may be used if an operation is not covered by LAPOP, or the maximum
+possible efficiency is needed.
+
+See HELP * LAPACK for what to do if the library does not load
+successfully.
+
+The *VEC_MAT library also provides some relevant facilities, but does
+not deal with complex data or provide least-squares solutions,
+eigendecomposition or singular value decomposition.
+
+-----------------------------------------------------------------------
+2  Conventions applying to all procedures
+-----------------------------------------------------------------------
+
+2.1  Input, output and update array arguments
+---------------------------------------------
+
+There are three kinds of array arguments to LAPOP procedures.
+
+1. Inputs. Arguments described as "input array" must be arrays when the
+procedure is called. The data in the active region (see below) must be
+numerical. Input arrays are never overwritten.
+
+2. Outputs. Arguments described as "output array" may have one of 3
+forms when the procedure is called:
+
+    o An array. Results will be stored in this array and the array
+    given will be returned as a result. Data stored in the active region
+    on entry will be ignored and overwritten.
+
+    o <false>. A new array of an appropriate type will be created,
+    results stored in it, and it will be returned.
+
+    o Anything else. An array will be obtained using oldanyarray (see
+    HELP * OLDARRAY); this array will be filled with results and
+    returned. The argument will be used as the tag. The effect of this
+    is that the array returned may share storage with any other array
+    obtained using the same (identical) tag. This can greatly reduce the
+    need for garbage collections.
+
+3. Update arrays. Data are both read from the array and written to it.
+Arguments described as "update array" must be arrays when the procedure
+is called; data in the active region will be used and then overwritten.
+Update arrays are returned on the stack like output arrays as well as
+being overwritten.
+
+The same array should not be used as both an input (or update) array,
+and as an output (or update) array in one call to a procedure, unless
+separate non-overlapping active regions (see below) are specified.
+
+2.2  Array-region arguments
+---------------------------
+
+Wherever an array argument is given in the procedure descriptions, the
+array (or <false> or the tag for an output array) may be followed by a
+region specification. The region spec is a list giving the "active
+region" of the array. For input arrays, data are read from this region;
+for output arrays this region is updated. It has the form
+
+    [element1 element2]
+
+or
+
+    [row1 row2 col1 col2]
+
+for 1-D and 2-D arrays respectively, giving the minimum and maximum
+subscripts in each dimension. This is the same as the form of the
+*boundslist used to specify array dimensions when an array is created.
+
+If the region spec for an input array is omitted, the whole of the array
+is used. The same is true if the region spec is the empty list []. Thus
+the following are equivalent:
+
+    la_transpose(a, b) -> b;     ;;; a is input, b is output
+    la_transpose(a, [], b) -> b;
+    la_transpose(a, boundslist(a), b) -> b;
+
+This also applies for output arrays if an actual array is passed.
+Otherwise, if a non-empty region spec is given it will be used as the
+boundslist of the array returned (and so the elements of the list must
+not be later updated). If neither an array nor a region spec are given
+for an output array, a suitable output region will be worked out from
+the input array regions unless otherwise stated in the procedure
+description. Thus the following are equivalent (assuming a encompasses
+the region given):
+
+    la_transpose(a, [1 2 1 7], false) -> b;
+    la_transpose(a, [1 2 1 7], false, [1 7 1 2]) -> b;
+
+The sizes of the active regions for all array arguments must be
+consistent, given the operation being performed. Thus for example
+
+    la_transpose(a, [1 2 1 7], false, [101 107 201 202]) -> b;
+
+is correct, whilst
+
+    la_transpose(a, [1 2 1 7], false, [1 3 1 7]) -> b;
+
+will cause a mishap.
+
+Rows and columns in matrices are always taken to be numbered from the
+top left corner of the active region. Thus the array indices of an
+element will differ from its matrix row and column indices if the active
+region is not of the form [1 m 1 n]. In the procedure descriptions
+below, expressions like A(i,j) refer to the matrix indices.
+
+2.3  Vector and matrix arguments
+--------------------------------
+
+Array arguments may be 1-D or 2-D. 2-D arrays represent matrices in the
+obvious way; note that the first subscript refers to the row, and the
+second to the column.
+
+1-D arrays are taken to represent matrices with a single column; the
+index then refers to the row. These can also be regarded as vectors.
+Thus the boundslist/region spec forms [r0 r1] and [r0 r1 c c] are
+equivalent as far as the LAPOP procedure are concerned - both represent
+a single column of data.
+
+2.4  Precision and real-complex mode
+------------------------------------
+
+The computation precision is controlled by the value of *popdprecision
+at run-time.
+
+Computations are normally done using real arithmetic. Complex arithmetic
+will be used if:
+
+    o any input array has a complex type (e.g. it was created using
+    *newcfloatarray or *newzfloatarray);
+
+    or
+
+    o any input array has a "full" arrayvector (e.g. it is an ordinary
+    Pop-11 array created with *newarray) and its active region contains
+    a complex value;
+
+    or
+
+    o any numerical input is complex.
+
+In the second and third cases, a value is regarded as complex if
+*iscomplex returns <true>, even if the imaginary part is zero. The
+second case is, incidentally, normally detected in a way that does not
+compromise the efficiency of computations on real data.
+
+2.5  Types of array arguments and efficiency
+--------------------------------------------
+
+In general, arrays of any type can be used as input or output arguments,
+with a few restrictions. The active regions of input arrays must contain
+only numbers, and output arrays where supplied must be such that the
+results can be assigned to them. Arrays must be created with the
+variable *poparray_by_row set to <true> (the default). The array
+arguments in a call to a procedure do not need to be the same type.
+
+Thus "ordinary" Pop-11 arrays created with *newarray can always be used
+for input or output. On the other hand, for example, byte arrays such as
+those created with *newbytearray are OK for inputs but not suitable for
+outputs, because floating point numbers cannot be assigned to them. Real
+floating point arrays such as those created with *newsfloatarray are OK
+except as output arrays when complex results are generated.
+
+In many cases, however, the procedures may need to copy data, and if
+computation time is to be minimised this is best avoided. This can be
+done by using "packed" arrays - that is, arrays made specially to
+contain numerical data - of the right type for the required precision.
+You can create suitable arrays using the procedures in *popvision:
+
+    If popdprecision is <false>, use
+
+        *newsfloatarray for real data,
+        *newcfloatarray for complex data.
+
+    If popdprecison is <true>, use
+
+        *newdfloatarray for real data,
+        *newzfloatarray for complex data.
+
+For maximum efficiency all the array arguments should be created with
+the same procedure, except where an array is specifically described as
+"real" or "complex". In these cases the appropriate real or complex
+routine should be used to make it, depending on the current precision.
+Further details of array types may be found in HELP * LAPACK.
+
+Output arrays that are created by the procedures and returned are made
+using one of the four procedures listed above, depending on the
+precision and whether the calculation was in real or complex mode.
+
+-----------------------------------------------------------------------
+3  Procedures
+-----------------------------------------------------------------------
+
+
+la_print(A)
+la_print(A WID)
+la_print(A, PLACES, WID)
+        Prints a matrix.
+            A: input array.
+
+            WID: optional integer; the width of the field used to print
+            each element. Defaults to 16 for complex data or 8 for real
+            data.
+
+            PLACES: optional integer; *pop_pr_places is locally set to
+            this. Defaults to 3.
+
+
+la_copy(A, B) -> B
+        Copies a matrix.
+        (Note: This should rarely be needed for matrices that are to be
+        used wholly within LAPOP, because input matrices are not updated
+        and region specifications can be given to all procedures. It may
+        be useful if data have to be copied to a packed matrix for
+        efficiency reasons, or if array regions are to be passed to
+        procedures from other libraries.)
+            A: input array.
+            B: output array.
+
+
+la_col(A, JA, B, JB) -> B
+        Copies a column of a matrix.
+            A: input array.
+
+            JA: integer. If A is 1-D, JA is ignored; otherwise JA
+            specifies which column of the active region is to be copied.
+            JA gives the index in the array A, not the matrix index
+            within the active region.
+
+            B: output/update array. If B is not an array on entry, or
+            its active region is a single column, B is an output array.
+            Otherwise B acts, strictly speaking, like an update array in
+            that data in the active region but outside column JB are
+            preserved. If B is a tag on entry, and there is a region
+            spec of more than a single column, the values of elements of
+            the array returned are undefined except within column JB.
+
+            JB: integer or <false>. If B is a 1-D array, or it is not an
+            array on entry and its region specification has 2 elements,
+            JB is ignored; otherwise JB specifies which column of the
+            active region is to receive data. If B is not an array on
+            entry, and no region specification is given for it, then JB
+            may be <false> and the array returned will be 1-D. JB gives
+            the index in the array B, not the matrix index within the
+            active region.
+
+
+la_row(A, IA, B, IB) -> B
+        Copies a row of a matrix.
+            A: input array.
+
+            IA: integer. Specifies which row of the active region is to
+            be copied. IA gives the index in the array A, not the matrix
+            index within the active region.
+
+            B: output/update array. If B is not an array on entry, or
+            its active region is a single row, B is an output array.
+            Otherwise B acts, strictly speaking, like an update array in
+            that data in the active region but outside row IB are
+            preserved. If B is a tag on entry, and there is a region
+            spec of more than a single row, the values of elements of
+            the array returned are undefined except within row IB.
+
+            IB: integer. Specifies which row of the active region is to
+            receive data. IB gives the index in the array B, not the
+            matrix index within the active region.
+
+
+la_ritoc(A, B, C) -> C
+        Copies two real arrays into the real and imaginary parts of a
+        complex array; C = A + i * B.
+            A: real input array.
+            B: real input array.
+            C: complex output array.
+
+
+la_ctori(C, A, B) -> (A, B)
+       Copies the real and imaginary parts of a complex array into two
+       real arrays; A = real(C), B = imag(C).
+            C: complex input array.
+            A: real output array.
+            B: real output array.
+
+
+la_transpose(A, B) -> B
+        Returns the transpose of a matrix.
+            A: input array.
+            B: output array.
+
+
+la_adjoint(A, B) -> B
+        Returns the adjoint, that is, the complex conjugate of the
+        transpose, of a matrix. If the data in A are real, this is the
+        same as la_transpose.
+            A: input array.
+            B: output array.
+
+
+la_reshape(A, AORDER, B, BORDER) -> B
+        Reshapes an array by reordering its elements. Data are taken
+        sequentially from A and entered sequentially into B. The active
+        regions of A and B must contain the same number of elements, but
+        can be different shapes.
+            A: input array.
+
+            AORDER: string. If the first character of AORDER is c or C,
+            data are taken from A "by column", that is with the first
+            index varying fastest. If the first character of AORDER is r
+            or R, data are taken from A "by row", that is with the
+            second index varying fastest.
+
+            B: output array. If B is not an array on entry, the region
+            spec argument for B must be supplied and must not be empty.
+
+            BORDER: string. If BORDER is c or C, data are written into B
+            "by column", that is with the first index varying fastest.
+            If the first character of BORDER is r or R, data are written
+            into B "by row", that is with the second index varying
+            fastest.
+
+
+la_+(A, B, C) -> C
+        Calculates the matrix sum A+B.
+            A: input array.
+            B: input array.
+            C: output array.
+
+
+la_accum(ALPHA, A, B) -> B
+        Calculates ALPHA*A+B, where ALPHA is a scalar, and stores the
+        result in B.
+            ALPHA: number.
+            A: input array.
+            B: update array.
+
+
+la_scale(ALPHA, A, B) -> B
+        Multiplies each element of A by the scalar ALPHA.
+            ALPHA: number.
+            A: input array.
+            B: output array.
+
+
+la_*(A, B, C) -> C
+        Calculates the matrix product A*B.
+            A: input array.
+            B: input array.
+            C: output array.
+
+
+la_trans_*(A, AOP, B, BOP, C) -> C
+        Calculates the matrix product P*Q, where P is A, the transpose
+        of A, or the adjoint (conjugate transpose) of A, and Q is B, the
+        transpose of B, or the adjoint of B. This is done efficiently,
+        not by explicitly forming the transpose or adjoint.
+            A: input array.
+
+            AOP: string. If the first character of AOP is n or N, then P
+            is A; if it is t or T, P is transpose(A); if it is c or C, P
+            is adjoint(A). (If A has no complex data, the C and T
+            operations are the same.)
+
+            B: input array.
+
+            BOP: string. If the first character of BOP is n or N, then Q
+            is B; if it is t or T, Q is transpose(B); if it is c or C, Q
+            is adjoint(B). (If B has no complex data, the C and T
+            operations are the same.)
+
+            C: output array.
+
+
+la_diag_*(A, B, C) -> C
+        Calculates either A*diag(B) or diag(A)*B where diag(x) means the
+        square matrix with the elements of x on its leading diagonal and
+        zeros elsewhere. If the active region of A is a single column,
+        and the active region of B has more than one element, then
+        C=diag(A)*B, and the number of rows of B must equal the
+        number of elements of A. Otherwise, the active region of B must
+        be a single column, C=A*diag(B), and the number of columns of A
+        must equal the number of elements of B.
+
+        To put it another way, if A is a column, then the i'th element
+        of A scales the i'th row of B; if B is a column, then the i'th
+        element of B scales the i'th column of A.
+            A: input array.
+            B: input array.
+            C: output array.
+
+
+la_linsolve(A, B, X) -> X
+        Solves the matrix equation A*X = B.
+            A: input array. The active region must be square, and the
+            matrix must be of full rank.
+
+            B: input array.
+
+            X: output array. On exit, the j'th column of X is the
+            solution of the set of simultaneous linear equations whose
+            right-hand-sides are the j'th column of B; the coefficients
+            of the unknowns for the i'th equation are given by the i'th
+            row of A.
+
+
+la_lsqsolve(A, B, X) -> X
+        Finds least squares solutions to overdetermined or
+        underdetermined linear equations.
+
+        For each column b of the matrix B, the corresponding column x of
+        X returns a solution vector with the following properties:
+
+        If A is m x n, and m >= n, the vector x minimises ||b-A*x||.
+
+        If n > m, the vector x minimises ||x|| and satisfies A*x=b.
+
+        It is assumed the A has full rank (i.e. its rank is min(m,n)).
+            A: input array.
+            B: input array.
+            X: output array.
+
+
+la_lsqsolve2(A, B, X, ERRS, RCOND) -> (X, ERRS, RANK)
+        As la_lsqsolve but does not necessarily assume that A has full
+        rank, and returns information about the residuals of the
+        solutions.
+            A: input array.
+
+            B: input array.
+
+            X: output array.
+
+            ERRS: output array. If A is m x n, m > n, and the estimated
+            rank of A is equal to n, the residual sum of squares for the
+            solution in the j'th column of X is given by the sum of
+            squares of the j'th column of ERRS. If an input array is
+            supplied, its active region must have dimensions m-n x nrhs
+            where nrhs is the number of columns of B. If m <= n, ERRS
+            will be returned as <false>.
+
+            RCOND: real number or <false>. Used to determine the
+            effective rank of A, which is defined as the order of the
+            largest leading triangular submatrix in the QR factorisation
+            with pivoting of A, whose estimated condition number is less
+            than 1/RCOND. If RCOND is given as <false>, a value of 0.0
+            is used, which is equivalent to assuming that A has full
+            rank.
+
+            RANK: integer. Returns the estimated rank of A.
+
+
+la_eigvals(A, W) -> W
+        Computes the eigenvalues of a square matrix.
+            A: input array.
+
+            W: complex output array. The active region is a single
+            column with length equal to one dimension of A. Complex
+            conjugate pairs of eigenvalues are adjacent with the
+            eigenvalue having the positive imaginary part first.
+
+
+la_eig(A, VL, W, VR) -> (VL, W, VR)
+        Computes the eigenvalues and eigenvectors of a square matrix.
+            A: input array.
+
+            VL: complex output array. The columns of VL return the left
+            eigenvectors of A, normalised to have Euclidean norm equal
+            to 1 and largest component real. VL has the property that
+            adjoint(VL)*A = diag(W)*adjoint(VL).
+
+            W: complex output array. The active region is a single
+            column with length equal to one dimension of A. Complex
+            conjugate pairs of eigenvalues are adjacent with the
+            eigenvalue having the positive imaginary part first.
+
+            VR: complex output array. The columns of VR return the right
+            eigenvectors of A, normalised to have Euclidean norm equal
+            to 1 and largest component real. VR has the property that
+            A*VR = VR*diag(W).
+
+
+la_eigvals_herm(A, W) -> W
+        Computes the eigenvalues of a Hermitian (i.e. self-adjoint)
+        matrix. In the real case, this is the same as a symmetrical
+        matrix.
+            A: input array. The active region must be square and it is
+            assumed that A(i,j) = conjugate(A(j,i)). Only values in the
+            upper triangle (i.e. elements A(i,j) for which j >= i) are
+            accessed. If A is complex, the values on the leading
+            diagonal (i.e. A(i,i)) are assumed to be real, and any
+            non-zero imaginary part for these elements is ignored.
+
+            W: real output array. The active region is a single column
+            with length equal to one dimension of A. Returns the
+            eigenvalues in ascending order.
+
+
+la_eig_herm(A, W, E) -> (W, E)
+        Computes the eigenvalues and eigenvectors of a Hermitian (i.e.
+        self-adjoint) matrix. In the real case, this is the same as a
+        symmetrical matrix.
+            A: input array. The active region must be square and it is
+            assumed that A(i,j) = conjugate(A(j,i)). Only values in the
+            upper triangle (i.e. elements A(i,j) for which j >= i) are
+            accessed. If A is complex, the values on the leading
+            diagonal (i.e. A(i,i)) are assumed to be real, and any
+            non-zero imaginary part for these elements is ignored.
+
+            W: real output array. The active region is a single column
+            with length equal to one dimension of A. Returns the
+            eigenvalues in ascending order.
+
+            E: output array. Returns the orthonormal eigenvectors of A,
+            such that A = E * diag(W) * adjoint(E).
+
+
+la_singvals(A, S) -> S
+        Computes the singular values of a matrix.
+            A: input array.
+
+            S: real output array. The active region is a single column
+            with length equal to the smaller dimension of A. Returns the
+            singular values in descending order.
+
+
+la_svd(A, U, S, VT) -> (U, S, VT)
+        Computes the singular value decomposition of a matrix.
+            A: input array. A is m x n.
+
+            U: output array. U is m x min(m, n). The columns of U return
+            the first min(m, n) left singular vectors.
+
+            S: real output array. The active region is a single column
+            with length min(m, n). Returns the singular values in
+            descending order.
+
+            VT: output array. V is min(m, n) x n. The rows of VT return
+            the first min(m, n) right singular vectors.
+
+
+-----------------------------------------------------------------------
+4  Examples
+-----------------------------------------------------------------------
+
+The examples are intended to be run in order. Output from print
+statements is included after each example.
+
+4.1  Setup and simple operations
+--------------------------------
+
+Load the libraries:
+
+    uses popvision, lapop;
+
+Obtain a matrix to work with, and print it. The following generates an
+array whose contents reflect the row and column indices of each element:
+
+    vars a = newarray([1 3 1 4], procedure(i,j); 10*i+j endprocedure);
+    la_print(a);
+
+    11    12    13    14
+    21    22    23    24
+    31    32    33    34
+
+Get its transpose, creating a new array by giving <false> as the second
+argument:
+
+    vars at = la_transpose(a, false);
+    la_print(at);
+
+  11.0  21.0  31.0
+  12.0  22.0  32.0
+  13.0  23.0  33.0
+  14.0  24.0  34.0
+
+The results are decimals, not integers - LAPOP output is always floating
+point.
+
+Multiply the matrix by its transpose, making a new 3x3 matrix:
+
+    vars c = la_*(a, at, false);
+    la_print(c, 15);
+
+          630.0         1130.0         1630.0
+         1130.0         2030.0         2930.0
+         1630.0         2930.0         4230.0
+
+4.2  Eigenvectors and eigenvalues
+---------------------------------
+
+We start with a symmetric matrix:
+
+    vars as = newarray([1 3 1 3], nonop + <> sqrt);
+    la_print(as);
+
+ 1.414 1.732   2.0
+ 1.732   2.0 2.236
+   2.0 2.236 2.449
+
+and find its eigenvalues and eigenvectors:
+
+    vars (w, e) = la_eig_herm(as, false, false);
+    la_print(w);
+
+ -0.134
+ -0.001
+  5.999
+
+We can see that the eigenvectors are orthonormal by finding e'*e:
+
+    la_print(la_trans_*(e, 't', e, 'n', false));
+
+   1.0  -0.0   0.0
+  -0.0   1.0  -0.0
+   0.0  -0.0   1.0
+
+and we can reconstruct the original matrix by finding e * diag(w) * e':
+
+    vars anew = la_trans_*(la_diag_*(e, w, false), 'n', e, 't', false);
+    la_print(anew);
+
+ 1.414 1.732   2.0
+ 1.732   2.0 2.236
+   2.0 2.236 2.449
+
+As an exercise, find the singular value decomposition of some
+non-symmetrical and non-square matrices, and look at whether U and V'
+are orthonormal.
+
+4.3  Recycling arrays
+---------------------
+
+The examples so far have created new arrays for their results. This can
+make a lot of garbage. It is easy to recycle arrays to avoid this.
+
+If the problem size is constant, a simple approach is to make the LAPOP
+procedure return a new array the fist time it is used, then to re-use
+this array, something like this template:
+
+    vars c = false;     ;;; get a new array first time
+    repeat 3 times
+        ;;; Processing to set up inputs would be here
+        la_*(a, at, c) -> c;
+        ;;; processing to make use of output would be here
+    endrepeat;
+
+The first time round the loop a new array is made and assigned to c; the
+second and subsequent times results are stored in the existing array,
+overwriting the previous results.
+
+If the problem size can change between calls, the tag mechanism can be
+used to allow efficient recycling of storage. For details see HELP
+*OLDARRAY. Essentially a constant object is used as a "tag" for arrays
+where overwriting would be OK if the problem size did not change. Array
+storage is then saved and re-used where possible. Here is an example,
+where the input and output arrays are potentially recycled using this
+mechanism:
+
+    vars a1 = oldsfloatarray("a", [1 5]);
+    vars at1 = la_transpose(a1, "at");
+    vars a2 = oldsfloatarray("a", [1 4]);
+    vars at2 = la_transpose(a2, "at");
+
+Note that since we are now interested in efficiency, we have created the
+input arrays using newsfloatarray (assuming popdprecision is <false>)
+rather than the standard newarray. Now we can test whether the two
+result arrays share storage:
+
+    123456 -> at1(1, 1);
+    at2(1, 1) =>
+
+    ** 123456.0
+
+You can see that at1 and at2 share their arrayvector.
+
+Clearly, this has to be used with care. The common cases where it is
+applicable are in a loop, like the first example in this section, and
+where an array is made and used inside a procedure but is not returned
+as a result.
+
+4.4  Array regions
+------------------
+
+If the matrix is represented by only part of an array, this can be
+stated using a region spec. For example, we can take the transpose of
+all but the top row and left column of our 3x4 matrix:
+
+    vars atpart = la_transpose(a, [2 3 2 4], false);
+    la_print(atpart);
+
+  22.0  32.0
+  23.0  33.0
+  24.0  34.0
+
+We can update a section of an array this way too:
+
+    vars big = newsfloatarray([1 4 1 5], 0);
+    la_transpose(a, [2 3 2 4], big, [2 4 2 3]) -> _;
+    la_print(big);
+
+   0.0   0.0   0.0   0.0   0.0
+   0.0  22.0  32.0   0.0   0.0
+   0.0  23.0  33.0   0.0   0.0
+   0.0  24.0  34.0   0.0   0.0
+
+and if necessary, you can take all the inputs and outputs to a routine
+to be sub-arrays:
+
+    la_*(big, [2 3 2 3], big, [1 2 2 2], big, [2 3 5 5]) -> _;
+    la_print(big);
+
+   0.0   0.0   0.0   0.0   0.0
+   0.0  22.0  32.0   0.0 704.0
+   0.0  23.0  33.0   0.0 726.0
+   0.0  24.0  34.0   0.0   0.0
+
+As in this example, it is OK for input regions to overlap, but not for
+an output region to overlap with any input regions, or any other output
+regions.
+
+4.5  Complex data
+-----------------
+
+If we assign a complex value to an element of a full array, the
+calculation will be in complex mode, and any result array created will
+be a complex type:
+
+    10+:10 -> a(3, 3);
+    la_*(a, at, false) -> c;
+    la_print(c, 16);
+
+     630.0_+:0.0    1130.0_+:0.0    1630.0_+:0.0
+    1130.0_+:0.0    2030.0_+:0.0    2930.0_+:0.0
+  1331.0_+:130.0  2401.0_+:230.0  3471.0_+:330.0
+
+Note that if we tried to reuse the previous array that was assigned to
+c, a mishap would result because it would not be able to accept complex
+values.
+
+Alternatively, we can create an array of complex type. This one has data
+that reflect the row and column indices:
+
+    newcfloatarray([1 3 1 4], nonop +:) -> a;
+    la_print(a);
+
+     1.0_+:1.0     1.0_+:2.0     1.0_+:3.0     1.0_+:4.0
+     2.0_+:1.0     2.0_+:2.0     2.0_+:3.0     2.0_+:4.0
+     3.0_+:1.0     3.0_+:2.0     3.0_+:3.0     3.0_+:4.0
+
+We can multiply this by its adjoint to produce a Hermitian matrix:
+
+    la_print(la_trans_*(a, 'n', a, 'c', false));
+
+    34.0_+:0.0   38.0_+:10.0   42.0_+:20.0
+   38.0_-:10.0    46.0_+:0.0   54.0_+:10.0
+   42.0_-:20.0   54.0_-:10.0    66.0_+:0.0
+
+The examples above can be rerun using complex data - they will all
+generalise correctly to the complex case.
+
+
+--- $popvision/help/lapop
+--- Copyright University of Sussex 2003. All rights reserved.

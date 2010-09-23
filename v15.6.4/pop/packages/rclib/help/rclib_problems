@@ -1,0 +1,259 @@
+HELP RCLIB_PROBLEMS                              Aaron Sloman March 1997
+                                                Last changed: 4 Jul 2000
+
+Overview:
+This file will introduce some problem topics that may be useful when
+debugging programs using the RCLIB facilities, described in HELP RCLIB
+
+
+Please email suggestions for additional tips to A.Sloman@cs.bham.ac.uk
+
+
+CONTENTS
+
+ -- If windows jump and flash
+ -- If moving picture-objects do not work
+ -- Mixins rc_opaque_movable rc_opaque_rotatable (June 2000)
+ -- Further information about movable pictures
+ -- Further complications
+ -- X toolkit warning messages about fonts
+ -- Problems with popvision and rc_graphlot libraries
+ -- See also
+
+-- If windows jump and flash ------------------------------------------
+
+To some extent we are at the mercy of window managers when windows
+are moved or hidden or revealed. An attempt is made to check that the
+window has been put in the right place and if not an adjustment is
+made.
+
+Some window managers, including twm and tvtwm, sometimes put windows in
+the wrong place when they are exposed. This is checked and the window
+immediately moved to nearer its intended location. This may cause
+slightly surprising jumps when hidden windows are exposed.
+
+Another factor to remember is that window managers can add title bars at
+the top of a window and this can affect the location of the actual
+drawable area. The rc_window_location method tries to make the window,
+including title bar, have its top left corner at the specified location.
+
+You may also have problems because of colour maps on an 8 bit graphic
+screen. If you are running colour-hungry programs like Netscape this can
+cause colours to look all wrong. If you have that problem you can
+restart your X server (this may mean logging out and logging in). Ask
+local experts for more advice.
+
+
+-- If moving picture-objects do not work ------------------------------
+
+TEACH RC_LINEPIC introduces picture objects that are drawn in such a way
+that they can be moved. However this depends on their disappearing if
+redrawn. The mechanism used depends on use of either the logical
+function XOR or EQUIV when drawing a movable picture over other items
+in the display. These have the property that drawing the same thing
+twice is equivalent to restoring the background to whatever it was
+before.
+
+For this to work for instances of the mixin rc_linepic_movable, defined
+in LIB * rc_linepic, it is necessary for two global variables to be set
+up, namely Glinefunction and Gdrawprocedure.
+
+This is done automatically by the autoloadable library procedure
+rc_setup_linefunction. Normally users do not need to invoke this as it
+is automatically invoked by all the main RCLIB library procedures before
+they do anything.
+
+In December 1999 the procedure
+        rc_setup_linefunction();
+was extended to distinguish three cases
+
+        Displays of depth > 8 bits
+            rc_xor_drawpic -> Gdrawprocedure;
+            GXequiv -> Glinefunction;
+
+        8 Bit displays with white == 0
+            rc_xor_drawpic -> Gdrawprocedure;
+            GXxor -> Glinefunction;
+
+        8 Bit displays with white == 1
+            GXequiv -> Glinefunction;
+            rc_equiv_drawpic -> Gdrawprocedure;
+
+If you have problems you can try other combinations.
+
+If you find a need for a missing case to be included, please send email
+to A.Sloman@cs.bham.ac.uk saying
+
+    (a) exactly what sort of terminal you are using,
+    (b) what sort of machine you were logged into if it was different,
+    (c) which version of Poplog you are using
+        popversion =>
+    (d) The outputs of these commands
+
+        XptDefaultSetup();
+        XDefaultDepth(XptDefaultDisplay, 0) =>
+        XWhitePixel(XptDefaultDisplay, 0) =>
+
+and (e) which instruction,s if any, fixed the problem.
+
+For more information on this see  HELP * RC_GRAPHIC/rc_linefunction
+
+-- Mixins rc_opaque_movable rc_opaque_rotatable (June 2000) -----------
+
+Some of the problems of movable objects, including movable slider blobs,
+have been overcome by providing two new mixins, rc_opaque_movable and
+rc_opaque_rotatable, which are both defined in LIB rc_opaque_mover.
+
+Instances of these mixins, with the associated methods, can be used when
+a movable or rotatable object is to be constrained to an area with a
+fixed background colour. The object then knows which colour to use to
+replace itself every time it is moved.
+
+However, this will not work properly when objects move over backgrounds
+of varying colour, or when one movable object moves over another one.
+
+For some tutorial examples of the use of opaque movable objects, see
+TEACH rc_opaque_mover
+
+
+-- Further information about movable pictures -------------------------
+
+To simplify the use of arbitrarily shaped movable objects moving over
+arbitrary backgrounds they are drawn using the graphic "xor" or "equiv"
+operation. This means that drawing the same thing again will restore the
+picture to its previous state. The mixin rc_linepic_movable, introduced
+in LIB rc_linepic provides methods to support this, as does the mixin
+rc_rotatable.
+
+The methods linked with these mixins make it very easy to delete the
+current version of a picture object before moving it to a new location,
+simply by first redrawing it in the old location, which causes it to be
+removed, and then redrawing in the new location, which makes it visible
+there.
+
+But for this, it would be necessary to store the picture contents
+covered up by each picture. Making sure that everything is redrawn
+exactly as it should be when one of the pictures moves, can be very
+difficult if the pictures have arbitrary shapes. The use of the special
+logical drawing functions removes the difficulty, but the price is that
+picture objects do not always have the colour you expect them to have.
+If an instance of rc_linepic_movable (see HELP * RC_LINEPIC)
+(e.g. if they are drawn on a non-white background), and overlapping
+objects may have strange colours.
+
+A consequence of this is that overlapping pictures, or sub-pictures, can
+sometimes produce strange colour effects. This is the price of the
+convenience and simplicity of the mechanism. Non movable objects are
+drawn "properly" and do not produce these effects. However, a movable
+object drawn over a static object can produce this effect until the
+former moves.
+
+This can be overcome by using a movable sub-panel, as described in the
+files TEACH RCLIB_DEMO.P and HELP RC_CONTROL_PANEL. (Search for
+"sub-panel"), but this solution requires the movable object to be
+rectangular, with a panel border, unlike the arbitrarily shaped movable
+pictures demonstrated in TEACH RC_LINEPIC.
+
+The problem that moving coloured picture objects look odd if they pass
+over any non-white background, can be bypassed by using a moving
+panel, provided that you are willing to let the moving object be
+rectangular with a panel border. The interior of the panel can be
+coloured, have pictures, have text, etc.
+
+Examples of such moving panels can be found in TEACH RCLIB_DEMO.P and
+HELP RC_CONTROL_PANEL. Search for "sub-panel".
+
+Alternatively, if the object is moving over a uniform, fixed background,
+use rc_opaque_movable, or rc_opaque_rotatable, both defined in
+LIB rc_opaque_mover, mentioned in an earlier section.
+
+
+-- Further complications ----------------------------------------------
+
+Whether xor or equiv should be used depends on how black and white
+pixels are represented, which unfortunately differs from one X window
+system to another.
+
+The program detects automatically which you are using. E.g. on Suns
+with 8 bit screens black is 1 and white is 0, whereas on a DEC
+Alphastation with an 8 bit display this is reversed.
+
+However apart from the first bit the remaining 7 bits in 8 bit colour
+graphic displays are drawn the same way. This means that on a machine
+which reverses bit 1 (e.g. Alphastations) every picture that is to be
+movable has to be drawn twice, once to draw bit 1 (for black or white)
+and once for the remaining bits.
+
+A consequence is that drawing of movable objects on the Alphastation and
+similar terminals is considerably more complex and slightly slower, but
+users may not notice this except when drawing very complex pictures.
+
+
+-- X toolkit warning messages about fonts -----------------------------
+
+It may turn out that when you first try drawing a picture that
+includes a font specification, you'll get a warning message something
+like this:
+
+;;; WARNING - xtw: X TOOLKIT WARNING (string: conversionError --
+    Cannot convert string "8x13b" to type FontStruct)
+
+If that happens the system will choose some default font, and you can
+continue. Later you can experiment to find out which fonts are available
+on your machine. (E.g. use the "xfontsel" utility if that is
+available, or xlsfonts).
+
+E.g. I found that '8x13b' was available on some machines and not
+others, whereas '8x13bold' seemed to be more generally available.
+'r24' is available on some machines, whereas others require you to use
+'12x24'
+
+
+-- Problems with popvision and rc_graphlot libraries
+
+The popvision library developed by David Young at The University of
+Sussex is available from the Free Poplog Site
+    http://www.cs.bham.ac.uk/research/poplog/freepoplog.html
+
+It provides utilities, documentation, and tutorials, on image
+processing, vision, image display and neural nets.
+
+Like the RCLIB package it builds on the rc_graphic library and its
+concepts, and therefore makes use of some global variables representing
+the current window and its properties, e.g.
+    rc_window, rc_xorigin, rc_yorigin, etc, etc.
+
+Another library, distributed with Poplog, which makes use of rc_graphic
+facilities is LIB * RC_GRAPHPLOT, for drawing graphs of various kinds.
+
+Some of the utilities used in the popvision library, rc_graphplot and
+possibly also some other utilities based on rc_graphic, assume features
+of two of the rc_graphic procedures that have been changed for use with
+rclib, namely rc_start and rc_new_window_object. These are redefined in
+    LIB * RC_WINDOW_OBJECT
+
+To deal with this problem it is possible to indicate procedures that
+require the original versions of rc_start and rc_new_window_object, by
+putting their names in the list held as the value of the global variable
+use_rc_graphic_versions defined in lib rc_window_object. The default
+definition (as of 28 Feb 2000) is
+
+    global vars use_rc_graphic_versions = [rci_show rc_graphplot];
+
+Perhaps at some later date, popvision, and rc_graphplot will be made
+totally consistent with RCLIB.
+
+-- See also
+
+Continue with TEACH RC_LINEPIC for a fairly detailed overview of the
+basic mechanisms used by RCLIB.
+
+See also
+    TEACH RCLIB_DEMO.P
+        Tutorial introduction to most of the facilities
+
+    HELP RCLIB
+        Overview
+
+--- $poplocal/local/rclib/help/rclib_problems
+--- Copyright University of Birmingham 2000. All rights reserved. ------

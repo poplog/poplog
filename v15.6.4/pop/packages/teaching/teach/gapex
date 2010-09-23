@@ -1,0 +1,267 @@
+TEACH GAPEX                                             Tom Khabaza
+                                                        19th Feb. 1988
+
+This teach file describes a programming exercise on automatic
+programming by example.
+
+The proposed program is modelled loosely on a system called GAP (for
+Generalising Automatic Programmer), written by Steve Hardy for his Ph.D.
+The ideas behind this system are described in outline in this file.  For
+more details see the references at the end of the file.
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- What is GAP?
+ -- How GAP did it
+ -- The GAP micro-world
+ -- Heuristic rules for GAP-like systems
+ -- Exercise
+ -- References
+
+
+-- What is GAP? -------------------------------------------------------
+
+GAP was a program which would generate a simple Lisp function from an
+example of an input-output pair for that function.  So, for example,
+given the input-output pair:
+
+    (a b c d)   ->      ((a) (b) (c) (d))
+
+GAP would generate the Lisp function:
+
+    (lambda (x)
+        (cond   ((null x) nil)
+                (t  (append (list (list (car x))) (self (cdr x))))))
+
+Note that this is a slightly unusual dialect of Lisp, in that it allows
+the "pseudo-function" 'self', to mean a recursive call of the current
+function.  This avoids the need to give the generated function a name.
+
+The next section gives a highly simplified version of how GAP achieved
+this.
+
+
+-- How GAP did it -----------------------------------------------------
+
+GAP regarded all Lisp functions as instances of the following "function
+schema":
+
+    (lambda (x)
+        (cond   (<TEST x> nil)
+                (t  (append <EXPR x> (self <PARTOF x>) <EXPR x>))))
+
+Expressions like "<TEST x>" and "<EXPR x>" are called "slots".  Each
+slot in this schema could be filled according to the following grammar:
+
+    <EXPR x>    :==     <SELECT x>
+                :==     (cons <SELECT x> <EXPR x>)
+                :==     (list <EXPR x>)
+
+    <SELECT x>  :==     nil
+                :==     (quote <ATOM>)
+                :==     <PARTOF x>
+
+    <PARTOF x>  :==     x
+                :==     (car <PARTOF x>)
+                :==     (cdr <PARTOF x>)
+
+    <TEST x>    :==     (null <PARTOF x>)
+                :==     (atom <PARTOF x>)
+                :==     (eq <PARTOF x> <SELECT x>)
+
+The undefined category <ATOM> in this grammar is capable in theory of
+representing any atom.  In practice it need be capable only of
+generating atoms that occur in the example input or output.
+
+The schema and grammar together give us a space of possible Lisp
+function schemas, some of which are fully instantiated, representing
+real Lisp functions.  We can think of this as a search space: each
+function schema is a node, and the successors of a node S are the
+schemas formed by instantiating the slots in S by every possible legal
+value according to the grammar.  (The basic schema will thus have 81
+immediate successors according to the grammar.)
+
+The goal nodes in this search space are those fully instantiated schemas
+that will produce the given output when applied to the given input.
+
+Because the grammar is recursive, some branches of the search space are
+infinite.  A depth-first search of this space would therefore not be
+appropriate, but a breadth-first search would eventually produce the
+function we want.
+
+However, the search space is large enough that to search it exhaustively
+might be prohibitively expensive in time, or, with a breadth-first
+strategy, in space.  Certainly to use brute-force search with this
+technique to solve any real programming problem would be unrealistic.
+To make this kind of program workable, it must include heuristics to
+guide the search by examining the properties of the example input-output
+pair.
+
+GAP was a complex program written in Conniver.  Its schema(s) and
+grammar were both more complex than those given above, and its search
+strategy was based on complex facilities provided by Conniver, but the
+complexity of the original GAP program is misleading for purposes of the
+current exercise, because the basic idea was really quite simple.
+
+
+-- The GAP micro-world ------------------------------------------------
+
+It is the provision of heuristics for program generation that constitute
+the most significant part of this exercise.  The technique described
+above allows us to create a "micro-world" for automatic programming by
+providing a function schema and grammar, thus forming the relevant
+search space.  Problem solving in this micro-world then consists of
+heuristic guidance for this search.
+
+We are thus working in the domain of "knowledge engineering for
+automatic programming".  What kinds of knowledge can we give the program
+to guide the search?  How should we represent this knowledge?  How can
+we make it specific enough to be useful, yet general enough to allow the
+generation of a broad range of functions?
+
+
+-- Heuristic rules for GAP-like systems -------------------------------
+
+What kind of heuristics might we use in a GAP-like system?  Some example
+rules are given below.  These give a very rough idea of one kind of
+knowledge that might be used.  See the accessible references on GAP for
+further information.
+
+Rule 1: (cdr loop)
+    If the input and the output are lists of the same length, then the
+    function is probably a "cdr loop" - that is:
+    (a) the recursive call probably takes "(cdr x)" as its argument, and
+    (b) the test is probably "(null x)".
+
+Rule 2: (forward cdr loop)
+    If the function is a cdr loop, and the atoms in the car of the
+    output are all present in the car of the input, then the function is
+    probably a "forward cdr loop" - that is:
+    (a) the first argument of append is <EXPR (car x)>, and
+    (b) the third is nil.
+
+Rule 3: (backward cdr loop)
+    If the function is a cdr loop, and the atoms in the car of the
+    output are all present in the last element of the input, then the
+    function is probably a "backward cdr loop" - that is:
+    (a) the first argument of append is nil, and
+    (b) the third is <EXPR (car x)>.
+
+Rule 4: (forward cdr loop increase nesting)
+    If the function is a forward cdr loop and the nesting of the car of
+    the output is greater than the nesting of the car of the input, then
+    the first argument to append is probably "(list (list <EXPR x>))".
+
+Rule 5: (backward cdr loop increase nesting)
+    If the function is a backward cdr loop and the nesting of the last
+    element of the output is greater than the nesting of the last
+    element of the input, then the third argument to append is probably
+    "(list (list <EXPR x>))".
+
+
+These rules might guide us towards functions like "listify" (rules 1, 2
+& 4):
+
+    (lambda (x)
+        (cond   ((null x) nil)
+                (t  (append (list (list x))
+                            (self (cdr x))
+                            nil) ) ) )
+
+or "reverse" (rules 1, 3 and 5):
+
+    (lambda (x)
+        (cond   ((null x) nil)
+                (t  (append nil
+                            (self (cdr x))
+                            (list x) ) ) ) )
+
+
+-- Exercise -----------------------------------------------------------
+
+Write a miniature version of GAP, which performs heuristic search in a
+space of function schemas, using the initial schema and grammar given
+above.
+
+Your program will probably require the following major components:
+
+1.  A simple Lisp interpreter, used for testing that we've found the
+    right function.  Clearly it must be capable for applying simple Lisp
+    lambda functions to given arguments, where the functions can be
+    written in terms of "self".
+
+    You can either write this yourself (it is not very difficult), or
+    use the library "lib mgap_lisp". - see HELP * MGAP_LISP.
+
+
+2.  A heuristic search procedure.  This could be roughly like the
+    "ordered search" algorithm, given in Barr & Feigenbaum (1982)
+    chapter II, except that we need not consider differential cost of
+    arcs, since all arcs are the same cost in this search space.
+
+    This algorithm is based around the idea of a "complete" search of
+    the search space, so that eventually any node will be generated.  You
+    may find it more convenient to use a "incomplete" search technique,
+    perhaps based on a "hill-climbing" approach, which may home in
+    faster on promising nodes because not all successors of a node need
+    be examined.
+
+
+3.  A "successors" function to be used by 2.  This must take a function
+    schema S, and generate a list of those schema that result from
+    filling in each of S's "slots" using one rewrite by the grammar.
+
+    These successors will sometimes be fully instantiated, and sometimes
+    only partially.  The Lisp interpreter cannot be expected to apply to
+    partially instantiated schemas, but the evaluation function should be
+    able to evaluate anything.
+
+
+4.  An evaluation function for function schemas.  This is the location
+    of all the heuristic knowledge, and will probably constitute the
+    major part of the program.
+
+    You have to decide what kind of knowledge representation to use
+    here.  The previous section implicitly suggests that production
+    rules might be used, but you may be able to think of a better way...
+
+
+Do not be over-ambitious with what you expect your program to achieve.
+While it might be desirable to have quite general knowledge generating a
+wide variety of functions, this is probably very difficult.  A more
+specialised program that guides the search strongly towards a small
+class of functions (or even towards some specific function) may well be
+just as interesting, because the main goal is to illustrate the use of
+knowledge about recursive functions, as realised in your heuristic
+evaluation function.
+
+
+-- References ---------------------------------------------------------
+
+Sources on GAP:
+
+HARDY, S. (1973) "Automatic Induction of LISP Functions",
+    AISB Summer Conference, University of Sussex, July 1974, pp 50-62.
+    [QZ 1240 Ais].
+
+HARDY, S. (1974) "Synthesis of LISP functions from examples",
+    Memo CSM-5, University of Essex Computing Centre, August 1974.
+    Also in IJCAI 4 (1975), pp 240-245.  [QZ 1240 Int].
+
+HARDY, S. (1976) "Synthesis of LISP functions from example computations",
+    Ph.D. Thesis, University of Essex.  (Difficult to get hold of.)
+
+
+Source for general background on automatic programming:
+
+BARR, A. and FEIGENBAUM, E. A. (1982)
+    "The Handbook of Artificial Intelligence", Pitman.  [QZ 1240 Han].
+    Volume 2, Chapter X.
+
+
+Source for ordered search:
+
+BARR, A. and FEIGENBAUM, E. A. (1982)
+    "The Handbook of Artificial Intelligence", Pitman.  [QZ 1240 Han].
+    Volume 1, Chapter II.

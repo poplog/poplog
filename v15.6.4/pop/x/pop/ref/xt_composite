@@ -1,0 +1,174 @@
+REF XT_COMPOSITE                                  Adrian Howard Jun 1991
+                                           Updated Jason Handby Aug 1991
+
+       COPYRIGHT University of Sussex 1990. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<     MANAGING CHILDREN OF    >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<      COMPOSITE WIDGETS      >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+After a  cursory overview  of the  subject,  this REF file  details  the
+procedures supplied by the  two library packages LIB * XT_COMPOSITE  and
+LIB * FAST_XT_COMPOSITE  which  provide  the  Pop-11  interface  to  the
+various X Toolkit convenience routines related to parent widgets and the
+management of their children.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   LIB XT_COMPOSITE
+
+  3   LIB FAST_XT_COMPOSITE
+
+
+
+---------------
+1  Introduction
+---------------
+
+Widgets can be either "primitive"  or "composite". Both types of  widget
+can have  children,  but the  intrinsics  provide special  routines  for
+interfacing between "composite" widgets and their children.
+
+All composite widgets are subclasses of the Composite widget class  (one
+of the basic widget classes provided with the intrinsics). Each type  of
+composite widget will have a number of children. The number of  children
+can vary from zero upwards, depending  on the type of composite  widget.
+Shell widgets, for  example, are  a special sub-class  of the  Composite
+widget that only have a single child.
+
+Each composite widget contains  a reference to a  list of its  children.
+The intrinsics  recursively  perform  operations  like  realisation  and
+destruction  on  the  children   of  composite  widgets   automatically.
+Non-composite  widgets  must  perform  these  tasks  on  their  children
+themselves, if it is necessary.
+
+Composite widgets also have the ability to manage the layout  (geometry)
+of their children,  although with  some composite widgets  this is  at a
+very primitive level. When a widgets geometry comes under the control of
+its composite widget  parent it is  said to be  "managed". Some  widgets
+automatically manage all their  children, others have  to be told  which
+children they are supposed to manage.
+
+The library  LIB * XT_COMPOSITE provides  the  Pop-11 interface  to  the
+various X Toolkit convenience routines related to parent widgets and the
+management  of  their  children.  The  library   LIB * FAST_XT_COMPOSITE
+(loaded  automatically  if   you  load  LIB * XT_COMPOSITE)   provides a
+non-type checking interface to the same procedures.
+
+The procedures provided by this library allow the following functions to
+be performed:
+
+  # Addition of a  child or list  of children to  the managed subset  of
+    its/their parent(s)
+
+  # Removal of a child  or list of children  from the managed subset  of
+    its/their parent(s).
+
+  # Testing a widget to see if it is being managed by its parent.
+
+  # Controlling whether  a widget  is automatically  mapped when  it  is
+    managed
+
+The  exact  structure  of  arguments  and  results  for  the   following
+procedures is as discussed in REF * XPT_TYPES.
+
+For more details see Chapter 3 of:
+
+               X Toolkit Intrinsics - C Language Interface
+                             X Window System
+                         X Version 11, Release 4
+
+        Copyright (C)  1985,  1986,  1987,  1988,  Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+
+
+-------------------
+2  LIB XT_COMPOSITE
+-------------------
+
+XtManageChild(widget)                                        [procedure]
+        Add the  specified  widget  to  its  parent's  list  of  managed
+        widgets, and marks the widget as being managed. A Toolkit  error
+        is generated if the  parent is not a  subclass of the  Composite
+        widget. If  the parent  is  realized, then  its  changed_managed
+        routine is  called to  notify it  of the  change. An  unrealized
+        child which becomes managed will also be realized. If the  child
+        has the  "mappedWhenManaged"  resource  set,  it  will  also  be
+        mapped.
+
+        No action is taken if the parent is being destroyed.
+
+
+XtManageChildren(widgetlist, cardinal)                       [procedure]
+        Add all the  widgets in  widgetlist to  their (common)  parent's
+        list of managed widgets.  cardinal is the  number of widgets  in
+        widgetlist. The  notes for  XtManageChild  above also  apply  to
+        XtManageChildren; in addition, note that a Toolkit error will be
+        generated if the children are not siblings (do not have the same
+        parent).
+
+
+XtUnmanageChild(widget)                                      [procedure]
+        Remove the specified  widget from its  parent's list of  managed
+        widgets, and  marks the  widget as  being unmanaged.  A  Toolkit
+        error is  generated if  the  parent is  not  a subclass  of  the
+        Composite  widget.  If   the  parent  is   realized,  then   its
+        changed_managed routine is called to notify it of the  change. A
+        realized child which becomes unmanaged will also be unmapped.
+
+        No action is taken if the parent is being destroyed.
+
+
+XtUnmanageChildren(widgetlist, cardinal)                     [procedure]
+        Remove all the widgets in the list from their (common)  parent's
+        list of managed widgets.  cardinal is the  number of widgets  in
+        widgetlist. The notes  for XtUnmanageChild above  also apply  to
+        XtUnmanageChildren; in addition, note that a Toolkit error  will
+        be generated if the children are  not siblings (do not have  the
+        same parent).
+
+
+XtIsManaged(widget) -> bool                                  [procedure]
+        Returns true if the widget  is currently managed by its  parent,
+        false otherwise. Also see XtIsRealized.
+
+
+XtSetMappedWhenManaged(widget, bool)                         [procedure]
+        Set the value of the resource "mappedWhenManaged" for widget  to
+        bool. A  value  of  true  causes it  to  be  mapped  (displayed)
+        automatically when it  becomes managed (and  maps the widget  if
+        the widget is already realized  and managed). If bool is  false,
+        the widget will not be  automatically mapped (and if the  widget
+        is already realized and managed, it will be unmapped).
+
+
+
+
+------------------------
+3  LIB FAST_XT_COMPOSITE
+------------------------
+
+fast_XtManageChild(widget)                                   [procedure]
+fast_XtManageChildren(widgetlist, cardinal)                  [procedure]
+fast_XtUnmanageChild(widget)                                 [procedure]
+fast_XtUnmanageChildren(widgetlist, cardinal)                [procedure]
+fast_XtIsManaged(widget) -> bool                             [procedure]
+fast_XtSetMappedWhenManaged(widget, bool)                    [procedure]
+        As for the procedures in LIB * XT_COMPOSITE, but without  checks
+        for valid arguments.  These procedures  should only  be used  in
+        fully debugged programs. See REF * XTOOLKIT for full details  of
+        the Poplog X  naming conventions for  non-checking and  checking
+        procedures.
+
+
+
+--- C.x/x/pop/ref/xt_composite
+--- Copyright University of Sussex 1990. All rights reserved.

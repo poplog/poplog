@@ -1,0 +1,119 @@
+HELP CONVOLVE_2D                                David Young
+                                                February 1992
+                                                revised October 2001
+
+Carries out a 2-D convolution, using C single-precision floats.
+
+convolve_2d(arrin, mask, arrout, region) -> arrout
+convolve_2d(arrin, sample, mask, arrout, region) -> arrout
+convolve_2d(arrin, sampx, sampy, mask, arrout, region) -> arrout
+        The procedure convolves arrin with mask, both of which are 2-D
+        arrays of numbers, and returns the result arrout.
+
+        For efficiency, the arrays should be constructed using
+        *newsfloatarray, or any other procedure that gives a packed
+        arrayvector of single floats. The last two arguments may be
+        given as <false>, and the sample, sampx and sampy arguments
+        omitted for straightforward use.
+
+        Without the sample arguments, the formula is:
+
+            ARROUT (X,Y)  =   SUM   ARRIN (X-x, Y-y)  *  MASK (x, y)
+                              x,y
+
+        where the sum is taken over all (x,y) lying inside the bounds of
+        the mask array. The boundslist of the mask array is therefore
+        important in determining any translation between the input and
+        output arrays. For example, if mask is created with
+        newsfloatarray([0 0 0 0], 1), then convolution is an identity
+        operation; convolution with newsfloatarray([3 3 2 2], 1) would
+        result in a shift 3 pixels right and 2 pixels down.
+
+        If arrout and region are <false> on entry, a new array will be
+        created and returned. The convolution will be run over the whole
+        of arrin, and the array that is returned will be smaller than
+        arrin by an amount depending on the size of mask, to allow for
+        the fact that the mask has to be wholly within arrin all the
+        time. If on one dimension the input bounds are from i0 to i1,
+        and the mask bounds are from m0 to m1, then on that dimension
+        the output bounds will be from i0+m1 to i1+m0; likewise on the
+        other dimension.
+
+        If arrout is non-false and not an array on entry, an array is
+        created and returned as if arrout was <false>, except that
+        oldsfloatarray (see HELP * OLDARRAY) is used to create the
+        output array, with the given value of arrout as the tag. This
+        allows arrays to be recycled to avoid creating garbage.
+
+        On entry, arrout may be a 2-D array, for best efficiency created
+        using *newsfloatarray or the like. In this case the results are
+        stored in this array and it is returned. Its bounds must include
+        the region in which output data is to be stored, determined as
+        above if region is <false>. (This is a non-compatible change,
+        from Oct 2001, to previous versions in which the output region
+        was trimmed to fit into the array supplied.)
+
+        (On entry, arrout may also be a 5-element list, where the head
+        of the list is an initialisation value and the tail of the list
+        is the boundslist of an array to create and return. This
+        mechanism is retained for compatibility with an old version of
+        the routine, but is probably best avoided.)
+
+        If not <false>, region must be a 4-element list. This specifies,
+        in *boundslist form, the region of the output array in which to
+        store data. Together with the mask bounds and the sample
+        arguments (see below) it implies a region of the input array
+        from which to read values. This region must be contained within
+        arrin's bounds. If arrout is supplied, its bounds must contain
+        region; if it is <false>, then region specifies the bounds of
+        the array that is created.
+
+        If sampx and sampy are supplied, they must be integers. They
+        specify the amount to shift the mask in the input array between
+        evaluations of adjacent points in the output array. They are in
+        effect magnification factors between the output and input. The
+        formula becomes
+
+           ARROUT(X,Y) = SUM ARRIN(X*sampx-x, Y*sampy-y) * MASK (x,y)
+                         x,y
+
+        This is equivalent to carrying out the normal convolution, and
+        then sampling the output every sampx'th column and every
+        sampy'th row (but much faster). The input and output regions
+        are adjusted appropriately. The (0,0) point of the mask is
+        always centred on an input array pixel whose x, y coordinates
+        are zero mod sampx and sampy respectively.
+
+        If sampx and sampy are omitted, this is equivalent to setting
+        them to 1.
+
+        If a single sample argument is given, this is equivalent to
+        setting both sampx and sampy to the value given.
+
+
+convolve_2d_sizeout(arrin, mask) -> bounds
+convolve_2d_sizeout(arrin, sample, mask) -> bounds
+convolve_2d_sizeout(arrin, sampx, sampy, mask) -> bounds
+        Computes the size of the output region, without actually doing
+        the convolution. Arguments are as for convolve_2d except that
+        the last two are missing, and arrin and mask can be boundslists
+        rather than actual arrays.
+
+        The result is the size of the output array needed, expressed as
+        a boundslist.
+
+
+convolve_2d_sizein(arrin, mask, out_region) -> bounds
+convolve_2d_sizein(arrin, sample, mask, out_region) -> bounds
+convolve_2d_sizein(arrin, sampx, sampy, mask, out_region) -> bounds
+        Computes the size of the input region needed to fill a given
+        output region. Arguments are as for convolve_2d, except that:
+        arrin can be an array or list, but in either case its contents
+        are ignored; mask and out_region can be boundslists or arrays.
+
+        The result is the size of the input region from which data will
+        be taken to fill out_region, expressed as a boundslist.
+
+
+--- $popvision/help/convolve_2d
+--- Copyright University of Sussex 2001. All rights reserved.

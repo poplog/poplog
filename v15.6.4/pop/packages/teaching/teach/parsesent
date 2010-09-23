@@ -1,0 +1,376 @@
+TEACH PARSESENT                                    Steve Hardy, November 1982
+
+This handout is the third of a series starting with ISASENT. Related handouts
+are TEACH PARSE and TEACH PARSING.
+
+In ISASENT a method for writing 'recognizers' based on MATCHES was
+introduced. In this handout, that method is generalized to produce parse
+trees.
+
+-- A PARSE TREE --------------------------------------------------------
+
+POP11 lists are used to build parse trees. Consider the following parse tree:
+
+
+                       S
+                      /|\
+                     / | \
+                    /  |  \
+                   /   |   \
+                  /    |    \
+                 /     |     \
+                /      |      \
+               /       |       \
+              NP     TVERB      NP
+             / \       |       / \
+            /   \      |      /   \
+          DET   NOUN   |    DET   NOUN
+           |     |     |     |     |
+          THE   CAT  DRINKS THE   MILK
+
+We can describe a tree as being either:
+
+    (a) A leaf node, which is just a word
+    (b) A full node, in which case there is:
+            (i) the 'type' of the node (eg NP)
+            (ii) some number of subtrees
+
+We can easily represent both these types of tree with lists:
+
+    (a) A leaf node will be represented by a word
+    (b) A full node will be represented by a list whose
+            (i) first element is the type of the node
+            (ii) subsequent elements are the subtrees
+
+The above tree comes out as the following list:
+
+    [s [np [det the]
+           [noun cat]]
+       [tverb drinks]
+       [np [det the]
+           [noun milk]]]
+
+For clarity, I have spread the list over several lines. Since all the
+structure is represented by the square brackets, this is strictly
+unnecessary. The following is the same list but squashed up onto one line:
+
+    [s [np [det the] [noun cat]] [tverb drinks] [np [det the] [noun milk]]]
+
+-- THE BASIC APPROACH --------------------------------------------------
+
+To write a parser, we shall write a collection of parsing procedures which
+take as parameter some list of words representing some known category and
+return a 'parse tree' (represented as a list) for the words. For example,
+PARSESENT and PARSENP will work such that the following are the case:
+
+    parsenp([the cat]) =>
+    ** [np [det the] [noun cat]]
+    parsenp([the milk]) =>
+    ** [np [det the] [noun milk]]
+    parsesent([the cat drank the milk]) =>
+    ** [s [np [det the]
+              [noun cat]]
+          [tverb drinks]
+          [np [det the]
+              [noun milk]]]
+
+-- HOW TO WRITE PARSESENT ----------------------------------------------
+
+You will recall that the final definition of ISASENT was something like:
+
+    define isasent(list) -> result;
+        vars x, y, z;
+        if list matches [??x:isanp ?y:isaiverb] then
+            true -> result
+        elseif list matches [??x:isanp ?y:isatverb ??z:isanp] then
+            true -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+The PARSing procedure is very similar:
+
+    define parsesent(list) -> result;
+        vars x, y, z;
+        if list matches [??x:isanp ?y:isaiverb] then
+            parsenp(x) -> x;
+            parseiverb(y) -> y;
+            [s ^x ^y] -> result
+        elseif list matches [??x:isanp ?y:isatverb ??z:isanp] then
+            parsenp(x) -> x;
+            parsetverb(y) -> y;
+            parsenp(z) -> z;
+            [s ^x ^y ^z] -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+For every call of MATCHES in the ISA procedure there is also a call of
+MATCHES in the PARSe procedure. Whereas the ISA procedure then just assigns
+TRUE to the RESULT the PARSE procedure gets subsidiary PARSE procedures to
+build the subsidiary parse trees and finally collects them together to form
+the result. Consider the following fragment of PARSESENT:
+
+        elseif list matches [??x:isanp ?y:isatverb ??z:isanp] then
+            parsenp(x) -> x;
+            parsetverb(y) -> y;
+            parsenp(z) -> z;
+            [s ^x ^y ^z] -> result
+
+Let us suppose that the input LIST is
+
+        [the cat drinks the milk]
+
+The call of MATCHES would assign portions of this list to X, Y and Z, such
+that if we could print out X, Y and Z we would see:
+
+    x =>
+    ** [the cat]
+    y =>
+    ** drinks
+    z =>
+    ** [the milk]
+
+The line:
+
+    parsenp(x) -> x;
+
+takes builds an NP parse tree for this list. Since the value of X is [THE
+CAT] the result of PARSENP will be [NP [DET THE] [NOUN CAT]]. Norice that the
+value of X has been changed by this line. The next two lines:
+
+    parsetverb(y) -> y;
+    parsenp(z) -> z;
+
+peform similar services for Y and Z which become [TVERB DRINKS] and [NP [DET
+THE] [NOUN MILK]] respectively. Thus the line:
+
+    [s ^x ^y ^z] -> result
+
+builds the list:
+
+    [s [np [det the] [noun cat]] [tverb drinks] [np [det the] [noun milk]]]
+
+which gets assigned to RESULT.
+
+Notice that in the line assigning to RESULT only single up-arrows are used.
+
+-- A SECOND EXAMPLE: PARSENP -------------------------------------------
+
+Let us suppose that the definition of ISANP was:
+
+    define isanp(list) -> result;
+        vars x, y;
+        if list matches [?x:isaname] then
+            true -> result
+        elseif list matches [?x:isadet ?y:isanoun] then
+            true -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+This would translate to:
+
+    define parsenp(list) -> result;
+        vars x, y;
+        if list matches [?x:isaname] then
+            parsename(x) -> x;
+            [np ^x] -> result
+        elseif list matches [?x:isadet ?y:isanoun] then
+            parsedet(x) -> x;
+            parsenoun(y) -> y;
+            [np ^x ^y] -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+-- TRANSLATING THE LEXICAL ISA-PROCEDURES ------------------------------
+
+Having dealt with how to translate the 'syntax' procedures we now turn to
+translating the lexical procedures. A typical lexical ISA-procedure is:
+
+    define isadet(word) -> result;
+        if member(word, [the a every some]) then
+            true -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+This would translate as follows:
+
+    define parsedet(word) -> result;
+        if member(word, [the a every some])then
+            [det ^word] -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+-- EXERCISE 1 ----------------------------------------------------------
+
+Add PARSEADJ, PARSENOUN and PARSEQNOUN and add them to your PARSE.P file
+already created for TEACH ISASENT. Do NOT write every PARSE procedure at this
+stage. Your procedures should work thus:
+
+    parsenoun("man") =>
+    ** [noun man]
+    parseqnoun([man]) =>
+    ** [qnoun [noun man]]
+    parseadj("fat") =>
+    ** [adj big]
+    parseqnoun([fat man]) =>
+    ** [qnoun [adj fat] [qnoun [noun man]]]
+    parseqnoun([big fat man]) =>
+    ** [qnoun [adj big] [qnoun [adj fat] [qnoun [noun man]]]]
+
+-- TOO MUCH WORK IS BEING DONE -----------------------------------------
+
+It should, by now be fairly clear how to go about writing as complete parser.
+The method as outlined so far, however has two grave faults. Firstly the
+computer is having to do a lot of uneccessary work and secondly we are having
+to a lot of unneccesary work. Let us consider the definition of PARSESENT to
+see why this is so. ISANP is based on the following patterns:
+
+        [?x:isaname]
+        [?x:isadet ??y:isaqnoun]
+        [??x:isanp ?y:isaprep ??z:isanp]
+        [??x:isanp that ??y:isarel]
+
+These patterns will have been put into an ISANP procedure, thus:
+
+    define isanp(list) -> result;
+        vars x, y, z;
+        if list matches [?x:isaname] then
+            true -> result
+        elseif list matches [?x:isadet ??y:isaqnoun] then
+            true -> result
+        elseif list matches [??x:isanp ?y:isaprep ??z:isanp] then
+            true -> result
+        elseif list matches [??x:isanp that ??y:isarel] then
+            true -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+The corresponding PARSE procedure is:
+
+    define parsenp(list) -> result;
+        vars x, y, z;
+        if list matches [?x:isaname] then
+            parsename(x) -> x;
+            [np ^x] -> result
+        elseif list matches [?x:isadet ??y:isaqnoun] then
+            parsedet(x) -> x;
+            parseqnoun(y) -> y;
+            [np ^x ^y] -> result
+        elseif list matches [??x:isanp ?y:isaprep ??z:isanp] then
+            parsenp(x) -> x;
+            parseprep(y) -> y;
+            parsenp(z) -> z;
+            [np ^x ^y ^z] -> result
+        elseif list matches [??x:isanp that ??y:isarel] then
+            parsenp(x) -> x;
+            parserel(y) -> y;
+            [np ^x that ^y] -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+The first point about this is that we are having to do a lot of what looks
+like unnecessary typing. Why should we have to write TWO procedures - an ISA
+procedure and a PARSE procedure - which are very similar? Every time we want
+to add a new rule to our grammar for an NP we have to modify BOTH procedures.
+This is a tiresome and errorprone process. We would prefer a way of writing
+the PARSE procedures so that we didn't also have to write the ISA procedures.
+
+The second problem is that the computer has to do a lot of unnecessary work.
+Suppose we invoke ISASENT with [THE CAT DRINKS THE MILK].
+ISASENT will invoke MATCHES in a call equivalent to:
+
+    [the cat drinks the milk] matches [??x:isanp ?y:isatverb ??z:isanp]
+
+MATCHES will call ISANP to find the first NP, [THE CAT] and then ISASENT will
+call PARSENP on that list. But PARSENP will then proceed to duplicate all the
+calls of MATCHES that have already been done in ISASENT. This is VERY
+wasteful. It make the parser 'doubly recursive' in that it does everything
+twice. Innocently, you might think that this would only make PARSE
+twice as slow as ISA. Alas, this is not the case. ISASENT calls ISANP and
+PARSENP so it does twice as much work. But PARSENP calls ISAQNOUN and then
+PARSEQNOUN - so it does twice as much work as necessary too, so in total we
+are getting twice twice as much work as necessary - ie four times as much
+work. If QNOUN does twice as much work too then we eight times as much work
+done overall. As you can see, a PARSEr written this way will dop much to much
+work and if the sentence gets very long may become very very slow.
+
+The solution is to use yet another little known feature of MATCHES (sorry to
+keep introducing new features...). This feature will allow us to do away with
+the ISA procedures altogether and simply have the PARSE procedures.
+Moreoever, the PARSE procedures will be much shorter than those already
+described. This has to be good - less than half as much program to write and
+it works quicker too!
+
+-- THE IMPROVED APPROACH -----------------------------------------------
+
+Notice that the PARSE procedures as written above produce either a parse
+tree or FALSE if unable to do so. This means that they can be used in place
+of the ISA procedures. MATCHES will accept not merely TRUE or FALSE from
+a restriction procedure; it will accept ANYTHING or FALSE. As far as MATCHES
+is concerned anything that is not FALSE is as good as TRUE. (This is generally
+true in POP-11. For example IF ... THEN looks for FALSE specifically and
+accepts anything else as being as good as TRUE.)
+
+However, if a restriction procedure returns something other than TRUE then
+INSTEAD OF ASSIGNING THE SUBLIST TO THE QUERY VARIABLE THEN MATCHES ASSIGNS
+THE RESULT OF THE RESTRICTION PROCEDURE! Let's see what this means for
+PARSESENT:
+
+    define parsesent(list) -> result;
+        vars x, y, z;
+        if list matches [??x:parsenp ?y:parseiverb] then
+            [s ^x ^y] -> result
+        elseif list matches [??x:parsenp ?y:parsetverb ??z:parsenp] then
+            [s ^x ^y ^z] -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+Notice that PARSESENT uses PARSENP etc directly in the patterns. There is no
+need for PARSESENT to call PARSENP again as its result will already be
+assigned to X (or whatever). Let us also look at PARSENP:
+
+    define parsenp(list) -> result;
+        vars x, y, z;
+        if list matches [?x:parsename] then
+            [np ^x] -> result
+        elseif list matches [?x:parsedet ??y:parseqnoun] then
+            [np ^x ^y] -> result
+        elseif list matches [??x:parsenp ?y:parseprep ??z:parsenp] then
+            [np ^x ^y ^z] -> result
+        elseif list matches [??x:parsenp that ??y:parserel] then
+            [np ^x that ^y] -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+-- EXERCISE 2 ----------------------------------------------------------
+
+Complete the parser using the above method.
+
+-- FURTHER WORK --------------------------------------------------------
+
+The file TEACH TRANSSENT outlines a procedure called TRANSNP for translating
+noun phrases into something close to parameters for ALLPRESENT.
+
+The file TEACH SIR outlines a framework in which the output of TRANSNP might
+be used.
+
+(NB - these two files are in the process of being written)

@@ -1,0 +1,86 @@
+TEACH CONVOLVE                               Allan Ramsay, November 1983
+
+CONVOLVE provides a  demonstration of  some of the  techniques used  for
+processing grey-level  pictures.  It contains  routines  for  displaying
+grey-level pictures,  running masks  over them  to find  edges or  bars,
+removing extra edges where a gradual intensity change leads a given mask
+to respond more than once, and thresholding the set of responses so that
+only significant ones are retained. It is also possible to run an  image
+right through  all these  processes, with  the intermediate  "convolved"
+picture being displayed at every stage.
+
+The following procedures are provided:
+
+NORMALISE(PICTURE); takes a turtle picture which has arbitrary  integers
+as the values of its pixels, and returns a similar picture where all the
+values are between 0 and 9.
+
+GREY_DISPLAY(PICTURE); takes a normalised picture, replaces each integer
+value by a  character whose brightness  (on the screen)  is supposed  to
+correspond to  the  value of  the  integer,  and displays  this  on  the
+terminal. Thus a pixel with  value 0 is displayed  as a space, one  with
+value 1 is displayed as a "." ...  and one with value 9 is displayed  as
+"#". This is clearly not ideal, but it is surprisingly effective.
+
+CONVOLVE(PICTURE, MASK); runs  the mask over  the (grey-level)  picture,
+and produces a new picture with the  response of the mask at each  pixel
+used as the new value at that point. The mask should be a list of  lists
+of values, with each list of  values corresponding to the weights to  be
+used on the points in a given column (i.e. the list [[1 0 -1]] describes
+a vertical  mask, where  the value  for the  pixel above  the one  we're
+considering is to be multiplied by 1,  the value of the pixel itself  by
+0, and  the  value of  the  one below  by  -1, whereas  [[1]  [0]  [-1]]
+describes a horizontal mask with the value  of pixel to the left of  the
+current one being multiplied by 1 and the value of the one on the  right
+being multiplied by -1).
+
+FINDPEAKS(PICTURE,MASK); produces a new  picture with the local  maximum
+values of the given picture marked, and the others zeroed out. The  mask
+is used to define  "local" - FINDPEAKS scans  the region covered by  the
+mask to see if it contains a  value greater than the one at the  current
+pixel, and only copies  the current value across  if it it doesn't  find
+one.
+
+THRESHOLD(PICTURE,VALUE); produces a new  picture with spaces where  the
+old one had  integer values  less than VALUE,  *'s where  it had  values
+greater than or equal to it. This  is to help you see what lines,  bars,
+etc. you have found by the previous processes.
+
+PROCESSPICTURE(PICTURE,MASK,PEAKMASK); runs  CONVOLVE over  the  picture
+with the given  mask, runs FINDPEAKS  over the result  of this with  the
+given peak mask, and finally runs THRESHOLD over the result of this with
+value 2.
+
+EXAMPLE(PICTURE); runs  all  three  procedures over  the  given  picture
+twice, once  with a  basic mask  and a  peak mask  for finding  vertical
+edges, once with a pair of  masks for find horizontal ones, and  finally
+produces a picture with all the edges found by either filled in.
+
+All  these  procedures  provide  displays  of  their  input  and  output
+pictures, so long as the variable CHATTY is set to TRUE. Its default  it
+FALSE, but inside EXAMPLE it is set to TRUE.
+
+There are examples of grey level pictures stored in the following files:
+
+    LIB GREYPIC
+    LIB PERSONPIC
+
+When you  load one  of these  files,  the picture  it contains  will  be
+assigned to the  global variable PICTURE.  So if you  want to have  more
+than one of them loaded at once, it is advisable to type e.g.
+
+    lib greypic; picture -> greypicture; ;;;(DON'T store it in greypic, since
+                                         ;;; this already has a value !!!)
+    lib personpic; picture -> personpic;
+
+You can then have any of these pictures analysed by e.g.
+
+    example(personpic);
+
+and you can store the resulting  picture containing the edges found  for
+this picture by
+
+    picture -> personedges;
+
+--- C.all/teach/convolve -----------------------------------------------
+--- Copyright University of Sussex 1988. All rights reserved. ----------

@@ -1,0 +1,110 @@
+HELP RC_SWAP_CONTEXT                            David Young
+                                                November 1992
+
+LIB *RC_SWAP_CONTEXT extends the facilities provided by LIB RC_CONTEXT
+(see *RC_GRAPHIC/RC_CONTEXT), but providing a simple mechanism to switch
+between contexts.
+
+When there's a good OOP graphics package this can all happily be
+forgotten.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- rc_swap_context and rc_swap
+ -- Example
+ -- Warnings
+
+-- rc_swap_context and rc_swap ----------------------------------------
+
+After loading the library, the procedure -rc_swap_context- is provided.
+The base procedure saves the current context and sets the context to one
+associated with a given unique identifier. Its updater saves the context
+associated with the identifier and restores the previous context. See
+LIB *RC_SWAP_CONTEXT for details; the easiest way to use the procedure
+is via the macro -rc_swap-.
+
+    rc_swap ID
+
+This macro expands to a *DLOCAL expression which calls
+-rc_swap_context-. ID must be single item, whose compile-time value is
+used as the unique item to identify the context for the current
+procedure. The procedure will run with the graphics context set to that
+associated with this identifier; the previous context will be restored
+at the end.
+
+ From outside the procedure, the effect is as if all the RC_CONTEXT
+variables were dlocal to the procedure. Inside the procedures that use a
+particular identifier, however, the values of the variables are
+preserved between calls as if they were global to the procedure.
+
+-- Example ------------------------------------------------------------
+
+This example sets up two graphics contexts. Context A is used by
+-start_A- and -print_A-; context B is used by -start_A- and -print_B-.
+
+    uses rc_graphic
+    uses rc_swap_context
+
+    vars id_A = "A";
+
+    define start_A;
+        rc_swap id_A              ;;; First context
+        10 -> rc_window_x;
+        rc_start();
+        90 -> rc_heading;
+    enddefine;
+
+    define print_A;
+        rc_swap id_A;
+        rc_jump(20);
+        rc_print_here('A');
+    enddefine;
+
+    vars id_B = "B";
+
+    define start_B;
+        rc_swap id_B              ;;; First context
+        rc_start();
+        -45 -> rc_heading;
+    enddefine;
+
+    define print_B;
+        rc_swap id_B;
+        rc_jump(20);
+        rc_print_here('B');
+    enddefine;
+
+After loading the procedures above, try a sequence like the following.
+
+    rc_heading =>
+    start_A();
+    start_B();
+    print_A();
+    print_B();
+    print_A();
+    print_A();
+    print_B();
+    print_B();
+    rc_heading =>
+
+The two print routines operate indpendently on the two windows. The
+heading and positions for the two windows are preserved between calls.
+
+Note that -rc_heading- in the top-level context is not affected by the
+assignments to it in -start_A- and -start_B-, so a "top-level" window
+could be in use as well as the two that are displayed and used here.
+
+-- Warnings -----------------------------------------------------------
+
+The restrictions for RC_CONTEXT apply: you have to set up the list of
+context variables before the library is loaded if you want to change the
+default.
+
+You cannot use -rc_swap- or -rc_swap_context- recursively, unless you
+change the identifier on each call.
+
+The context is not swapped if the current process is suspended
+(deliberately).
+
+--- $poplocal/local/help/rc_swap_context
+--- Copyright University of Sussex 1992. All rights reserved. ----------

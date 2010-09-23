@@ -1,0 +1,69 @@
+HELP ARRAYSLICE                             David Young, August 1998
+
+
+LIB * ARRAYSLICE provides procedures for accessing and updating an N-1
+dimensional "slice" of an N dimensional array.
+
+arrayslice(arrin, dim, i, arrout, regionout) -> arrout
+        The first argument arrin is an array, of say N dimensions. A
+        "slice" of this array is defined by those elements whose dim'th
+        index is i. For example, for a 2-D image array whose first index
+        refers to the column and whose second index refers to the row,
+        dim = 1 means extract the i'th column, and dim = 2 means extract
+        the i'th row. For a 3-D input array, a slice is a 2-D plane, and
+        so on. dim and i must be integers.
+
+        The result will have one fewer dimension than the input, and the
+        condition satisfied on exit is thus
+
+            arrin(<dim-1 indices>, i, <N-dim indices>)
+            = arrout(<same dim-1 indices>, <same N-dim indices>)
+
+        for all sets of indices that refer to points in the input and
+        output regions as defined below.
+
+        On entry, arrout may be an array which is to receive the data.
+        In this case, the same array is returned as the result after
+        some or all of its elements have been updated. Alternatively
+        arrout may be <false> on entry, in which case a new array is
+        created and returned.
+
+        The region from which data are taken is defined as follows. If
+        arrout and regionout are both <false>, then the whole of the
+        slice of the input array is copied. For example, if the input
+        array has boundslist [1 10 2 20 3 30] and dim = 2, then the
+        newly created output array will have boundslist [1 10 3 30].
+
+        if regionout is not <false> it must be a list of *boundslist
+        type which specifies the region of the output array in which to
+        store data. If a new array is created, then regionout will
+        become its boundslist; otherwise parts of arrout outside
+        regionout will not be changed. In either case, regionout also
+        specifies the part of the input slice from which data are to be
+        taken. For example, if regionout is [2 5 3 13], dim = 2 and i =
+        10, then data will be taken from the region of the 3-D input
+        array given by [2 5 10 10 3 13]. This region must be contained
+        within arrin's array bounds.
+
+        If arrin is an array and regionout is <false>, then the output
+        region is taken to be the whole of arrin, whose boundslist must
+        therefore not go outside the input slice bounds.
+
+(arrin, regionin) -> arrayslice(arrout, dim, i)
+        In the updating form, arrin has N-1 dimensions and arrout has N
+        dimensions. Data from arrin are copied into the slice of arrout
+        defined by dim and i as described above. The relationship
+        between elements of arrin and arrout when the procedure returns
+        is
+
+            arrout(<dim-1 indices>, i, <N-dim indices>)
+            = arrin(<same dim-1 indices>, <same N-dim indices>)
+
+        If regionin is <false>, then the whole of arrin is copied to
+        the slice, which must be large enough to contain it. Otherwise,
+        regionin must be a *boundslist type list specifying the part of
+        arrin from which data are taken.
+
+
+--- $popvision/help/arrayslice
+--- Copyright University of Sussex 1998. All rights reserved.

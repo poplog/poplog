@@ -1,0 +1,190 @@
+HELP ARRAY_HIST                             David Young, January 1994
+
+
+LIB *array_hist provides a procedure for obtaining a histogram of the
+values in a region of an array.  All the values must be numbers.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Procedure array_hist
+ -- Counting integer values
+ -- Counting floating point values
+ -- External optimisation
+ -- Re-using histogram vectors
+ -- Offsetting results in the vector
+
+-- Procedure array_hist -----------------------------------------------
+
+array_hist(array, region, low, nbins, high) -> (nlow, hist, nhigh)
+
+        The histogram is formed for values in the part of array
+        specified by region.  The list region is in *boundslist style
+        (i.e. first two elements give range of indices in first
+        dimension, next two give range in second dimension, etc.). If
+        region is false, the whole of the array is examined.
+
+        The numbers low and high give the overall range of values to
+        count in the histogram. (The procedure *array_mxmn may be useful
+        for obtaining these in the general case.) The range between low
+        and high is divided into nbins equal parts.
+
+        The bin width (the range of values that get counted in one bin)
+        is given by
+
+            binwidth = (high - low) / nbins
+
+        The result hist is a vector containing counts of the values in
+        each bin. The results nlow and nhigh return the counts of values
+        that fell outside the range covered by hist.
+
+        To be precise, low is the smallest value to get counted in the
+        first bin and high is the smallest value just too large to get
+        counted in the last bin. (This means that the treatment of
+        integers and floats can be consistent.) A value V from the array
+        is treated as follows:
+
+            V < low:        increment nlow
+            V >= high:      increment nhigh
+            otherwise:      increment hist(I) where
+
+                 I = floor( (V - low) * nbins / (high - low) ) + 1
+
+        Apart from rounding errors, this means that in the last case I
+        is chosen such that
+
+                low + binwidth * (I - 1) <= V < low + binwidth * I
+
+        (The floor function returns the largest integer less than or
+        equal to its argument.)
+
+        It is possible to re-use vectors and to place the counts in the
+        vector starting from some element other than the first. These
+        options are described below.
+
+-- Counting integer values --------------------------------------------
+
+Suppose the values in array are integers in the range 0 ... 255, and we
+want to know how many of each there are.  The correct call is
+
+    array_hist(array, false, 0, 256, 256) -> (nlow, hist, nhigh);
+
+The nbins argument is 256 because there are 256 different values to
+count. Note that high is 256, not 255, because it must be the next value
+above the top of the histogram range. To make the bin width equal to 1,
+we need
+
+    high = low + nbins
+
+The element hist(I) will contain the number of values in the array equal
+to I-1.  The -1 is necessary because the values start at 0, but vectors
+are indexed from 1.
+
+In general, for integer values to be counted properly, with K different
+values counted in each bin, we need
+
+    high = low + K * nbins
+
+and the I'th element of hist will contain the count for values in the
+range low + K * (I-1) to low + (K+1) * (I-1) - 1.
+
+To sum up, to count integers in the range N0 to N1 inclusive you should
+use:
+
+    low = N0
+    high = N1 + 1
+
+and the number of different values counted in each bin will be
+
+    K = (high - low) / nbins
+
+with nbins chosen to make K an integer.
+
+For example, we can look at the performance of the POP-11 random number
+generator by filling an array with random numbers in the range 1 to 16
+and looking at its histogram.
+
+    vars arr, nlo, hist, nhi;
+    newarray([1 1000], erase <> random(% 16 %)) -> arr;
+    array_hist(arr, false, 1, 16, 17) -> (nlo, hist, nhi);
+
+    nlo =>
+    ** 0
+    hist =>
+    ** {59 62 67 75 60 59 66 61 56 67 47 64 60 70 58 69}
+    nhi =>
+    ** 0
+
+As expected, no values are less then 1 or greater than or equal to 17,
+and the 1000 values are reasonably evenly distributed. (You will not get
+an identical distribution if you try this.)
+
+-- Counting floating point values -------------------------------------
+
+Counting floating point values ("decimals" in POP-11) is usually
+simpler, as low and high then normally correspond exactly to the range
+of interest.  For example, to test the performance of the random number
+generator on floats, we can fill an array with numbers from 0.0 to 1.0
+and look at its histogram in much the same way as before:
+
+    newarray([1 1000], erase <> random0(% 1.0 %)) -> arr;
+    array_hist(arr, false, 0.0, 16, 1.0) -> (nlo, hist, nhi);
+
+The results will be similar to the previous example. The bin width in
+this case is 0.0625 - sixteen of these cover the range from 0.0 to 1.0.
+
+Rounding errors mean that values on, or very close to, bin boundaries
+may get counted in the wrong bin.  This risk is inevitable with floating
+point calculations.  If the values fall into natural groups, the problem
+can be eliminated by putting the bin boundaries firmly into the gaps.
+For example, if the values are whole numbers (although represented as
+floats) in the range A0 to A1 inclusive, and the bin width is to be 1,
+then it would be sensible to use
+
+    low = A0 - 0.5
+    high = A1 + 0.5
+    nbins = round(high - low)
+
+However, this should not be done if the values are actually represented
+as integers - see the section above.
+
+-- External optimisation ----------------------------------------------
+
+Two cases are dealt with using external code, for much increased speed:
+
+    1. array is a packed array of single precision floating point
+    values, as produced for example by *newsfloatarray.
+
+    2. array is a packed array of bytes, as produced for example by
+    *newbytearray, and both low and high are integers.
+
+The result hist will be an *INTVEC.
+
+-- Re-using histogram vectors -----------------------------------------
+
+It is possible to re-use a histogram vector to avoid creating garbage,
+by passing it as an argument as nbins (instead of an integer as above).
+The counts will be stored in it and it will be returned.  The length of
+the vector becomes the number of bins.
+
+If the conditions for an external procedure call are satisfied, then it
+will be most efficient to make the vector an *INTVEC.
+
+-- Offsetting results in the vector -----------------------------------
+
+It may be useful to place the counts in part of the vector, not
+necessarily starting at the first element.  This can be done by passing
+a list as nbins, with three elements:
+
+    startindex: the index of the first bin
+    nbins: the number of bins
+    veclen: the length of the vector
+
+The hist result will then be of length veclen with the counts in the
+elements from startindex to startindex + nbins - 1.
+
+If a vector is to be re-used, it can be given as the third element of
+the list, in place of veclen.
+
+
+--- $popvision/help/array_hist
+--- Copyright University of Sussex 1994. All rights reserved.

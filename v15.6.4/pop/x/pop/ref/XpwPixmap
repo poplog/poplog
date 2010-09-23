@@ -1,0 +1,937 @@
+REF XpwPixmap                  Jonathan Meyer, Andreas Schoter  Aug 1990
+
+        COPYRIGHT University of Sussex 1991. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<           XPWPIXMAP         >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+Xpw is the Poplog Widget Set.  It contains a variety of object  oriented
+user interface components (called widgets) which are controlled  through
+the X Windows Toolkit (Xt). For an outline of Xpw, see HELP * Xpw.
+    This file describes the XpwPixmap  widget, and the Pop-11  interface
+to XpwPixmap. See the section on associated documentation for a list  of
+other documents describing Xpw.
+    Xpw is  currently  written  in  C. See  the  section  C  Programming
+Information for more details on using the XpwPixmap widget in C.
+    This file assumes a basic understanding of the Xt toolkit.  Concepts
+such as resources, actions, translations, etc. are all introduced in the
+X Toolkit Intrinsics - C Language Interface manual.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   XpwPixmap Widget
+      1.1   Synopsis
+
+  3   Methods
+      3.1   Datatypes
+      3.2   XpwCore methods
+      3.3   XpwPixmap methods
+
+  4   Utility Procedures
+      4.1   Lines and Arcs
+      4.2   Filled Objects
+      4.3   Writing Text
+      4.4   Image Manipulation
+      4.5   General Operations
+
+  5   Resources
+      5.1   Core and XpwCore Resources
+      5.2   XpwPixmap Resources
+      5.3   Resource Converters
+
+  6   Actions and Translations
+
+  7   C Programming Information
+
+  8   Related Documentation
+
+
+
+-------------------
+1  XpwPixmap Widget
+-------------------
+
+    Superclass:   XpwCore
+
+Most widgets have a window associated with them. However, the  XpwPixmap
+widget is not in this sense a widget, as it does not have an  associated
+window. Instead it is a way  of creating X Pixmaps using the  facilities
+(eg. resources)  of the  X Toolkit.  Pixmaps are  the same  as  windows,
+except that they are  never visible to the  user. Pixmaps are  therefore
+used to contain copies  of windows, or  to perform cut/paste  operations
+between windows.
+
+The XpwPixmap  widget is  intended  as the  base  for widgets  that  are
+graphical in nature, and its functionality  is an important part of  the
+XpwGraphic Widget. It contains resources such as lineWidth and  function
+that are used  to set and  retrieve values from  the 'usersGC'  graphics
+context.
+
+X pixmaps  are  created at  widget  initialization time.  Because  class
+widget Initialize procedures  are super-to-subclass chained,  subclasses
+of XpwPixmap widgets will have pixmaps created for them automatically.
+
+The XpwPixmap widget has a resource which is used to control the  pixmap
+(called XtNpixmapStatus). This allows subclasses and applications to use
+the methods and resources  of XpwPixmap widgets  without also using  the
+pixmap.
+
+The XpwPixmap realize procedure assigns the pixmap created at initialize
+time to the window slot of the widget structure.
+
+Resizing a  XpwPixmap  widget  causes  the  creation  of  a  new  pixmap
+(XCreatePixmap) of the specified size. The old pixmaps contents is  then
+copied to the  new pixmap (XCopyArea),  and the old  pixmap is  released
+(XFreePixmap).  This  is   expensive,  but   Xlib  does   not  have   an
+XResizePixmap request.
+
+Destroying a XpwPixmap  widget causes  its pixmap  and graphics  context
+resources to be freed.
+
+
+1.1  Synopsis
+-------------
+In C:
+
+        #include <Intrinsic.h>
+        #include <StringDefs.h>
+        #include <X11/Xpw/XpwPixmap.h>
+        widget = XtCreateWidget(name, xpwPixmapWidgetClass, ...);
+
+In Pop-11:
+
+
+xpwPixmapWidget -> widgetclass                                [constant]
+        A member of the Poplog Widget Set.
+
+        To  make  available   both  the  Xpw   library  directory,   and
+        xpwCoreWidget from it, requires either
+
+            uses Xpw, XpwPixmap;
+
+        or
+
+            uses Xpw, xpwPixmapWidget;
+
+        The first loads all the method  procedures in this file as  well
+        as the widget itself, whereas  the second just loads the  widget
+        and * XpwCallMethod.
+
+        Then call either of
+
+            XtCreateWidget(name, xpwPixmapWidget, ...) -> w;
+            fast_XtCreateWidget(name, xpwPixmapWidget, ...) -> w;
+
+        to create an instance of the XpwPixmap widget.
+
+
+
+
+----------
+3  Methods
+----------
+
+For more information about Poplog Widget Methods, see REF * XpwMethods.
+
+XpwPixmap widgets have methods for performing most of the Xlib  graphics
+operations. They also inherit all of  the methods of the XpwCore  widget
+(See  REF * XpwCore).  The  following   tables  summarise  the   methods
+available for XpwPixmap widgets.
+
+
+3.1  Datatypes
+--------------
+The following data types are  used in descriptions of XpwPixmap  methods
+and are not described elsewhere in the documentation:
+
+
+DRAWMODE                                                      [datatype]
+        INT, Either CoordModeOrigin or CoordModePrevious
+
+
+IMAGE_FORMAT                                                  [datatype]
+        either XYPixmap or ZPixmap
+
+
+PLANE_MASK                                                    [datatype]
+        an INT, specifies which planes to use in graphic procedures such
+        as XpwGetImage. Each bit of the plane_mask refers to a plane  of
+        the window or image.
+
+
+SHAPE                                                         [datatype]
+        INT, one of Convex, NonConvex or Complex.
+
+
+VECPTR                                                        [datatype]
+        a vector, or the arrayvector of a array.
+
+
+XIMAGE                                                        [datatype]
+        an XID referring to an image,  ie. data held on the client  side
+        of an  application  which  can  be drawn  on  the  screen  using
+        XPutImage.
+
+
+
+3.2  XpwCore methods
+--------------------
+
+ Method Name              Arguments           Notes
+ -----------              ---------           -----
+ XpwMSetColor             string              Either name or #rgb format
+ XpwMFreeColor            string
+ XpwMSetFont              string              Font name
+ XpwMFreeFont             string
+ XpwMSetCursor            shape               Shape in cursorfont.h
+ XpwMFreeCursor           shape
+ XpwMSetBackgroundPixmap  string              Bitmap's filename
+
+
+
+3.3  XpwPixmap methods
+----------------------
+
+ Method Name               Xlib Procedure      Arguments
+ -----------               --------------      ---------
+ XpwMClearArea             XClearArea          x,y,w,h
+ XpwMClearWindow           -                   none
+ XpwMCopyFrom              -                   src_widget,x,y,w,h,ex,ey
+ XpwMCopyTo                -                   dst_widget,x,y,w,h,ex,ey
+ XpwMDrawArc               XDrawArc            x,y,width,height,a1,a2
+ XpwMDrawArcs              XDrawArcs           arcs,narcs
+ XpwMDrawImage                -                w,h,x,y,data,depth
+ XpwMDrawImageString       XDrawImageString    x,y,str,len
+ XpwMDrawLine              XDrawLine           x,y,w,h
+ XpwMDrawLines             XDrawLines          pts,npts
+ XpwMDrawPoint             XDrawPoint          x,y
+ XpwMDrawPoints            XDrawPoints         pts,npts
+ XpwMDrawRectangle         XDrawRectangle      x,y,w,h
+ XpwMDrawRectangles        XDrawRectangles     recs,nrecs
+ XpwMDrawSegments          XDrawSegments       segs,nsegs
+ XpwMDrawString            XDrawString         x,y,str,len
+ XpwMFillArc               XFillArc            x,y,w,h,a1,a2
+ XpwMFillArcs              XFillArcs           arcs,narcs
+ XpwMFillPolygon           XFillPolygon        pts,npts,shape,mode
+ XpwMFillRectangle         XFillRectangle      x,y,w,h
+ XpwMFillRectangles        XFillRectangles     recs,nrecs
+ XpwMGetImage              XGetImage           x,y,w,h,msk,format
+ XpwMPutImage              XPutImage           image,sx,sy,ex,ey,w,h
+ XpwMDrawRoundedRectangle  -                   x,y,w,h,ew,eh
+ XpwMFillRoundedRectangle  -                   x,y,w,h,ew,eh
+
+
+
+
+---------------------
+4  Utility Procedures
+---------------------
+
+4.1  Lines and Arcs
+-------------------
+
+XpwDrawArc(widget, x, y, width, height,                      [procedure]
+                s_angle, i_angle)
+        Calls the XpwMDrawArc method for widget.
+
+        Draws an arc  on a circle  or ellipse bounded  by the  rectangle
+        whose top left corner  is (x, y), with  given width and  height.
+        The arc is defined by the start angle, s_angle, (relative to the
+        centre) and the amount  the angle is  to be increased,  i_angle,
+        where s_angle and  i_angle are measured  from the three  O'clock
+        position, in  64ths  of  a  degree,  counterclockwise  (negative
+        angles are  measured  clockwise). Increments  greater  than  360
+        degrees are truncated  to 360  degrees. See  MAN * XDrawArc  for
+        further details, including measurements of angles in ellipses.
+
+
+XpwDrawArcs(widget, coordlist)                               [procedure]
+        Calls the XpwMDrawArcs method for widget.
+
+        Like XpwDrawArc except  that coordlist  is a list  or vector  of
+        arcs, where each arc is specified by a bounding rectangle  for a
+        circle or ellipse  and two angles  as for XpwDrawArc.  coordlist
+        should have a  multiple of 6  integers. (See MAN * XDrawArc  for
+        details)
+
+
+XpwDrawLine(widget, x_1, y_1, x_2, y_2)                      [procedure]
+        Calls the XpwMDrawLine method for widget.
+
+        Draws a line between the points (x_1, y_1) and (x_2, y_2).
+
+
+XpwDrawLines(widget, coordlist, drawmode)                    [procedure]
+        Calls the XpwMDrawLines method for widget.
+
+        If there are  2*N integers  in the  list or  vector of  integers
+        coordlist, this  draws N-1  connected lines  between  successive
+        points,  using  two  integers  at  a  time  from  coordlist   as
+        coordinates. The lines are drawn in  the order of points in  the
+        vector. The  third argument  specifies the  coordinate mode:  it
+        should be  either CoordModeOrigin  (points are  relative to  the
+        origin)  or  CoordModePrevious  (points  are  relative  to   the
+        previous point). For full details see MAN * XDrawLine.
+
+
+XpwDrawPoint(widget, x, y)                                   [procedure]
+        Calls the XpwMDrawPoint method for widget.
+
+        Draws a single point at location (x,y)
+
+
+XpwDrawPoints(widget, coordlist, drawmode)                   [procedure]
+        Calls the XpwMDrawPoints method for widget.
+
+        Draws the  N points  specified  by the  list  or vector  of  2*N
+        integers coordlist. The coordinates are taken two integers  at a
+        time from coordlist.
+
+        The third argument specifies the  coordinate mode: it should  be
+        either CoordModeOrigin (points  are relative to  the origin)  or
+        CoordModePrevious (points are relative  to the previous  point).
+        For full details see MAN * XDrawPoint.
+
+
+XpwDrawRectangle(widget, x, y, width, height)                [procedure]
+        Calls the XpwMDrawRectangle method for widget.
+
+        Draws a  rectangle top  left corner  x, y,  with horizontal  and
+        vertical sides of the length (width, height).
+
+
+XpwDrawRoundedRectangle(widget, x, y, width, height, ew, eh) [procedure]
+        Calls the XpwMDrawRoundedRectangle method for widget.
+
+        A  convenience  function  that  calls  the  Xlib  XDrawArcs  and
+        XDrawLines procedures  to  draw  a  rounded  rectangle  of  size
+        (width, height)  at x,  y. ew  and eh  specify the  size of  the
+        bounded boxes that the arcs are drawn inside of at the  corner -
+        Specifying an ew of  greater than width/2 and  an eh of  greater
+        than height/2 will draw a circle.
+
+
+XpwDrawRectangles(widget, coordlist)                         [procedure]
+        Calls the XpwMDrawRectangles method for widget.
+
+        Draws a  collection of  N rectangles  specified in  the list  or
+        vector of 4 * N numbers. See MAN * XDrawRectangle.
+
+
+XpwDrawSegments(widget, coordlist)                           [procedure]
+        Calls the XpwMDrawSegments method for widget.
+
+        coordlist is  a list  or vector  containing 4*N  integers.  This
+        draws N disjoint line segments, taking each group of 4  integers
+        to represent a segment  in terms of the  coordinates of its  end
+        points. See MAN * XDrawLine.
+
+
+
+4.2  Filled Objects
+-------------------
+
+XpwFillArc(widget, x, y, width, height, s_angle, i_angle);   [procedure]
+        Calls the XpwMFillArc method for widget.
+
+        Fill an arc. Uses same arguments as XpwDrawArc.
+
+
+XpwFillArcs(widget, coordlist)                               [procedure]
+        Calls the XpwMFillArcs method for widget.
+
+        Fill arcs. Arguments as per XpwDrawArcs.
+
+
+XpwFillPolygon(widget, coordlist, shape, drawmode)           [procedure]
+        Calls the XpwMFillPolygon method for widget.
+
+        Draws the filled polygon described by coordlist. shape should be
+        Convex (edges are all convex), NonConvex (some edges may not  be
+        convex) or  Complex  (paths may  intersect).  If in  doubt,  use
+        Complex. (The  others  are  just to  improve  performance  where
+        possible.) MODE should be  CoordModeOrigin (points are  relative
+        to the origin) or CoordModePrevious (points are relative to  the
+        previous point).
+
+
+XpwFillRectangle(widget, x, y, width, height)                [procedure]
+        Calls the XpwMFillRectangle method for widget.
+
+        Fill a rectangle  with top left  corner at location  x, y,  with
+        given width and height.
+
+
+XpwFillRoundedRectangle(widget, x, y, width, height, ew, eh) [procedure]
+        Calls the XpwMFillRoundedRectangle method for widget.
+
+        A  convenience  function  that  calls  the  Xlib  XFillArcs  and
+        XFillRectangles procedures to draw a filled rounded rectangle of
+        size (width, height) at x, y. ew and eh specify the size of  the
+        bounded boxes that the arcs are drawn inside of at the  corner -
+        Specifying an ew of  greater than width/2 and  an eh of  greater
+        than height/2 will draw a filled circle.
+
+
+XpwFillRectangles(widget, coordlist)                         [procedure]
+        Calls the XpwMFillRectangles method for widget.
+
+        Fills rectangles. Arguments as per XpwDrawRectangles.
+
+
+
+4.3  Writing Text
+-----------------
+
+XpwDrawString(widget, x, y, string)                          [procedure]
+        Calls the XpwMDrawString method for widget.
+
+        Writes the  string  at the  location  (x,y), using  the  current
+        foreground colour to set pixels,  but not clearing unset  pixels
+        (ie. the background will show through the gaps in the text).
+
+
+XpwDrawImageString(widget, x, y, string)                     [procedure]
+        Calls the XpwMDrawImageString method for widget.
+
+        Writes the string at (x,y),  first clearing the rectangle  under
+        the string to the background color. The upper left corner of the
+        rectangle  is  at  location  x,  (y  -  height  of  font).   See
+        MAN * XDrawImageString.
+
+
+
+4.4  Image Manipulation
+-----------------------
+
+XpwCreateImage(widget, width, height, depth, vecptr)         [procedure]
+                -> ximage
+        Calls the XpwMCreateImage method for widget.
+
+        Creates an X  image from the  data in the  vectorclass or  array
+        class object vecptr. If vecptr is not fixed, a fixed copy of  it
+        is  made  first,  so  that  the  ximage  will  survive   garbage
+        collection. If  depth is  false, field_spec_info  for vecptr  is
+        used to calculate the depth of the vector. The screen's  default
+        visual is used to create the image, which will have an  XYBitmap
+        format  if  depth  is  1,   and  a  ZPixmap  format   otherwise.
+        XCreateImage is called with 0 for offset and bytes_per_line, and
+        8 for bitmap_pad.
+
+        The fixed version of vecptr is stored as the XptDataProps of the
+        returned ximage, so that it will not be garbaged.
+
+
+XpwGetImage(widget, x, y, width, height,                     [procedure]
+                planemask, imageformat) -> ximage
+        Calls the XpwMGetImage method for widget.
+
+        Creates an x image from the contents of the widget specified  by
+        the rectangle  (x,y,  width,height). planemask  specifies  which
+        planes should  be  copied.  imageformat is  either  XYPixmap  or
+        ZPixmap. See MAN * XCreateImage.
+
+        If imageformat is false, XYPixmap is used if widget has a  depth
+        of 1, and  ZPixmap is used  if widget has  a depth greater  than
+        one.
+
+        If planemask is false, the plane mask AllPlanes is used.
+
+
+XpwPutImage(widget, ximage, src_x, src_y, dst_x, dst_y,      [procedure]
+                width, height)
+        Calls the XpwMPutImage method for widget.
+
+        Dumps the  region  of  the  ximage  specified  by  (SRX_X,src_y,
+        width,height) onto the widget at  dst_x, dst_y. The subimage  of
+        ximage to be copied starts at  offset src_x from left and  src_y
+        from top of ximage, and has  the specified width and height  (in
+        pixels). See note about format for XpwDrawImage.
+
+
+XpwDrawImage(widget, x_dim, y_dim, x, y, vecptr)             [procedure]
+        Calls the XpwMDrawImage method for widget.
+
+        Creates and XIMAGE from vecptr and then copies it to widget.
+
+        Used to  copy an  array  onto the  window. Since  it  performs a
+        CreateImage and a PutImage in a  single C call, vecptr need  not
+        be a fixed address  structure. x_dim and y_dim  are the x  and y
+        dimensions of the array. x and  y are the coordinates where  the
+        top left corner of the array should appear in the window. vecptr
+        is the arrayvector of the array. Notice that the array should be
+        the correct format for the display: monochrome displays must use
+        one bit deep arrays,  with the XDIM a  multiple of eight.  Color
+        displays can  cope  with any  dimensions,  but notice  that  the
+        colormap will have to be set properly.
+
+        A typical call might be:
+
+            XpwDrawImage(w, 512, 512, 10,10, arrayvector(pic1));
+
+
+XpwFreeImage(ximage)                                         [procedure]
+        Calls XDestroyImage and XFree to free the X image ximage and any
+        data associated with it.
+
+
+XpwImageAddPixelValue(ximage, pixel)                         [procedure]
+        Calls XAddPixel to add the integer value pixel to every pixel in
+        ximage.  Pixel  value   overflow  or   underflow  is   truncated
+        correctly.
+
+
+XpwImagePixelValue(ximage, x, y) -> pixel                    [procedure]
+pixel -> XpwImagePixelValue(ximage, x, y)                    [procedure]
+        Uses XGetPixel and XPutPixel to subscript an x image at  integer
+        coordinates x, y. pixel is an unsigned integer.
+
+
+XpwPixelValue(widget_or_ximage, x, y) -> pixel               [procedure]
+pixel -> XpwPixelValue(widget_or_ximage, x, y)               [procedure]
+        If  passed   an  ximage,   this   procedure  is   identical   to
+        XpwImagePixelValue.
+
+        XpwPixelValue can also take a widget as its first argument -  if
+        passed a widget, XpwGetImage is called to get 1x1 sized image at
+        x,y from widget and the XpwImagePixelValue is used to  determine
+        its value. In  update mode, XpwPixelValue uses XpwDrawPoint  to
+        set the pixel value of widget at x,y to pixel.
+
+
+
+4.5  General Operations
+-----------------------
+
+XpwClearWindow(widget)                                       [procedure]
+        Calls the XpwMClearWindow method for widget.
+
+        Clears  the  window/pixmap   associated  with   widget  to   the
+        XtNbackground colour, or XtNbackgroundPixmap if it exists.
+
+
+XpwCopyFrom(dst_widget, src_widget, src_x, src_y,            [procedure]
+                width, height, dst_x, dst_y)
+XpwCopyTo(dst_widget, src_widget, src_x,src_y,               [procedure]
+                width, height, dst_x, dst_y)
+        Calls the XpwMCopyFrom/To method for SRC/dst_widget.
+
+        Copies an  area from  source  widget src_widget  to  destination
+        widget dst_widget. src_x/Y are the  coordinates of the top  left
+        corner of the source rectangle. width and height are the size of
+        the rectangle. The area is inserted at coordinates dst_x/Y.  The
+        first argument must  be a  XpwGraphic or  XpwPixmap widget.  The
+        second argument can be any widget with the same root window  and
+        depth.
+
+
+XpwClearArea(widget, x, y, width, height)                    [procedure]
+        Calls the XpwMClearArea method for widget.
+
+        Clear a sub-rectangle of the window defined by location x, y and
+        the given width and height. See MAN * XClearArea.
+
+
+
+
+------------
+5  Resources
+------------
+
+XpwPixmap inherits all  of the  Core and XpwCore  widget resources,  and
+adds some additional resources.
+
+    The following resources are retrieved from the argument list or  the
+resource database when XpwPixmap widgets are created.
+
+
+
+5.1  Core and XpwCore Resources
+-------------------------------
+See REF * XpwCore for information on the following resources:
+
+ Name                    Class                   Type            Access
+ ----                    -----                   ----            ------
+ XtNancestorSensitive    XtCSensitive            Boolean         G*
+ XtNautoFlush            XtCBoolean              Boolean         SGI
+ XtNbackground           XtCBackground           Pixel           SGI
+ XtNbackgroundPixmap     XtCPixmap               Pixmap          SGI
+ XtNborderColor          XtCBorderColor          Pixel           SGI
+ XtNborderPixmap         XtCPixmap               Pixmap          SGI
+ XtNborderWidth          XtCBorderWidth          short           SGI
+ XtNdepth                XtCdepth                short           SGI
+ XtNdestroyCallback      XtCCallback             XtCallbackList  SI
+ XtNfont                 XtCFont                 XFontStruct     SGI
+ XtNforeground           XtCForeground           Pixel           SGI
+ XtNheight               XtCHeight               short           SGI
+ XtNmappedWhenManaged    XtCMappedWhenManaged    Boolean         SGI
+ XtNmodifiers            XtCModifiers            int             G
+ XtNpointerShape         XtCCursor               Cursor          SGI
+ XtNsensitive            XtCSensitive            Boolean         GI*
+ XtNtileForeground       XtCTileForeground       Pixel           GI
+ XtNtranslations         XtCTranslations         XtTranslations  GI
+ XtNusersGC              XTCUsersGC              GC              SG
+ XtNwidth                XtCWidth                short           SGI
+ XtNx                    XtCPosition             short           SGI
+ XtNxpwCallback          XtCCallback             XtCallbackList  SI
+ XtNy                    XtCPosition             short           SGI
+
+The Access Column is interpreted as follows:
+
+    S   Value can be set by XtSetValues
+    G   Value can be read by XtGetValues
+    I   Value can be set at initialization
+    *   Value set in other ways
+
+
+
+5.2  XpwPixmap Resources
+------------------------
+Many of the XpwPixmap  resources are directly  related to components  in
+the XtNusersGC  (eg.  XtNcapStyle, XtNlineWidth  etc).  Modifying  these
+resources causes an  XChangeGC request  to modify  the graphics  context
+pointed to by the XtNuserGC resource.
+
+ Name                    Class                   Type            Access
+ ----                    -----                   ----            ------
+ XtNcapStyle             XtCCapStyle             Int             SGI
+ XtNfunction             XtCFunction             Int             SGI
+ XtNjoinStyle            XtCJoinStyle            Int             SGI
+ XtNlineStyle            XtCLineStyle            Int             SGI
+ XtNlineWidth            XtCLineWidth            Int             SGI
+ XtNpixmap               XtCPixmap               Pointer         SGI
+ XtNpixmapStatus         XtCPixmapStatus         Cardinal        SGI
+ XtNprivateGC            XtCGC                   Pointer         G
+
+The Access Column is interpreted as follows:
+
+     S   Value can be set by XtSetValues
+     G   Value can be read by XtGetValues
+     I   Value can be set at initialization
+     *   Value set in other ways
+
+
+XtNcapStyle                                                   [resource]
+        INT, GC resource.
+
+        Default CapButt
+
+        One of: CapButt, CapRound, CapNotLast, CapProjecting
+
+        Specifies the  capping  style  to  use  in  graphics  operations
+        involving line or arc segments. Can be specified as an  argument
+        to  XtCreateWidget,  in  the  users  X  Resource  Database  file
+        (.Xdefaults), or using  XtSetValues. The  current capping  style
+        can be retrieved using XtGetValues.
+
+        CapButt specifies that lines will be square at the endpoint with
+        no projection beyond. The end  is perpendicular to the slope  of
+        the line.
+
+        CapRound specifies that lines will  be terminated by a  circular
+        arc with the diameter  equal to the  linewidth, centered on  the
+        endpoint (equivalent to CapButt for linewidth <= 1).
+
+        CapNotLast  is  equivalent  to  CapButt,  except  that  if   the
+        linewidth is <= 1 the final point is not drawn.
+
+        CapProjecting specifies that  lines will be  square at the  end,
+        but will continue  beyond the  endpoint by a  distance equal  to
+        half the linewidth.
+
+                        End Point
+                            |
+                     #######|
+                     #######|               CapButt
+                     #######|
+                            |
+                     #######|#
+                     #######|##             CapRound
+                     #######|##
+                     #######|#
+                            |
+                     ###### |               CapNotLast
+                            |
+                     #######|#
+                     #######|#              CapProjecting
+
+
+XtNfunction                                                   [resource]
+        INT, GC resource. Default GXcopy
+
+        One of:  GXcopy,  GXclear, GXand,  GXandReverse,  GXandInverted,
+        GXnoop, GXxor,  GXor,  GXnor,  GXequiv,  GXinvert,  GXorReverse,
+        GXcopyInverted, GXorInverted, GXnand, GXset
+
+        Specifies  the  function  used  in  drawing  operations  for  an
+        XpwPixmap widget (or one  of its subclasses).  See Chapter 5  of
+        the Xlib  Programming  Manual  for more  information  about  the
+        function member of the Graphics Context.
+
+        The following  table shows  the  logical interpretation  of  the
+        different drawing functions:
+
+            Logical Function        Definition
+            ----------------        ----------
+            GXcopy                  src
+            GXclear                 0
+            GXand                   src AND dst
+            GXandReverse            src AND (NOT dst)
+            GXandInverted           (NOT src) AND dst
+            GXnoop                  dst
+            GXxor                   src XOR dst
+            GXor                    src OR dst
+            GXnor                   (NOT src) AND (NOT dst)
+            GXequiv                 (NOT src) XOR dst
+            GXinvert                (NOT dst)
+            GXorReverse src         OR (NOT dst)
+            GXcopyInverted          (NOT src)
+            GXorInverted            (NOT src) OR dst
+            GXnand                  (NOT src) OR (NOT dst)
+            GXset                   1
+
+        XtNfunction can be specified  as an argument to  XtCreateWidget,
+        or in the users X Resource Database File (.Xdefaults), or  using
+        XtSetValues and  providing  a  valid GC  function.  The  current
+        function can be retrieved using XtGetValues.
+
+
+XtNjoinStyle                                                  [resource]
+        INT, GC resource.
+
+        Default JoinMiter
+
+        One of: JoinMiter, JoinRound, JoinBevel
+
+        Specifies the technique  used for joining  line segments.  For a
+        clearer understanding,  try  each  join style  or  look  at  the
+        diagram in Chapter 5 or the Xlib Programming Manual, Volume 1.
+
+        JoinMiter specifies that  the outer  edges of  two joining  line
+        segments should extend to meet at an angle.
+
+        JoinRound  specifies  that  the  lines  should  be  joined  by a
+        circular arc, of diameter linewidth, centered on the join point.
+
+        JoinBevel specifies CapButt endpoint styles, with the triangular
+        notch filled.
+
+
+XtNlineWidth                                                  [resource]
+        INT, GC resource, default value: 0
+
+        Specifies the thickness of line or arc segments for an XpwPixmap
+        widget (or one of  its subclasses). If a  line width of zero  is
+        specified, "thin  lines"  are drawn,  with  a thickness  of  one
+        pixel, often using a more efficient algorithm than lines  with a
+        width >= 1.
+
+        XtNlineWidth can be specified as an argument to  XtCreateWidget,
+        or in the users X Resource Database File (.Xdefaults), or  using
+        XtSetValues and providing a  positive integer. The current  line
+        width can be retrieved using XtGetValues.
+
+
+XtNlineStyle                                                  [resource]
+        INT, GC resource.
+
+        Default LineSolid
+
+        One of: LineSolid, LineOnOffDash, LineDoubleDash
+
+        Specifies the  type of  lines that  are drawn  for an  XpwPixmap
+        widget (or one of its subclasses).
+
+        LineSold  draws  a   line  in  the   current  foreground   pixel
+        (XtNforeground).  LineOnOffDash  draws  a  dotted  line  in  the
+        current  foreground  (XtNforeground)   overlaying  the   windows
+        background.  LineDoubleDash  draws  a  dotted  line  using   the
+        XtNforeground AND XtNbackground components of the GC  (obscuring
+        the window's previous background).
+
+          LineSolid:      ---------------------       -- foreground
+          LineOnOffDash:  - - - - - - - - - - -
+          LineDoubleDash: -+-+-+-+-+-+-+-+-+-+-       ++ background
+
+        XtNlineStyle can be specified as an argument to  XtCreateWidget,
+        or in the users X Resource Database File (.Xdefaults), or  using
+        XtSetValues and providing a valid  line style. The current  line
+        style can be retrieved using XtGetValues.
+
+
+XtNpixmap                                                     [resource]
+        PIXMAP, default value: widget specific.
+
+        The XtNpixmap resource specifies the XID of the Pixmap belonging
+        to to  an XpwPixmap  (or  one of  its subclasses)  widget.  This
+        pixmap is used by XpwGraphic widgets to refresh the window  when
+        part of the window needs repainting.
+
+        Xpw provides a resource converter which converts between  bitmap
+        filenames and pixmaps.  This allows  users to  specify a  bitmap
+        file in their  X Resource Database  (.Xdefaults). The bitmap  is
+        given  a  background  of  XtNbackground  and  a  foreground   of
+        XtNforeground. For example:
+
+           *demo*foreground: yellow
+           *demo*pixmap: xlogo64
+
+        Alternatively, XtSetValues can be used to set this resource to a
+        valid X  pixmap. Changing  the pixmap  resource will  cause  the
+        previous pixmap to be released (using XFreePixmap).
+
+
+XtNpixmapStatus                                               [resource]
+        INT, default: PixmapOn,
+
+        One of: PixmapOn, PixmapOff, PixmapOnly, PixmapHasNone
+
+        This resource provides some useful control over the pixmap of an
+        XpwPixmap widget (or one of  its subclasses). The pixmap can  be
+        in one of four states:
+
+        1) PixmapOn is the default normal state. Changing from any other
+            state to PixmapOn will cause any window associated with the
+            widget to be redisplayed.
+
+        2) PixmapOff indicates that the widget has a valid pixmap,
+            but any methods applied to the widget will have no effect on
+            the pixmap. This allows programmers to draw temporary lines
+            on an XpwGraphic widget without permanently affecting the
+            pixmap that is used to redisplay the widget. Restoring
+            XtNpixmapStatus to PixmapOn will cause the window to be
+            repainted.
+
+        3) PixmapOnly is the reverse of PixmapOff: any methods applied
+            to the widget will only affect the Pixmap. This allows the
+            programmer to disable the window of an XpwGraphics widget,
+            perform a group of graphics operations on only the pixmap,
+            and then cause those results to be displayed quickly by
+            resetting XtNpixmapStatus to PixmapOn.
+
+        4) PixmapHasNone indicates that the widget does not have a
+            valid pixmap. Changing from PixmapHasNone to PixmapOn causes
+            an XCreatePixmap request. Changing from PixmapOn to
+            PixmapHasNone frees the current Pixmap. Changing to PixmapOn
+            also causes the widgets redisplay procedure to be called.
+            PixmapHasNone is used in XpwGraphic widgets that do not
+            require a pixmap for backing store.
+
+        If XtNpixmapStatus  is either  PixmapOff or  PixmapHasNone,  the
+        XpwGraphic widget  calls  the XtNxpwCallback  callback  list  to
+        notify the client of exposure events.
+
+        XtNpixmapStatus   can   be   specified   as   an   argument   to
+        XtCreateWidget,  or  in  the  users  X  Resource  Database  File
+        (.Xdefaults), or using XtSetValues and providing a valid  pixmap
+        status.  The  current  pixmap  status  can  be  retrieved  using
+        XtGetValues.
+
+
+XtNprivateGC                                                  [resource]
+        GC, default value: widget specific.
+
+        The XtNprivateGC resource should not be modified. It is a server
+        default graphics context, and is used by subclasses of XpwPixmap
+        to copy pixmaps to windows. Applications may fetch this resource
+        if they  wish  to  use  a  default  graphics  context  for  some
+        operation.
+
+
+
+5.3  Resource Converters
+------------------------
+New resource converters  are registered to  convert between strings  and
+values for the following resources:
+
+    # XtNcapStyle
+    # XtNfunction
+    # XtNjoinStyle
+    # XtNlineStyle
+    # XtNpixmapStatus
+
+For example,  a  possible  resource  table  entry  for  the  XtNfunction
+resource is:
+
+        Draw*function:  Xor
+
+The resource converters are not case sensitive. Each resource  converter
+also acknowledges the string XtDefault<resource_name>, converting it  to
+the correct value. So:
+
+        Draw*capStyle: XtDefaultCapStyle
+
+If an  invalid  string is  specified,  the resource  converter  issues a
+warning and uses the default value.
+
+Possible values for each resource (with the default given first) are:
+
+    XtNcapStlye:
+        Butt Round Projecting NotLast
+
+    XtNfunction:
+        Copy Clear And AndReverse AndInverted Noop Xor Or Nor Equiv
+        Invert OrReverse Set CopyInverted OrInverted Nand
+
+    XtNjoinStyle:
+        Bevel Round Miter
+
+    XtNlineStyle:
+        OnOffDash DoubleDash Solid
+
+    XtNpixmapStatus:
+        On Off Only HasNone
+
+
+
+
+---------------------------
+6  Actions and Translations
+---------------------------
+
+XpwPixmap widgets do not  construct windows, so they  have no window  to
+receive input events. For this  reason, XpwPixmap widgets do not  define
+any actions or translations.
+
+
+
+
+----------------------------
+7  C Programming Information
+----------------------------
+
+Xpw follows all of the Xt conventions, and so should be  straightforward
+to use  in C,  and in  other languages.  Widget creation,  and  resource
+setting etc, all follow the Xt norms. The one addition to Xt is the  use
+of methods instead  of a collection  of global C  procedures to  perform
+widget-class specific operations  on a  widget. See  REF * XpwCallMethod
+for a  description of  the calling  syntax for  methods, and  a  C-style
+synopsis of all of the methods available in Xpw.
+
+
+
+
+------------------------
+8  Related Documentation
+------------------------
+
+    HELP * Xpw
+        An overview of the Poplog Widget Set
+
+    HELP * XpwCallMethod
+        Information on method access in Xpw
+
+    HELP * XpwMethods
+        A summary of methods
+
+    HELP * XpwResources
+        An index of resources
+
+
+
+
+--- C.x/x/pop/ref/XpwPixmap
+--- Copyright University of Sussex 1991. All rights reserved.

@@ -1,0 +1,222 @@
+#!/bin/sh
+# http://www.cs.bham.ac.uk/research/poplog/com/relinking.linux.poplog
+# http://www.cs.bham.ac.uk/research/poplog/tools/relinking.linux.poplog
+#
+# Created 31/1/2000 by Michael Worsley, Praxis Critical Systems Ltd.
+# 4 Feb 2000: Slightly modified by Aaron Sloman
+#   including insertions of "%noinit", pauses, using "read",
+#   and printing instructions for re-linking, at the end.
+#
+# 14 August 2002 modified by Brian Logan
+#   to setup the Poplog environment variables, workaround possible
+#   shell problems and tidy up the trace output.
+#
+# 18 August 2002 modified by Aaron Sloman
+#   added reminder to rebuild saved images in $poplocalbin
+#   Changed to use current poplog
+# 19 Oct 2004  modified by Aaron Sloman
+#   Previous change should have referred to current.poplog, not
+#   current-poplog (thanks to Joe Wood, via pop-forum).
+#
+#
+# WHAT THIS IS:
+# Rod Chapman found a problem trying to relink Poplog v15.53 on RH6.1
+# using pglink.  Aaron Sloman came up with a solution which he posted
+# to comp.lang.pop and the poplog-devel list.
+#
+# This script aims to automate the process Aaron outlined, which is
+# described in the file
+#   http://www.cs.bham.ac.uk/research/poplog/sysdoc/rebuilding
+# in the section on relinking if you have problems.
+#
+# Note, though, that I have only tested it with a "clean" installation
+# of Poplog v15.53 (available for free download from:
+#   ftp://www.cs.bham.ac.uk/research/poplog/new/linux1553.tar.gz)
+# with RedHat v7.2
+#
+# Although this script does not require that your Poplog environment
+# variables are set correctly, you will need to set $usepop, $poplocal
+# and $local and source $usepop/pop/com/poplog[.sh] to do the next
+# re-linking step (see the end of this file).
+#
+
+###
+### NB you may have to edit this
+rootdir=/usr/local/poplog
+#
+### NB you may have to edit this
+export usepop=$rootdir/current.poplog
+##export usepop=$rootdir/v15.53a
+
+## Location for local saved images
+## Version specific
+export poplocalbin=$usepop/poplocalbin
+export poplocal=$rootdir
+export local=$poplocal/local
+
+echo -n "Setting up the environment variables ... "
+. $usepop/pop/com/poplog.sh
+
+# Define a function to allow pausing if required.  Set PAUSING_RELINK to
+# a non-null value if you want the script to pause after each relinking step.
+PAUSING_RELINK=""
+function pause() {
+    if [[ $PAUSING_RELINK ]];
+    then
+        echo "press RETURN to continue"
+        read > /dev/null
+    fi
+}
+
+# Change to the $popsys directory
+    cd $popsys
+
+    if (test $? -ne 0) ;
+    then
+        echo "Couldn't change directory to $popsys"
+        exit 1 ;
+    fi
+
+###
+# Try to find a working corepop11 || basepop11
+
+    echo -n "Looking for an executable that works ... "
+    if !((test -f corepop11) && (echo "bye." | ./corepop11 "%noinit"));
+    then
+        if (test -f basepop11) && (echo "bye." | ./basepop11 "%noinit" );
+            then
+                /bin/cp -p basepop11 corepop11;
+                echo -e "using old basepop11.\n"
+        elif ((test -f poplink_cmnd) && (poplink_cmnd) && (test -f newpop11) \
+                && (echo "bye." | ./newpop11 "%noinit"));
+        then
+            /bin/cp -p newpop11 corepop11;
+            echo -e "using re-linked newpop11.\n"
+        else
+            echo "\nCan't get a working corepop11!"
+            exit 1 ;
+        fi
+    else
+    echo -e "using corepop11.\n"
+    fi
+    ls -l corepop11
+
+    pause
+
+###
+# (Remove and) Rebuild poplink.psv
+
+    echo -e "\nRebuilding temporary poplink.psv ..."
+    test -f poplink.psv && /bin/rm poplink.psv
+
+    if !($popsrc/mksyscomp poplink);
+    then
+        echo -e "\nCouldn't rebuild poplink.psv!"
+        exit 1 ;
+    fi
+
+    echo -e "... done.\n"
+    ls -l poplink.psv
+    pause
+
+###
+# In order to use the new poplink.psv, a copy of corepop11 needs to be
+# stored in a file "corepop".  However, in the standard distribution
+# corepop11 is a symbolic link to corepop, so check for this:
+
+    if !(diff -q corepop11 corepop > /dev/null)
+    then
+        /bin/cp -p corepop11 corepop
+    fi
+
+###
+# Ensure that poplink is a link to corepop:
+
+    test -f poplink && /bin/rm poplink
+    ln -s corepop poplink
+
+###
+# Create and test a safe version of newpop11:
+
+    echo -e "\nBuilding a \"safe\" version of newpop11 ... \c"
+    if !(./pglink -safe);
+    then
+        echo "Couldn't create a safe newpop11!"
+        exit 1 ;
+    else
+    echo -e "done.\n"
+    fi
+
+    ls -l newpop11
+
+    test -f rsvpop11 && /bin/rm rsvpop11     # Remove unwanted rsvpop11.
+
+    echo -e "\nTesting newly created newpop11 ... \c"
+    TESTNEWPOP=`echo "999*9 =>" | ./newpop11 %noinit`
+
+    if test "$TESTNEWPOP" != "** 8991 ";
+    then
+        echo -e "\nNewly created newpop11 does not appear to be working!"
+        exit 1 ;
+    else
+        echo "done."
+    fi
+
+    echo "Copying  newpop11 to corepop11 and rebuilding all saved images ..."
+    pause
+
+###
+# Copy newpopp11 to corepop11 and remake all saved images:
+
+    /bin/cp -p newpop11 corepop11
+    `/bin/rm *.psv`
+
+    echo "Building: poplink.psv poplibr.psv popc.psv ..."
+
+    $popsrc/mksyscomp poplink poplibr popc
+
+    echo "... done."
+    pause
+
+    echo "Building: newpop.psv ..."
+    $popsrc/mknewpop
+
+    echo "... done."
+    pause
+
+    echo -e "... built the system saved images:\n"
+    ls -l *.psv
+
+###
+# Copy the safe image to corepop and remove corepop11.  In the standard
+# distribution, corepop11 is a symbolic link to corepop, so skip this step.
+
+    if !(diff -q corepop11 corepop > /dev/null)
+    then
+        /bin/cp -p corepop11 corepop
+        /bin/rm corepop11
+    fi
+
+###
+# Create final set of links...
+    rm poplink poplibr popc
+    ln -s corepop poplink
+    ln -s corepop poplibr
+    ln -s corepop popc
+
+echo -e "\nBasic relinking done."
+echo  ""
+echo "Now run \$popsrc/newpop as described in"
+echo "  \$usepop/pop/help/newpop"
+echo ""
+echo "E.g. to link with motif, do"
+echo "  \$popsrc/newpop -link -x=-xm -norsv"
+echo ""
+echo "E.g. to link with X but without motif, do"
+echo "  \$popsrc/newpop -link -x=-xt -norsv"
+echo ""
+echo "If you have saved images in \$poplocalbin rebuild them now"
+echo " E.g. run \$poplocal/local/com/mkstartup.local"
+echo " E.g. run \$poplocal/local/com/mkxved.local"
+echo "etc."
+echo ""

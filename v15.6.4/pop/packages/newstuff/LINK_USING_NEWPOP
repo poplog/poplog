@@ -1,0 +1,208 @@
+#!/bin/bash
+##
+## $usepop/INSTALL/LINK_USING_NEWPOP
+# 17 Jan 2005
+#
+#   Assumes $usepop and other variables already set.
+#   Link poplog using 'newpop'. Determines arguments for
+#   newpop as follows.
+#
+#   This script can be run using one optional argument which
+#   should be 'motif' or 'nomotif'. If no argument is provided
+#   it defaults to 'motif'. So the formats are
+#
+#       ./INSTALL/LINK_USING_NEWPOP
+#       ./INSTALL/LINK_USING_NEWPOP motif
+#       ./INSTALL/LINK_USING_NEWPOP nomotif
+#
+
+arg=${1:-motif}
+
+if [ $arg == "motif" ] ;
+then
+
+    args="-link -x=-xm -norsv"
+    echo "relinking with motif"
+
+elif
+
+    [ $arg == "nomotif" ] ;
+
+then
+
+    args="-link -x=-xt -norsv"
+    echo "relinking without motif"
+
+elif [ $arg == "nox" ] ;
+
+then
+
+    args="-nox"
+
+else
+
+    echo $arg  "is not an acceptable argument for LINK_USING_NEWPOP"
+    exit 1
+
+fi
+
+echo "Doing initial setup before newpop"
+
+echo ""
+echo "Now relinking and rebuilding poplog images"
+
+. $usepop/pop/com/poplog.sh
+
+popsrc=$usepop/pop/src
+popsys=$usepop/pop/pop
+export popsrc popsys
+
+cd $popsys
+
+if [ $arg == "motif" ] ;
+then
+
+    #try to build system images ready for motif
+
+    echo "trying to run $popsys/poplink_cmnd.motif.sh"
+    echo ""
+
+    ./poplink_cmnd.motif.sh
+
+elif [ $arg == "nomotif" ]
+then
+
+    #try to build system images without motif
+    echo "trying to run $popsys/poplink_cmnd.nomotif.sh"
+    echo ""
+
+    ### Do not run default poplink_cmnd, as that includes motif
+    cd $popsys
+        ./poplink_cmnd.nomotif.sh
+
+elif [ $arg == "nox" ]
+then
+    echo "will try to create basepop11 without xwindow stuff later"
+    pglink -nox
+
+else
+    echo "INAPPROPRIATE ARGUMENT FOR 'LINK_USING_NEWPOP'"
+fi
+
+## See if link succeeded
+
+echo "checking for newpop11 after poplink_cmnd"
+
+ls -l newpop11
+
+if [ -f newpop11 ]
+then
+    echo "copying newpop11 to basepop11"
+    touch newpop11.stb
+    nm newpop11 > newpop11.map
+    cp -p newpop11 basepop11
+    cp -p newpop11.stb basepop11.stb
+    cp -p newpop11.map basepop11.map
+    rm newpop11
+else
+    echo "COULD NOT LINK NEWPOP11:"
+    echo "The rest may work anyway."
+    echo "If not, then try asking for help"
+    echo "    via comp.lang.pop or pop-forum AT cs.bham.ac.uk"
+fi
+
+### Now rebuild system images
+# Extend $path (needed for mknewpop and mksyscomp)
+PATH=$usepop/pop/pop:$PATH
+export PATH
+
+echo ""
+echo "Try to rebuild newpop, poplink, poplibr, popc, system images"
+
+echo "$popsrc/mknewpop"
+$popsrc/mknewpop
+
+echo "$popsrc/mksyscomp poplink poplibr popc"
+$popsrc/mksyscomp poplink poplibr popc
+
+echo ""
+echo "System images made in popsys are:"
+echo ""
+ls -l $popsys/*.psv
+
+if [ -f $popsys/newpop.psv ]
+then
+    echo "System images appear to have been created OK"
+else
+    echo "COULD NOT BUILD newpop.psv -- cannot continue"
+    echo "Try asking for help"
+    echo "    via comp.lang.pop or pop-forum AT cs.bham.ac.uk"
+    echo ""
+    exit 2
+fi
+
+
+## Now run newpop to do the relinking
+    echo ""
+    echo "======================================================"
+    echo ""
+    echo "Now run newpop to re-link, rebuild indexes, etc."
+
+    echo "$usepop/pop/src/newpop" $args
+    $usepop/pop/src/newpop $args
+
+### The following are done by the newpop command
+## $popcom/mkstartup
+##
+## ## Needed for next items
+## setenv pop_pop11 "-$popsavelib/startup.psv"
+##
+## $popcom/mkplog
+## $popcom/mkclisp
+## $popcom/mkpml
+## $popcom/mkxved
+
+echo ""
+echo "Standard images made in popsavelib are:"
+echo ""
+
+ls -l $usepop/pop/lib/psv
+
+if [ -f $usepop/pop/lib/psv/startup.psv ]
+then
+    echo "Startup saved image appears to have been created OK"
+else
+
+     if [ -x $popsys/basepop11 ]
+     then
+         echo "newpop did not work."
+         echo "Try using old basepop11 with $popcom/mkstartup"
+         $usepop/pop/com/mkstartup
+
+        if [ -f $usepop/pop/lib/psv/startup.psv ]
+        then
+            echo "Startup saved image appears to have been created OK"
+            echo "Try $popcom/makeimages, for prolog, lisp, ml "
+            $usepop/pop/com/makeimages
+            ###$usepop/pop/com/mkxved
+            $usepop/pop/com/makeindexes
+        else
+             echo "COULD NOT BUILD startup.psv"
+            echo "Try asking for help via comp.lang.pop or pop-forum AT cs.bham.ac.uk"
+            exit 3
+        fi
+
+     else
+
+         echo "COULD NOT BUILD startup.psv"
+         echo "Try asking for help via comp.lang.pop or pop-forum AT cs.bham.ac.uk"
+         exit 4
+    fi
+fi
+
+echo ""
+echo "Later delete any saved images you don't need"
+echo ""
+
+
+exit 0

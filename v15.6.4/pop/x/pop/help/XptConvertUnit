@@ -1,0 +1,47 @@
+HELP XptConvertUnit                             Jonathan Meyer, Nov 1990
+
+    XptConvertUnit(num, from_unit, to_unit, direction, screen) -> num;
+
+
+The -XptConvertUnit- procedure is used to scale numbers between
+different units (specified as words). It includes 5 standard units (mm,
+cm, inch, point, and pica) and one special unit (pixel). Converting
+between one standard unit and another is just done using a
+straightforward multiplication (the screen and direction arguments are
+ignored).
+
+However, converting between a standard unit and the pixel unit works by
+determining the resolution of the provided screen in the specified
+direction (measured in pixels per millimeter), and using this to perform
+the conversion. Hence it is possible to determine how far apart two
+objects are in "absolute" terms when you are provided their positions in
+screen pixels. Similarly, it is possible to convert an absolute distance
+into a number of screen pixels. This allows you to draw pictures which
+in theory are accurate representations of the model involved (in
+practice, there is a limit to the accuracy of such operations).
+
+For example, to convert between picas and points, do:
+
+    XptConvertUnit(1,"pica","point",false,false) =>
+    ** 12.0
+
+Converting between picas and pixels requires a <ScreenPtr> object
+as returned by XtScreen. The following illustrates how XptConvertUnit
+could be used to convert between picas and pixels:
+
+    vars screen = XtScreen(widget);
+    XptConvertUnit(1,"pica","pixel","x", screen) =>
+    *** 111
+
+Note that converting to pixels always produces an integer result -
+pixels represent the smallest displayable unit on the screen, so this is
+the desired result.
+
+The direction argument is either "x", "y" or -false-. If -false- is
+specified as the direction, then the average of screen x and y
+resolution is used. This reduces accuracy, but is often more convenient.
+
+
+
+--- C.x/x/pop/help/XptConvertUnit
+--- Copyright University of Sussex 1990. All rights reserved. ----------

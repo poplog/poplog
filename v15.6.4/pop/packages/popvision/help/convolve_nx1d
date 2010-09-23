@@ -1,0 +1,114 @@
+HELP CONVOLVE_NX1D                                  David Young
+                                                    February 1992
+
+Convolves an n-D array with a 1-D array.
+
+The main procedure is:
+
+    convolve_nx1d(ARRIN, MASK, D, ARROUT, REGION) -> ARROUT;
+
+ARRIN is an n-dimensional array of numbers which is convolved with MASK,
+a 1-dimensional array of numbers. For efficiency, these arrays should be
+constructed using -newsfloatarray-, or any other procedure that gives a
+packed vector of single floats. The last two arguments may be given as
+<false> for simple use.
+
+If the coordinates of ARRIN are numbered 1..n, then MASK is oriented
+along the D'th coordinate. Writing c = D-1 and e = D+1, the formula
+implemented is:
+
+    ARROUT(x1 .. xc, xD, xe .. xn)   =
+
+        SUM  ARRIN(x1 .. xc, xD - X, xe .. xn) * MASK(X)
+         X
+
+where the sum ranges over all legal values for MASK. Either or both of
+the coordinate lists x1..xc and xe..xn can be empty. The ranges of the
+coordinates x1..xn are discussed below.
+
+For example, suppose ARRIN is 2-D. Then:
+
+in image processing terms:
+    if D = 1, then MASK is convolved with each HORIZONTAL raster line in turn;
+    if D = 2, then MASK is convolved with each VERTICAL line in turn.
+
+in matrix algebra terms:
+    if D = 1, then MASK is convolved with each COLUMN in turn;
+    if D = 2, then MASK is convolved with each ROW in turn;
+
+Note that the boundslist of MASK is important, since the offset X is
+calculated in POP-11 array coordinates. For example, suppose the mask is
+to be symmetrical, and to have 2*M + 1 values. Then the bounds of MASK
+should be set up as [-M M] and not as [1 2*M+1]. The second case would
+cause an effective shift of the output relative to the input. It is
+generally much easier to set up a mask using the correct coordinate
+system, with MASK(0) holding the value at the "centre" of the mask.
+However, the routine does not require the mask to be symmetrical or even
+for its bounds to include zero.
+
+The simplest way to call the procedure is
+
+    convolve_nx1d(ARRIN, MASK, D, false, false) -> ARROUT;
+
+A new array will be created and returned. The convolution will be run
+over the whole of ARRIN, and ARROUT will be smaller than ARRIN by an
+amount depending on the size of MASK, to allow for the fact that the
+mask has to be wholly within ARRIN all the time. (Wraparound is not
+used.) E.g. if MASK has bounds [-2 2], ARRIN has bounds [1 10 1 20 1 5]
+and D = 2, then ARROUT will have bounds [1 10 3 18 1 5]. See the code
+for the general case (or figure it out from the formula above).
+
+The ARROUT argument may be used to pass in an array which is to be
+filled with results, in order to avoid creating a new array. This array
+should be created with -newsfloatarray- (or a similar constructor),
+otherwise it will get copied. One easy way to get a suitable output
+array is to use an array produced as a result of a previous call to
+-convolve_nx1d-.
+
+If ARROUT is supplied, and REGION is not a list, then as much of ARROUT
+as possible will be filled. Parts of ARROUT which cannot be filled,
+because to do so would take the mask off the edge of the input array,
+are left untouched. Equally, parts of the input array not needed to fill
+ARROUT are left unreferenced.
+
+If ARROUT is a list, it must specify a boundslist with which to create a
+new array, together with a value with which to initialise the array. The
+intialising value is given as the head of the list, the boundslist as
+the tail. The behaviour will then be as if this array had been passed in
+- i.e. as much as possible of it is filled. Any parts that cannot be
+filled will be left as the initial value. So the call
+
+    convolve_1xnd(ARRIN, MASK, D, 0 :: boundslist(ARRIN), false) -> ARROUT;
+
+will return an array the same size as ARRIN but with a border of zeroes
+corresponding to the region where the mask would have gone off the edge.
+
+The last argument, REGION, can be used to specify a part of the output
+array to fill. If it is not <false>, REGION should have the structure of
+a boundslist. Only the part of ARROUT specified by REGION is then
+filled: the rest of the output array is left unchanged. REGION must be
+wholly contained within the output array's bounds, and must not require
+the mask to cross the input array's boundaries.
+
+If REGION is specified and ARROUT is <false> on entry, then the array
+returned has REGION as its boundslist.
+
+The following things cause mishaps:
+
+ - D less than 1 or greater than the dimensionality of ARRIN
+ - MASK bigger than the relevant dimension of ARRIN
+ - ARROUT or REGION specified with a different number of dimensions
+        to ARRIN, or MASK having more than 1 dimension
+ - ARROUT given such that there is no intersection with the region
+        for output calculated from the bounds of MASK and ARRIN
+ - REGION specified such that access is required to non-existent
+        parts of either ARRIN or ARROUT
+
+Efficiency: Each 1-D convolution is carried out using a separate call to
+an external C routine. This allows a reasonable compromise between
+execution time and complexity of the routine. If any array given as an
+argument does not have a packed arrayvector of single floats, it will
+be copied to a new array. Clearly this is to be avoided in general.
+
+--- $popvision/help/convolve_nx1d
+--- Copyright University of Sussex 1992. All rights reserved. ----------

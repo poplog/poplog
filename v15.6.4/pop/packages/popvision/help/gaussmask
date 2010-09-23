@@ -1,0 +1,154 @@
+HELP GAUSSMASK                                  David Young
+                                                November 1992
+
+LIB *GAUSSMASK provides procedures which produce 1-D arrays containing
+values lying on Gaussian (i.e. Normal or bell-shaped) curves, and their
+first derivatives, with appropriate normalisation and choice of
+truncation point.
+
+The routines are intended to provide convolution masks, for example for
+use with *CONVOLVE_2D and *CONVOLVE_NX1D.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- The main procedures
+ -- Array size procedures
+ -- Efficiency
+ -- Important warning
+ -- Size of arrays - default behaviour
+ -- Changing the size of the arrays
+
+-- The main procedures ------------------------------------------------
+
+gaussmask(SIGMA) -> ARRAY
+    SIGMA is the width parameter for the Gaussian. ARRAY is an array
+    created by *NEWSFLOATARRAY with boundslist [-LIMIT LIMIT], where
+    LIMIT is defined in the section on array sizes below, and ARRAY
+    contains samples from the Gaussian curve. The value of ARRAY(I) is
+
+                    2            2
+        N * exp( - I / (2 * SIGMA ))
+
+    where N is chosen so that the sum of all the values in ARRAY is 1.0.
+    This normalisation means that ARRAY exactly preserves local means on
+    convolution. (N is approximately 1/(sqrt(2*pi) * SIGMA), but the
+    normalisation is done more accurately than could be done by applying
+    this formula.)
+
+diffgaussmask(SIGMA) -> ARRAY
+    This is like -gaussmask- except that ARRAY contains the first
+    derivative of the Gaussian curve. The value of ARRAY(I) is
+
+                         2            2
+        M * -I * exp( - I / (2 * SIGMA ))
+
+    where M is chosen so that the sum of the values of I*ARRAY(I) for
+    I > 0 is -0.5. This normalisation means that ARRAY exactly preserves
+    local mean gradients on convolution.
+
+-- Array size procedures ----------------------------------------------
+
+To find out in advance how big the array created will be, two procedures
+are provided.
+
+gaussmask_limit(SIGMA) -> LIMIT
+    SIGMA is a positive real number; LIMIT is an integer which gives the
+    bounds of the array returned by -gaussmask(SIGMA)-.
+
+diffgaussmask_limit(SIGMA) -> LIMIT
+    SIGMA is a positive real number; LIMIT is an integer which gives the
+    bounds of the array returned by -diffgaussmask(SIGMA)-.
+
+-- Efficiency ---------------------------------------------------------
+
+The arrays returned are packed arrays of single precision floats
+suitable for passing to external C or Fortran routines, as provided by
+LIB *CONVOLVE_2D for instance. These are less efficient than full arrays
+for use within POP-11.  You can make -gaussmask- and -diffgaussmask-
+return ordinary full arrays by (preferably locally) assigning -newarray-
+to -newsfloatarray-, before the first call to one of these procedures.
+
+The procedures cache the arrays they have produced, and if called again
+with the same argument will simply return the same array as before with
+no calculation. It is therefore quite efficient both in terms of garbage
+generation and time to repeatedly call one of the procedures with the
+same argument each time.
+
+-- Important warning --------------------------------------------------
+
+Because the arrays are stored and may be reused, you must not update the
+values in an array returned by one of these procedures.
+
+-- Size of arrays - default behaviour ---------------------------------
+
+Clearly, the curves have to be truncated to fit within finite arrays.
+Taking -gaussmask- first, we define the error caused by the truncation
+of the Gaussian curve as follows:
+
+             2 * (Sum from I = LIMIT+1 to I = infinity of G(I))
+    ERROR =  --------------------------------------------------
+               Sum from I = -infinity to I = infinity of G(I)
+
+where LIMIT is the largest value of I for which ARRAY(I) exists, and
+G(I) is the value given by the formula above for ARRAY(I) (with N set
+arbitrarily to some constant - it cancels out).
+
+That is, ERROR is the sum of the missing mask values divided by the
+total of all the mask values for an infinite array. (It is common to use
+the largest missing mask value as a measure of the error, but this is
+clearly wrong.)
+
+If we approximate the sums by integrals over the Gaussian curve, then it
+is straightforward to calculate what LIMIT should be to produce a given
+ERROR. The integral of the Gaussian is the "error function" which is
+tabulated in all statistics books. If, for example, we require ERROR to
+be 1%, then we find that
+
+    LIMIT = 2.575.. * SIGMA
+
+The default behaviour of -gaussmask- is to adopt exactly this criterion,
+rounding LIMIT as defined above to the nearest integer. This is
+conservative: it turns out that the actual ERROR is then less than 1%
+for almost all values of SIGMA.
+
+For -diffgaussmask- the analysis is almost the same. As the function is
+asymmetric we define the error using
+
+             Sum from I = LIMIT+1 to I = infinity of G'(I))
+    ERROR =  ----------------------------------------------.
+                Sum from I = 0 to I = infinity of G'(I)
+
+Instead of needing the error function to evaluate the integral, we only
+need the Gaussian function, since the integral of the derivative is the
+function itself.  After manipulation this gives us
+
+    LIMIT = SIGMA * sqrt(-2 * log(ERROR)).
+
+For a 1% error we have
+
+    LIMIT = 3.035.. * SIGMA
+
+which again is rounded by default. The minimum LIMIT in this case is 1,
+since it makes no sense to have a smaller array for a differentiated
+mask.
+
+-- Changing the size of the arrays ------------------------------------
+
+The defaults outlined above should be satisfactory for most purposes.
+However, the behaviour can be changed in two ways.
+
+First, the variables -gaussmask_limit_ratio- and
+-diffgaussmask_limit_ratio- hold the values (2.575 and 3.035
+respectively by default) which multiply SIGMA to get array limits.
+Different values can be assigned to these variables.
+
+Second, the procedures -gaussmask_limit- and -diffgaussmask_limit- do
+the multiplication and rounding. These procedures, which take SIGMA as
+argument and return LIMIT, (see above) can be redefined by the user.
+
+Changing the array size calculation will not upset the caching mechanism
+mentioned above - new arrays will be made if the size for a given SIGMA
+is changed.
+
+--- $popvision/help/gaussmask
+--- Copyright University of Sussex 1992. All rights reserved. ----------

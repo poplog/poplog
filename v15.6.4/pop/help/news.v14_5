@@ -1,0 +1,949 @@
+HELP NEWS.V14_5                                  Robert Duncan, Oct 1996
+
+For the most recent news, see HELP * NEWS.
+
+
+1993
+
+Dec  1 (John Williams)
+    --- Poplog 14.5 now ready for beta-testing.
+
+Nov 24 (John Gibson)
+    --- ved_ved now deals with editing multiple files, i.e. it splits
+        vedargument at whitespace boundaries, and edits each of the
+        resulting filenames.
+
+Nov 10 (John Williams)
+    --- New procedure sysobjectfile added, for generating machine and
+        operating system release specific object file names (for use by
+        applications that might be delivered on more than one platform).
+        See REF * SYSUTIL for more details.
+
+Oct 29 (Simon Nichols)
+    --- Two new commands, up and down have been added to LIB * DEBUGGER.
+        These move up and down the call stack by one frame. Thus, up
+        selects and displays the frame for the immediate caller, and
+        down selects and displays the frame of the procedure called from
+        the current frame. These commands have been added for
+        convenience, since their effect can be obtained using frame with
+        the appropriate frame number. See HELP * DEBUGGER for further
+        information.
+
+Oct 21 (John Gibson)
+    --- From Version 14.5, Poplog saved images created by syssave and
+        sys_lock_system no longer attempt to save the run-time state of
+        externally-loaded code. In particular, they no longer save areas
+        of dynamic memory allocated by the O/S library memory allocators
+        malloc (Unix) and lib$get_vm (VMS).
+
+        Thus saved images can now only be used to save the state of
+        external loads immediately after compilation. They cannot now be
+        used to save the state of external variables and data structures
+        after external code has been run.
+
+        This change was necessitated by various factors. First, external
+        state-saving never really worked properly anyway (or rather, it
+        worked partially on some systems but not on others), and
+        REF * EXTERNAL has always advised against its use.
+
+        Second, Poplog's use of shareable libraries under the Solaris
+        and HP-UX operating systems mean that even that previous
+        unsatisfactory behaviour is now unsupportable.
+
+        See Saving and Restoring Images in REF * EXTERNAL for more
+        details.
+
+Oct 19 (Simon Nichols)
+    --- A new library directory, $usepop/pop/lib/proto, has been
+        introduced to contain prototype versions of new libraries,
+        supplied for evaluation and comment. Being experimental, the
+        facilities provided by such libraries may be modified in future.
+        While all reasonable endeavours will be made to limit
+        incompatible changes, programs using these facilities may
+        require modification to utilise later versions.
+
+        To make any experimental libraries supplied here accessible, do:
+
+            uses popprotolib;
+
+        before loading the required prototype library.
+
+Oct 14 (Simon Nichols)
+    --- A new command, source, has been added to LIB * DEBUGGER. This
+        displays the source code for the procedure corresponding to the
+        currently selected frame. This is in contrast to where, which
+        shows the source for the currently executing procedure.
+        See HELP * DEBUGGER for further information.
+
+Oct 11 (Simon Nichols)
+    --- The following bugs in LIB * DEBUGGER have been fixed:
+
+        #   Breakpoints on nested procedures were not being reported by
+            the breakpoints command.
+
+        #   Displaying a stack frame of a procedure with a dlocal active
+            variable resulted in a mishap.
+
+        #   The values of dlocal variables of recursive invocations of a
+            procedure other than the most recent were sometimes
+            incorrectly reported.
+
+        #   The animate command did not work correctly.
+
+        #   The error reporting of the stopat command has been fixed.
+
+        Some other minor bugs have also been fixed and general error
+        reporting somewhat improved.
+
+Oct 08 (Jonathan Meyer)
+    --- Added postscript_line_consumer, for printing dstrings to PostScript
+        devices.
+
+    --- (Unix Only) ved_print and ved_printmr can now generating PostScript
+        output which prints Ved Character Attributes correctly. This is done
+        using the -o <devtype> option, e.g.
+
+            <ENTER> print -o ps
+
+        prints the current file using PostScript.
+
+        See HELP * VED_PRINT REF * postscript_line_consumer.
+
+    --- Added ved_draw,  for  interactively drawing  boxes  around  text
+        using the cursor keys. It uses the Ved graphics characters, e.g.
+
+               -----------------------------
+               | ABC |----------+----------|
+               -----------------------------
+
+        See REF * ved_draw.
+
+Sep 29 (Jonathan Meyer)
+    --- Poplog now supports `regular expression' string pattern matching,
+        as popularised by Unix programs such as awk, grep, ed, etc.
+
+        See REF * REGEXP for full details.
+
+    --- match_wordswith and ved_wordswith now accept Poplog regular
+        expression patterns. See HELP * WORDSWITH.
+
+    --- The whole of the Ved search and substitution mechanism has been
+        re-implemented to support regular expression search patterns as
+        well as a suite of other new search and substitution options
+        (for example, the ability to constrain a search to a marked range).
+
+        See REF * VEDSEARCH for more details.
+
+        The changes are largely backwards-compatible. In particular, the
+        <ENTER> commands work much as they did in the earlier mechanism,
+        the only notable exception being that, by default, backwards
+        searches now wrap over the start of the file.
+
+    --- The procedural interface  to the Ved  search mechanism has been
+        rationalised.  The   procedures  vedcllocate,   vedlocate,
+        vedbacklocate, vedtestsearch, vedtestclsearch are now  obsolete
+        and are replaced by ved_try_search and ved_check_search.
+
+    --- The variables  used  by  the  Ved  search  mechanism  have  been
+        rationalised. The  old  search state  variables  vvedsrchstring,
+        vvedsrchsize,  vvedoldsrchdisplay,  vvedinstring,  vedfoundline,
+        vedfoundcol, and vvedanywhere are now obsolete and are replaced
+        with a single active  variable, ved_search_state. Programs  that
+        used to do things like:
+
+            dlocal vvedoldsrchdisplay, vvedsrchstring, vvedsrchsize ...
+
+        to preserve the ved search state can now simply do
+
+            dlocal ved_search_state;
+
+        Setting the search state is now done using ved_set_search. You
+        can query the search state using ved_query_last_search.
+
+        The old variables remain for backwards-compatibility.
+
+        The  variables  vvedquery,  vvedsrchendline,  vvedsrchstartline,
+        vvedampersand and  vvedpercent are  no longer  used by  the  Ved
+        search mechanism.
+
+Sep 23 (John Gibson)
+    --- Prior to Version 14.5, the procedure gensym was implemented as a
+        closure of an anonymous procedure whose frozval was the property
+        maintaining the integer suffixes. This is no longer the case:
+        the property is now in the variable gensym_property, and gensym
+        itself is an ordinary constant procedure. If required, use
+
+                uses popobsoletelib, old_gensym;
+
+        to restore the old implementation.
+
+Sep 16 (Simon Nichols)
+    --- Important note to users of Poplog running under Solaris 2 and
+        HP-UX (i.e. dynamically linked versions of Poplog):
+
+            # Poplog on Solaris 2 will not run unless the directory
+            $popexternlib is present in LD_LIBRARY_PATH. Therefore, the
+            Poplog login script $popcom/poplog adds $popexternlib to
+            LD_LIBRARY_PATH. Users should beware of redefining, rather
+            than adding to, LD_LIBRARY_PATH: this is in any case unwise
+            as other software packages (such as OpenWindows) may also
+            have added entries to it.
+
+            # Poplog on HP-UX will not run unless the directory
+            $popexternlib is present in SHLIB_PATH. Therefore, the
+            Poplog login script $popcom/poplog adds $popexternlib to
+            SHLIB_PATH. Users should beware of redefining, rather than
+            adding to, SHLIB_PATH: this is in any case unwise as other
+            software packages may also have added entries to it.
+
+Sep 16 (Simon Nichols)
+    --- A previous attempt to make LIB * SHOWTREE work when
+        * pop_pr_quotes is true introduced a number of bugs. In
+        particular, it no longer respected redefinitions of * pr, which
+        meant that the Prolog library showtree no longer worked
+        correctly. These problems have now been fixed. In addition, LIB
+        SHOWTREE works with pop_pr_quotes true.
+
+Aug 31 (Robert Duncan)
+    --- The default key map for Ved has been changed: the new set of key
+        bindings first introduced in Poplog Version 14.0 (vednewkeys)
+        has now been made the default. These key bindings are described
+        in HELP * VEDKEYS. Users who have already converted to the new
+        bindings will see no change; other users who prefer to stick
+        with the old bindings can do so by adding to the start of their
+        "vedinit.p" files the lines:
+
+            vedoldkeys -> veddefaultkeys;
+            veddefaultkeys();
+
+        The old bindings are documented in HELP * VEDOLDKEYS.
+
+        Note that only the standard escape- and control-key bindings are
+        affected by this change: personal customisations and function
+        key bindings set up by terminal configuration libraries remain
+        as before.
+
+Aug 24 (John Gibson)
+    --- Following the change reported in the HELP NEWS entry for Nov 12,
+        the new versions of the libraries
+
+            showtree actor event newqueue
+
+        have replaced the old ones. The old versions have been renamed
+        old_* in $usepop/pop/lib/obsolete, i.e.
+
+            old_showtree old_actor old_event old_newqueue
+
+        and thus require
+
+            uses popobsoletelib;
+
+        to make them accessible via uses.
+
+        This (non-upward-compatible) change has been made in order to
+        encourage the use of the new (POPC-usable) versions. See
+        HELP * SHOWTREE, * ACTOR, * NEWQUEUE for more details.
+
+Aug 23 (Robert Duncan)
+    --- The define_parser syntax form has been extended to support what
+        are called ``meta-symbols'' which can considerably simplify the
+        specification of large grammars. An example meta-symbol would
+        be:
+
+            OPT(phrase) ::=
+                    /* empty */             { false }
+                |   phrase
+                ;
+
+        which expresses the notion of an optional phrase. This meta-
+        symbol could be applied on the right-hand-side of any subsequent
+        rule, wherever an optional item is required. For example:
+
+            vars ::=
+                    /* empty */             { [] }
+                |   var:v OPT(',') vars:vs  { v :: vs }
+                ;
+
+        This describes a list of vars, optionally separated by commas.
+
+        See HELP * DEFINE_PARSER/Meta.
+
+July 27 (John Williams)
+    --- The core of the procedure syssort has been separated out and
+        re-named nc_listsort, providing a fast non-checking and non-
+        copying merge sort algorithm for lists. See LIB * nc_listsort.
+        The procedure syssort is still available, however, and is now
+        defined in terms of nc_listsort.
+
+July 21 (John Williams)
+    --- The directory $usepop/pop/lib/turtle/ is  no longer included  in
+        the default value of popautolist (because the "turtle" libraries
+        capture some identifier  names, e.g. "left"  and "right",  which
+        should be available to users). However, the two principal  entry
+        points to the  "turtle" package,  the procedure  turtle and  the
+        library  LIB * VTURTLE,  remain   auto-loadable.  Also,  a   new
+        library,  LIB * POPTURTLELIB,   is  provided   which  adds   the
+        directory $usepop/pop/lib/turtle/ to popautolist when loaded.
+
+July 7 (John Williams)
+    --- News entries relating to Poplog versions 14.1 and 14.2 have
+        been moved to HELP * NEWS.V14_1 and HELP * NEWS.V14_2
+        respectively.
+
+July 6 (John Williams)
+    --- LIB * VEDSUNXTERMKEYS has been enhanced to cope with Sun type 5
+        keyboards. Documentation is in HELP * SUNXTERMKEYS_TYPE5.
+
+    --- HELP * VEDXTERM has been re-organised. The discussion of LIB
+        VEDXGOTOMOUSE has been moved to a separate HELP file of the
+        same name. Also, the lists of X key translations needed to get
+        Ved working on a Sun or HP 9000 have been moved to data files
+        stored in $popvedlib/term.
+
+July 5 (John Williams)
+    --- (Unix only). It is now possible to indicate to sys_file_match
+        that it should call sys_file_stat with the follow_symlinks
+        argument set false. For details, see REF * sys_file_match and
+        REF * sys_file_stat.
+
+Jun 30 (John Williams)
+    --- The Ved command <ENTER> mp now skips over bracket characters
+        that are enclosed between Pop-11 character quotes (`).
+
+    --- The ordering of the arguments to the eq_p procedure in the
+        procedures delete, ncdelete, and fast_ncdelete has been
+        standardised. They all now call
+
+            eq_p(list_element, item)
+
+        whereas previously ncdelete and fast_ncdelete called eq_p with
+        the arguments the other way round. See REF * LISTS.
+
+Jun 29 (Simon Nichols)
+    --- From Poplog version 14.23, Poplog will be additionally available
+        on the following platforms:
+
+        o Sun Sparc running Solaris 2.2
+
+        o HP 9000/700 (Precision architecture) running HP-UX 9.0
+
+        Unlike previous versions of Poplog, these are both dynamically
+        linked against shared libraries. This means that Poplog images
+        will be smaller and consume less system resources.
+
+    --- From Poplog version 14.23, Poplog on HP 9000/300 will also be
+        dynamically linked against shared libraries.
+
+    --- Dynamically linked versions of Poplog use a new implementation
+        of the low level internals of exload. The reimplementation has
+        been done using the programmatic interface to the dynamic linker
+        provided by the operating system (see REF * EXTERNAL for
+        details). It has the following practical effects:
+
+        o   Instead of relocatable object files, exload now links in
+            shared objects (also known as shared libraries). There is
+            hardly any extra effort involved in creating a shared object
+            as opposed to a relocatable object. The following examples
+            are taken from REF * EXTERNAL/Input File Arguments:
+
+            To produce a shared object 'test.so' corresponding to the C
+            source file 'test.c' on a Sun Solaris 2 system:
+
+                % cc -o test.so -G -K pic test.c
+
+            To produce a shared library 'test.sl' corresponding to the C
+            source file 'test.c' on HP-UX:
+
+                % cc -c +z test.c
+                % ld -o test.sl -b test.o
+
+            For further details see REF * EXTERNAL and the appropriate
+            operating system/language processor manual.
+
+        o   When making saved images, syssave and sys_lock_system should
+            not be used to save the results of external functions that
+            have already been run. (Note that this was always a dubious
+            practice and not guaranteed to work on all systems). This is
+            because shared objects are reloaded in their initial state
+            when a saved image is restored: external functions and data
+            are no longer placed in the saved image file, with
+            beneficial effects on their sizes (and thus disk usage). For
+            details see REF * EXTERNAL/Saving and Restoring Images.
+
+        o   Because external loads are redone in one go when a saved
+            image is restored, the saved object files must exist and be
+            accessible in their original locations when the saved image
+            is restored. This is not quite as restrictive as it might
+            seem, since a shared object file may be referenced using a
+            path name which includes one or more environment variables.
+            These will be translated when the saved image is restored.
+
+        For further details on the previous two points see
+        REF * EXTERNAL/Saving and Restoring Images.
+
+Jun 18 (Adrian Howard)
+    --- Three new Ved procedures to aid the writing of REF files have
+        been added. See * ved_idprops, * ved_jrefmr, and * ved_slrhs for
+        more information.
+
+    --- The procedures created by * shadowclass now have the correct
+        pdnargs.
+
+Jun 14 (John Gibson)
+    --- uses may now take a non top-level identifier pathname as the
+        library name argument, e.g.
+
+                uses $-foo$-baz;
+
+        This searchs the directories in popuseslist for a filename
+        called
+
+                S-fooS-baz.p
+
+        i.e. the corresponding filename is got by replacing `$`
+        characters in the identifier pathname with `S`.
+
+        Note that you must specify the full identifier pathname starting
+        with $-, since the current section is NOT taken into account.
+        This facility is intended for use with uses only, and not for
+        autoloading. (It will actually work with autoloading for a
+        reference to the full identifier pathname, but not for a
+        relative reference within the current section.)
+
+Jun 4 (John Williams)
+    --- The procedure sys_read_lines can now take an extra (optional)
+        boolean argument, for specifying whether the text to be read
+        uses the new Ved character attributes (in which case
+        vedfile_line_repeater is used to read from the file).
+        See REF * sys_read_lines for details.
+
+May 28 (John Williams)
+    --- New Ved command <ENTER> newheading added, for creating new-style
+        document section headers. See REF * ved_newindex.
+
+May 28 (John Williams)
+    --- The procedures ved_? and ved_?? (Ved commands <ENTER> ? and
+        <ENTER> ??) now display mixed-case REF file names correctly.
+
+May 25 (John Gibson)
+    --- Fixed a bug in biginteger multiplication where the result was
+        negative instead of positive when multiplying two negative
+        bigintegers which were both powers of 2**31.
+
+May 18 (John Williams)
+    --- The procedure readstringline now ignores trailing spaces in
+        the input line.
+
+May 13 (John Gibson)
+    --- Fixed the Ved input character processing mechanism and vedsetkey
+        to deal properly with characters-with-attributes and 8-bit
+        characters. Thus the vedsetkey translation string of an input
+        character sequence can now contain attributes and Ved graphics
+        characters, etc.
+
+May 10 (John Williams)
+    --- New procedure is_ved_output_file added, for recognising Ved
+        "output" files. This procedure is used in the default value of
+        vedfiletypes, in order to set vedcompileable false for output
+        files. See REF * VEDPROCS and HELP * VEDFILETYPES.
+
+May 7 (Adrian Howard)
+    --- New for-form in_dstring added for iterating over dstrings. See
+        HELP * FOR_FORM.
+
+May 7 (John Williams)
+    --- New procedures discin_device and discout_device added, for
+        accessing the device records associated with the character
+        repeater/consumer procedures created by discin and discout
+        respectively. See REF * CHARIO.
+
+May 04 (Adrian Howard)
+    --- A new procedure app_subsystems applies a user procedure to the
+        name of every subsystem in sys_subsystem_table.
+        See REF * SUBSYSTEM for details
+
+May 03 (Adrian Howard)
+    --- A new generic type-checking procedure check_item has been added.
+        See REF * DATA for full details.
+
+Apr 30 (John Gibson)
+    --- exload_batch now merges the object-file lists from all exloads
+        within its range that do not have the (no batching) attribute.
+        (Thus it produces a single call to external_do_load when the
+        final endexload_batch is encountered.) See the section
+        batching Attribute in REF * EXTERNAL for more details.
+
+Apr 23 (John Gibson)
+    --- A new procedure * is_vedfile_local enables the value of any
+        variable to be localised to an individual Ved file.
+        See REF * VEDPROCS.
+
+    --- Using is_vedfile_local, the Ved immediate mode mechanism now
+        sets vvedpromptchar to the prompt-marker space character (`\Sp`)
+        only locally in an immediate mode file. Outside of this context,
+        vvedpromptchar is false (making `\Sp` behave as a normal
+        character).
+
+    --- Also using is_vedfile_local, there is now a Ved command
+        * ved_dssp (i.e. <ENTER> dssp -- Display Special SPaces) which
+        causes all the Ved special space characters to be displayed as
+        visible characters, but in the current file only.
+        See REF * VEDCOMMS and Ved Special Space Characters in
+        REF * VEDPROCS.
+
+Apr 20 (John Williams)
+    --- New option added to vedexpandchars: ^p, which expands to the
+        directory name of the current Ved file. See HELP * VEDEXPAND for
+        details.
+
+Apr 16 (Robert Duncan)
+    --- Various changes to newpop:
+
+        The installation step -- copying a new basepop11 to $popsys --
+        is now optional, selected with the option install. Previously
+        this step was compulsory, making it difficult to use newpop
+        incrementally. Now a command such as:
+
+            newpop -link only
+
+        does exactly as it suggests: it links newpop11 and no more. The
+        default configuration file for newpop has been changed to
+        include the install option and so works exactly as before; users
+        who have created their own configuration files may wish to add
+        the install option where appropriate.
+
+        The options x, commands and images -- which have no effect
+        except in conjunction with other options -- are now selected by
+        default: you must specify nox, nocommands or noimages if you
+        wish to override them. This change makes no difference to a
+        standard installation, but can reduce the number of command-line
+        options needed to perform particular tasks. For example, the
+        link command given above will now build a newpop11 which
+        includes X support (because x is assumed given); you must
+        specify nox in the command if you don't want it. Also, a command
+        such as:
+
+            newpop -xved only
+
+        is sufficient both to build the XVed saved image and install
+        xved as a shell/DCL command.
+
+        The strategy for deciding which libraries to use when linking
+        against X has been made more sophisticated to cope better with
+        system-specific configurations.
+
+        See HELP * NEWPOP for full details.
+
+Apr 15 (David Young)
+    --- LIB * GAMMA revised completely and HELP * GAMMA updated.
+
+Mar 15 (John Williams)
+    --- New procedure sys_file_exists added - see REF * SYSIO for
+        details.
+
+Feb 19 (John Gibson)
+    --- There is now a new style of index for Poplog documentation
+        files, based on numbered sections and sub-sections. See for
+        example REF * EXTERNAL, REF * VEDCOMMS, HELP * VEDSET.
+
+        The new-style indexes will gradually replace the old.
+        However, <ENTER> g (i.e. ved_g) recognises both, and moves
+        to the appropriate section in the file.
+
+        The new indexes are constructed with <ENTER> newindex -- see
+        REF * ved_newindex.
+
+Feb 17 (Ian Rogers)
+    --- Extended XptResourceInfo so the first argument can now also be a
+        WidgetClass. Ensures that the widget class is initialised before
+        attempting to extract the resources.
+
+Feb 15 (John Gibson)
+    --- The whole subsystem mechanism has been re-implemented and moved
+        from lib subsystem into the system core (lib subsystem no longer
+        exists).
+
+        The changes are largely backwards-compatible. In particular, the
+        subscr_subsystem interface to subsystem fields remains as
+        before, except that the integer subscripts are now defined in
+        INCLUDE * SUBSYSTEM.
+
+        An important aspect of the new system is that a subsystem record
+        may be present in sys_subsystem_table without its compiler (and
+        other associated procedures) actually being loaded; this has
+        made possible the creation of separate libraries for the Prolog,
+        Lisp and SML subsystems records (defining only their
+        searchlists and file extensions fields, etc).
+        See LIB * PROLOG_SUBSYSTEM, * LISP_SUBSYSTEM, * ML_SUBSYSTEM.
+
+        There are now also subsystem libraries for the operating-system
+        command interpreters LIB * CSH_SUBSYSTEM, * SH_SUBSYSTEM (Unix),
+        LIB * DCL_SUBSYSTEM (VMS).
+
+        A new subsystem can be constructed with subsystem_add_new.
+
+        See REF * SUBSYSTEM for further details.
+
+    --- As part of the above changes, the function of the old Ved
+        variable popcompiler is now performed by the variable subsystem.
+        That is, instead of an associated compiler procedure, each Ved
+        file now has an associated subsystem name.
+
+        This means that vedfiletypes should now set values for subsystem
+        depending on a file's extension, etc. However, popcompiler
+        remains as an autoloadable active variable which returns or
+        updates the procedure corresponding to subsystem, and thus
+        settings for popcompiler in vedfiletypes will now set subsystem
+        instead.
+
+        Private compiler procedures previously being assigned to
+        popcompiler can now easily be turned into subsystems using
+        * subsystem_add_new. The updater of popcompiler actually does
+        this for you, but in order to specify things like the file
+        extension and prompt fields properly, it is recommended that you
+        switch to calling subsystem_add_new explicitly yourself, and
+        cease using popcompiler altogether.
+
+        (If your compiler procedure is autoloadable, the following
+        technique can be used: instead of a vedfiletypes entry
+
+            [ '.foo' {popcompiler foo_compile} ]
+
+        where foo_compile is autoloadable, use
+
+            [ '.foo' {subsystem foo_subsystem} ]
+
+        where foo_subsystem autoloads your subsystem and compiler, and
+        is itself set to have the value "foo", i.e. the subsystem name.)
+
+
+Jan 25 (John Williams)
+    --- New option to printf added: %S. This prints an argument as a
+        literal string, ignoring % and any other special characters.
+        See HELP * printf.
+
+Jan 22 (John Williams)
+    --- The messages printed by the syntax words load, lib, pwd, and the
+        Ved commands ved_lp, ved_lpr, ved_lcol and ved_rcol no longer
+        contain string quotes, irrespective of the value of
+        pop_pr_quotes.
+
+Jan 12 (John Williams)
+    --- * line_repeater can now be given <false> as its second argument,
+        in which case a default maximum line size of 80 is assumed.
+        Also, it now signals a proper MISHAP if the file doesn't exist,
+        or can't be opened for reading (previously a system error
+        occurred).
+
+
+1992
+
+Dec 18 (Simon Nichols)
+    --- All printing in LIB *DEBUGGER is now done with pr locally
+        assigned the value of the procedure variable debugger_pr, whose
+        default value is syspr. This has two consequences: firstly, the
+        debugger now respects any customized printing procedures you may
+        have defined as the *CLASS_PRINT of particular items' keys.
+        Previously, all printing was effectively done with pr locally
+        assigned to be sys_syspr (Poplog's standard printing procedure).
+        Secondly, you can change the value of debugger_pr; thus, if your
+        customized printing procedures contain bugs, you can assign
+        sys_syspr to debugger_pr to prevent them being called.
+        See HELP *DEBUGGER for details.
+
+Dec 17 (John Meyer)
+    --- Changed *mkimage so that the -nonwriteable flags controls the
+        writeability of both closures and datastructures. (Previously,
+        closures were made nonwriteable even if you did not specify the
+        'nonwriteable' flag). See HELP * MKIMAGE/Optional Flags.
+
+Dec 11 (John Gibson)
+    --- The procedure syswait now waits for an (operating-system)
+        child process to terminate using syshibernate. The major
+        consequence of this is that XVed will continue to operate
+        when running a shell process in the basewindow, etc.
+
+Nov 27 (David Young)
+    --- LIB * FORTRAN_DEC (see * EXTERNAL) now expands macros in the
+        pseudo-Fortran that it parses, so that, for example, the same
+        code can be used for single and double precision versions of a
+        library.
+
+Nov 27 (Robert Duncan)
+    --- A new library LIB * LR_PARSER defines an LALR(1) parser
+        generator and driver, analogous to the UNIX utility yacc(1).
+
+        The main feature of the library is a * define_form for parsers:
+
+            define :parser <name>();
+                ...
+            enddefine;
+
+        which derives a procedure definition from a context-free
+        grammar. Actions for the parser are written in Pop11.
+
+        An alternative procedural interface to the library makes it
+        possible to create parsers dynamically, without using the
+        define-form. This makes the facilities potentially accessible
+        from languages other than Pop11.
+
+        Relevant documentation:
+
+            HELP * DEFINE_PARSER
+                Describes the syntactic interface.
+
+            HELP * LR_PARSER
+                Gives an overview of LR parsing and an introduction to
+                the library.
+
+            REF * LR_PARSER
+                Describes the procedural interface in detail.
+
+Nov 26 (David Young)
+    --- Moved the procedures rc_clip_region and rc_set_coord_frame
+        out of LIB * RCG_UTILS and into separate libraries of their own,
+        to reflect their general usefulness. Documentation put into
+        HELP * RC_GRAPHIC and HELP * RC_GRAPHPLOT also updated.
+
+Nov 17 (John Williams)
+    --- The Ved commands <ENTER> dir and <ENTER> ls (for listing
+        directories on VMS and Unix platforms respectively) no longer
+        create temporary disk files, which means that they can be used
+        safely after a "DISK QUOTA EXCEEDED" error. This also applies to
+        the <ENTER> PURGE command. See LIB * ved_dir and LIB * ved_ls.
+
+        Also, the following related HELP files have been revised:
+            HELP * LS, HELP * DIR, HELP * PURGE, HELP * DEL
+
+        and the following obsolete libraries have been removed:
+            LIB VED_FDIR, LIB VED_NDIR
+
+
+Nov 12 (John Gibson)
+    --- There is now a new directory
+
+            $usepop/pop/lib/obsolete
+
+        into which various obsolete libraries will begin to be moved
+        after Version 14.5 of the system. There is a new library
+        LIB * POPOBSOLETELIB which adds this directory to popuseslist;
+        thus
+
+                uses popobsoletelib;
+
+        will make this directory available for subsequent library
+        searches by uses, etc.
+
+    --- Owing to the highly non-modular set of identifier names they
+        employed, the following libraries in $popliblib have been
+        superseded by new versions which define a more modular set of
+        names:
+
+            LIB SHOWTREE --> LIB NEW_SHOWTREE (see HELP * SHOWTREE)
+            LIB ACTOR    --> LIB NEW_ACTOR    (see HELP * ACTOR)
+            LIB EVENT    --> LIB ACTOR_EVENT  ( "   "      "  )
+
+        In all cases, the old versions now load the new versions and
+        then define the old identifier names as synonyms for the new
+        ones. (After Version 14.5, the old files will be moved to
+        $usepop/pop/lib/obsolete, and will thus require
+        'uses popobsoletelib;' to make them accessible.)
+
+
+Nov 11 (john Gibson)
+    --- Fixed bug in Ved search substition -- character attributes in
+        substitute string were being ignored.
+
+Nov  1 (John Gibson)
+    --- New constants pop_undef and pop_undef_p added. These contain
+        respectively the standard undef record and undef-closure used to
+        initialise top-level lexical variables, etc. See REF * IDENT.
+
+        Note that one reason for making pop_undef readily accessible is
+        to enable Pop-11 non-opener syntax words to be explicitly
+        initialised to an undef, e.g.
+
+            constant syntax endexload = pop_undef;
+
+        Previously, such words had named undef records as their values,
+        simply by virtue of not being initialised. However, POPC
+        compilation will require that all such words have an explicit
+        initialisation (it also saves the space occupied by the named
+        undefs in the ordinary system).
+
+
+Oct 27 (John Gibson)
+    --- There is now a bit POP11_PERM_GLOBAL in pop_pop11_flags, and a
+        corresponding compile_mode keyword :pop11 +global, which causes
+        all vars and constant declarations to be made automatically
+        global (including implicit ones made with define, etc).
+
+        Moreover, this bit is now set by the :pop11 +strict option to
+        compile_mode, ie +strict will make all declarations global. If
+        required, the new syntax word nonglobal enables this to be
+        overriden (and may be used anywhere that global can).
+
+        See REF * SECTIONS, Global Identifiers.
+
+
+Oct 26 (John Gibson)
+    --- Pop-11 quoted word syntax may now be used to get word
+        identifiers for permanent identifiers, by surrounding any ident
+        expression with word quotes, e.g.
+
+            "ident foo" -> baz;
+            "ident $-mysect$-xxxx" -> word_id;
+
+
+Oct 19 (John Gibson)
+    --- New macro #_TERMIN_IF added. This can be used (for example) to
+        terminate an include file that is already present, e.g.
+
+            #_TERMIN_IF DEF VEDFILE_STRUCT_INCLUDED
+
+        See REF * PROGLIST. (This replaces the previous unsatisfactory
+        usage
+
+            #_IF DEF VEDFILE_STRUCT_INCLUDED
+                [ %"'#_ENDIF'"% ] -> proglist;
+            #_ENDIF
+
+        etc, which as well as being clumsy will not work correctly with
+        POPC compilation.)
+
+Sep 24 (John Gibson)
+    --- Closures may now be constructed with upto around 65,000 frozvals
+        (the exact limit is implementation dependent). Previously,
+        attempting to construct a closure with more than the old limit
+        of 255 truncated the actual number.
+
+Sep 17 (John Gibson)
+    --- The newpop installation command now has an option "stripdoc",
+        which causes it to remove all special Ved character encodings
+        from all documentation files. See HELP * NEWPOP.
+
+Sep 14 (John Williams)
+    --- Some obsolete Ved libraries and associated documentation have
+        been removed from the system: LIB L4000, L4004, L5000, and
+        VEDBELMYE; also HELP L4000. They were used for running Ved on
+        Lyme terminals.
+
+Sep 13 (John Gibson)
+    --- A new external pointer class structure, dataword "exptr_mem",
+        has been added. initexptr_mem(nbytes) creates a fixed-address
+        structure whose external pointer points into itself at an area
+        of memory of size nbytes bytes. (This thus replaces the previous
+        rather cumbersome necessity to create a separate (ordinary)
+        external pointer pointing to a string or an intvec, etc.)
+
+    --- The macro EXPTRINITSTR has been changed to use initexptr_mem.
+
+    --- The new procedure sys_grbg_fixed(fixed_struct) can be used to
+        directly free the memory occupied by any fixed-address
+        structure. (This is intended particularly for use with
+        exptr_mems.)
+
+        See REF * EXTERNAL_DATA for details of these changes.
+
+Sep  9 (Adrian Howard)
+    ---
+        A new Ved command ved_qand has been added. See REF * ved_qand
+        for details. It quits the current file then executes its
+        argument as a Ved command. This means you can do things like
+            <ENTER> qand ref lists
+        instead of:
+            <ENTER> qref lists
+
+Sep  7 (Adrian Howard)
+    --- Installed new version of ved_ul implemented using the new Ved
+        character attribute facilities. This means the results of
+        LIB * PAGE and LIB * RNO can now be viewed without the aid of
+        ved_noul.
+
+Sep  4 (John Gibson)
+    --- The <typespec> mechanism used in defclass, exacc, etc now
+        allows a new basic field type "exval". This is the same as
+        "exptr" for field accessing (i.e. returns an external pointer),
+        but for updating it allows any object to be assigned into the
+        field; the actual value inserted is got by processing the object
+        in a similar way to an external function argument. See Field
+        Specifiers for POPLOG Data in REF * KEYS.
+
+Sep 03 (Adrian Howard)
+    --- ved_h now works as expected when pop_pr_quotes is true
+
+Aug 26 (John Gibson)
+    --- The external <typespec> syntax now allows external function
+        arguments to be declared using dummy argument names, e.g.
+
+            l_typespec foobaz(x, y, z) :int;
+
+        A variadic function can be declared with the special argument
+        name "...", e.g.
+
+            l_typespec afunc(a, b, c, ...) :void;
+
+        The principal purpose of these enhancements is to allow
+        individual argument(s) to be flagged with <SF>, viz
+
+            p_typespec foobaz(x, y<SF>, z) :int;
+
+        When the function is called with exacc, this will cause a
+        decimal or ddecimal passed for that argument to be passed as a
+        machine single float rather than (the default) double. This is
+        necessary for new-style ANSI C function declarations involving a
+        "float" argument, as in
+
+                int foobaz(int x, float y, int z)
+
+        where the argument y will be expected as a single rather than a
+        double. (Note, however, that even in an ANSI compiler, a
+        function declared in the old style,
+
+                int foobaz(x, y, z)
+                float y;
+                int x, z;
+
+        still expects a double for the y argument.)
+
+        See the sections External Compound Types: Functions in
+        REF * DEFSTRUCT and Calling External Functions: Floating-Point
+        Arguments in REF * EXTERNAL.
+
+    --- The boolean values <false> and <true> can now be passed as
+        arguments to external function calls with exacc etc, and will be
+        translated to 0 and 1 respectively.
+
+Aug 12 (John Williams)
+    --- LIB * POPHOST now uses sys_host_id to infer the value associated
+        with "machine serial number". This value will always be either a
+        (big)integer or a string.  See HELP * POPHOST for details.
+
+Aug  7 (Robert Duncan)
+    --- The specification of sys_host_id has been changed so that it
+        might now return the host identification as a string rather than
+        a number. This is to satisfy System V Release 4 Unix systems
+        which define the hardware serial number as a string, possibly
+        containing non-numeric characters. The actual result returned on
+        existing systems should remain unchanged. See REF * sys_host_id.
+
+Aug  7 (John Williams)
+    --- UNIX ONLY: it is now possible to specify whether the procedures
+        * sys_file_stat and * sysdelete should follow symbolic links.
+        See REF * SYSUTIL and REF * SYSIO.
+
+Jul 29 (John Williams)
+    --- Minor bug in LIB * ved_sourcefile fixed - it now classes files
+        as "lib" or "src" appropriately.  Also, new user-assignable
+        procedure * vedsrcfiledefaults defined by LIB * ved_sourcefile.
+
+Jul 22 (John Gibson)
+    --- Since Ved now supports underlining directly, the procedure
+        ved_ul has been removed from the Ved library.
+
+
+For earlier news please see HELP * NEWS.V14_2
+
+
+--- C.all/help/news.v14_5
+--- Copyright University of Sussex 1996. All rights reserved.

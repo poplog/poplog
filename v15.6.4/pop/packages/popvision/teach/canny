@@ -1,0 +1,83 @@
+TEACH STRAIGHT_HOUGH                            David Young
+TEACH CANNY                                     November 1992
+
+This file contains an example of straight line finding using
+LIB *CANNY and LIB *STRAIGHT_HOUGH. See HELP *STRAIGHT_HOUGH and HELP
+*CANNY for details of the procedures.
+
+You need to be running POPLOG under X to display the results.
+
+Load some libraries:
+
+    uses float_arrayprocs
+    uses straight_hough;
+    uses canny
+    uses arrayfile      ;;; to read some example data
+    uses rci_show       ;;; to display the results
+
+Get an image:
+
+    vars image = arrayfile(popvision_data dir_>< 'stereo1.pic');
+
+Note its bounds do not start at 1:
+
+    image =>
+    ** <array [80 176 64 191]>
+
+Display the raw image and set the graphics coordinate system (see
+*RC_GRAPHIC) to correspond to the array coordinates:
+
+    rci_show(image) -> rc_window;
+    rci_show_setcoords(image);
+
+Get some edges using *CANNY.
+
+    vars sigma = 1;         ;;; smoothing
+    vars t1 = 5, t2 = 10;   ;;; hysteresis thresholds
+    vars (xdiffs, ydiffs, gradients) = canny(image, sigma, t1, t2);
+
+Display the gradients (move the windows after creation to reveal the
+ones beneath):
+
+    rci_show(xdiffs) -> ;
+    rci_show(ydiffs) -> ;
+    rci_show(gradients) -> ;
+
+Also look at the edges as binary features:
+
+    rci_show(float_threshold(0, t1/2, 1, gradients, false)) -> ;
+
+Find straight lines using *STRAIGHT_HOUGH, using the gradient values to
+weight the features.
+
+    vars nr = 100, ntheta = 100;    ;;; 100x100 accumulator
+    vars sigmar = 1, sigmat = 1;    ;;; smooth accumulator modestly
+    vars avr = 1, avt = 1;          ;;; refine peaks in 3x3 windows
+    vars thresh = 3;                ;;; threshold peaks at 3xmean
+    vars (hough, peaklist, xc, yc)
+        = straight_hough(gradients, false, nr, ntheta,
+                         sigmar, sigmat, avr, avt, thresh, false);
+
+See how many peaks we've got:
+
+    length(peaklist) =>
+    ** 9
+
+To look at the results, first define a procedure to draw a line on the
+current window.
+
+    define drawhoughline(/* p, xc, yc, bounds */);
+        hough_linepoints(/* p etc. */) /* -> (X0, Y0, X1, Y1) */;
+        rc_jumpto(/* X1, Y1 */);
+        rc_drawto(/* X0, Y0 */);
+    enddefine;
+
+Then use it to draw the lines, say in red:
+
+    XpwSetColor(rc_window, 'red') -> ;
+    applist(peaklist, drawhoughline(% xc, yc, image %));
+
+The match to the image appears to be acceptable.
+
+--- $popvision/teach/canny
+--- Copyright University of Sussex 1992. All rights reserved. ----------

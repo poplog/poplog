@@ -1,0 +1,144 @@
+REF XWindowManipulation                          A. Schoter, August 1991
+
+        COPYRIGHT University of Sussex 1991. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<    X WINDOW MANIPULATION    >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+The data structures and procedures described in this REF file  implement
+the equivalent  C  structures and  functions for window manipulation.
+
+
+
+---------------------
+1  List of procedures
+---------------------
+
+The procedures below are made available by doing:
+
+         uses xlib;
+         uses XWindowManipulation;
+
+For details see:
+
+                     Xlib - C Language X Interface,
+                       MIT X Consortium Standard,
+                         X Version 11, Release 4
+
+        Copyright (C) 1985, 1986, 1987, 1988, 1989 Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+XWindowChanges                                                 [typedef]
+        This data structure is used by the procedure XReconfigureWindow.
+
+            typedef struct {
+                int x, y;
+                int width, height;
+                int border_width;
+                Window sibling;
+                int stack_mode;
+            } XWindowChanges;
+
+
+XMoveWindow(DspPtr,xid,int1,int2)                            [procedure]
+        Moves and raises the window  specified by xid, without  changing
+        its size. It does  not change the mapping  state of the  window.
+        The X and  Y coordinates  of the new  location of  the top  left
+        pixel of the window's border (or the window itself, if it has no
+        border) are int1 and  int2. Moving an mapped  window may or  may
+        not lose  its  contents  depending  on  whether  the  window  is
+        obscured by  non-children. If  the contents  are lost,  exposure
+        events  will  be  generated  for  the  window  and  any   mapped
+        subwindows. Moving a mapped window will generate exposure events
+        on any formerly obscured windows.
+
+
+XMoveResizeWindow(DspPtr,xid,int1,int2,uint1,uint2)          [procedure]
+        Changes the size and  location of the  window specified by  xid.
+        Configuring a mapped window loses its contents and generates  an
+        ExposeWindow event. int1 and int2  are the new X, Y  coordinates
+        of the upper left corner of the window, uint1 and uint2 are  the
+        new width and  height. CHnaging a  window may generate  exposure
+        events on windows that  the window formerly obscured,  depending
+        on the new size and location parameters. To change the  location
+        only,  call   XMoveWindow.  To   change  the   size  only   call
+        XResizeWindow
+
+
+XRaiseWindow(DspPtr,xid)                                     [procedure]
+        XRaiseWindow `raises' the  window specified  by xid  so that  no
+        sibling window  obscures  it. If  the  windows are  regarded  as
+        overlapping sheets of  paper stacked on  a desk, then  raising a
+        window is analogous to moving the sheet to the top of the stack,
+        while leaving its x and y location on the desk constant. Raising
+        a mapped window may generate exposure events for the window  and
+        any mapped subwindows that were formerly obscured.
+
+
+XLowerWindow(DspPtr,xid)                                     [procedure]
+        XLowerWindow `lowers' the  window specified  by xid  so that  it
+        does not  obscure  any  sibling  windows.  If  the  windows  are
+        regarded as overlapping sheets of paper stacked on a desk,  then
+        lowering a window is analogous to moving the sheet to the bottom
+        of the stack,  while leaving its  x and y  location on the  desk
+        constant. Lowering a mapped window will generate exposure events
+        on any windows it formerly obscured.
+
+
+XCirculateSubwindowsDown(DspPtr,xid)                         [procedure]
+        Lower the highest mapped  child of the  window specified by  xid
+        that partially or completely obscures another child.  Completely
+        unobscured children are not affected. Generates exposure  events
+        on any  window formerly  obscured. Repeated  executions lead  to
+        round robin lowering.
+
+
+XCirculateSubwindowsUp(DspPtr,xid)                           [procedure]
+        Raises the lowest mapped  child of the  window specified by  xid
+        that is  partially  or  completely obscured  by  another  child.
+        Completely unobscured  children  are  not  affected.  This  will
+        generate exposure events on that child (and its descendents)  if
+        any part of it was  formerly obscured. Repeated executions  lead
+        to round robin raising.
+
+
+XResizeWindow(DspPtr,xid,uint1,uint2)                        [procedure]
+        Changes the size of the window specified by xid without changing
+        its upper left coordinate. The new width and height specified by
+        uint1 and uint2 are inside  dimensions; they do not include  the
+        window's borders. Changing the size of a mapped window loses its
+        contents and generates an ExposeWindow event. If a mapped window
+        is made smaller,  exposure events will  be generated on  windows
+        that it  formerly obscured.  The  origin of  the window  is  not
+        changed.
+
+
+XQueryTree(DspPtr,xid,ulongptr1,ulongptr2,ulongptrptr,       [procedure]
+            uintptr) -> int
+        Returns  data  concerning  the  heirarchy  tree  of  the  window
+        specified by xid. ulongptr1 is  the root window for the  window,
+        ulongptr2 is the parent window for the window. ulongptrptr  is a
+        pointer to a vector of pointers  to the children of the  window,
+        and uintptr  is  the  number  of children  in  the  vector.  The
+        children are listed in current stacking order, from  bottom-most
+        (first) to top-most (last). The procedure returns 0 if it  fails
+        and 1 if it succeeds.
+
+
+XCirculateSubwindows(DspPtr,xid,int)                         [procedure]
+XConfigureWindow(DspPtr,xid,uint,xwinchangeptr)              [procedure]
+XReparentWindow(DspPtr,xid1,xid2,int1,int2)                  [procedure]
+XSetWindowBorder((DspPtr,xid,uint)                           [procedure]
+XRestackWindows(DspPtr,ulongptr,int)                         [procedure]
+        These procedures implement the equivalent C functions.
+
+
+
+
+--- C.x/x/pop/ref/XWindowManipulation
+--- Copyright University of Sussex 1991. All rights reserved.

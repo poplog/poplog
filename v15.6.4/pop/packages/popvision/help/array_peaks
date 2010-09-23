@@ -1,0 +1,144 @@
+HELP ARRAY_PEAKS                                David Young
+                                                November 1992
+
+LIB *ARRAY_PEAKS finds local maxima in a 2-D array.
+
+An extra procedure for refining peak positions to sub-pixel accuracy is
+provided.
+
+In case just the largest peak is wanted, a simple procedure for finding
+the position of the maximum value in an array is also supplied.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Peak definition
+ -- Main procedure: array_peaks
+ -- Border elements
+ -- Efficiency notes
+ -- Refining peak estimates
+ -- Finding the position of the maximum
+
+-- Peak definition ----------------------------------------------------
+
+Any element of the array that is greater than or equal to all of its 8
+neighbours is regarded as a peak. Only peaks above a threshold get
+recorded.
+
+This definition means that every element inside a plateau (above the
+threshold) gets counted as a peak. The alternatives are to omit
+plateaux, in which case the largest elements of an array might not get
+recorded, or to use a messy definition whereby, say, elements on the top
+and left boundaries of plateaux count as peaks. This library keeps it
+simple and general - if plateaux are a problem, you might be able to get
+rid of them by setting the threshold suitably, or by smoothing, for
+instance using *CONVOLVE_GAUSS_2D.
+
+-- Main procedure: array_peaks ----------------------------------------
+
+array_peaks(ARRAY, THRESHOLD, REGION) -> PEAKLIST
+    ARRAY is a 2-D array containing the data. The procedure is more
+    efficient if it is a packed array of single precision floats, as
+    created by *NEWSFLOATARRAY, but this is not essential.
+
+    Peaks will only be recorded if the array element at the peak has a
+    value greater than or equal to THRESHOLD.
+
+    REGION specifies the part of the array to search. If <false> the
+    whole of the array except for elements next to its boundaries is
+    searched. Otherwise, REGION can be a 4-element list specifying the
+    bounds of the search region in the same way as the boundslist (see
+    *ARRAYS/boundslist) specifies the bounds of the whole array.
+
+    PEAKLIST is a list with one element per peak found. Each of these
+    elements is a vector of length 3. If ARRAY(X, Y) is greater than or
+    equal to all its 8 neighbours and the threshold, then there will be
+    an entry V in PEAKLIST with the data:
+        V(1) = ARRAY(X, Y)
+        V(2) = X
+        V(3) = Y.
+    PEAKLIST is ordered in descending order of peak magnitude.
+
+-- Border elements ----------------------------------------------------
+
+If you really want to search the elements next to the boundaries of the
+array, you have to decide what to do about the fact that they only have
+5 or 3 neighbours instead of 8. This procedure does not try to guess
+what to do, as the solution depends on the application. If you want to
+include these elements, then you have to make your array larger by at
+least 1 element all the way round (see *BOUNDSLIST_UTILS/region_expand)
+than the region you are interested in. Then there are normally only two
+sensible things to put in this margin:
+
+    1. If you want to compare the border elements with only the 5 or 3
+    neighbours that are within the region, fill the margin with a value
+    that is smaller than THRESHOLD. Alternatively, use *ARRAY_REFLECT to
+    fill the margin - this will have the same effect.
+
+    2. Wrap the array round to form a torus - see *ARRAY_WRAP.
+
+-- Efficiency notes ---------------------------------------------------
+
+As mentioned above, it is best to use packed float arrays. Other arrays
+get copied. This means that information can be ignored if the original
+data go beyond single-precision accuracy, and the differences specified
+in the least significant bits actually matter.
+
+The algorithm uses a fixed vector in which the external procedure
+(written in C) stores its results. At present this vector holds data for
+1000 peaks. If more than 1000 peaks are found, a longer vector is
+created and the procedure tries again; this is rather inefficient and
+creates garbage. If the program is to be used routinely for more than
+1000 peaks per search, it would be sensible to change the constant
+-init_peakno- in the main procedure to something larger, and recompile
+this procedure (you do not need to reload the whole library or the
+external procedure to do this). This is purely for efficiency: nothing
+untoward happens even if the number of peaks is much larger than
+-init_peakno-.
+
+If you only want the bigger peaks, it is well worth setting threshold to
+something sensible, even if this is done by trial and error, to avoid
+creating very long lists of which you only want the first few elements.
+
+-- Refining peak estimates --------------------------------------------
+
+In arrays where the data has been smoothed, or where the data are
+intrinsically smooth (i.e. peaks are likely to be smeared over several
+array elements), the following simple procedure can help to give more
+accurate results:
+
+refine_peaks(ARRAY, PEAKLIST, XLIM, YLIM) -> NEWPEAKLIST
+    ARRAY is an array that has had -array_peaks- applied to it. PEAKLIST
+    is the result from the call to -array_peaks-, or from a call to
+    -array_peak- (see below).
+
+    XLIM and YLIM must be non-negative integers, typically 1 or 2 and
+    possibly related to the size constant for any smoothing that has
+    been applied. The procedure looks in a region of X-size 2*XLIM+1 and
+    Y-size 2*YLIM+1 centred on each pixel in PEAKLIST.  It finds the
+    mean and centre of gravity of the array values in this box.
+
+    NEWPEAKLIST is a list in the same format as PEAKLIST, but containing
+    the means and weighted positions.  It is again ordered by peak size.
+    This means that the order of peaks in NEWPEAKLIST may not correspond
+    to that in PEAKLIST.
+
+-- Finding the position of the maximum --------------------------------
+
+Sometimes it is sufficient to find a single peak. A faster procedure
+than -array_peaks- is supplied, which simply finds the largest value in
+the array. (If there is more than one candidate, the procedure just
+returns one of them.)
+
+array_peak(ARRAY, REGION) -> PEAK
+    ARRAY and REGION are as for -array_peaks-, except that REGION may
+    cover the whole of the array, and this is the default if it is given
+    as <false>.
+
+    PEAK is a vector giving the position and value of the maximum, with
+    the same format as one element of PEAKLIST, described above.
+
+The procedure -refine_peaks- will work on a single peak without its
+having to be embedded in a list.
+
+--- $popvision/help/array_peaks
+--- Copyright University of Sussex 1993. All rights reserved. ----------

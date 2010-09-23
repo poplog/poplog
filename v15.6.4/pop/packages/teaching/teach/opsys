@@ -1,0 +1,767 @@
+TEACH OPSYS                                     Chris Thornton, April 87
+                                              Modified A.Sloman Apr 1989
+
+This teach file gives a practical introduction to some aspects of
+operating system design, using the Pop-11 "process" mechanism.
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Overview
+ -- EXERCISE 1: memory manager and dispatcher
+ -- Requirements for the memory manager
+ -- Requirements for the dispatcher
+ -- Requirements for individual processes
+ -- Techniques used
+ -- Sample dispatcher
+ -- Towards a memory manager
+ -- Defining a process generator
+ -- Defining a process template
+ -- Fix -dispatcher- to cope with processes that die
+ -- EXERCISE 1: What to hand in
+ -- Some further developments of the first exercise
+ -- EXERCISE 2: using a fixed time limit for each run
+ -- Changes required for Exercise 2
+ -- Uninterruptable (critical) regions
+ -- Defining generic_normal_process
+ -- EXERCISE 2: What to hand in
+ -- EXERCISE 3: runnable and non-runnable processes
+ -- EXERCISE 4: a paged memory system
+ -- EXERCISE 5: more book keeping
+ -- Further reading
+
+-- Overview -----------------------------------------------------------
+
+This teach file provides a practical introduction to some important
+features of operating systems, problems in their implementation, and
+techniques that can be used. In particular, the file introduces concepts
+relevant to process scheduling and memory management, and illustrates
+them in some Pop-11 programs simulating operating systems software.
+
+It is assumed that the reader will also work through text books on
+operating systems to get a broader vision, e.g.
+
+    Lister, A.M.,
+        Fundamentals of Operating Systems
+        (2nd edition), Macmillan, 1979.
+
+POP-11 is used as the implementation language in order to demonstrate
+the main techniques, although it would probably be too inefficient as an
+implementation language for a real operating system.
+
+You will need to understand the process mechanism built into POP-11, and
+described on pp.195-201 of the POP-11 book by Barrett, Ramsay and
+Sloman.
+
+There are some online HELP files summarising the main features of
+the mechanism. The facilities used in this file are explained in:
+HELP * PROCESS, * CONSPROC, *RUNPROC, *SUSPEND, *RESUME, *ISPROCESS
+    * ISLIVEPROCESS
+
+There is a more detailed description in the file REF * PROCESS.
+
+It is also necessary to know about vectors. See HELP * VECTORS for
+a summary of information about vectors. REF * DATA and REF * VECTORS
+give more detailed and technical information.
+
+There are several exercises introducing successively more complex
+techniques of operating system design.
+
+
+-- EXERCISE 1: memory manager and dispatcher --------------------------
+
+The first exercise introduces the use of Pop-11 processes, a simple
+dispatcher, and a memory manager. You will be given the outlines of
+an implementation, below, which you should complete, and then describe
+in a report.
+
+A multi-processing operating system has to be able to run a collection
+of processes on the same processor, sharing the available processor
+time and available memory between them. New processes can start at
+any time, and old ones may die because they have completed their task.
+
+A memory-manager has to ensure that programs are able to use available
+memory without interfering with one another, and a dispatcher has the
+task of deciding which process should run when.
+
+The first exercise involves the writing of a memory-management module
+and a dispatcher module. These will create and manipulate a variety of
+structures. Some of the structures are necessary because they define the
+problem. Others are created because they are necessary for the solution
+to the problem.
+
+The problem requires the following entities to be dealt with:
+
+1. A linear memory available for processes to use for storing data. A
+Pop-11 vector will be used to represent the total available physical
+memory to be shared between different processes.
+
+2. Individual processes, which die after running for a while, at which
+point new replacement processes are created. Each process will be
+represented by a Pop-11 process, which is created from a program
+for that process.
+
+Different processes will require different amounts of memory to be
+allocated to them, and no process should be allowed to examine or alter
+the memory space allocated to another process.
+
+When a new process is created it may be necessary to shift processes
+around in the memory, to make space for the new process. (See Lister on
+memory management.) This is called "compaction" and should be
+"invisible" to each process. I.e. each process should operate with a
+"virtual memory" which is mapped onto the actual locations in the memory
+vector, and the memory access instructions in the process should not
+have to change when the process is relocated.
+
+
+-- Requirements for the memory manager --------------------------------
+
+The memory manager will need to keep a record of where each process is
+located. In what follows this is done by associating with each process
+two integers, a "base" and a "limit". The base specifies the actual
+start address of the memory vector allocated to the process. This can
+change when the process is relocated by the compaction procedure. The
+limit is the largest virtual address that the process is allowed to
+access.
+
+The memory manager also needs to be able to work out which bits of the
+memory are free for allocation to new processes. A table of free space
+can be used for this.
+
+Before reading on you should try to write down a set of design
+requirements for a memory management package. What data-structures will
+it need? What global variables? What procedures will it need?
+
+
+-- Requirements for the dispatcher ------------------------------------
+
+The dispatcher module (the scheduler) will need to know which processes
+exist and which one is currently running, and will have to have some way
+of choosing the next process to run when the current one stops.
+
+When it runs a process it has to make sure that the memory manager has
+access to information about that process so that it knows which process
+is running.
+
+The dispatcher also needs to know when a process has died and cannot
+run any more.
+
+A more complex dispatcher might remove dead processes from the
+process-table telling the memory manager the memory previously allocated
+to it the process now a free "hole". A new process might then be
+created, and memory re-organised to make room for it if it doesn't fit
+into the hole left by the dead process.
+
+In the first exercise given below, if a process dies its place will
+not be taken and the space will simply be wasted.
+
+Before reading on try to write down requirements for the simple
+dispatcher and for the more complex one. What data structures and global
+variables will it need? What procedures will it need?
+
+
+-- Requirements for individual processes ------------------------------
+
+Ideally the dispatcher should decide when a process has run long enough
+and should be suspended to allow another process to have a turn.
+
+However, in the first exercise we shall allow each process, each time
+it is run, to decide when it should suspend itself and give way to
+another process. In a later exercise a timer procedure  will be used
+to ensure that no process goes on too long when it gets its turn to
+run.
+
+So the individual processes used in this exercise decide for themselves
+how long they should be run each time they get a turn, using a random
+procedure. They then suspend themselves, and when they are next run they
+continue where they left off. They also decide how many runs they need
+altogether, after which they die.
+
+Each process requires a certain amount of memory, and does nothing but
+store randomly generated numbers at randomly selected locations in its
+virtual memory and then check that the numbers stored have not changed.
+If there is something wrong with the memory accessing or allocating
+procedures, or something wrong with the compaction procedure in the
+memory manager this could lead to corruption of one process' memory by
+part of another. So it will be necessary to include a test to ensure
+that the program finds things where it last stored them.
+
+
+-- Techniques used ----------------------------------------------------
+
+The processes used in this first exercise are created by a process
+"generator" procedure defined below, using the built in POP-11 procedure
+-consproc-, which takes a procedure and some initialising data, and
+creates a process.
+
+The procedure -genproc-, for which possible definitions are given below,
+will be used to create processes, which are stored in a list
+-processes-, used by the dispatcher. -genproc- will ask the memory
+manager to allocate a portion of the memory vector for the process, and
+will record which portion has been allocated.
+
+Each process is created from a "generic" procedure that can be given a
+number of parameters to define its behaviour, including the process
+number for the process it is creating, the amount of memory it requires,
+the number of times it cycles before suspending itself, and how many
+times it runs before it dies.
+
+Processes are run using RUNPROC, and temporarily suspended using
+SUSPEND. (See HELP * CONSPROC, * RUNPROC, * SUSPEND).
+
+When each process is run it will be assumed that there is a global
+variable -this_proc_num-, set by the dispatcher which has as its value
+the number of the current process. There is also a variable
+-this_process_state- whose value is a list of information about
+the process, including its base address and limit address in the
+memory vector. When the process is running the variables base_address
+and limit_address specify these values.
+
+These variables are global to a number of procedures, but local to the
+dispatcher, since it initialises and changes their values, and accesses
+them later on. Because they are used globally they should be declared
+at the top of the file, with comments describing their role.
+
+
+-- Sample dispatcher --------------------------------------------------
+
+A very simple dispatcher is defined below. It takes two arguments, the
+number of processes to be created, and the number of times it is
+to run through the process list.
+
+It represents each process by a list called process_state containing
+    the process number
+    the process
+    the base address
+    the limit address
+
+(In a real operating system more information may need to be recorded
+about each process, for instance a stack of currently active
+procedures, the instruction counter, the states of various registers.)
+
+The dispatcher makes a list of such process descriptors, and calls it
+-processes-. It repeatedly cycles through the processes in the list,
+giving each a chance to run until it suspends itself.
+
+Assume that the procedure -genproc- is defined. It should be given a
+process number and return a process state descriptor. Possible
+definitions for -genproc- are given below.
+
+define dispatcher(num_of_processes, cycles);
+    ;;; Create and schedule the given number of processes
+    ;;; Use lvars for ordinary local variables
+    lvars cycles, num_of_processes, index;
+    ;;; Use vars for pattern variables and globally accessible variables
+    vars this_proc_num, this_process, base_address, limit_address,
+        this_process_state, processes;
+
+    /* Create a list of new process state descriptors */
+    [% for index from 1 to num_of_processes do
+             genproc(index)
+         endfor %] -> processes;
+
+    ;;; Print out a map showing how processes are allocated to the
+    ;;; memory vector. <Add the code for this>
+
+    /* Repeatedly cycle through all the processes */
+    repeat cycles times
+        for index from 1 to num_of_processes do
+            ;;; get process data
+            processes(index) -> this_process_state;
+            this_process_state -->
+                [?this_proc_num ?this_process ?base_address ?limit_address];
+
+            [running process ^this_proc_num at ^base_address] =>
+
+            runproc(0, this_process);   ;;; Run till it suspends itself
+
+            [stopping process ^this_proc_num] =>
+        endfor
+    endrepeat
+enddefine;
+
+
+Notice that -genproc- the procedure that creates a process, is given the
+process number as argument. It returns a state descriptor containing
+four items, the process number, the new process, the base address in the
+memory vector for that process, and the limit address for that process.
+When each process is run the state descriptor is assigned to
+-this_process_state-.
+
+
+The dispatcher has a number of different local variables. Some of them
+may need to be accessed by other procedures. If so they should also be
+defined as global at the top of the file, with a comment explaining
+their use. Within the dispatcher they should be defined using "vars" to
+make them dynamic variables, accessible from other procedures defined
+elsewhere. Any variables that are truly private to the dispatcher should
+be declared using "lvars". (See HELP * LEXICAL, * LVARS).
+
+If you wish you can use "vars" for all variables, as this will make
+debugging easier, though in some circumstances it can introduce bugs due
+to unwanted interactions between procedures.
+
+
+-- Towards a memory manager -------------------------------------------
+
+Having implemented the basic dispatcher you should then think about how
+to implement the memory-manager module. This module must provide three
+procedures, one to allocate a portion of memory to a process, one to
+store some information in memory, and one to access stored information.
+
+The "memory resource" accessed by the memory manager module should be a
+single POP-11 vector which you can set up using -initv-.
+    (See HELP * INITV).
+
+Near the top of your program (or top of the portion concerned with
+memory management) you should declare and initialise two global
+variables, memory_vector and memory_size. Add comments explaining
+what they are for. You may also want to have another global variable
+called memory_allocated which records how much memory has been
+allocated so far, and therefore how much is left.
+
+
+The three memory management procedures can be specified thus.
+
+(1) memrequest(size) -> base_address -> limit_address
+
+    This procedure takes an integer argument: a virtual memory size
+    required by a new process. It returns a base_address and a
+    limit_address for that process.
+
+It should cause an N-slot portion of memory in the memory vector to be
+reserved for the use of the process specified, and it should keep track
+of how much of the memory remains to be used. If there is not enough
+left to meet the request it should produce an error message, using the
+Pop-11 -mishap- procedure. (See HELP * MISHAP)
+
+-genproc- will call -memrequest- exactly once for each process in this
+exercise, though in a real operating system some procedures may be
+allowed to ask for more memory while they are running. The next two
+procedures are invoked by running processes.
+
+(2)  memloc(K) -> result
+
+    This procedure takes one argument, an integer, and should return a
+    single result; this being the contents of the K'th slot of the
+    VIRTUAL memory set up for the current process.
+
+It will have to use the values of base_address and limit_address for the
+current process in order to work out which actual location in the memory
+vector corresponds to the virtual address K for the current process. It
+should check that the location accessed is within the limits allocated
+to the process, and call -mishap- with an appropriate error message if
+it is not a legal address for the process.
+
+The values of base_address and limit_address are set up by the procedure
+-dispatcher- for the current process in the definition given above.
+However, you may wish to use a different mechanism.
+
+(3) X -> memloc(K)
+
+    The updaterof memloc (see HELP * UPDATER, * UPDATEROF), should be
+    defined to alter the contents of the K'th slot in the VIRTUAL memory
+    of the current process. The value X will actually be stored at the
+    corresponding location in the memory vector. Like memloc the updater
+    should check that K is within the address space allowed for the
+    current process.
+
+
+-- Defining a process generator ---------------------------------------
+
+The next procedure (or something similar) can take the place of
+-genproc- in the dispatcher.
+
+The -genproc- procedure (for which we have given a longer name here,
+to contrast it with versions required for later exercises) is to take
+a process number as input, create a process, and return a process
+state descriptor, as specified above.
+
+For each process it selects a number of cycles and a memory size
+required, using the procedure -random- and two global variables
+that should be initialised at the top of your file, with comments.
+
+The global variable -process_memory_max- controls the maximum amount
+of memory each process is allowed to request while the variable
+-process_iterations- controls the amount of time processes are allowed
+to carry on before they finally die. E.g. you could use
+
+vars process_memory_max = 50, process_iterations = 100;
+
+
+define genproc(process_num) -> newstate;
+    /* Form a process using the procedure generic_process */
+    lvars newstate, process_num, base, limit, process,
+        memsize = random(process_memory_max),
+        cycles = random(process_iterations);
+        memrequest(memsize) -> base -> limit;
+    consproc(memsize, cycles, 2, generic_process) -> process;
+    [^process_num ^process ^base ^limit] -> newstate;
+enddefine;
+
+This procedure creates but does not run the process.
+
+
+-- Defining a process template ----------------------------------------
+
+The procedure -genproc- generates processes (i.e. process records) from
+the procedure -generic_process-. When such a process is run (using
+-runproc-) it carries out various calls on the memory manager utilities
+-memloc- and -memrequest- and carries out checks to see if the results
+of these calls indicate that the memory manager module is behaving
+correctly. (Mishaps are created if any errors are detected.) Note that
+processes generated from -generic_process- suspend themselves every so
+often.
+
+Each process is going to be formed from the procedure generic_process
+defined below together with some numbers which are different for each
+process. They are the arguments to the procedure.
+
+This version of generic_process will do a lot of printing, which may be
+fine when you are first testing it, but you may wish to suppress it
+later or make the printing conditional on a global variable -verbose-.
+(Declare and initialise it near the top of the file, with a comment
+saying what it is for.)
+
+This procedure needs to be able to access some global information set up
+by -dispatcher- while it is running so that it knows what the current
+process number is, etc.
+
+define generic_process(my_mem_size, cycles);
+    lvars
+        my_mem_size,    ;;; virtual address space for this process
+        cycles,         ;;; number of times to run before dying
+        locnum,         ;;; memory address to accessed
+        data, fetched;  ;;; informatin stored and retrieved
+
+    repeat cycles times
+        /* Select a memory location and a number to store there */
+        random(my_mem_size) -> locnum;
+        random(999999) ->> memloc(locnum) -> data;
+        [process ^this_proc_num storing ^data at ^locnum] =>
+
+        /* Decide whether to suspend or not */
+        if random(10) == 10 then
+            [Suspending process ^this_proc_num] =>
+            suspend(0);
+            [Resuming process ^this_proc_num] =>
+        endif;
+
+        /* (On re-starting) check that memory is not corrupted */
+        memloc(locnum) -> fetched;
+        [process ^this_proc_num found ^fetched at ^locnum] =>
+        unless fetched == data then
+            mishap('Memory corrupted at ' >< locnum, [%data, fetched%]);
+        endunless;
+    endrepeat;
+    ksuspend(0);      ;;; actually this is redundant. Why?
+enddefine;
+
+
+Feel free to change or rewrite the procedure. E.g try out a version that
+sometimes tries to access or update memory beyond its allocated size.
+Make sure that memloc checks this and aborts the process, with an error
+message, if it happens.
+
+
+-- Fix -dispatcher- to cope with processes that die -------------------
+
+The procedure -dispatcher- defined above cycles through the list of
+processes, running each one in turn using -runproc-. It is extremely
+basic and there are a number of reasons why it will not work. To start
+with, it is not able to cope with the fact that processes may kill
+themselves off using the procedure -ksuspend- (see HELP * KSUSPEND), or
+simply die because they finish executing all their instructions.
+
+If one of the processes in the list dies and is subsequently passed as
+an argument to -runproc- a mishap will be caused ('ATTEMPT TO RUN DEAD
+PROCESS'). To solve this problem it is necessary to change the
+dispatcher so that it checks whether processes are still "live".
+
+This can easily be implemented by inserting a call of -isliveprocess- at
+a suitable point, and simply not running the process if it is dead.
+Instead print out a message something like this:
+
+    [Not running dead process ^this_proc_num] =>
+
+and carry on with other processes.
+
+(A later version of the program, described below, could create a new
+process to take the place of a dead process, requiring memory to be
+compacted if necessary, to make room for the new process.)
+
+You may find other flaws in the above design, in which case you should
+fix them. E.g. what happens if the memory_vector is not big enough?
+
+
+-- EXERCISE 1: What to hand in ----------------------------------------
+
+For exercise 1 you should hand in a report on a first-draft program
+including the code for the dispatcher and the code for the memory
+manager.
+
+The description need not be very long (a few pages) but should conform
+to the guidelines in TEACH * REPORTS. Attach some output demonstrating
+that the program works. You'll have to chose print instructions
+carefully to reveal all the main episodes, but DON'T hand in pages and
+pages of repetitive printout. Add some comments to the output,
+high-lighting interesting features.
+
+Your report should explain how you represent the current state of the
+memory, where unused memory is, which processes have which portions of
+memory, etc. Describe the data-structures and global variables used for
+this purpose clearly.
+
+Use diagrams if necessary to explain what's going on, e.g. the layout of
+processes within the memory vector.
+
+Any global variables used should be declared with comments near the top
+of the program file.
+
+See TEACH * PROGSTYLE for general guidance on programming.
+
+
+-- Some further developments of the first exercise --------------------
+
+Try some extensions to the above exercise, although you need not hand in
+a report on them, unless you complete them by the deadline for exercise
+1. They will prepare you for the next exercise.
+
+1. Instead of just not running dead processes, change the dispatcher and
+memory manager so that whenever the dispatcher finds a dead process it
+informs the memory manager that the process using a certain space is
+dead. You could define a procedure -memrelease- for that. What arguments
+should it take?
+
+2. When a process dies the dispatcher should create a new one, which
+should be allocated memory in the memory vector. The new process should
+be put in the process list so that it can be run on each cycle of the
+dispatcher.
+
+Ensure that when new processes are created they are given enough memory
+for their requirements, without interfering with other processes. Make
+sure that the memory manager implements the "first-fit" replacement
+strategy (see Lister, p. 54) and is able to do "compaction" in the case
+where this strategy fails (see Lister, p. 55).
+
+The dispatcher should keep track of how many processes it has created
+altogether and should allocate a new process number to each process it
+creates. It should print out a message saying that it has done so.
+
+The compaction process will require the still-in-use chunks of memory
+to be moved together in the memory_vector so as to turn all the holes
+left by the reclaiming of no-longer-in-use chunks into one big hole.
+This is quite a complicated operation since it entails transferring
+chunks of a vector from one place to another.
+
+Fortunately, POP-11 provides a procedure (-move_subvector-) which makes
+this very easy.
+
+For details, see HELP * MOVE_SUBVECTOR, and REF * DATA/move_subvector
+
+To help with debugging, and in order to demonstrate that the program is
+working, you should make the program announce that it is doing
+compaction, and print out a new memory map, showing which processes use
+which portions of memory. If it is able to allocate a new process to an
+existing "hole" in memory it should also print out information about
+this.
+
+
+-- EXERCISE 2: using a fixed time limit for each run ------------------
+
+For this exercise you will find it useful to know about the POP-11
+timing mechanisms, including SYSSETTIMER, which sets the timer going
+and SYSCANTIMER, which interrupts it. See their HELP files or
+    REF * TIMES/syssettimer and REF * TIMES/syscantimer
+
+The dispatcher you were asked to build as part of exercise 1 enables
+processes to be run in rotation. It assumed that processes could be
+allowed to run until they suspended themselves. This is obviously not
+very wise: a process might allow itself to run forever.
+
+For exercise 2 you should turn the dispatcher into a process-scheduler
+which is able to suspend processes after they have used up a certain
+amount of processor time. To implement this change you will have to make
+a number of alterations to your dispatcher module.
+
+
+-- Changes required for Exercise 2 ------------------------------------
+
+You will need to define a new version of -generic_process- that no
+longer calls -suspend- directly. Instead the dispatcher will set
+up a procedure that runs suspend after a given time.
+
+First of all you will need to set up a variable which specifies the
+maximum amount of time that a process is to be allowed to run. If you
+make it a global variable declare and initialise it (with other globals)
+at the top of your program file.
+
+Processor time is normally measured in hundredths of a second (see
+HELP * SYSTIME) so, ideally, this variable should have a value which
+corresponds to some number of hundredths of a second. You might set up a
+variable as follows.
+
+     vars max_process_time = 100;   ;;; one second
+
+You should now change the scheduler module so that it sets the built-in
+POP-11 timer to generate an interrupt and run a procedure that calls
+SUSPEND after a process has run for -max_process_time- hundredths of a
+second. This will entail inserting something like
+
+     syssettimer(max_process_time, do_suspend);
+
+somewhere before the scheduler calls -runproc-. One way to define
+do_suspend would be
+
+define do_suspend;
+    suspend(0)
+enddefine;
+
+(You could also use "partial application" and use suspend(%0%) instead
+of defining do_suspend. See HELP * PARTAPPLY, TEACH * PERCENT/apply).
+
+Notice that the procedure do_suspend itself, NOT the result of running
+it, is the second argument to syssettimer. I.e. don't do
+
+     syssettimer(max_process_time, do_suspend());
+
+Make sure the scheduler cancels the last timer set up in the case where
+the process dies before it gets suspended (how can your program detect
+that case?) If the scheduler fails to do this, there is the danger that
+another process will be suspended before it has had its fair share of
+processor time. The timer can be cancelled using -syscantimer-
+ (see HELP * SYSCANTIMER).
+
+
+-- Uninterruptable (critical) regions ---------------------------------
+
+A problem with this, as you may find out if you try it is that the
+do_suspend procedure may be invoked while the memory manager is in the
+middle of compacting memory. If that happens, then subsequent processes
+may find that their memory has been corrupted.
+
+So you should consider how to stop processes being suspended when they
+are in the middle of a call on a memory manager procedure (e.g.
+-memrequest-). It is vital that any memory manager procedure which
+updates the memory environment is not suspended in mid-operation, as
+this could result in the memory environment getting corrupted. (This is
+why you cannot interrupt the POP-11 garbage collector.)
+
+A possible technique involves setting up a global boolean variable (it
+is sometimes called a "flag") which is normally false, but is locally
+set to <true> by any memory manager procedures which cannot bear to be
+interrupted. The code within which the interrupt is not allowed is
+called a "critical region" of the program. The flag might be called
+"no_interrupts".
+
+You then have to define -do_suspend- so that it calls -suspend- only if
+the current (dynamic) value of -no_interrupts- is <false> (the default).
+
+If it is true, it could either set the timer to allow a slight extension
+of the current time slot, or else set a flag in the memory manager (e.g.
+assign true to a variable -was_interrupted-, previously set false by the
+memory manager). If you use the second method then, at the end of the
+critical region, the memory manager can test whether there was an
+interrupt, and if so call the suspend procedure when it is safe to do
+so.
+
+Try analysing the advantages and disadvantages of the two methods. Is
+one a clear winner?
+
+If you use these flags set in certain procedures and accessed or re-set
+in the interrupt procedure, then you should think very carefully about
+which procedures should have access to them. Don't dot references to
+global variables all over the place if you can help it.
+
+
+-- Defining generic_normal_process ------------------------------------
+
+A new version of the process generator given above is provided below.
+This version generates processes which do not suspend themselves; they
+only kill themselves when they have finished processing. It uses a new
+version of generic_process, which we'll call generic_normal_process.
+
+define generic_normal_process(my_mem_size,cycles);
+    <Define this to be like generic_process, but do not call suspend>
+enddefine;
+
+You should consider whether you will need to modify the procedure
+-genproc-, and if so how.
+
+
+-- EXERCISE 2: What to hand in ----------------------------------------
+
+For exercise 2 you should hand in a report in the format described in
+TEACH * REPORTS including (i) the relevant code, (ii) a short
+description of the program structure (iii) some output demonstrating
+that the program actually works. Once again remember not to hand in
+pages and pages of repetitive printout. Edit it and indicate high-lights
+with comments.
+
+Make sure that your write-up explains clearly how you have solved the
+problem of limiting the time-quantum allocated to each process each
+time it is run.
+
+If you have managed to extend the memory manager to handle relocation,
+explain briefly (using diagrams) how it works.
+
+The remaining exercises are optional, if you have time.
+
+
+-- EXERCISE 3: runnable and non-runnable processes --------------------
+
+Change the structure of the process-descriptor so that processes can be
+associated with a status (e.g. "runnable", "non-runnable"). Change the
+scheduler so that only runnable processes are dispatched and change the
+memory manager so that processes which cannot be supplied with the
+requested amount of memory are made non-runable until enough memory
+becomes available. In order to test your program you will have to reduce
+the size of the main store below the point at which the memory manager
+can always satisfy all memory requests.
+
+You could add extra "realism" by simulating some devices such as a
+printer or tape drive (or a few of each), and making processes try to
+access them for a time then release them. A process should be
+non-runnable if it is trying to access a device that is in use. You
+could use semaphors or some other technique to prevent two process
+using the same device at the same time.
+
+See if you can make your dispatcher detect a deadlock if one arises.
+
+
+-- EXERCISE 4: a paged memory system ----------------------------------
+
+Change the memory-manager module so that it implements a paged memory
+system. You will need to simulate a secondary memory store (i.e. disc)
+and you can do this using another POP-11 vector. Make sure that the
+vector you use to simulate secondary store is longer than the vector you
+use to simulate main store. The module you build should implement a
+first-in, first-out page-replacement policy (see Lister, p. 56).
+
+
+-- EXERCISE 5: more book keeping --------------------------------------
+
+Using the facilities described in
+    REF * TIMES/systime
+    REF * TIMES/sys_real_time
+    REF * SYSTEM/popgctime
+
+extend the process descriptor for each process to include a running
+total of how much cpu time it has used, how much time it has spent in
+garbage collection, and how much "real" time it has taken. Assume that
+there are limits to the amount of time each process is allowed, and
+abort processes that exceed their limits. Alternatively let them run
+only when there are no other runnable processes.
+
+You could also give different kinds or processes different priorities,
+and extend the scheduler accordingly.
+
+-- Further reading ----------------------------------------------------
+Apart from the references given above, look at
+
+HELP * ACTOR
+SHOWLIB * ACTOR
+SHOWLIB * EVENT
+
+--- $poplocal/local/teach/opsys
+--- Copyright University of Sussex 1989. All rights reserved. ----------

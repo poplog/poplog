@@ -1,0 +1,278 @@
+HELP PRB_TRACE_PROCS                               Aaron Sloman Feb 1996
+
+{Draft Documentation}
+
+
+CONTENTS
+
+ -- Loading the match trace facilities
+ -- show_trace_match
+ -- -- show_trace_match(false);
+ -- -- show_trace_match(rulename);
+ -- -- show_trace_match(list);
+ -- prb_trace_rule_stats(ruleinfo, name) -> stats
+ -- prb_rules_traced() -> names
+ -- prb_sort_traces(names, num) -> sorted
+ -- prb_show_full_trace(num)
+ -- prb_object_matches(object_name) -> list
+ -- clear_trace_match()
+ -- The information stored in trace_match_prop
+
+-- Loading the match trace facilities ---------------------------------
+
+To invoke the trace facilities do
+
+    uses prblib;
+    uses prb_trace_procs;
+
+before compiling poprulebase
+
+This makes TRUE the global variable
+    do_trace_match
+
+Consequently when poprulebase is compiled it enables a facility for
+keeping records of which matches are attempted during rule testing.
+After that, the record keeping can be turned on and off by
+
+    true -> do_trace_match;
+    false -> do_trace_match;
+
+If it is true, then during the running of poprulebase information
+is stored in a property called
+
+    trace_match_prop
+
+This property associates each rule name with a record of matches
+attempted while the conditions of that rule are being checked. If this
+is used in the context of LIB SIM_AGENT, then it also indicates which
+patterns are matched in the context of which agent. Further details
+concerning the information stored, and the format, are given below.
+
+The raw information is in a rather indigestible form. So several
+procedures are provided for extracting information from the property.
+
+
+-- show_trace_match ---------------------------------------------------
+
+This procedure, which can be invoked in several formats, described
+below, produces the most detailed print out concerning all the rules
+whose conditions have been tested. It is normally best to use one of the
+other procedures to select which rules to focus on.
+
+Depending on the argument given, it prints out information from the
+property trace_match_prop, as defined below. For each rule name, the
+information associated with it is a list of the form
+
+    [agentname patterninfo agentname patterninfo ....]
+
+patterninfo is a list which records for each pattern the number of times
+it was checked in a condition of that rule while that agent was running,
+and the number of times the match succeeded.
+
+Here are the invocation formats:
+
+-- -- show_trace_match(false);
+Prints out all the stored information, one rule at a time, in an
+arbitrary order.
+
+-- -- show_trace_match(rulename);
+Given a word which is a rule name, prints out the information regarding
+that rule.
+
+-- -- show_trace_match(list);
+Given a list of rule names prints out the information about all the
+corresponding rules.
+
+The information produced by the above procedures can be indigestible.
+
+The following procedures allow some selection and sorting.
+
+-- prb_trace_rule_stats(ruleinfo, name) -> stats ----------------------
+This is basically a system procedure, used by others.
+
+Given ruleinfo, which is the information in trace_match_prop associated
+with a rulename, and the corresponding name, this produces a list of
+information about that rule, in this form:
+
+    [^name tries ^tries hits ^hits patterns ^num objects ^objects]
+
+-- prb_rules_traced() -> names ----------------------------------------
+Returns a list of names of rules in trace_match_prop
+
+-- prb_sort_traces(names, num) -> sorted ------------------------------
+
+Given a list of names of rules, and a number num (or false) this
+produce a list of information about the rules (where each item is in the
+format prodcued by prb_trace_rule_stats as shown above.
+
+The list is sorted in decreasing order of total number of attempted
+matches per rule.
+
+If names is false, get all the names stored in the property, otherwise
+focus only on the rules whose names are in the list.
+
+If num is false all the lists are returned. If num is an integer, then
+only that number, i.e. the first num, after sorting, will be in the
+list.
+
+Example: show only the two most frequently matched rules:
+
+    prb_sort_traces(false, 2) ==>
+
+For the rules defined in TEACH PRBRUNRIVER.P this might print out
+
+    ** [[check_constraints tries 181 hits 59 patterns 18 objects 1]
+        [move_thing tries 107 hits 42 patterns 8 objects 1]]
+
+because the rule check_constraints invokes most calls of the matcher,
+followed by move_thing. Of the 181 tests of conditions in the rule
+check_constraints only 59 matched items in the database. 18 different
+patterns in all were used (because some of the patterns in the rule
+could be instantiated differently on different occasoins).
+
+The number of objects defaults to 1. This is spurious, unless the
+sim_agent library is in use, in which case it indicates the number of
+different objects that used the rule.
+
+For the rules given in TEACH ARMYSIM.P this produces
+prb_sort_traces(false, false) ==>
+** [[asim_move_to tries 28 hits 18 patterns 1 objects 2]
+    [sim_check_at tries 19 hits 9 patterns 1 objects 2]
+    [asim_do_stop tries 19 hits 0 patterns 1 objects 2]
+    [tell_goals tries 19 hits 0 patterns 1 objects 2]
+    [comm1 tries 11 hits 11 patterns 1 objects 1]
+    [mess_in_ack1 tries 3 hits 3 patterns 1 objects 2]
+    [mess_in_ack2 tries 2 hits 2 patterns 1 objects 1]
+    [mess_in1 tries 1 hits 0 patterns 1 objects 1]
+    [mess_in2 tries 1 hits 1 patterns 1 objects 1]]
+
+-- prb_show_full_trace(num) -------------------------------------------
+
+This procedure shows full information about num most frequently
+matched rules.
+
+It uses prb_sort_traces(false, num) to get a list statistics for
+the num rules whose conditions are most frequently tested. Then for each
+such rule it shows both the information in the format displayed for
+prb_sort_traces followed by the full information about that rule
+in the property trace_match_prop, as displayed by
+
+        show_trace_match(name)
+
+Example. After running the example in TEACH ARMYSIM.P for 10 scheduler
+cycles, you can print out information about the two rules with most
+matches:
+
+prb_show_full_trace(2);
+** [asim_move_to tries 28 hits 18 patterns 1 objects 2]
+** [Patterns in asim_move_to]
+** [blue1 [{[goal at ? x ? y] 18 18}]
+    blue_tank_commander [{[goal at ? x ? y] 10 0}]]
+
+
+** [sim_check_at tries 19 hits 9 patterns 1 objects 2]
+** [Patterns in sim_check_at]
+** [blue1 [{[goal at ? x ? y] 9 9}]
+    blue_tank_commander [{[goal at ? x ? y] 10 0}]]
+
+
+-- prb_object_matches(object_name) -> list ----------------------------
+
+Given the name of an object this extracts information about rules
+that were checked in the context of that object. It sorts the rules
+in decreasing order of total numbers of attempted matches, and returns a
+list in this format
+    [<objectname> totaltries 336 totalhits 141
+        [<rulename> tries 181 hits 59
+            {<pattern> 1 0}
+            {<pattern> 33 25}
+            { ... }
+        ]
+        [<rulename> tries 57 hits 33
+            {<pattern> 1 0}
+            {<pattern> 13 5}
+            { ... }
+        ]
+        .....
+    ]
+
+-- clear_trace_match() ------------------------------------------------
+
+This simply uses clearproperty to remove records from trace_match_prop.
+Otherwise they go on accumulating between runs of prb_run.
+
+
+-- The information stored in trace_match_prop -------------------------
+
+This property associates rule names with a list of information in the
+following form, where <object_name> is the name of the object in the
+variable sim_myself (set in sim_agent) or "noname" if sim_agent is not
+running.
+
+[
+  <object_name>
+    [ {<pattern> <numtried> <numsucceeded>}
+      {<pattern> <numtried> <numsucceeded>}
+    ...
+    ]
+
+  <object_name>
+    [ {<pattern> <numtried> <numsucceeded>}
+      {<pattern> <numtried> <numsucceeded>}
+    ...
+    ]
+
+    ....
+ ]
+
+Where
+    <object_name>
+        is the name of the object in whose context the rule is invoked
+        (or "noname")
+    <pattern>
+        is one of the patterns in the conditions in the rule
+    <numtried>
+        is the number of occasions on which attempts were made to
+        match that pattern
+    <numsucceeded> is the number of occasions on which the match
+        was successful.
+
+Unprocessed information about what is in the property can then
+be printed out using datalist, e.g.
+
+    for item in datalist(trace_match_prop) do
+        item ==>
+    endfor;
+
+So after running the procedure go1() in  TEACH PRBRUNRIVER.P
+the above command gives information like this about the rules
+complete_move, move_man and undo:
+
+** [complete_move
+    [noname [{[state ? state] 6 6 }
+             {[complete_move ? move] 6 6 }]]]
+
+** [move_man [noname [{[history [move man] ==] 1 0 }
+                      {[tried [move man] ? state] 3 0 }
+                      {[state ? state] 1 1 }
+                      {[opposite right ? other] 1 1 }
+                      {[man isat ? place] 1 1}]]]
+
+** [undo [noname [{[state =] 2 2 }
+                  {[history [? move ? oldstate] ?? history] 2 2 }]]]
+
+** ...
+
+In each case the rule name is the first item of the list, and there's
+only one "object" called "noname" because this does not use sim_agent.
+
+
+It is easy to write additional programs to process that information and
+present it in whatever way is needed, e.g. with information grouped by
+pattern, or by rule, or by object. Example procedures are in
+
+    lib prb_trace_procs
+
+
+--- $poplocal/local/prb/help/prb_trace_procs
+--- Copyright University of Birmingham 1996. All rights reserved. ------

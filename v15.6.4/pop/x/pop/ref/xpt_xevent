@@ -1,0 +1,235 @@
+REF XPT_XEVENT                                  Jonathan Meyer, Nov 1990
+
+       COPYRIGHT University of Sussex 1990. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<      X EVENT CONSTANTS      >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This REF file gives an overview of X event constants and  typespecs  and
+their structures,  providing  pointers  to procedures  which  allow  the
+structures to be acessed.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   X Event Structures
+
+  3   Event Types
+
+  4   Common Event Fields
+
+  5   See Also
+
+
+
+---------------
+1  Introduction
+---------------
+
+X Windows communicates  with clients using  X Events. Most  applications
+will not deal directly with X  Events, but instead use the higher  level
+interface provided by the X Toolkit.  However, it is often necessary  to
+access data which is held in an X Event structure directly.
+
+INCLUDE * XPT_XEVENT is  an  include  file  which  defines  all  of  the
+constants and  typespecs required  to access  and interpret  any of  the
+fields of an X event structure, or to set event masks. Each X Event type
+has a different structure, containing fields relevant to the event  (for
+example, XButtonPress events have a  button field holding the number  of
+the button that is pressed).
+
+The definitions in this include file can be accessed using the line:
+
+        include xpt_xevent.ph;
+
+To load all of the identifiers as permanent constants, do:
+
+        loadinclude xpt_xevent.ph;
+
+
+
+
+---------------------
+2  X Event Structures
+---------------------
+
+An i_typespec  is defined  for  each of  the  X Event  structures.  Each
+typespec includes all  of the fields  of the structure,  along with  the
+appropriate types for the fields.
+
+The X Event typespec structures are:
+
+           XAnyEvent                   XKeyEvent
+           XButtonEvent                XMotionEvent
+           XCrossingEvent              XFocusChangeEvent
+           XExposeEvent                XGraphicsExposeEvent
+           XNoExposeEvent              XVisibilityEvent
+           XCreateWindowEvent          XDestroyWindowEvent
+           XUnmapEvent                 XMapEvent
+           XMapRequestEvent            XReparentEvent
+           XConfigureEvent             XGravityEvent
+           XResizeRequestEvent         XConfigureRequestEvent
+           XCirculateEvent             XCirculateRequestEvent
+           XPropertyEvent              XSelectionClearEvent
+           XSelectionRequestEvent      XSelectionEvent
+           XColormapEvent              XClientMessageEvent
+           XMappingEvent               XErrorEvent
+           XKeymapEvent                XEvent
+
+
+
+
+--------------
+3  Event Types
+--------------
+
+The first field of each X Event structure is always the event type. Thus
+to determine what the type of an X Event held in the variable event, do:
+
+        include xpt_xevent.ph
+
+        exacc :XEvent event.type
+
+This type should then be used to determine what structure is  applicable
+for the event. For example, if the type equals KeyPress, then  XKeyEvent
+is applicable. So:
+
+        if exacc :XAnyEvent event.type == KeyPress then
+            exacc :XKeyPress event.keycode
+        endif;
+
+Note that each  event type  does not map  directly onto  a unique  event
+structure.  For  example,  KeyPress  and  KeyRelease  events  share  the
+XKeyEvent structure.
+
+Note also that the  XEvent structure is like  a C "union". It  defines a
+field for each  of the X  Event types, corresponding  to an access  of a
+field based on that type. This allows you to do:
+
+        exacc :XEvent event.xbutton.button
+
+This is identical to:
+
+        exacc :XButtonEvent event.button
+
+If a variable called XEvent holds a pointer to an XEvent structure, this
+can be written just as:
+
+        exacc XEvent.xbutton.button
+
+The following list shows  each of the  32 X Event  types, and the  field
+name in the XEvent union structure that can be used to access fields  in
+events of that type:
+
+        Event Type              XEvent field
+        ----------              ------------
+        KeyPress                xkey
+        KeyRelease              xkey
+        ButtonPress             xbutton
+        ButtonRelease           xbutton
+        MotionNotify            xmotion
+        EnterNotify             xcrossing
+        LeaveNotify             xcrossing
+        FocusIn                 xfocus
+        FocusOut                xfocus
+        KeymapNotify            xkeymap
+        Expose                  xexpose
+        GraphicsExpose          xgraphicsexpose
+        NoExpose                xnoexpose
+        VisibilityNotify        xvisibility
+        CreateNotify            xcreatewindow
+        DestroyNotify           xdestroywindow
+        UnmapNotify             xunmap
+        MapNotify               xmap
+        MapRequest              xmaprequest
+        ReparentNotify          xreparent
+        ConfigureNotify         xconfigure
+        ConfigureRequest        xconfigurerequest
+        GravityNotify           xgravity
+        ResizeRequest           xresizerequest
+        CirculateNotify         xcirculate
+        CirculateRequest        xcirculaterequest
+        PropertyNotify          xproperty
+        SelectionClear          xselectionclear
+        SelectionRequest        xselectionrequest
+        SelectionNotify         xselection
+        ColormapNotify          xcolormap
+        ClientMessage           xclient
+        MappingNotify           xmapping
+
+
+
+
+----------------------
+4  Common Event Fields
+----------------------
+
+All the X Event's start with 5 basic fields:
+
+        type          event type (integer 0-35)
+        serial        serial number of the event (integer)
+        send_event    boolean: is the event the result of an XSendEvent
+        display       display of the event
+        window        window associated with the event
+
+These fields are also provided  in an event structure called  XAnyEvent.
+Procedures  to  access  these  fields  are  provided  by  a  shadowclass
+definition in LIB * XptXEventPtr.
+
+The following information about other event fields may be useful:
+
+    x, y, x_root, y_root
+        XKeyEvent,  XButtonEvent,   XMotionEvent,   XCrossingEvent   all
+        provide the current mouse location, both relative to the  window
+        the event occurred in and the root window.
+
+    state
+        XKeyEvent, XButtonEvent,  XMotionEvent  and  XCrossingEvent  all
+        provide  the  current  modifier  key  state,  indicating   which
+        keyboard and  mouse  modifiers  (shift keys,  buttons  etc)  are
+        currently active. This field  is a bitwise  or of the  following
+        masks:
+
+            ShiftMask LockMask ControlMask
+            Mod1Mask Mod2Mask Mod3Mask Mod4Mask Mod5Mask
+            Button1Mask Button2Mask Button3Mask
+            Button4Mask Button5Mask
+
+    keycode
+        XKeyEvent provides a keycode field holding the X keycode for the
+        a KeyPress/KeyRelease event.
+
+    button
+        XButtonEvent provides a button field  holding the number of  the
+        button for a ButtonPress/ButtonRelease event.
+
+
+
+
+-----------
+5  See Also
+-----------
+
+                     Xlib - C Language X Interface,
+                       MIT X Consortium Standard,
+                         X Version 11, Release 4
+
+        Copyright (C) 1985, 1986, 1987, 1988, 1989 Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+LIB * XptXEvent
+    shadowclass support for XEvent structures
+
+INCLUDE * XPT_XEVENT
+    typespecs for XEvent structures
+
+
+
+
+--- C.x/x/pop/ref/xpt_xevent
+--- Copyright University of Sussex 1990. All rights reserved.

@@ -1,0 +1,495 @@
+BLOCKS                                        Steven Hardy, October 1982
+
+
+This TEACH file describes a program to manipulate a simple blocks world.
+The program uses the  DATABASE to represent the  state of the world  and
+procedures to represent actions in the world. Its purpose is to  provide
+you with further practice  in using the  DATABASE to model  microworlds.
+Suggested prior reading is TEACH DATABASE and TEACH RIVER.
+
+The study of micro-worlds is an  often used AI technique. There is  some
+worry that methods  that work on  'toy' problems will  not work on  more
+complicated real  world problems.  Nevertheless,  the blocks  world  has
+attracted much study in AI. Notable AI programs which work in the blocks
+world are:
+
+    HACKER - a learning program
+    "A Computational Model of Skill Acquisition"
+    Gerald Jay Sussman
+    North Holland, Elsevier (AI series)
+
+    SHRDLU - a Natural Language understanding program
+    "Understanding Natural Language"
+    Terry Winograd
+    Edinbourgh University Press
+
+    "Learning Structural Descriptions from Examples"
+    Patrick Winston
+    in "The Psychology of Computer Vision"
+    ed Patrick Winston, McGraw Hill
+
+    SEE - a vision program
+    "Decomposition of a Visual Field into Three Dimensional Bodies"
+    Adolfo Guzman
+    in "Automatic Interpretation and Classification of Images"
+    ed Antonia Graselli, Academic press
+
+    WALTZ FILTERING - a technique for use in vision programs
+    "Understanding Line Drawings with Shadows"
+    in "The Psychology of Computer Vision" (see Winston ref above)
+
+
+
+-- THE BLOCKS WORLD ----------------------------------------------------
+
+The simple  form of  the blocks  world  consists of  a table  with  some
+childrens' blocks upon it. The DATABASE  is used to store the key  facts
+about this world though much 'irrelevant' information is not represented
+(such as weight and size of the blocks).
+
+We assume that the there is room on the table for any number of  blocks.
+A block is  just large  enough it to  support exactly  one other  block.
+There is a hand which is either empty or can hold just one block.
+
+There are two actions that can be performed in this world:
+
+    GRASP(someblock)
+        The hand must be empty and the block must not be supporting  any
+        other block. After the action  is performed the hand is  holding
+        the block
+
+    UNGRASPTO(support)
+        The block which  is being held  by the hand  is placed onto  the
+        'support' which is either the table or some other block. In  the
+        latter case the support block must  have a clear top (ie not  be
+        supporting any object.
+
+The DATABASE contains assertions of the following form:
+
+    [HOLDING block]
+        an assertion like  this is present  if the hand  is holding  the
+        named block.
+
+    [block ISON block]
+        assertions of this form are present to describe the positions of
+        the blocks.
+
+
+-- AN EXAMPLE SITUATION ------------------------------------------------
+
+Consider a configuration of five blocks, thus:
+
+                           H
+                           H
+                        *------*
+                        |  B3  |
+                        *------*
+
+        *------*
+        |  B2  |
+        *------*                    *------*    *------*
+        |  B1  |                    |  B4  |    |  B5  |
+        *------*                    *------*    *------*
+    TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+
+We can  represent this  world with  a DATABASE  setup by  the  following
+procedure:
+
+    define setup();
+        [] -> database;
+        add([holding b3]);
+        add([b2 ison b1]);
+        add([b1 ison table]);
+        add([b4 ison table]);
+        add([b5 ison table]);
+    enddefine;
+
+In English this says:
+
+    TO SET UP:
+    1)      CLEAR THE DATABASE
+    2)      NOTE THAT HOLDING B3
+    3)      NOTE THAT B2 IS ON B1
+    4)      NOTE THAT B1 IS ON THE TABLE
+    5)      NOTE THAT B4 IS ON THE TABLE
+    6)      NOTE THAT B5 IS ON THE TABLE
+
+
+--THE TWO ACTIONS (SIMPLE VERSION) ------------------------------------
+
+We can represent the two actions as POP-11 procedures, thus:
+
+    define grasp(block);
+        vars support;
+        lookup([^^block ison ??support]);
+        remove([^^block ison ^^support]);
+        add([holding ^^block]);
+    enddefine;
+
+In English, this says:
+
+    TO GRASP A BLOCK
+    1)      FIND WHAT IT IS ON
+    2)      NOTE THAT IT IS NO LONGER THAT
+    3)      NOTE THAT IT IS BEING HELD
+
+    define ungraspto(support);
+        vars block;
+        lookup([holding ??block]);
+        remove([holding ^^block]);
+        add([^^block ison ^^support]);
+    enddefine;
+
+In English this says:
+
+    TO UNGRASP TO A SUPPORT
+    1)      FIND WHAT IS BEING HELD
+    2)      NOTE THAT THAT IS NO LONGER HELD
+    3)      NOTE THAT IT IS ON THE SUPPORT
+
+When invoked,  these two  procedures  change the  DATABASE in  a  manner
+analogous to the changes  in the 'real' world  when the two actions  are
+performed.
+
+The first procedure, GRASP, takes as argument the name of some block and
+changes the DATABASE  to accord  with what  happens when  that block  is
+grasped. The procedure  looks in  the DATABASE  to find  what the  given
+block is  currently on.  It  removes the  assertion about  that  support
+relationship and adds in that the given block is now being held.
+
+The second procedure, UNGRASPTO,  takes as argument  either the name  of
+some block or else  the word 'table'. It  finds what block is  currently
+being held and then deletes from  the DATABASE the fact that that  block
+is being held and adds that the block is on the given support.
+
+
+-- AN EXERCISE ---------------------------------------------------------
+
+Type the three  procedure SETUP, GRASP  and UNGRASPTO into  a file  (say
+BLOCKS.P) and then experiment with them. Try the following two commands:
+
+    setup();
+    ungraspto([table]);
+
+This corresponds to  putting the  held block  down onto  the table.  The
+'real' world might look like:
+
+                           H
+                           H
+
+        *------*
+        |  B2  |
+        *------*      *------*      *------*    *------*
+        |  B1  |      |  B3  |      |  B4  |    |  B5  |
+        *------*      *------*      *------*    *------*
+    TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+
+Work out what the DATABASE should be like then check by printing it out,
+thus:
+
+    database ==>
+
+Notie that there is no HOLDING assertion (from which one can deduce that
+the hand must be empty).
+
+Now GRASP some block, say B2, thus:
+
+    grasp([b2]);
+    database ==>
+
+The DATABASE now corresponds to the world:
+
+                           H
+                           H
+                        *------*
+                        |  B2  |
+                        *------*
+
+        *------*      *------*      *------*    *------*
+        |  B1  |      |  B3  |      |  B4  |    |  B5  |
+        *------*      *------*      *------*    *------*
+    TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+
+Now do a second UNGRASPTO, thus:
+
+    ungraspto([b3]);
+    database ==>
+
+The DATABASE now corresponds to the world:
+
+                           H
+                           H
+
+                      *------*
+                      |  B2  |
+        *------*      *------*      *------*    *------*
+        |  B1  |      |  B3  |      |  B4  |    |  B5  |
+        *------*      *------*      *------*    *------*
+    TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+
+Work out the sequence of actions  required to achieve some complex  goal
+such as B1 being on  B2 and B2 being on  B3. Assume that your  procedure
+always starts from the 'initial' situation as defined by SETUP.
+
+Put your 'solution' into  a procedure, called say  TOWER. It might  look
+like:
+
+    define tower();
+        setup();
+        grasp([b1]);
+        ungraspto([b2]);
+        grasp([b2]);
+        ungraspto([b3]);
+    enddefine;
+
+In English this says:
+
+    TO BUILD A TOWER
+    1)      SET UP
+    2)      GRASP BLOCK ONE
+    3)      UNGRASP IT ONTO BLOCK TWO
+    4)      GRASP BLOCK TWO
+    5)      UNGRASP IT ONTO BLOCK3
+
+Actually, this  is no  good since  it builds  the tower  in the  'wrong'
+order. Make sure that your version is correct! Don'
+
+You may  find  it helpful  when  testing  your procedure  to  TRACE  the
+procedures SETUP, GRASP and UNGRASPTO.
+
+
+-- BETTER DEFINITIONS OF THE PRIMITIVE ACTIONS -------------------------
+
+A problem with modelling micro-worlds is that it is possible to instruct
+the computer to perform an 'impossible'  action (such as picking up  the
+table or putting a block on itself). Sometimes this will cause a  POP-11
+mishap (because LOOKUP fails), for example:
+
+    setup();
+    grasp([table]);
+
+Sometimes it will just lead to a silly DATABASE, for example:
+
+    setup();
+    ungraspto([b3]);
+
+We need to build in more knowledge of the real world into our procedures
+to prevent this happening. We can  do this by building in some  explicit
+checks into GRASP and UNGRASPTO, for example:
+
+    define grasp(block);
+        vars nuisance, support;
+        if block = [table] then
+            mishap([cannot grasp the table], [])
+        elseif present([holding ??nuisance]) then
+            mishap([cannot grasp ^^block because
+                        already holding ^^nuisance], [])
+        elseif present([??nuisance ison ^^block]) then
+            mishap([cannot grasp ^^block because
+                        it supports ^^nuisance], [])
+        elseif present([^^block ison ??support]) then
+            remove([^^block ison ^^support]);
+            add([holding ^^block]);
+        else
+            mishap([cannot grasp ^^block because
+                        it does not exist], []);
+        endif
+    enddefine;
+
+In English this says:
+
+    TO GRASP A BLOCK
+    1)      IF THE 'BLOCK' IS THE TABLE THEN
+    1.1)            COMPLAIN
+    2)      ELSEIF ALREADY HOLDING SOMETHING THEN
+    2.1)            COMPLAIN
+    3)      ELSEIF THERE IS SOMETHING ON THE BLOCK THEN
+    3.1)            COMPLAIN
+    4)      ELSEIF THE BLOCK IS ON SOME SUPPORT THEN
+    4.1)        NOTE THAT IT IS NO LONGER ON THE SUPPORT
+    4.2)        NOTE THAT IT IS BEING HELD
+    5)      ELSE
+    5.1)        COMPLAIN
+
+Put this definition  into your BLOCKS.P  file (in place  of the  simpler
+version).
+
+
+-- AN EXERCISE ---------------------------------------------------------
+
+Improve UNGRASPTO  in  a  manner  similar to  the  way  GRASP  has  been
+improved.
+
+Try to ensure that  GRASP and UNGRASPTO will  always report a MISHAP  if
+asked to do the impossible.
+
+
+-- A PROCEDURE TO PUT ON BLOCK ON ANOTHER ------------------------------
+
+It would be convenient to have a procedure called, say, PUTON which took
+two arguments (a block and  a support) and no  matter what the state  of
+the DATABASE performed the necessary actions to put the given block onto
+the given support. A simple definition is:
+
+    define puton(block, support);
+        grasp(block);
+        ungraspto(support);
+    enddefine;
+
+In English this says:
+
+    TO PUT A BLOCK ON A SUPPORT
+    1)      GRASP THE BLOCK
+    2)      UNGRASP IT ONTO THE SUPPORT
+
+Unfortunately, this procedure does not work right unless:
+
+    (a) There is space on the support for the block
+    (b) It is possible to grasp the block
+
+We can correct the procedure thus:
+
+    define puton(block, support);
+        makespace(support);
+        pickup(block);
+        ungraspto(support)
+    enddefine;
+
+In English, this says:
+
+    TO PUT A BLOCK ON A SUPPORT
+    1)      MAKE SPACE ON THE SUPPORT
+    2)      PICK UP THE BLOCK
+    3)      UNGRASP IT ONTO THE SUPPORT
+
+The two subsidiary procedures MAKESPACE  and PICKUP need to be  defined.
+We are using a programming technique called 'top down programming'. This
+means  that  we  write  procedures  (like  PUTON)  in  terms  of  useful
+subprocedures  and   then   turn   our  attention   to   writing   those
+sub-procedures. For  a lengthy  theoretical  study of  good  programming
+practice see:
+
+    "Structured Programming"
+    E. Dijkstra
+
+
+-- THE DEFINTION OF PICKUP ---------------------------------------------
+
+Let us consider PICKUP first:
+
+    define pickup(block);
+        cleartop(block);
+        emptyhand();
+        grasp(block);
+    enddefine;
+
+In English this says:
+
+    TO PICK UP A BLOCK:
+    1)      ENSURE IT HAS A CLEAR TOP
+    2)      ENSURE THE HAND IS EMPTY
+    3)      GRASP THE BLOCK
+
+
+-- THE DEFINITION OF EMPTYHAND -----------------------------------------
+
+We must now write the  subsidary procedures CLEARTOP and EMPTYHAND.  The
+latter is simpler so we will write this first:
+
+    define emptyhand();
+        vars nuisance;
+        if present([holding ??nuisance]) then
+            ungraspto([table])
+        endif
+    enddefine;
+
+In English this says:
+
+    TO ENSURE THE HAND IS EMPTY:
+    1)      IF HOLDING SOMETHING THEN
+    1.1)            PUT IT IT ON THE TABLE
+
+
+-- THE DEFINITION OF CLEARTOP ------------------------------------------
+
+We can now return to the definition of CLEARTOP, thus:
+
+    define cleartop(block);
+        vars nuisance;
+        if present([??nuisance ison ^^block]) then
+            puton(nuisance, [table])
+        endif
+    enddefine;
+
+In English, this says:
+
+    TO CLEAR THE TOP OF A BLOCK:
+    1)      IF SOME NUISANCE IS ON THE BLOCK THEN
+    1.1)            PUT THE NUISANCE ON THE TABLE
+
+-- A VERY IMPORTANT POINT ----------------------------------------------
+
+Notice a VERY IMPORTANT  POINT about this definition.  It is defined  in
+terms of PUTON. Lets get this clear:
+
+    PUTON is defined in terms of PICKUP
+        PICKUP is defined in terms of CLEARTOP
+            CLEARTOP is defined in terms of PUTON
+
+Many many  students find  this  difficult to  accept.  How can  one  use
+circular definitions? This  problem turns  out to be  a non-problem.  In
+certain cases circular definitions will  work perfectly well, as  you'll
+see. You may find it useful to  try to write down reasons why you  think
+circular definitions cannot work (if you think that). Then compare  your
+reasons with the above procedures. How  is it that the procedures  don't
+get stuck in an infinite loop when they run? What you need to do now  is
+NOT learn  something new;  you need  to unlearn  something: a  prejudice
+about circular definitions.
+
+One of the most powerful  aspects of computational theories of  thinking
+is  that  they  allow  circular  definitions.  Almost  certainly,   such
+definitions are needed for an adequate theory of thought.
+
+
+-- THE DEFINITION OF MAKESPACE -----------------------------------------
+
+Only one  procedure remains  to be  written, namely  MAKESPACE. This  is
+easily written in terms of CLEARTOP:
+
+    define makespace(support);
+        unless support = [table] do
+            cleartop(support)
+        endunless
+    enddefine;
+
+In English, this says:
+
+    TO MAKE SPACE ON A SUPPORT
+    1)      UNLESS THE SUPPORT IS THE TABLE DO
+    2)          ENSURE THE SUPPORT HAS A CLEAR TOP
+
+-- AN EXERCISE ---------------------------------------------------------
+
+Put all these  procedures into  your BLOCKS.P file  and experiment  with
+them.
+
+Write a general THREETOWER procedure to  build a three block tower,  for
+example:
+
+    define threetower(x, y, z);
+        ...
+    enddefine;
+
+X is the name for  the topmost block, Y for  the middle block and Z  for
+the bottom one.
+
+--A MORE COMPLICATED EXERCISE FOR THOSE WHO WANT MORE TO DO ------------
+
+Change the world so that the there are additional assertions  describing
+the size of the blocks. Assume that there are two sizes BIG and SMALL. A
+BIG block has room for either one  BIG block or two SMALL ones. A  SMALL
+block has room for only one  SMALL block. Rewrite all the procedures  to
+operate in this extended world.
+
+--- C.all/teach/blocks -------------------------------------------------
+--- Copyright University of Sussex 1988. All rights reserved. ----------

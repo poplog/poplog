@@ -1,0 +1,173 @@
+HELP SEMNET                                Mike Sharples, September 1985
+                                          (Modified A.Sloman 1 Jan 2005)
+
+
+This library is a semantic network package that operates on the Pop11 DATABASE.
+(See TEACH DATABASE, HELP DATABASE).
+
+It makes use of the Pop11 pattern-matcher.
+(See TEACH MATCHES, HELP MATCHES.)
+
+To make SEMNET available for use in pop11 do
+
+    uses semnet
+
+Each entry in the database is assumed to be of the form:
+
+    [<node> <relation> <node>]
+
+The procedures provided in SEMNET behave in an identical manner to the
+corresponding DATABASE procedures, except for database items containing
+the relation "isa" or "ispart" or "connects". Properties are inherited
+down the chain of "isa" relations.
+
+Thus:
+
+    uses semnet;
+
+    [[john isa boy][boy isa person][person needs food]] -> database;
+     spresent([john needs food])=>
+
+returns "true". The "ispart" relations are transitive.
+
+Thus:
+
+     [[finger ispart hand] [hand ispart body]] -> database;
+     spresent([finger ispart body])=>
+
+would return "true". The "connects" relations are both commutative and
+transitive, thus:
+
+     [[c connects b][b connects d] [g connects h][c connects e]
+      [e connects f][b connects a]] -> database;
+
+     spresent([a connects f])=>
+
+would return "true".
+
+
+The procedures in SEMNET are as follows.
+
+    sadd(<item>);                 identical to ADD (in DATABASE)
+    sremove(<pattern>);           identical to REMOVE (in DATABASE)
+    sflush(<pattern>);            identical to FLUSH (in DATABASE)
+    spresent(<pattern>);          infers an item matching the pattern
+    slookup(<pattern>);           like spresent, but error if no item inferred
+    sforeach                      iterates over database.
+    sforevery                     iterates over combinations of database items
+    salladd(<list_of_items>);     identical to ALLADD
+    sallremove(<list_of_patterns>);
+                                  identical to ALLREMOVE
+    sallpresent(<list_of_patterns>);
+                                 checks that a combination of patterns can be
+                                 consistently instantiated in the database
+    swhich(<variables>,<list_of_patterns>) -> <list_of_values>;
+                                 finds items satisfying a test
+
+SPRESENT and SALLPRESENT return the result TRUE or FALSE
+
+Three variables, ISLINK, PARTLINK, and CONNECTLINK are used to match the
+inheritance, transitive and transitive/commutative relations. By default these
+are set to "isa", "ispart" and "connects", but can be assigned to.
+
+Example:
+
+   uses semnet;
+
+   vars y;
+   [ [john isa philatelist]
+     [philatelist isa person]
+     [philatelist likes stamps]
+     [john likes oysters]
+     [mary isa palaeontologist]
+     [palaeontologist likes fossils]
+     [palaeontologist isa person]
+     [person likes food]] -> database;
+
+   swhich([ y ],[[john likes ?y][mary likes ?y]])=>
+
+  ** [[food]]
+
+If we add more things a person likes, the same question prodces
+more answers:
+
+   vars y;
+   [ [john isa philatelist]
+     [philatelist isa person]
+     [philatelist likes stamps]
+     [john likes oysters]
+     [mary isa palaeontologist]
+     [palaeontologist likes fossils]
+     [palaeontologist isa person]
+     [person likes food]
+     [person likes swimming]
+     [person likes movies]] -> database;
+
+   swhich([ y ],[[john likes ?y][mary likes ?y]])=>
+   ** [[food] [swimming] [movies]]
+
+We can use sforeach, by analogy with * FOREACH, to iterate over
+inferred conclusions matching a pattern:
+
+    sforeach [john likes ?y] do
+
+        y=>
+
+    endsforeach;
+
+prints out:
+
+    ** stamps
+    ** oysters
+    ** food
+    ** swimming
+    ** movies
+
+
+sforevery, can be used, by analogy with *FOREVERY to iterate over
+combinationations of inferred conclusions:
+
+    sforevery [[john likes ?y] [mary likes ?y]] do
+
+        [john and mary both like ^y]=>
+
+    endsforevery;
+
+prints out:
+
+    ** [john and mary both like food]
+    ** [john and mary both like swimming]
+    ** [john and mary both like movies]
+
+
+
+   vars junction line1 line2;
+   [[[marble arch] connects [bond street]]
+    [[oxford circus] connects [bond street]]
+    [[oxford circus] connects [regents park]]
+    [[oxford circus] connects [tottenham court road]]
+    [[baker street] connects [regents park]]
+    [[marble arch] ison [central]]
+    [[bond street] ison [central]]
+    [[oxford circus] ison [central]]
+    [[oxford circus] ison [bakerloo]]
+    [[regents park] ison [bakerloo]]
+    [[baker street] ison [bakerloo]]] -> database;
+
+    swhich([junction],
+         [[[marble arch] connects ?junction]
+          [[marble arch] ison ?line1]
+          [?junction ison ?line1]
+          [?junction connects [baker street]]
+          [[baker street] ison ?line2]
+          [?junction ison ?line2]])=>
+
+** [[[oxford circus]]]
+
+--- File: local/help/semnet
+--- Distribution: all
+--- University of Sussex Poplog LOCAL File ------------------------------
+
+
+--- $poplocal/local/help/semnet
+--- Copyright University of Birmingham 2005.

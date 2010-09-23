@@ -1,0 +1,583 @@
+TEACH RC_LINEPIC.EXTRA                             Aaron Sloman Jan 1997
+
+Some extra information not included in TEACH * RC_LINEPIC
+
+This is yet to be reorganised.
+
+
+CONTENTS
+
+ -- Classes used by the examples below
+ -- Create some instances of those classes
+ -- Draw the instances
+ -- Finding bounds of objects
+ -- -- Drawing with mode false: no graphics
+ -- Making the computer pause between drawings
+ -- Using consrc_pt to create points
+ -- Making rotatable objects
+ -- -- Manipulating rotatable objects
+ -- -- Rotations using rc_set_axis and rc_turn_by
+ -- -- How to interpret rc_axis
+ -- -- Incrementing the axis angle, using rc_turn_by
+ -- MOUSE ACCESSIBLE PICTURES: LIB * RC_MOUSEPIC and * RC_WINDOW_OBJECT
+
+-- Classes used by the examples below ---------------------------------
+
+Compile this section to make later ones work.
+
+uses rclib
+uses objectclass
+uses rc_graphic
+uses rclib
+uses rc_font
+uses rc_foreground
+uses rc_linepic
+uses rc_window_object
+uses rc_mousepic
+uses rc_buttons
+
+define :class rc_static;
+    is rc_linepic;      ;;; Note: not rc_linepic_movable, nor selectable
+    slot pic_name = gensym("static");
+enddefine;
+
+define :method print_instance(p:rc_static);
+    printf('<static %P %P %P>', [%pic_name(p), rc_coords(p) %])
+enddefine;
+
+define :class rc_mover;
+    is rc_linepic_movable;  ;;; Note: not rc_keysensitive rc_selectable
+    slot pic_name = gensym("mover");
+enddefine;
+
+define :method print_instance(p:rc_mover);
+    printf('<mover %P %P %P>', [%pic_name(p), rc_coords(p) %])
+enddefine;
+
+define :class dragpic;
+    is rc_keysensitive rc_selectable rc_linepic_movable;
+    slot pic_name = gensym("dragpic");
+enddefine;
+
+define :method print_instance(p:dragpic);
+    printf('<dragpic %P %P %P>', [%pic_name(p), rc_coords(p) %])
+enddefine;
+
+define :class rc_rotator; is rc_rotatable;
+    slot rc_axis = 0;
+    slot pic_name = "rot0";
+enddefine;
+
+define :method print_instance(p:rc_rotator);
+    printf('<rotator %P %P %P axis:%P>',
+        [%pic_name(p), rc_coords(p), rc_axis(p) %])
+enddefine;
+
+
+-- Create some instances of those classes -----------------------------
+
+define :instance stat1:rc_static;
+    rc_picx = 100;
+    rc_picy = 50;
+    rc_pic_strings = [{-15 -5 'stat1'}];
+enddefine;
+
+
+define :instance move1:rc_mover;
+    ;;; This will inherit the default picture
+    rc_picx = 0;
+    rc_picy = 0;
+    ;;; But add some  strings
+    rc_pic_strings = [{0 20 'a'}{20 0 'b'}{0 -20 'c'} {-20 0 'd'}];
+enddefine;
+
+define :instance move2:rc_mover;
+    ;;; Override the default rc_mover picture.
+    ;;; Include a circle of linewidth 2 and colour blue
+    ;;; and a bigger one of linewith 3 and colour red
+    rc_picx = 0;
+    rc_picy = -150;
+    rc_pic_lines = [
+        ;;; red circle at 0,0 radius 20
+        [WIDTH 3 COLOUR 'red' CIRCLE {0 0 20} ]
+        ;;; blue circle at 0,20 radius 15
+        [WIDTH 2 COLOUR 'blue' CIRCLE {0 20 15}]
+    ];
+    rc_pic_strings =
+        [[FONT '6x13bold' {-16 -5 'move2'}]];
+enddefine;
+
+define :instance drag1:dragpic;
+    pic_name = "drag1";
+    rc_picx = 100;
+    rc_picy = 50;
+    rc_pic_lines =
+        [WIDTH 2 COLOUR 'black'
+            [SQUARE {-25 25 50}]
+            [CLOSED {-30 20} {30 20} {30 -20} {-30 -20}]
+        ];
+    rc_pic_strings =
+    [[FONT '9x15bold' COLOUR 'red' {-22 -5 'drag1'}]];
+enddefine;
+
+define :instance drag2:dragpic;
+    pic_name = "drag2";
+    rc_picx = 100;
+    rc_picy = -50;
+    rc_pic_lines =
+        [WIDTH 2     COLOUR 'blue'
+            [CLOSED {-30 20}  {30 20} {30 -20}  {-30 -20}]
+            [CIRCLE {0 15 10}]
+            [SQUARE {-10 -15 20}]
+        ];
+    rc_pic_strings =
+        [[FONT '8x13bold' COLOUR 'brown' {-20 -10 'drag2'}]];
+enddefine;
+
+define :instance drag3:dragpic;
+    pic_name = "drag3";
+    rc_picx = 120;
+    rc_picy = 60;
+    rc_pic_lines =
+    [WIDTH 3    COLOUR 'black'
+        [CLOSED {-30 20}  {30 20} {30 -20}  {-30 -20}]
+        [CIRCLE {0 15 10}]
+        [WIDTH 2 SQUARE {-10 -10 15}]
+        ;;; give rc_draw_blob four sets of inputs, to draw
+        ;;; a circular blob at each order
+        [rc_draw_blob {-35 25 20 'red'} {35 25 20 'red'}
+            {35 -25 20 'blue'} {-35 -25 20 'blue'}]
+    ];
+    rc_pic_strings =
+        [[FONT '8x13bold' COLOUR 'blue' {-20 -10 'drag3'}]];
+enddefine;
+
+-- Draw the instances -------------------------------------------------
+
+Draw only the ones you'll need, using these commands
+
+    rc_draw_linepic(stat1);
+
+    rc_draw_linepic(move1);
+    rc_draw_linepic(move2);
+
+    rc_draw_linepic(drag1);
+    rc_draw_linepic(drag2);
+    rc_draw_linepic(drag3);
+
+-- Finding bounds of objects ------------------------------------------
+
+The procedure rc_linepic_bounds finds either the absolute or the
+relative locations of the extreme x and y values of the picture
+(in object-centred coordinates). E.g.
+
+First find the absolute picture bounds of stat1
+
+    rc_linepic_bounds(stat1, true) =>
+
+Now find the bounds relative to the picture's coordinate frame.
+
+    rc_linepic_bounds(stat1, false) =>
+
+The second argument to rc_linepic_bounds determines whether the bounds
+are absolute (true) or not (false).
+
+    rc_linepic_bounds(move1, false) =>
+    rc_linepic_bounds(move2, false) =>
+
+By changing false to true, examine the absolute bounds
+    rc_linepic_bounds(move1, true) =>
+    rc_linepic_bounds(move2, true) =>
+
+For a picture at the centre of the window's coordinate frame, the
+picture move1 the relative and absolute bounds are the same.
+
+    rc_move_to(move2, 0, 0, true);
+    rc_linepic_bounds(move2, true) =>
+    rc_linepic_bounds(move2, false) =>
+
+
+
+-- -- Drawing with mode false: no graphics
+
+In the above commands, if drawing mode true is replaced with false, the
+rc_move_by and rc_move_to commands will no longer display moves
+graphically, though the coordinates stored in the data structure will be
+changed.
+
+Here is a demonstration.
+    move2 =>
+    rc_move_to(move2, 35, 0, false);
+    move2 =>
+
+Nothing changed on the screen, though the object's coordinates
+changed.
+
+Do this several times
+    rc_move_by(move2, 10, 10, false); move2 =>
+
+I.e. if the mode argument is false, these commands will change
+the picture data-structure but without changing anything on the
+screen. The screen is therefore out of date, and new attempts to
+draw will produce unpredictable results:
+
+So the screen has to be cleared and everything marked as undrawn
+
+    rc_start();
+    rc_undraw_all([^move1 ^move2]);
+    rc_draw_linepic(move2);
+
+After all that moving the relative bounds have not changed
+    rc_linepic_bounds(move2, false) =>
+
+But the absolute bounds have
+    rc_linepic_bounds(move2, true) =>
+
+
+-- Making the computer pause between drawings -------------------------
+
+The above experiments using the picture moving methods can be repeated
+with the computer pausing between drawing operations. To make it
+continue hit any character, e.g. SPACE, but make sure the mouse cursor
+is in the interaction window, not in the graphical window.
+
+    'Press a key' -> rc_pause_draw;  ;;; cause pausing while drawing.
+
+    rc_start();
+    applist([^move1 ^move2], rc_undrawn);
+
+    rc_draw_linepic(move2);
+
+WARNING this command will require you to press a key several times
+to complete all the moves. LOOK AT THE STATUS LINE.
+
+    repeat 5 times rc_move_by(move2, 5, 5, true) endrepeat;
+
+Now try again without the pausing.
+    false -> rc_pause_draw;  ;;; stop pausing while drawing.
+    repeat 5 times rc_move_by(move2, 5, -5, true) endrepeat;
+
+
+-- Using consrc_pt to create points -----------------------------------
+
+In this example we show the use of a record class defined thus:
+
+    defclass rc_pt {rc_ptx, rc_pty};
+
+This defines a new two element structure for representing points.
+(See HELP * RECORDCLASS, REF * DEFCLASS).
+
+We can use consrc_pt to create point data structures. These will be a
+little more compact than two element vectors, though the code for
+creating them is less pleasant to read. E.g.:
+
+define :instance squarepic:rc_mover;
+        rc_picx = -50;
+        rc_picy = 50;
+        rc_pic_lines =
+          [
+            [CLOSED %consrc_pt(-30,30), consrc_pt(30,30),
+                consrc_pt(30,-30), consrc_pt(-30,-30)%]
+          ];
+        rc_pic_strings = [{-22 -5 'square'}];
+enddefine;
+
+	rc_start();
+	rc_draw_linepic(squarepic);
+
+;;; And this a rectangle with a green vertical line
+
+define :instance rect:rc_mover;
+        rc_picx = -60;
+        rc_picy = -40;
+        rc_pic_lines =
+          [
+            [CLOSED %consrc_pt(-30,20), consrc_pt(30,20),
+                consrc_pt(30,-20), consrc_pt(-30,-20)%]
+            [WIDTH 6 COLOUR 'green'
+                %consrc_pt(25,-15), consrc_pt(25,15)%]
+          ];
+        rc_pic_strings = [[FONT '8x13bold' {-20 -5 'rect'}]];
+enddefine;
+
+	rc_draw_linepic(rect);
+
+;;; Clear the picture and undraw everything
+	rc_start();
+	rc_undraw_all([^move1 ^move2 ^squarepic ^rect]);
+	rc_draw_linepic(squarepic);
+	rc_draw_linepic(rect);
+
+;;; Move the rectangle
+
+	repeat 10 times rc_move_by(rect, 10,10, true) endrepeat;
+
+The use of the rc_pt data type for representing ponts in the above
+examples gives a relatively compact and efficient representation for
+points. However, it is also possible to use two element vectors, as was
+done in our earliest examples. The difference is not likely to be
+significant unless large numbers of instances are being created, and
+there is a shortage of memory.
+
+-- Making rotatable objects -------------------------------------------
+
+Here are some examples.
+
+;;; Make an object in that class consisting of a line with a circle near
+;;; one end.
+define :instance rp1:rc_rotator;
+    pic_name = "rp1";
+    rc_picx = 50;
+    rc_picy = 100;
+    rc_pic_lines = [[{5 5} {30 30}][CIRCLE {25 25 5}]];
+enddefine;
+
+rp1 =>
+
+;;; A rotatable arrow shape
+define :instance rp2:rc_rotator;
+    pic_name = "rp2";
+    rc_picx = 100;
+    rc_picy = 50;
+    ;;; Make an arrow
+    rc_pic_lines = [[{0 0} {30 0}][{25 8}{30 0}{25 -8}]];
+enddefine;
+
+rp2 =>
+
+
+-- -- Manipulating rotatable objects
+
+    rc_start();
+
+Draw them
+    rc_draw_linepic(rp1);
+    rc_draw_linepic(rp2);
+
+Rotatable objects can be moved: move rp1 and rp2
+
+    rc_move_by(rp1, -10, -10, true);
+    rc_move_by(rp2, 0, 10, true);
+
+Notice that although they both have an rc_axis slot value of 0, their
+lines are oriented differently. That is because the line ends had
+different coordinates relative to the internal frame of the object.
+
+The rc_axis slot determines how much the picture is rotated RELATIVE to
+the way the picture looks with the value of 0. Positive values represent
+counter clockwise rotations in degrees.
+
+Draw rp1 in various orientations. As usual redrawing in the same
+location with the same orientation removes the picture.
+
+0 -> rc_axis(rp1); rc_draw_linepic(rp1);
+30 -> rc_axis(rp1); rc_draw_linepic(rp1);
+-45 -> rc_axis(rp1); rc_draw_linepic(rp1);
+45 -> rc_axis(rp1); rc_draw_linepic(rp1);
+-90 -> rc_axis(rp1); rc_draw_linepic(rp1);
+-135 -> rc_axis(rp1); rc_draw_linepic(rp1);
+
+
+-- -- Rotations using rc_set_axis and rc_turn_by
+
+Normally rc_axis should NOT be used directly. Instead use one of the two
+procedures rc_set_axis and rc_turn_by, which are loosely analogous to
+rc_move_to and rc_move_by: i.e. one specifies an absolute orientation
+the other a change in orientation.
+
+clear the picture, and make the objects undrawn
+    rc_start();
+    applist([^rp1 ^rp2], rc_undrawn);
+
+Using rc_set_axis to change the axis orientation makes the
+picture change automatically, so that it need not be drawn.
+
+    rc_set_axis(rp1, 90, true);
+    rc_set_axis(rp1, 135, true);
+
+    vars x;
+    for x from 0 by 10 to 360 do rc_set_axis(rp1, x, true) endfor;
+
+The third argument of rc_set_axis is the drawing mode, as for rc_move_by
+and rc_move_to.
+
+Namely if it is false, the picture is not changed on the screen. If it
+is true the old version is removed and the new version drawn. If it is
+the word "trail" then the old version is left and the new one is drawn.
+
+    vars x;
+    for x from 0 by 10 to 360 do rc_set_axis(rp1, x, "trail") endfor;
+
+Then do it again
+    for x from 0 by 10 to 360 do rc_set_axis(rp1, x, "trail") endfor;
+
+-- -- How to interpret rc_axis
+
+The axis angle need not correspond with what looks like the axis of the
+picture. It corresponds to the angle of the x axis of the internal
+coordinate frame of the object. Thus the picture rp1 has a line drawn ar
+45 degrees between the points (5 5) and (30 30), with a circle near the
+end of the line:
+
+    rc_pic_lines(rp1) ==>
+    ** [WIDTH 2 [{5 5} {30 30}] [COLOUR pink CIRCLE {25 25 5}]]
+
+Thus when the picture's axis is 0, the line is at 45 degrees. When the
+axis is 90, the line will be drawn at 135 degrees:
+
+    rc_set_axis(rp1, 0, true);
+    rc_set_axis(rp1, 90, true);
+
+To make it horizontal do
+
+    rc_set_axis(rp1, -45, true);
+or
+    rc_set_axis(rp1, 135, true);
+
+similarly
+
+    rc_set_axis(rp2, 0, true);
+    rc_set_axis(rp2, 90, true);
+
+The pictures can be rotated, alone or together, even at different
+speeds.
+
+    vars ang;
+    for ang from 0 by 10 to 360*4 do
+        rc_set_axis(rp1, ang, true); rc_set_axis(rp2, ang*2, true);
+    endfor;
+
+    ;;;or rotated and moved;
+    rc_move_to(rp1, 50, 50, true);
+    rc_move_to(rp2, 100, 50, true);
+
+    vars ang;
+    for ang from 0 by 10 to 360*4 do
+        rc_set_axis(rp1, ang, true); rc_set_axis(rp2, ang*2, true);
+        rc_move_by(rp1, -2,-2, true); rc_move_by(rp2, 0, -1, true);
+    endfor;
+
+;;; bring them back in view, and then try the above loop again, using "trail"
+;;; as the drawing mode:
+
+    rc_move_to(rp1, 50, 50, true);
+    rc_move_to(rp2, 100, 50, true);
+
+    vars ang;
+    for ang from 0 by 10 to 360*4 do
+        rc_set_axis(rp1, ang, "trail"); rc_set_axis(rp2, ang*2, "trail");
+        rc_move_by(rp1, -2,-2, "trail"); rc_move_by(rp2, 0, -1, "trail");
+    endfor;
+    for ang from 0 by 10 to 360*4 do
+        rc_set_axis(rp1, ang, "trail"); rc_set_axis(rp2, ang*2, "trail");
+        rc_move_by(rp1, 2, 2, "trail"); rc_move_by(rp2, 0, 1, "trail");
+    endfor;
+
+-- -- Incrementing the axis angle, using rc_turn_by
+
+The method rc_turn_by can be used to increment the picture axis, by an
+amount which, by default, is positive for counter-clockwise rotation (if
+rc_yscale is negative, which is its default).
+
+    rc_move_to(rp1, 50, 50, true);
+    rc_move_to(rp2, 100, 50, true);
+
+As shown above, an object can be made to turn and rotate, at the same
+time.
+
+    rc_move_to(rp2,150,150,true);
+    repeat 36 times
+        rc_turn_by(rp2, 10, true);rc_move_by(rp2,-5,-5,true);
+        ;;; use syssleep to slow it down
+        syssleep(10);       ;;; sleep for 10/100 of a second
+    endrepeat;
+
+    ;;; Bring it back to the original location
+    repeat 36 times
+        rc_turn_by(rp2, 10, true);rc_move_by(rp2,5,5,true);
+        syssleep(10);
+    endrepeat;
+
+
+-- MOUSE ACCESSIBLE PICTURES: LIB * RC_MOUSEPIC and * RC_WINDOW_OBJECT
+
+TEACH * RC_LINEPIC shows how to make a window mouse accessible, and how
+to make instances of mouse sensitive objects known to the window.
+
+    vars win1 = rc_new_window_object(500, 20, 400, 350, true);
+	'win1' -> rc_window_title(win1);
+
+This makes the current window mouse sensitive
+    rc_mousepic(win1);
+
+It can be made insensitive by doing
+
+    rc_mousepic_disable(win1);
+
+Make sure it is sensitive.
+    rc_mousepic(win1);
+
+The effect of rc_mousepic is not only to make the window mouse sensitive, but
+also to associate with it instances of rc_window_object and rc_live_window.
+The former is defined in LIB RC_WINDOW_OBJECT, the latter in LIB RC_MOUSEPIC.
+These contain additional information, e.g. methods for handling mouse events,
+and also a list of known picture objects on that window.
+
+The corresponding objects are associated with rc_window via the property
+rc_window_object_of.
+
+    vars window_obj = rc_window_object_of(rc_window);
+
+This is an instance of the class rc_live_window
+
+    window_obj =>
+
+This object contains an instance of rc_live_window.
+
+	vars live_win = rc_sensitive_window(window_obj);
+
+	live_win =>
+	;;; This will be clearer
+	datalist(live_win) ==>
+
+	;;; compare
+	datalist(window_obj) ==>
+
+Like all instances of the rc_selectable mixin defined in the RC_MOUSEPIC
+library, this rc_live_window instance has a lot of types of "handlers"
+associated with it. These are actually names of methods for handling the
+events. For example the slot rc_button_up_handlers contains a vector with
+three method names:
+
+    rc_button_up_handlers(live_win) =>
+    ** {rc_button_1_up rc_button_2_up rc_button_3_up}
+
+    rc_button_down_handlers(live_win) =>
+    ** {rc_button_1_down rc_button_2_down rc_button_3_down}
+
+    rc_drag_handlers(live_win) =>
+    ** {rc_button_1_drag rc_button_2_drag rc_button_3_drag}
+
+However, the default rc_move_handler of the window object is just a
+word, the name of a method, since motion without any buttons pressed is
+only one case:
+
+    rc_move_handler(live_win) =>
+    ** rc_move_mouse
+
+The printing of rc_live_window objects is rather messy, so we define a
+printing method which simplifies the print out.
+
+define :method print_instance(w:rc_live_window);
+    printf('<rc_live_window %P with %P objects>',
+        [%rc_title(rc_widget(rc_object_of_window(w))),
+				length(rc_window_contents(w))%])
+enddefine;
+
+Print it again
+    live_win ==>
+
+
+
+--- $poplocal/local/rclib/teach/rc_linepic.extra
+--- Copyright University of Birmingham 1997. All rights reserved. ------

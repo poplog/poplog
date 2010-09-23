@@ -1,0 +1,418 @@
+REF POP_UI                                     Julian Clinton, July 1991
+                                         Revised Robert Duncan, May 1995
+
+        COPYRIGHT University of Sussex 1995. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<    POPLOG USER INTERFACE    >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<         PROCEDURES          >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This file describes the procedures and variables associated with the
+Poplog X User Interface library, LIB * POPLOG_UI.
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   User Interface Initialisation
+
+  2   Poplog Control Panel
+
+  3   Control Panel Compiler Buttons
+
+  4   Library and Help Tools
+
+  5   Options Dialogs
+
+  6   File Chooser Dialog
+
+  7   Other Popups
+
+  8   Associated Documentation
+
+
+
+--------------------------------
+1  User Interface Initialisation
+--------------------------------
+
+When  the  POPLOG_UI  library  is  loaded,  it  appends  the   procedure
+pop_ui_setup to the end of sysxsetup. This means that whenever sysxsetup
+is called (e.g. if Poplog is  invoked with the "%x" option and  assuming
+this has been  included as  part of  the startup.psv  saved image),  the
+Poplog Control Panel will also be invoked.
+
+If you do  not wish  the Poplog  Control Panel  to be  invoked, you  can
+assign false  to  poplog_ui_enabled (e.g.  in  your init.p);  this  will
+prevent pop_ui_setup from doing anything.
+
+
+pop_ui_setup()                                               [procedure]
+        Called to startup  the Poplog  User Interface.  If the  variable
+        poplog_ui_enabled is  set to  <false> before  this procedure  is
+        called, it does nothing.
+
+        On the  first  call  (with  poplog_ui_enabled  true),  it  calls
+        pop_ui_popcontroltool to  set up  the interface  tool, and  then
+        assigns true to the variable pop_ui_setup_done. Subsequent calls
+        will   do   nothing   unless    <false>   is   re-assigned    to
+        pop_ui_setup_done.
+
+
+pop_ui_setup_done                                             [variable]
+        This  boolean  variable  indicates   whether  the  Poplog   user
+        interface has been initialised by calling pop_ui_setup. The user
+        can force another  initialisation by assigning  <false> to  this
+        variable.
+
+
+poplog_ui_enabled                                             [variable]
+        Setting  this  variable  <false>  (e.g.  in  your  init.p,  etc)
+        prevents pop_ui_setup  from  ever doing  anything.  Its  default
+        value is <true>.
+
+
+
+-----------------------
+2  Poplog Control Panel
+-----------------------
+
+If  pop_ui_setup_done  is  non-<false>  then  pop_ui_setup  calls   this
+procedure to create the main control panel.
+
+
+pop_ui_popcontroltool(x, y)                                  [procedure]
+        Creates the Poplog control  panel at the  position given by  the
+        integers  x,y.   The  widget   is  assigned   to  the   variable
+        pop_ui_control_panel. Note that  if the panel  has already  been
+        created  then   the   existing   panel   is   destroyed   (using
+        * XtDestroyWidget) and a new panel created.
+
+
+pop_ui_control_panel                                          [variable]
+        This holds  the value  of  the Poplog  control panel  widget  or
+        <false> if the panel has not been created.
+
+
+
+---------------------------------
+3  Control Panel Compiler Buttons
+---------------------------------
+
+The top-level compiler section of the  control panel allows the user  to
+swap between any  languages which  have been loaded  into the  currently
+running Poplog. Mousing on one of  the labels will change the  top-level
+compiler to the  selected language by  calling switch_subsystem_to  (see
+REF * SUBSYSTEM). Note that if the requested subsystem is not  available
+then selecting a button will do nothing. These can be manipulated  using
+the procedures and variable described below.
+
+
+subsystem_button_selectable(ss_name) -> bool                 [procedure]
+bool -> subsystem_button_selectable(ss_name)
+        In access mode, returns whether  the button associated with  the
+        subsystem name ss_name (a word) is sensitive to mouse events. In
+        update mode, the procedure changes the sensitivity of the button
+        according to the  boolean value (<true>  = sensitive,  <false> =
+        insensitive). ss_name is  a word describing  one of the  buttons
+        (currently one of "pop11", "top", "prolog", "lisp" and "ml").
+
+
+current_subsystem_button -> word                       [active variable]
+word -> current_subsystem_button
+        In access mode,  this returns the  name of the  button which  is
+        currently active (note  that if the  Prolog button is  selected,
+        the return value is "top"). In update mode, this will change the
+        currently selected  subsystem button  to the  button  associated
+        with word.
+
+
+
+-------------------------
+4  Library and Help Tools
+-------------------------
+
+pop_ui_helptool(subject, subsystem_options,                  [procedure]
+                searchfiletypes, search_index, ref_widget) -> widget
+        Creates a  help tool  window and  displays it.  If subject  is a
+        string then this is displayed in the 'Subject:' text field.
+
+        subsystem_options is either a list of names which specify  which
+        subsystems are to be searched for references (valid entries  are
+        "pop11", "prolog", "lisp" and "ml")  or <false>. The first  time
+        the window is  displayed, a value  of <false> will  set all  the
+        currently loaded subsystems active.
+
+        searchfiletypes is can also  be a list of  words which give  the
+        types of  file  to be  searched  for (currently  "help",  "ref",
+        "teach" or "doc").
+
+        search_index is a boolean flag which specifies whether the index
+        files should be searched. When called the first time, a value of
+        <undef> will cause  the search_index to  default to <true>,  and
+        after that, the value will not be changed.
+
+        ref_widget is a widget  id of the help  tool's parent widget  or
+        <false>. Returns the help tool widget id.
+
+
+pop_ui_librarytool(name, subsystem, ref_widget) -> widget    [procedure]
+        Creates a  library tool  window and  displays it.  If name  is a
+        string then this is displayed in the 'Libraries:' text field.
+
+        subsystem  is  a  word  specifying  which  libraries  should  be
+        displayed for references or <false>.  The first time the  window
+        is displayed, a value of  <false> will display the library  list
+        for the current subsystem. ref_widget is a widget id of the help
+        tool's parent widget or <false>. Returns the library tool widget
+        id.
+
+        Sometimes a description will cause a number of library names  to
+        be displayed in the text field. Selecting the 'Show' option will
+        only display the  library whose  name appears last  in the  text
+        field. Selecting 'Compile' will compile all the libraries in the
+        text field  in the  order in  which the  appear. Note  that  the
+        'Compile' button will not be  set sensitive if the subsystem  is
+        not part of the currently running Poplog.
+
+
+
+------------------
+5  Options Dialogs
+------------------
+
+An options dialog contains one or more options pages; only one of  these
+pages can be displayed at a time, so those dialogs containing more  than
+one page have an additional menu button for page selection. There may be
+several options  dialogs in  existence  at any  one time:  the  standard
+control panel offers various dialogs  for controlling aspects of  system
+behaviour, but new dialogs can be created, and additional pages added to
+the standard dialogs, using the procedure pop_ui_add_property.
+
+A particular options page  is identified by its  title, a 2-list of  the
+form
+
+    [dialog-name page-name]
+
+where both  the  dialog-name and  the  page-name must  be  strings.  The
+dialog-name  identifies  a  dialog  box  and  the  page-name   denotes a
+particular page within that box. In the procedures described below,  the
+title argument should be in this form, although for convenience only the
+dialog-name need be supplied (as a  string) in which case the  page-name
+defaults to the string 'General'.
+
+Options dialogs are created by LIB  * PROPSHEET: an options dialog  is a
+propsheet box  containing  one  property  sheet for  each  page  and  an
+additional sheet  for  the  menu  button  which  is  hidden  or  exposed
+automatically depending on the number of pages.
+
+
+pop_ui_add_property(title, field_list, display)              [procedure]
+pop_ui_add_property(title, field_list, display, save_p)
+        Adds a new options page, or replaces an existing page, with  the
+        given title and propsheet field_list. The title is as above.  If
+        there is no existing options  dialog with the name specified  by
+        title, a new one is  created using *propsheet_new_box; if  there
+        is no existing page within  that dialog with the name  specified
+        by title, or if  the page exists but  its current field list  is
+        not identical (==)  to field_list, a  new (replacement) page  is
+        created using *propsheet_new applied to field_list.
+
+        If the display  argument is  non-false, the  new or  replacement
+        page is made visible; this may involve popping up its containing
+        dialog.
+
+        save_p is an  optional procedure  used to save  the page  values
+        such that they can be  restored in a subsequent Poplog  session.
+        If present, save_p must have the form
+
+            save_p(title, psheet)
+
+        where title is as above and psheet is the property sheet created
+        by the call to propsheet_new. The procedure will be called  when
+        the Save Options button is selected  from the Options menu,  but
+        only if the sheet Apply button  has been pressed since the  last
+        save. The mechanism by  which values are  saved and restored  is
+        application-dependent.
+
+
+pop_ui_remove_property(title, display)                       [procedure]
+        Deletes the options page identified by title (as above); if  the
+        deleted page  is the  last  one in  its containing  dialog,  the
+        dialog too is deleted. The display argument is ignored.
+
+
+pop_ui_show_property(title, parent)                          [procedure]
+        Displays the options page identified by title (as above) popping
+        up its containing dialog box if  necessary. When a dialog is  to
+        be displayed for the  first time, the  parent argument can  be a
+        widget used  as  the  dialog's  parent  widget,  or  <false>  to
+        indicate a  default  parent;  on subsequent  calls,  the  parent
+        argument is ignored.
+
+
+pop_ui_property_list -> list                           [active variable]
+        A list of titles of the options pages currently available.
+
+
+
+----------------------
+6  File Chooser Dialog
+----------------------
+
+pop_ui_choose_file(parent, title, label, directory,          [procedure]
+                   pattern, file, flags) -> choice
+        Prompts the user for a file name by popping up a  file-selection
+        dialog. The dialog is modal, so this call will effectively block
+        until either a file is chosen,  or the dialog is dismissed.  The
+        arguments are:
+
+        parent
+            The parent widget for  the dialog. A  new dialog is  created
+            for each distinct parent, but subsequent calls with the same
+            parent will re-use the same  dialog which will remember  the
+            selection from the previous time. Supplying <false> for  the
+            parent pops up the  standard dialog used  by the UI  control
+            panel.
+
+        title
+            The dialog box  title: a  string, or <false>  for a  default
+            title.
+
+        label
+            The label to  be displayed on  the OK button:  a string,  or
+            <false>  for  a  default  label.  Pressing  the  OK   button
+            dismisses the  dialog  and  returns  the  currently-selected
+            file.
+
+        directory
+            The initial  directory  for  file-selection:  a  string,  or
+            <false> for  a default  directory. The  dialog displays  the
+            files in this directory.
+
+        pattern
+            The initial filter for file-selection: a string, or  <false>
+            for a default pattern. The dialog only displays files  which
+            match this pattern.
+
+        file
+            The initial selection: a string, or <false> for no  default.
+            If this is supplied, the user need only press the OK  button
+            to have file returned as the result.
+
+        flags
+            Miscellaneous flags controlling dialog behaviour.  Currently
+            this has only two documented values:
+
+                <true>
+                    Allows the user to select a non-existent file
+
+                <false>
+                    Forces the user to select an existing file
+
+        The resulting choice will be a file name (a string) if the  user
+        pressed the OK button when  the selection was valid, or  <false>
+        if the dialog was otherwise dismissed without a selection  being
+        made.
+
+
+pop_ui_file_search_directory -> string                        [variable]
+string -> pop_ui_file_search_directory
+pop_ui_file_search_pattern -> string                          [variable]
+string -> pop_ui_file_search_pattern
+pop_ui_file_search_name -> string                             [variable]
+string -> pop_ui_file_search_name
+        These provide the defaults for  the directory, pattern and  file
+        arguments to pop_ui_choose_file for each new dialog created.  If
+        these are not set, or are  set to the null string, the  defaults
+        are determined dynamically:  for the directory,  the default  is
+        the value of current_directory; for the pattern, the default is
+
+            '*' <> pop_default_type
+
+        i.e., a pattern matching program files of the current subsystem.
+        There is no default for the initial file name.
+
+
+pop_ui_filetool(name, directory, pattern, label,             [procedure]
+                newfile, ref_widget) -> choice
+        Obsolete file-selection dialog: use pop_ui_choose_file  instead.
+        This call is approximately equivalent to
+
+            pop_ui_choose_file(ref_widget, 'Poplog: File Tool', label,
+                directory, pattern, name, newfile) -> choice
+
+        but all calls share the same dialog box.
+
+
+pop_ui_edittool(file, directory, pattern, ref_widget)        [procedure]
+        Implements  the   control  panel   Open File  operation:   calls
+        pop_ui_choose_file to select a  file name and  calls Ved on  the
+        result. The arguments  file, directory  and pattern  are as  for
+        pop_ui_choose_file; the  argument  ref_widget should  always  be
+        <false>.
+
+
+pop_ui_compiletool(file, directory, filter, ref_widget)      [procedure]
+        Implements  the  control  panel  Compile File  operation:  calls
+        pop_ui_choose_file to select a file name and compiles the result
+        using *subsystem_compile.  The  arguments  file,  directory  and
+        pattern are as for  pop_ui_choose_file; the argument  ref_widget
+        should always be <false>.
+
+
+
+---------------
+7  Other Popups
+---------------
+
+pop_ui_information(info, center_text,                        [procedure]
+                   ref_widget) -> widget
+        This pops up a window containing the string info and a 'Dismiss'
+        button. If the boolean center_text  is <true> then text will  be
+        centrally aligned in the window, otherwise alignment will be  to
+        the left. The  procedure returns  the widget id  of the  window.
+        ref_widget is a  widget id  of the  information window's  parent
+        widget or <false>. Returns the widget id.
+
+
+pop_ui_message(info, center_text, ref_widget)                [procedure]
+        This pops up a window containing  the string info and an  'Okay'
+        button. If the boolean center_text  is <true> then text will  be
+        centrally aligned in the window, otherwise alignment will be  to
+        the left. The procedure  returns once the  user has pressed  the
+        'Okay' button and the window has been popped down. ref_widget is
+        a widget id of the message window's emanate widget or <false>.
+
+
+pop_ui_confirm(question, options, default,                   [procedure]
+               center_text, ref_widget) -> selection
+        Pops up a confirmation window displaying the prompt given by the
+        string question. options  is a list  of strings or  words to  be
+        used as  labels  for the  buttons  in the  confirmation  window.
+        default is  an integer  giving the  offset in  the list  of  the
+        button which is to be the default. center_text is a boolean flag
+        which causes  text  to be  justified  centrally if  set  <true>,
+        otherwise the text is left  aligned. ref_widget is <false>  or a
+        widget id of the parent of  the confirm widget. selection is  an
+        integer which represents the offset  in the options list of  the
+        button which was pressed.
+
+
+
+---------------------------
+8  Associated Documentation
+---------------------------
+
+HELP * POPLOG_UI
+    The Poplog X User Interface library
+
+HELP * POP_UI_OVERVIEW
+    Using the User Interface
+
+
+
+--- C.x/x/pop/ref/pop_ui
+--- Copyright University of Sussex 1996. All rights reserved.

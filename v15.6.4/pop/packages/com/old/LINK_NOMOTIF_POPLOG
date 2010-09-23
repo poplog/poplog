@@ -1,0 +1,165 @@
+#!/bin/sh
+##
+## $local/com/LINK_NOMOTIF_POPLOG
+## http://www.cs.bham.ac.uk/research/poplog/com/LINK_NOMOTIF_POPLOG
+## Included in $usepop/INSTALL/LINK_NOMOTIF_POPLOG
+## Relink poplog and then rebuild saved images, without motif.
+##
+## Aaron Sloman (http://www.cs.bham.ac.uk/~axs/)
+## Revised
+## 24 Dec 2004
+##  Tried to make this more robust if the newpop command fails
+##  Rename as V15.53f
+##
+## 17 Apr 2004
+##  Changed to 'exit 1' if something fails
+##  Minor improvements to reporting.
+##
+## 28 Oct 2003
+##  Changed to assume $usepop $poplocal $poplocalbin all defined and created
+## 23 Jul 2003
+##   New version for redhat 9 and precursors. Rename 15.53c
+##
+##  3 May 2003
+##          added -norsv to newpop command
+##
+## Based on INSTALL_MOTIF_POPLOG
+
+## 9 Mar 2003
+
+## This script links poplog without dependence on motif
+
+## If the following does not work it may be necessary to run the script
+##     relinking-linux-poplog
+## available from
+##      http://www.cs.bham.ac.uk/research/poplog/tools/relinking.linux.poplog
+## if not included in your tar file
+
+
+## Code that was here now in SETUPDIRS
+
+cd $usepop
+
+echo ""
+echo "Now relinking and rebuilding poplog images"
+
+. $usepop/pop/com/poplog.sh
+
+popsrc=$usepop/pop/src
+popsys=$usepop/pop/pop
+export popsrc popsys
+
+### Do not run default poplink_cmnd, as that includes motif
+cd $popsys
+    ./poplink_cmnd.nomotif
+
+echo "checking for newpop11"
+
+ls -l newpop11
+
+if [ -f newpop11 ]
+then
+    echo "copying newpop11 to basepop11"
+    cp -p newpop11 basepop11
+    rm newpop11
+else
+    echo "COULD NOT LINK NEWPOP11:"
+    echo "The rest may work anyway."
+    echo "If not, then try asking for help"
+    echo "    via comp.lang.pop or pop-forum AT cs.bham.ac.uk"
+fi
+
+### Now rebuild system images
+# Extend $path (needed for mknewpop and mksyscomp)
+PATH=$usepop/pop/pop:$PATH
+export PATH
+
+echo ""
+echo "Try to rebuild newpop, poplink, poplibr, popc, system images"
+
+echo "$popsrc/mknewpop"
+$popsrc/mknewpop
+
+echo "$popsrc/mksyscomp poplink poplibr popc"
+$popsrc/mksyscomp poplink poplibr popc
+
+echo ""
+echo "System images made in popsys are:"
+echo ""
+ls -l $popsys/*.psv
+
+if [ -f $popsys/newpop.psv ]
+then
+    echo "System images appear to have been created OK"
+else
+    echo "COULD NOT BUILD newpop.psv -- cannot continue"
+    echo "Try asking for help"
+    echo "    via comp.lang.pop or pop-forum AT cs.bham.ac.uk"
+    echo ""
+    exit 1
+fi
+
+echo ""
+echo "======================================================"
+echo ""
+echo "Now run newpop to re-link without motif, rebuild indexes, etc."
+
+    echo  "$usepop/pop/src/newpop -link -x=-xt -norsv"
+    $usepop/pop/src/newpop -link -x=-xt -norsv
+
+### The following are done by the newpop command
+## $popcom/mkstartup
+##
+## ## Needed for next items
+## setenv pop_pop11 "-$popsavelib/startup.psv"
+##
+## $popcom/mkplog
+## $popcom/mkclisp
+## $popcom/mkpml
+## $popcom/mkxved
+
+echo ""
+echo "Standard images made in popsavelib are:"
+echo ""
+
+ls -l $usepop/pop/lib/psv
+
+if [ -f $usepop/pop/lib/psv/startup.psv ]
+then
+    echo "Startup saved image appears to have been created OK"
+else
+     if [ -x $popsys/basepop11 ]
+     then
+         echo "newpop did not work."
+         echo "Try using old basepop11 with $popcom/mkstartup"
+         $usepop/pop/com/mkstartup
+
+
+        if [ -f $usepop/pop/lib/psv/startup.psv ]
+        then
+            echo "Startup saved image appears to have been created OK"
+            echo "Try $popcom/makeimages, for prolog, lisp, ml "
+            $usepop/pop/com/makeimages
+            $usepop/pop/com/mkxved
+            $usepop/pop/com/makeindexes
+        else
+             echo "COULD NOT BUILD startup.psv"
+            echo "Try asking for help via comp.lang.pop or pop-forum AT cs.bham.ac.uk"
+            exit 1
+        fi
+
+     else
+
+         echo "COULD NOT BUILD startup.psv"
+         echo "Try asking for help via comp.lang.pop or pop-forum AT cs.bham.ac.uk"
+         exit 1
+    fi
+fi
+
+echo ""
+echo "Later delete any saved images you don't need"
+echo ""
+
+echo "done LINK NOMOTIF POPLOG FOR LINUX + PC"
+echo "==================================================="
+echo ""

@@ -1,0 +1,444 @@
+TEACH ATHENA                                    Andreas Schoter Jul 1991
+                                         Updated: Adrian Howard Mar 1992
+
+This teach files contains a worked example showing how to create a
+simple control panel from some of the widgets in the Athena widget set.
+For full details of the Athena widget set see REF *ATHENA.
+
+In order to run this tutorial you must be running POPLOG on a system
+which provides the "Xaw" (Athena) widget set libraries and be running an
+X Window Server which is capable of supporting Athena applications.  If
+you are unsure about this consult your system manager.
+
+This teach files follows the same format and provides an essentially
+similar demonstration program to those in TEACH *MOTIF and *OPENLOOK.
+
+The complete source code for this tutorial is in LIB *XawTutorial.
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- The Task
+ -- The Application Code
+ -- Loading The X Libraries
+ -- Loading Athena Widget Classes
+ -- Initialising The Toolkit
+ -- Creating A Top-Level Window
+ -- Creating Widgets
+ -- Using Callbacks
+ -- Updating The Resources
+ -- Adding Callbacks To Widgets
+ -- Initialising The Demonstration
+ -- Updating The ScrollBar From A Program
+ -- Further Documentation
+
+
+-- The Task -----------------------------------------------------------
+
+We want to be able to generate an application to graphically display and
+control the integer values of a set of variables.  To do this we shall
+build a simple control panel using the POPLOG X Toolkit and the Athena
+widget set.
+
+The control panel contains a scale on which the value of the current
+variable will be displayed (and which can be used to modify the
+variable's value) and two buttons.  One button will be used to switch
+between variables and will display the name of the current variable and
+its value.  Repeatedly clicking on this button will cycle through the
+list of variables.  The second button will be a 'QUIT' button for
+terminating the demonstration.
+
+
+-- The Application Code -----------------------------------------------
+
+The names of the variables to be manipulated by the control panel are
+stored in a list in the global variable -variable_list-, and the
+variables themselves are also global, initialised to zero:
+
+    vars    variable_list = [a b c d e],
+             a=0, b=0, c=0, d=0, e=0;
+
+To enable cycling through the variable list we use another global
+variable to store the current position in the list, and another to store
+those variables left for cycling through.  At the outset the current
+variable is initialised to the first variable in -variable_list-, and
+the list of variables remaining is initialised to the tail of
+-variable_list-:
+
+    vars    current_variable = hd(variable_list),
+             current_variable_list = tl(variable_list);
+
+When we get to the end of the list we must wrap around to the beginning
+of the list and start again.  Selecting the next variable to display is
+handled by the following procedure:
+
+    define get_next_variable();
+         if current_variable_list == [] then
+             variable_list -> current_variable_list;
+         endif;
+         hd(current_variable_list) -> current_variable;
+         tl(current_variable_list) -> current_variable_list;
+    enddefine;
+
+
+-- Loading The X Libraries --------------------------------------------
+
+It is necessary to load several X libraries to run this application.
+First we must load the general library that makes the other X libraries
+available:
+
+    uses popxlib;
+
+We also require the libraries for widget handling, callback manipulation
+and widget information:
+
+    uses xt_widget;
+    uses xt_callback;
+    uses xt_widgetinfo;
+
+
+-- Loading Athena Widget Classes --------------------------------------
+
+Widget classes are accessed through the XptWidgetSet table of widget
+sets. The expression
+
+    XptWidgetSet("Athena")
+
+refers to the property table representing the Athena widget set.
+Individual widget classes are accessed through this table.  Thus to
+access the Athena Scrollbar widget class we would use:
+
+    XptWidgetSet("Athena")("ScrollbarWidget")
+
+Note that we must refer to "ScrollbarWidget" and not just "Scrollbar"
+because at other time we might need to refer to "ScrollbarObject"
+classes.
+
+-XptWidgetSet- will automatically load the general purpose parts of the
+Athena widget set plus any facilities that are necessary for handling
+Scrollbar widgets.  This is handled by a dependency tree which lists
+what each widget class requires.
+
+In addition to the Athena widgets we will also need a widget from the X
+Toolkit widget set.  This is the ApplicationShellWidget which forms the
+top-level window for our application.  The following code loads all the
+widget classes we require for our control panel:
+
+    exload_batch;
+
+         ;;; load Widget Set
+         constant AWS = XptWidgetSet("Athena");
+
+         ;;; load required Widget Classes
+         constant
+             AppShell=XptWidgetSet("Toolkit")("ApplicationShellWidget"),
+             Box = AWS("BoxWidget"),
+             ScrollBar = AWS("ScrollbarWidget"),
+             Command = AWS("CommandWidget");
+
+    endexload_batch;
+
+First it loads the general Athena widget set table, then loads the
+ApplicationShellWidget from the Toolkit, then accesses the Athena
+BoxWidget, ScrollbarWidget and CommandWidget through the Athena table.
+
+Note that these commands are bracketed inside "exload_batch" and
+"endexload_batch".  This ensures that the external loading of procedures
+and data-structures takes place in a single call to the linker.  This
+increases efficiency.
+
+
+-- Initialising The Toolkit -------------------------------------------
+
+Before creating any widgets we must ensure that various initialisations
+have been performed: the POPLOG X Toolkit must be initialised and there
+must be a connection with the X Server. These functions are performed by
+the call:
+
+    XptDefaultSetup();
+
+Note that if you started POPLOG with the "%x" flag then this procedure
+will have been automatically called for you.  (See REF *SYSXSETUP for
+details).
+
+
+-- Creating A Top-Level Window ----------------------------------------
+
+We now create a top-level application shell which will be used to hold
+the other widgets that we require.  This is the application shell and it
+is created by a call to the Toolkit procedure -XtAppCreateShell-. This
+procedure takes the application name, the application class name, the
+application shell widget class, the display on which the shell is to
+appear, and an ArgList.
+
+    vars shell = XtAppCreateShell('demo', 'Demo', AppShell,
+                     XptDefaultDisplay, []);
+
+The first two arguments (the application name and class) are passed as
+strings: the first will be used as the title of the window created, and
+the second (which we can ignore here) is used by the X resource manager.
+The third argument is the application shell widget class which we loaded
+above. The variable passed as the fourth (display) argument is
+automatically initialised by the setup procedure -XptDefaultSetup- (see
+REF *XptDefaultDisplay.) The fifth argument is the ArgList: this is a
+list of attribute-value pairs which are used to specify certain
+parameters ("resources") for the widget. In the case of the -shell-
+widget we do not need to set any resources, so the ArgList is empty.
+
+
+-- Creating Widgets ---------------------------------------------------
+
+We can now create the widgets that we need to build the control panel.
+This is done by using the Toolkit procedure -XtCreateManagedWidget-
+which takes four arguments: a name for the widget, the class of the
+widget, the widget's parent, and an ArgList specifying any initial
+values for the widget's resources.  In the case of our control panel we
+shall first create an instance of the BoxWidget. This is a special
+widget used to contain other widgets.
+
+    vars box = XtCreateManagedWidget('box', Box, shell,
+                 [{orientation ^XtOrientHorizontal}]);
+
+Here we see the widget's name is the string 'box' and its class is
+the previously loaded BoxWidget.  Widgets are organised hierarchically,
+and every widget (except for top-level shells) must have a parent widget
+(in this instance the parent of the BoxWidget is the top-level shell).
+Each widget, when displayed will appear inside its parent widget, thus
+we shall use the BoxWidget as the parent of the rest of the widgets in
+the application.
+
+The -box- widget has also set its "orientation" resource to
+-XtOrientHorizontal- in its ArgList. This means that the children of the
+widget will be laid out horizontally. Specifying -XtOrientVertical- (the
+default if the resource is not specified) would cause them to be laid
+out vertically. Both -XtOrientHorizontal- and -XtOrientVertical- are
+created when the widget classes were loaded with -XptWidgetSet-.
+
+Next, we will create an instance of a CommandWidget. This will be the
+button for switching between variables:
+
+    vars varButton = XtCreateManagedWidget('varButton', Command, box,
+                     [  {label 'a 0 '}
+                        {resize ^false}
+                        {justify ^XtJustifyLeft}
+                     ]);
+
+Its name is 'varButton' and it's parent is the previously defined -box-
+widget. It sets the values of three resources in it's ArgList. The
+"label" resource is set to the string 'a 0 ', this will be the initial
+message displayed in the widget when it is placed on screen (the extra
+space is needed for when the value of the variable has more than two
+digits.) The "resize" resource is set to -false-, this stops the widget
+changing size when its label is changed. Finally the "justify" resource
+is set to -XtJustifyLeft- which will cause the label to be displayed on
+the left edge of the widget (alternatives are -XtJustifyCenter- [the
+default] and -XtJustifyRight-.)
+
+The next widget we shall create is an instance of the ScrollbarWidget:
+
+    vars scrollbar =
+        XtCreateManagedWidget('scrollbar', ScrollBar, box,
+            [{length 200}
+             {minimumThumb 20}
+             {orientation ^XtOrientHorizontal}
+            ]);
+
+It's name is 'scrollbar' and it's parent is also -box-. The ArgList
+specifies three resources, the length of the scrollbar ("length") is set
+to 200 pixels, the size of the thumb of the scrollbar ("minimumThumb")
+is set to 20 pixels, and the orientation is set to be horizontal.
+
+Finally we create the quit button which is also an instance of the
+CommandWidget.
+
+     vars quitButton =
+        XtCreateManagedWidget('quitButton', Command, box,
+            [{label 'QUIT'}]);
+
+It's name is 'quitButton', it's parent is -box-, and it's "label"
+resource is set to the string 'QUIT'.
+
+The Box widget will display it's children from left to right, in the
+order they were created. There are more complex widgets for controlling
+layout (for example the Athena FormWidget) which give more control over
+where widgets are placed.
+
+
+-- Using Callbacks ----------------------------------------------------
+
+Having created the widgets for the control panel we must specify how
+they should behave.  This is done by providing the widgets with
+"callback" procedures. These procedures are are invoked when you use the
+mouse to interact with the widget.  For example the procedure
+-switch_callback- (defined below) is associated with the callback list
+of the -varButton- CommandWidget --- this procedure (and any other
+procedures on that widget's callback list) is called when the mouse is
+clicked in that widget.  (See REF *XT_CALLBACK for more details on
+callbacks in POPLOG).
+
+
+-- Updating The Resources ---------------------------------------------
+
+The callback routines attached to the ScrollbarWidget and the variable
+selecting CommandWidget will change the display by updating the
+resources of those widgets.  The resource to be updated for the
+Scrollbar is "topOfThumb" which specifies the position of the slider in
+terms of a float (0 =< X <= 1) which represents how far along the
+scrollbar the slider thumb is.  The resource to be updated for the
+variable selecting button is "label" which contains a string to be
+displayed in the button.  Two procedures are provided to handle this
+task:
+
+     define update_thumb();
+         (valof(current_variable) / 50.0)
+             -> XptValue(scrollbar,XtN topOfThumb, "float");
+     enddefine;
+
+     define update_label();
+         current_variable sys_>< ' ' sys_>< valof(current_variable)
+             -> XptValue(varButton, XtN label, TYPESPEC(:XptString));
+     enddefine;
+
+Resources of widgets are accessed via the procedure -XptValue- which
+takes a widget (whose resource is to be accessed), the name of the
+resource to be accessed, and an option coercion specification.  If no
+coercion type is specified the default is "int".  However, in the first
+case we must specify "float", and in the second we are dealing with a
+string and must create the correct typespec as shown.  Note that the
+resource name is specified using the macro -XtN- which creates a fixed
+address string.  This ensures that every time you refer to "XtN label"
+the string passed as the resource name (i.e. 'label') is always the same
+string (not merely a similar string).  You should also do this when
+specifying strings a values for resources (i.e. as the radioData for a
+ToggleWidget) as some resources do string comparison simply by comparing
+pointer values.  It also improves efficiency as a new string is not
+created every time.
+
+The first procedure uses the value of the -current_variable- to update
+the position of the thumb in the scrollbar window.  Because the value of
+the variable is assumed to be an integer in the range 0--50 and the
+scrollbar expects a float, the conversion can be performed by simply
+dividing by 50.
+
+The second procedure builds a string from the name of the current
+variable and its value and uses this to update the label resource for
+the widget -varButton-. The effect of this will be to cause the string
+to be displayed as the new label of the button.
+
+
+-- Adding Callbacks To Widgets ----------------------------------------
+
+Every callback procedure is called with three arguments: the name of the
+widget whose callback is being invoked, the "client data" which is
+specified when the procedure is added to the callback list of the
+widget, and the "call data" which indicates the event which caused the
+callback.
+
+In the case of the variable switching button's callback none of these
+arguments are used, we simply call -get_next_variable- to switch to the
+next variable in the list, then call -update_label- and -update_thumb-
+to update the label of the button and the slider of the scrollbar
+respectively.  The following procedure does this:
+
+     define switch_callback(widget, client_data, call_data);
+         lvars widget, client_data, call_data;
+             get_next_variable();
+             update_label();
+             update_thumb();
+     enddefine;
+
+It is added to the callback list of the relevant button using the X
+Toolkit procedure -XtAddCallback- as shown:
+
+     XtAddCallback(varButton, XtN callback, switch_callback, false);
+
+The final argument of this call is the "client data" passed to the
+callback routine when it is called.  This allows the callback routine to
+distinguish between widgets in cases where the same callback routine has
+been used for more than one widget.  However, in the present
+comparatively simple case this is not required, and it is therefore
+effectively a dummy argument.
+
+The second callback used in this demonstration sets the value of the
+-current_variable- when the slider thumb is moved.  Here the call data
+argument of the callback procedure is used to access the position of the
+thumb of the scrollbar.  The call data in this case is an external
+pointer to a float and it must be accessed in the correct manner for
+POPLOG to be able to make sense of it.  Note the typespec specifying
+that -call_data- is of type "float" (see REF *L_TYPESPEC) and the use of
+-exacc- (see REF *EXACC) to get at the information being passed in
+-call_data-.  The suitable coerced value is assigned to the value of the
+-current_variable- and the label of the button is updated appropriately.
+
+     define scroll_callback(widget, client_data, call_data);
+         lvars widget, client_data, call_data;
+         l_typespec call_data :float;
+         intof((exacc call_data) * 50) -> valof(current_variable);
+         update_label();
+     enddefine;
+
+This procedure is added to the scrollbar's callback list as follows:
+
+    XtAddCallback(scrollbar, XtN jumpProc, scroll_callback, false);
+
+where jumpProc is the name of the callback list used by the
+ScrollbarWidget for notifying of changes in the thumb position caused by
+the second mouse button being pressed.
+
+The final callback used in this demonstration is used to terminate the
+demonstration.  This is handled by the following procedure:
+
+    define exit_callback(widget, client_data, call_data);
+        lvars widget, client_data, call_data;
+        XtDestroyWidget(shell);
+    enddefine;
+
+The call to -XtDestroyWidget- will destroy the -shell- widget. When a
+widget it destroyed, all it's descendents are also destroyed, therefore
+destroying the top-level widget is sufficient to destroy all the widgets
+in the application.
+
+    XtAddCallback(quitButton, XtN callback, exit_callback, false);
+
+
+-- Initialising The Demonstration -------------------------------------
+
+We can now "realize" the widgets to make them visible on the screen:
+
+    XtRealizeWidget(shell);
+
+The control panel will now appear on the screen and will respond to
+mouse events.  Clicking on the first button will cycle through the
+variables displaying the value of each in turn, clicking button 2 on the
+mouse in the scroll bar will alter the value of the current variable,
+and clicking the mouse in the QUIT button will terminate the
+demonstration program.
+
+
+-- Updating The ScrollBar From A Program ------------------------------
+
+The appearance of the widgets can be altered directly from POPLOG. For
+example, the following procedure could be used to update the value of
+-current_variable-, and to ensure that the scrollbar gets updated at the
+same time.
+
+    define update_var(x);
+        lvars x;
+        x -> valof(current_variable);
+        update_label();
+        update_thumb();
+    enddefine;
+
+Then try:
+
+    update_var(45);
+
+
+-- Further Documentation ----------------------------------------------
+
+REF *ATHENA --- Full details of the Athena widget set
+
+
+
+--- C.x/x/pop/teach/athena
+--- Copyright University of Sussex 1991. All rights reserved. ----------

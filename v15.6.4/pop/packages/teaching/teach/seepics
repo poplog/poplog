@@ -1,0 +1,571 @@
+TEACH SEEPICS                                   Aaron Sloman August 2009
+
+Some examples of the use of LIB * SEEPICTURE
+
+To make the facilities here available do
+
+    uses turtle
+
+
+CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- An example of a 'dotty' picture
+ -- -- Structures perceivable in the picture
+ -- -- Lines can form junctions of several types
+ -- From 2-D interpretations to 3-D interpretations
+ -- 2.5D interpretations
+ -- Exercise
+ -- Related teach files
+ -- Using turtle drawings
+ -- Using the seepicture library to find lines in turtle drawings
+ -- Using findlines() and findjuncs()
+ -- Running findjuncs();
+ -- Running paintpicture();
+
+-- Introduction
+
+This file shows how some of the libraries in Pop-11 support a slightly
+quirky but useful introduction to computer vision that could be
+understood by relatively young learners whose understanding of the
+complexity of processes of visual perception would be enhanced.
+
+-- An example of a 'dotty' picture
+
+Before reading on you should consider what you see here, and how you
+could describe it.
+
+            *****
+           *   **
+          ***** *         *********
+          *   * *        *       **
+         **   * ****    *       * *
+        * *   **  **   *       *  *
+       *  *****  * *  *********   *
+      *         *  *  *       *   *
+     *         *   *  *       *   *
+    ***********    ********   *   *
+    *         *    *     **   *   *
+    *         *   *     * *   *  *
+    *         *  *******  *   * *
+    *         *  *     *  *   **
+    *         *  *     *  *****
+    *         *  *     *  *
+    *         *  *     * *
+    *         * **     **
+    *         ** *******
+    ***********
+
+
+-- -- Structures perceivable in the picture
+
+At one level all you see is a collection of asterisks forming a 2-D
+structure. At another level of description you can see horizontal,
+vertical and diagonal continuous lines represented by the asterisks,
+although the lines are not there in the picture.
+
+-- -- Lines can form junctions of several types
+
+Those lines can also be seen as meeting at *junctions* of various sorts
+including these types of junction (not all in the above picture)
+
+  ELL junctions where two lines meet at a common end, like these two:
+
+        *                 *
+        *                 *
+        *                 *
+        *****             *
+                         *
+                        *
+
+  TEE junctions where one line ends on the interior of another:
+
+
+      *                   *
+      *                   *
+      *                  **
+   *******              * *
+                       *  *
+                      *
+
+  ARROW junctions where three lines meet forming a point:
+
+        *  *           *
+        * *           *
+        **           *
+    *****           ******
+                    *
+                    *
+                    *
+
+  Y-junctions, where three lines meet in a point without forming
+  an arrow:
+
+           *   *
+          *     *
+         *       *
+    *****         *****
+        *         *
+        *         *
+        *         *
+
+
+And K-junctions where four lines meet at a point, two of them collinear.
+Another way to see a K-junk is as a line that has the corner of an L
+junction on it, like these:
+
+     ************       *  *     *  *
+         * *            * *      * *
+        *   *           **       **
+       *     *          *        *******
+      *       *         **       *
+                        * *      *
+                        *  *     *
+
+-- From 2-D interpretations to 3-D interpretations
+
+Besides these 2-D structures, if you look at the first picture above, or
+the picture below you will probably naturally interpret it not just as a
+collection of 2-D configurations of asterisks or lines, but as
+representing a 3-D structure. Not everyone will agree on the precise
+shape of the 3-D structure, but it is likely that many will see it as
+one rectangular block partly occuding another larger one, which is on
+the far side of it.
+
+          *********
+         *       **
+        *       * *
+       *       *  *
+      *********   *
+      *       *   *
+      *       *   *
+    *******   *   *
+   *     **   *   *
+  *     * *   *  *
+ *******  *   * *
+ *     *  *   **
+ *     *  *****
+ *     *  *
+ *     * *
+ *     **
+ *******
+
+-- 2.5D interpretations
+
+;;; It is also prossible to produce pictures that look as if they have flat
+;;; sheets some of which partially cover others.
+
+;;; Get a library for drawing outline figures.
+
+uses outlines
+;;; this provides the procedure rect, which can be given a point in the
+;;; form of a list of two numbers and a width and height as integers.
+
+;;; make a new picture
+
+newpicture(30,20);
+
+rect([9 3], 15, 10);
+display();
+0
+9
+8
+7
+6
+5
+4
+3        ****************
+2        *              *
+1        *              *
+0        *              *
+9        *              *
+8        *              *
+7        *              *
+6        *              *
+5        *              *
+4        *              *
+3        T***************
+2
+1
+ 123456789012345678901234567890
+ Position = ( 9.0,  3.0 ), Heading = 0 (E)
+
+;;; We can draw another rectangle
+
+rect([3 7], 20, 12);
+
+;;; Before looking at the output of the display() procedure can you work out
+;;; how many lines it will find, of each orientation, and how many junctions
+;;; it will find?
+;;; You will need to know that when rect(place, width, height) draws a
+;;; rectangle if it crosses an existing line then it switches between
+;;; drawing and not drawing as it moves.
+
+
+display();
+0
+9  *********************
+8  *                   *
+7  *                   *
+6  *                   *
+5  *                   *
+4  *                   *
+3  *     ****************
+2  *     *              *
+1  *     *              *
+0  *     *              *
+9  *     *              *
+8  *     *              *
+7  T******              *
+6        *              *
+5        *              *
+4        *              *
+3        ****************
+2
+1
+ 123456789012345678901234567890
+ Position = ( 3.0,  7.0 ), Heading = 0 (E)
+
+;;; we can empty the database, and run seepicture, which will
+;;; run findlines, findjuncs then paintpicture
+[] -> database;
+seepicture();
+display();
+0
+9  l-------------------l
+8  |                   |
+7  |                   |
+6  |                   |
+5  |                   |
+4  |                   |
+3  |     l-------------tl
+2  |     |              |
+1  |     |              |
+0  |     |              |
+9  |     |              |
+8  |     |              |
+7  l-----t              |
+6        |              |
+5        |              |
+4        |              |
+3        l--------------l
+2
+1
+ 123456789012345678901234567890
+ Position = ( 0.0,  0.0 ), Heading = 0 (E)
+
+database ==>
+** [[junc ell [23 19] [3 19] [23 13]]
+    [junc ell [24 13] [23 13] [24 3]]
+    [junc ell [9 13] [9 7] [23 13]]
+    [junc ell [3 19] [3 7] [23 19]]
+    [junc ell [3 7] [9 7] [3 19]]
+    [junc tee [9 7] [9 13] [3 7] [9 3]]
+    [junc ell [9 3] [24 3] [9 7]]
+    [junc tee [23 13] [24 13] [23 19] [9 13]]
+    [junc ell [24 3] [24 13] [9 3]]
+    [line vrt [24 3] [24 13]]
+    [line vrt [23 13] [23 19]]
+    [line vrt [9 3] [9 7]]
+    [line vrt [9 7] [9 13]]
+    [line vrt [3 7] [3 19]]
+    [line hrz [3 19] [23 19]]
+    [line hrz [9 13] [23 13]]
+    [line hrz [23 13] [24 13]]
+    [line hrz [3 7] [9 7]]
+    [line hrz [9 3] [24 3]]]
+
+;;; Try again with different lines and rectangles in the picture.
+
+-- Exercise
+
+Can you find a way to make the program learn names for types of shape,
+by abstracting away from the actual positions of the lines and corners
+and merely considering the patterns they make?
+
+For this you will have to find a way of taking the database produced by
+of running findlines(), and findjuncs(), and combining the information
+to form a shape specification.
+
+Can you teach the program about different shapes and then ask it to draw
+shapes of the kind that it has previously analysed, and for which it has
+learnt names?
+
+E.g.
+
+    Draw a triangle and then a square to the right of it.
+
+    draw a square partly overlapping a triangle.
+
+This could be a hard project, suitable for a group of students working
+together.
+
+You may find LIB REGIONS useful. See TEACH REGIONS
+
+-- Related teach files
+
+The TEACH seepicture file and some of the others associated with it
+including
+
+    TEACH PICTURES
+    TEACH REGIONS
+    TEACH LABELLING
+    TEACH WALTZ
+
+All introduce simple versions of important AI ideas concerned with the
+interpretation of images.
+
+No claim is made here that the techniques presented are adequate to the
+'real' problems of machine vision involving analysis and interpretation
+of images of static and changing natural scenes.
+
+-- Using turtle drawings ----------------------------------------------
+
+The drawings that are used as input to the programs can be produced
+using the earliest 'turtle geometry' package added to pop-11, which
+'paints' pictures in an array of characters.
+
+The idea of Logo turtle graphics goes back to the late 1960s and was
+used by Papert, Bobrow, Feurzig, Minsky and others to develop a way of
+teaching programming through commands to a physical or virtual "turtle",
+that could move around on a surface either with its "pen" in the "down"
+position so that it leaves a trail of ink, or in the "up" position so
+that it moves without leaving a trail. For more on this kind of
+language and its uses see
+
+    http://en.wikipedia.org/wiki/Turtle_graphics
+    http://en.wikipedia.org/wiki/Logo_(programming_language)
+    http://web.media.mit.edu/~minsky/papers/Logoworks.html
+
+Pop-11 has a package like that as part of the 2-D graphical facilities,
+namely LIB * RC_GRAPHIC, described in TEACH * RC_GRAPHIC (though instead
+of having pendown and penup commands, it provides rc_draw and rc_jump
+commands, so that it is clear from the move command itself whether it is
+or is not leaving a trail). That package draws on the screen of a
+graphical terminal, like many implementations of Logo turtle graphics.
+Some illustrations of its use are here
+
+    http://www.cs.bham.ac.uk/research/projects/poplog/figs/rclib/rc_graphic.html
+
+However, long before we had graphical terminals that could support such
+things, the Pop-11 teaching libraries included an unusual implementation
+of the idea of Logo turtle graphics, in which the drawing commands,
+instead of causing things to appear on a screen, caused a virtual turtle
+to crawl around a 2-D array, leaving printable characters as its trail.
+The array could be printed out like any other text, but it could also be
+inspected by a program. This meant that the turtle could be used to draw
+lines to make a picture, and the programs in the SEEPICTURE library
+could then inspect that picture, look for lines, find where they meet to
+form junctions, and find regions bounded by lines.
+
+This file merely gives a taste of what can be done learners playing with
+these packages.
+
+-- Using the seepicture library to find lines in turtle drawings
+
+First draw a simple "L" using the turtle.
+
+uses turtle
+
+;;; Make a new 8x8 picture with nothing in it.
+
+newpicture(8,8);
+
+;;; If displayed it is seen to be empty.
+;;; The display() command prints out coordinates but shows nothing in
+;;; the picture
+
+display();
+8
+7
+6
+5
+4
+3
+2
+1T
+ 12345678
+ Position = (1, 1), Heading = 0 (E)
+
+
+;;; Now make a bigger picture and draw two lines in it
+
+newpicture(20,20);
+jumpto(2,18);
+
+;;; make the turtle face down the page and draw
+-90 -> heading;
+draw(15);
+
+;;; make the turtle face right and draw
+turn(90);
+draw(15);
+
+;;; print out the picture
+display();
+0
+9
+8 *
+7 *
+6 *
+5 *
+4 *
+3 *
+2 *
+1 *
+0 *
+9 *
+8 *
+7 *
+6 *
+5 *
+4 *
+3 ***************T
+2
+1
+ 12345678901234567890
+ Position = (17.0, 3.0), Heading = 0 (E)
+
+The T shows were the turtle is.
+
+Work out where the coordinates of the lines are and how you would
+describe the junction they form.
+
+-- Using findlines() and findjuncs()
+
+;;; make the library available
+
+uses seepicture
+
+;;; empty the database as a precaution
+
+[] -> database;
+
+;;; search for lines, and print out the database, where the information
+;;; about lines is recorded.
+
+findlines();
+
+database ==>
+** [[line vrt [2 3] [2 18]] [line hrz [2 3] [17 3]]]
+
+;;; Two lines have been found, one vertical described as 'vrt' and
+;;; one horizontal described as 'hrz'
+
+Let's draw another line going up and left from where the turtle is.
+It will first have to turn 135 degrees:
+
+heading =>
+** 0
+turn(135);
+heading =>
+** 135
+
+;;; draw a line of length 12, and display the picture
+draw(12);
+
+display();
+0
+9
+8 *
+7 *
+6 *
+5 *
+4 *
+3 *
+2 *
+1 *      T
+0 *       *
+9 *        *
+8 *         *
+7 *          *
+6 *           *
+5 *            *
+4 *             *
+3 ****************
+2
+1
+ 12345678901234567890
+ Position = ( 8.5, 11.5 ), Heading = 135 (NW)
+
+;;; Find all the lines now:
+findlines();
+database ==>
+** [[line lft [17 3] [9 11]] [line vrt [2 3] [2 18]] [line hrz [2 3] [17 3]]]
+
+;;; In addition to the vertical (VRT) and horizontal (HRZ) lines that
+;;; were there previously there is now also a line that slopes up to
+;;; the left (LFT)
+
+-- Running findjuncs();
+
+;;; the findjuncs procedure will not look at the picture. It merely
+;;; uses the information about lines in the database, and searches
+;;; for points common to two or more lines and then works out the
+;;; type of junction at easch such point.
+
+findjuncs();
+database ==>
+** [[junc end [2 18] [2 3]]
+    [junc end [9 11] [17 3]]
+    [junc ell [2 3] [17 3] [2 18]]
+    [junc ell [17 3] [9 11] [2 3]]
+    [line lft [17 3] [9 11]]
+    [line vrt [2 3] [2 18]]
+    [line hrz [2 3] [17 3]]]
+
+;;; In addition to the three lines that were there before it has now
+;;; found four "junctions", where an end counts as a junction involving
+;;; only one line.
+
+
+-- Running paintpicture();
+
+;;; We can can run the paintpicture procedure which finds the lines and
+;;; junctions and then uses paintpicture() to repaint the picture to
+;;; show the orientations of the lines found, by using suitable
+;;; characters for points on the lines, and uses letters to indicate the
+;;; labels of the junctions found.
+
+paintpicture();
+
+;;; show how the picture has been painted to show the interpretation.
+;;; The turtle has been moved to the bottom left, and is no longer
+;;; shown.
+display();
+
+ 12345678901234567890
+ Position = ( 0.0,  0.0 ), Heading = 135 (NW)
+0
+9
+8 e
+7 |
+6 |
+5 |
+4 |
+3 |
+2 |
+1 |      e
+0 |       \
+9 |        \
+8 |         \
+7 |          \
+6 |           \
+5 |            \
+4 |             \
+3 l--------------l
+2
+1
+ 12345678901234567890
+ Position = ( 0.0,  0.0 ), Heading = 135 (NW)
+
+-- SEE ALSO
+
+    TEACH TURTLE
+    TEACH PICTURES
+    TEACH SEEPICTURE
+    TEACH REGIONS
+    TEACH PICDEM
+
+--- $usepop/pop/packages/teaching/teach/seepics
+--- Copyright University of Birmingham 2009. All rights reserved.

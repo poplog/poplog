@@ -1,0 +1,1427 @@
+HELP RC_GRAPHIC                                    Aaron Sloman May 1990
+                                         Updated: Adrian Howard Nov 1992
+
+
+LIB * RC_GRAPHIC
+This "Relative-Coordinates" Graphics library defines a collection of
+graphical procedures, including turtle graphics, i.e. drawing procedures
+relative to a current state represented as the location and heading of a
+"turtle" moving on the screen. These are easier to use than the basic
+X facilities described in HELP * Xpw and REF * XpwPixmap, * XpwGraphic
+mentioned below. TEACH * XTOOLKIT gives additional general information.
+
+LIB * RC_ROTATE_XY
+This extension to RC_GRAPHIC provides procedures for rotating the
+coordinate frame.
+
+LIB * RC_MOUSE
+This extension to RC_GRAPHIC provides procedures for using the mouse in
+the graphics window to draw pictures or for other purposes.
+
+LIB * RC_DRAWGRAPH
+A procedure for drawing a graph of a given function. This makes use
+of LIB RC_GRAPHIC
+
+LIB * RC_GRAPHPLOT, * RC_GRAPHPLOT2
+These files extend the graph drawing facilities by providing a wider
+range of options. See TEACH * RC_GRAPHPLOT, HELP * RC_GRAPHPLOT
+
+LIB * RC_SET_SCALE
+A procedure for specifying the user coordinates in terms of inches,
+centimetres or frame height or width.
+
+LIB * RC_CLIP_REGION
+A procedure for setting the clipping limits relative to the current user
+coordinates.
+
+LIB * RC_CONTEXT
+A mechanism that makes it possible to switch between different windows
+by saving and restoring the variables associated with each window.
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- LIB * RC_GRAPHIC: Introductory remarks
+ -- Example session
+ -- Startup and re-start procedure
+ --     rc_start()
+ --     rc_wm_input   (default -false-)
+ -- Altering window size and location
+ --     rc_window_xsize   (default 500)
+ --     rc_window_ysize   (default 500)
+ --     rc_window_x   (default 520)
+ --     rc_window_y   (default 300)
+ --     rc_window
+ --     rc_new_window(width, height, xloc, yloc, setframe)
+ --     rc_setsize()
+ --     rc_clear_window()
+ -- Setting or altering the coordinate frame relative to window
+ --     rc_xorigin, rc_yorigin, rc_xscale, rc_yscale
+ --     rc_set_coordinates(xorigin, yorigin, xscale, yscale)
+ --     rc_shift_frame_by(x, y)
+ --     rc_stretch_frame_by(scale)
+ -- Drawing and jumping relative to current location and heading
+ --     rc_xposition, rc_yposition, rc_heading
+ --     rc_turn(angle)
+ --     rc_jump(amount)
+ --     rc_jumpby(dx, dy)
+ --     rc_drawto(pointcoords)
+ --     rc_drawby(dx, dy)
+ --     rc_draw(amount)
+ --     rc_point_here()
+ --     rc_newposition(amount) -> newy -> newx
+ --     rc_draw_rectangle(width, height)
+ --     rc_draw_oblong(width, height, radius)
+ --     rc_arc_around(radius, degrees)
+ -- Absolute drawing and jumping
+ --     rc_jumpto(pointcoords)
+ --     rc_drawpoint(pointcoords)
+ --     rc_drawline(pointcoords1, pointcoords2)
+ --     rc_draw_arc(pointcoords, width, height, angle1, angleinc)
+ -- Saving and restoring "turtle" state
+ --     rc_save_state() -> state
+ --     rc_restore_state(state)
+ -- Transformations from and to user coordinates
+ --     rc_transxyout(x_user, y_user) -> y_win -> x_win
+ --     rc_transxyin(x_win, y_win) -> y_user -> x_user
+ -- Using LIB * RC_ROTATE_XY to rotate user coordinate frame
+ --     rc_frame_angle (active variable, current rotation angle)
+ --     rc_rotate_frame(angle)
+ --     rc_rotate_xy(user_x, user_y) -> window_y -> window_x
+ -- Temporarily altering the user coordinate frame
+ -- Printing strings in the window
+ --     rc_print_at (pointcoords, string)
+ --     rc_print_here(string)
+ -- Clipping facilities used by rc_drawline
+ --     rc_clipping (default true)
+ --     rc_xmin rc_xmax rc_ymin rc_ymax
+ -- LIB * RC_CLIP_REGION allows clipping relative to user coordinates
+ --     rc_clip_region(REGION)
+ --     rc_clip_region(XMIN, XMAX, YMIN, YMAX)
+ -- Optional use of two numbers or point data-structure (pointcoords)
+ --     rc_conspoint(x,y) -> point
+ --     rc_destpoint(point) -> y -> x
+ --     rc_getxy(pointcoords) -> y -> x
+ -- The current window (rc_window)
+ -- Drawing in multiple windows
+ -- Coordinate transformations: rc_transxyin, rc_transxyout
+ --     rc_xscale, rc_yscale,
+ --     rc_xorigin, rc_yorigin;
+ -- LIB * RC_SET_SCALE: setting scales in inches, cm, frame units
+ --     rc_set_scale(type, xscale, yscale)
+ --     rc_pixels_per_inch (default 90)
+ -- LIB * RC_SET_COORD_FRAME can simplify setting scales and origins
+ --     rc_set_coord_frame(TYPE, WINDOW_REGION, USER_REGION)
+ --     Examples
+ -- LIB * RC_DRAWGRAPH : graph drawing package
+ -- USEFUL ADDITIONAL X FACILITIES
+ -- Changing line drawing style
+ -- Changing foreground/background colours
+ -- Changing font
+ -- LIB * RC_MOUSE - mouse interaction in the graphics window
+ --     rc_mouse_draw(listpoints, stop_button)
+ --     rc_rubber_function (integer)
+ --     rc_transxyin(x_window, y_window ) -> y_user -> x_user ;
+ --     rc_mouse_setup(widget)
+ --     rc_mouse_disable(widget)
+ --     rc_mousing   (boolean, default false)
+ --     rc_button_procedures (list, default [])
+ --     rc_move_procedures (list, default [])
+ --     rc_mouse_do(first_input, other_input, test_exit)
+ -- Asynchronous mouse-button event handling
+ -- LIB * RC_CONTEXT: USING SEVERAL WINDOWS AND SWITCHING BETWEEN THEM
+ --     rc_context_vars: specifying the context variables
+ --     The default rc_context_vars
+ --     rc_context(<false|context>) -> context
+ --     context -> rc_context()
+ --     rc_destroy_context(context)
+ --     Example of use of more than one window
+ -- ADDITIONAL OPERATIONS ON GRAPHICS WINDOW
+ -- INTERFACING TO A DIFFERENT WINDOW MANAGER
+ -- See Also
+ -- Acknowledgements
+
+
+-- LIB * RC_GRAPHIC: Introductory remarks -----------------------------
+
+Working through TEACH * RC_GRAPHIC will make the following description
+easier to understand.
+
+The RC_GRAPHIC (Relative Coordinates Graphic) library package defines a
+collection of Pop-11 procedures for drawing pictures in a graphics
+window. It is intended to provide very easy mechanisms for getting
+started with the POPLOG X windows graphics facilities. There are several
+key ideas in the package, designed to make it easier to use than the
+basic X facilities.
+
+(1) The mechanisms for creating and clearing the graphics window are
+packaged up into simple procedures with convenient defaults.
+
+(2) The drawing primitives work on a coordinate frame defined by the
+user, rather than on window coordinates.
+
+(3) A convenient default coordinate frame is provided, with the origin
+in the middle of the window, and y-values going up the screen.
+
+(4) There are "turtle" graphical facilities for giving commands relative
+to a drawing state defined by a current location and a heading. Even a
+procedure for drawing circular arcs is available that uses the current
+location and heading to start drawing and after drawing the arc updates
+the turtle's location and heading.
+
+(5) Users can easily define a clipping boundary within the graphics
+window, and lines will then not be drawn outside this boundary.
+
+(6) The procedures that require points to be represented by two
+coordinates will all accept either two numbers or a point
+data-structure.
+
+(7) LIB * RC_ROTATE_XY, described below, provides an extension that
+makes it easy do deal with rotation of the user coordinate frame
+relative to the graphics window.
+
+(8) LIB * RC_DRAWGRAPH, described below, provides a graph-drawing
+procedure based on the above facilities, making it easy to produce a
+graph of a function from numbers to numbers within bounds specified by
+the user, and with axes marked as required by the user.
+
+(9) LIB * RC_MOUSE provides a mechanism for interacting with the mouse
+in the graphics window and obtaining coordinates relative to the user
+coordinate frame.
+
+More basic mechanisms on which these are defined can be seen in the
+files LIB * xt_widget, * xt_widgetinfo * XptNewWindow * XptArgList which
+are used as the basis for LIB RC_GRAPHIC. Further information on the
+more basic and general facilities can be found in HELP * Xpw and the
+files referred to there.
+
+LIB * RC_GRAPHIC is defined in such a way that the dependence on the
+X system is clearly indicated, and it should be fairly easy to port
+it to other graphical interfaces. See the section on interfacing to a
+different window manager, below.
+
+
+-- Example session ----------------------------------------------------
+
+An example interactive session demonstrating most of the facilities is
+provided in the TEACH * RC_GRAPHIC file.
+
+The following sections describe the facilities in the rc_graphic
+library.
+
+-- Startup and re-start procedure -------------------------------------
+
+--     rc_start()
+
+This starts up the graphics window, or if it has already been started,
+clears it. If -rc_window- is not a live window widget then a new window
+is created using the current values for size and location, namely
+rc_window_xsize, rc_window_ysize, rc_window_x, rc_window_y.
+
+The first time rc_start is invoked it also sets up a convenient
+user-coordinate frame with the origin in the middle of the window and
+puts the "turtle" at location 0,0 with heading 0 (i.e. facing right if
+the value for rc_xscale is positive). If the value of rc_yscale is
+negative then turn angles are counter clockwise.
+
+See the section on rc_mouse_setup, below.
+
+--     rc_wm_input   (default -false-)
+
+This variable controls the value of the "XtR input" resource of the
+shell widget of the -rc_window- when a widget is created by -rc_start-
+or -rc_new_window-. If -true- the window manager will control when
+keyboard input is sent to -rc_window-. This is not important unless you
+are interested in X keyboard handling.
+
+
+-- Altering window size and location ----------------------------------
+
+The default startup window size and location can be altered by the user
+by assigning integers to the following global variables before rc_start
+is first invoked.
+
+Window width and height in screen pixels
+--     rc_window_xsize   (default 500)
+--     rc_window_ysize   (default 500)
+
+Location of top left corner in screen coordinates
+--     rc_window_x   (default 520)
+--     rc_window_y   (default 300)
+
+If these variables are given different default values before the library
+is compiled, the library will not alter them.
+
+The current window widget is held in the variable
+
+--     rc_window
+
+The window size and location can be changed at any time by using the
+procedure -rc_new_window-, which destroys the current rc_window (if it
+is a live window) and creates a new one:
+
+--     rc_new_window(width, height, xloc, yloc, setframe)
+
+This creates a new window with the given width and height and location
+of top left corner (in screen coordinates), after destroying the old
+window if necessary, and assigns their values to
+
+    rc_window_xsize rc_window_ysize rc_window_x rc_window_y
+
+It assigns the new window widget record to the variable -rc_window-.
+
+If the boolean -setframe- is true, then it also sets the clipping
+boundary to be at the window frame, puts the user coordinate frame in
+the standard location (origin at middle of window, y axis going up) and
+locates the turtle at the centre facing right. This sets all the
+following variables (described in more detail below):
+
+Clip boundary:          rc_xmin, rc_ymin, rc_xmax, rc_ymax
+Coordinate frame:       rc_xorigin, rc_yorigin, rc_xscale, rc_yscale
+Turtle state:           rc_xposition, rc_yposition, rc_heading
+
+If -setframe- is false rc_new_window leaves those variables untouched.
+
+See the section on rc_mouse_setup, below.
+
+
+--     rc_setsize()
+This checks the current size of the window (which may have been altered
+interactively by the user, and re-sets the variables
+    rc_window_xsize rc_window_ysize
+
+It is called by rc_clear_window and rc_start, in case the window size
+has changed. rc_setsize, or one of the procedures that use it, should be
+called when the window size has changed, e.g. using the mouse.
+
+
+--     rc_clear_window()
+Clears the window, and calls rc_setsize, in case the size has changed.
+
+
+-- Setting or altering the coordinate frame relative to window --------
+
+Users can redefine the coordinate transformation procedures rc_transxyin
+and rc_transxyout, described below. The default versions are adequate
+for simple tasks, and make use of the four variables defining the user
+coordinate frame relative to the window coordinates.
+
+--     rc_xorigin, rc_yorigin, rc_xscale, rc_yscale
+
+The numbers may be integers, decimals, ratios, etc. and may be positive
+or negative. The system starts with default values that put the origin
+in the middle of the window, with rc_yscale set to -1, so that the
+y-axis goes up the screen not down.
+
+--     rc_set_coordinates(xorigin, yorigin, xscale, yscale)
+This procedure simplifies altering the user's coordinate frame.
+
+--     rc_shift_frame_by(x, y)
+Moves the origin of the frame by x along and y up, in user coordinates.
+
+--     rc_stretch_frame_by(scale)
+Alters the scales, rc_xscale rc_yscale by the factor scale.
+
+For rotations of the user frame see section on RC_ROTATE_XY below.
+
+-- Drawing and jumping relative to current location and heading -------
+
+In addition to procedures that take absolute user coordinates there are
+some that perform actions relative to the current drawing state
+represented by a position and a heading, as in the LOGO "turtle".
+
+The "current" location and heading relative to which some of the drawing
+and jumping commands are interpreted, is represented by the global
+variables:
+
+--     rc_xposition, rc_yposition, rc_heading
+
+where the first two are coordinates in the user frame, and the latter
+is a heading in degrees, measured counter-clockwise from the 3 o'clock
+position (heading horizontal to the right), if rc_xscale is positive.
+
+The following commands are provided
+
+--     rc_turn(angle)
+Alter rc_heading by angle degrees (counter-clockwise), and normalise
+rc_heading to lie between 0 and 360
+
+--     rc_jump(amount)
+Amount is a number. Alter location by moving -amount-, in user
+coordinates, in direction of current heading (rc_heading). Uses
+rc_newposition to calculate new location.
+
+
+--     rc_jumpby(dx, dy)
+dx, dy are numbers. Add them to x and y coordinates of turtle.
+Does not alter heading.
+
+--     rc_drawto(pointcoords)
+Takes a point represented by either two numbers or a point data
+structure on which -rc_destpoint- works. Changes turtle's location
+but not its heading. If rc_clipping is true, will not draw outside
+the clipping boundary, though will allow turtle to end outside it.
+
+--     rc_drawby(dx, dy)
+dx, dy are numbers. Draw from current location to location got by adding
+dx and dy to x and y coordinates of turtle.
+
+--     rc_draw(amount)
+Like rc_jump, but draws.
+
+--     rc_point_here()
+Draws a point at the current location.
+
+
+--     rc_newposition(amount) -> newy -> newx
+This is the procedure that is used to work out the new location when
+moving forward from the current location by amount steps.
+
+--     rc_draw_rectangle(width, height)
+
+This draws a rectangle of given dimensions (in user coordinates) with
+top left corner at current location, and lines horizontal and vertical.
+
+--     rc_draw_oblong(width, height, radius)
+
+This procedure uses * XpwDrawRoundedRectangle to draw a rectangle with
+rounded corners, with the given width and height (in user coordinates)
+with top left corner at current location, and lines horizontal and
+vertical. The third argument is used in combination with rc_xscale
+and rc_yscale to compute the two "radius" arguments required for
+XpwDrawRoundedRectangle.
+
+--     rc_arc_around(radius, degrees)
+Both arguments are numbers. The radius must be positive, representing
+a length in user coordinates.
+
+Draw an arc, starting in current heading, with radius given, curving
+to left if angle is positive otherwise to right. -degrees- is the angle
+of the arc, in degrees. The new heading of the turtle will be old
+heading plus degrees. New location will be at the end of the arc.
+(Combinations of 90 and 45 degrees seem to reveal bugs in the XDrawArc
+facility in X11R4, as of May 1990. ???)
+
+-- Absolute drawing and jumping ---------------------------------------
+
+The following commands are provided
+
+--     rc_jumpto(pointcoords)
+Takes two numbers or a point data structure. Changes the location of the
+turtle. Does not alter rc_heading. Permits jumping outside the clipping
+boundary or even outside the window, or off the screen.
+
+--     rc_drawpoint(pointcoords)
+Takes two numbers or a point data structure. Draws a point at the
+location specified. Does not alter the turtle's location or heading.
+
+--     rc_drawline(pointcoords1, pointcoords2)
+Takes two points, each of which can be represented either by two numbers
+or by a point data structure. It draws from the first point to the
+second. Does not alter the turtle's location or heading.
+
+If rc_clipping is true, this will not draw outside the clipping
+boundary. See section on "Clipping facilities", below.
+
+--     rc_draw_arc(pointcoords, width, height, angle1, angleinc)
+
+Draws an arc on a circle or ellipse bounded by the rectangle whose top
+left corner is pointcoords (a point data structure or two numbers), with
+given width and height, all in user coordinates The arc is defined by
+the start angle of the radius angle1 and the amount it is to be
+increased angleinc, measured from the three O'clock position, in 64ths
+of a degree, counterclockwise (negative angles are measured clockwise).
+(The underlying XDrawArc seems to produce buggy arcs in some
+circumstances.)
+
+Does not alter the turtle's location or heading.
+
+To draw a complete circle make width and height the same and angleinc
+360*64.
+
+-- Saving and restoring "turtle" state --------------------------------
+
+--     rc_save_state() -> state
+Saves position location and heading in a three element vector
+
+--     rc_restore_state(state)
+Takes a three element vector and restores the position and heading.
+
+
+-- Transformations from and to user coordinates ----------------------
+
+Using a coordinate frame different from that used by the underlying
+graphics window, based on screen pixels is made easy, as follows.
+
+All input and output routines go via two user-definable procedures
+
+--     rc_transxyout(x_user, y_user) -> y_win -> x_win
+Used to transform use coordinates to window coordinates
+
+--     rc_transxyin(x_win, y_win) -> y_user -> x_user
+Used to transform window coordinates to user coordinates
+
+All output routines transform from user coordinates to window
+coordinates via the first and all input routines transform them via the
+second.
+
+The procedures have default definitions that make use of the following
+global numeric variables that define the user's coordinate frame
+relative to the window coordinates, in the obvious way:
+
+    rc_xorigin, rc_yorigin, rc_xscale, rc_yscale
+
+For details of the default definitions of these procedures:
+    SHOWLIB * RC_GRAPHIC
+
+If rotations relative to the window are required then do the following
+
+    lib rc_rotate_xy
+
+    rc_rotate_xy -> rc_transxyout;
+
+This will replace the default output transformation by one that can do
+transformations. See the section on transformations. The library also
+provides a procedure to assign to rc_transxyin, for handling input from
+the mouse properly. See LIB * RC_MOUSE below.
+
+There are also procedures for changing, saving and restoring, the
+current user coordinate framework, described above.
+
+
+-- Using LIB * RC_ROTATE_XY to rotate user coordinate frame
+
+The command
+    lib rc_rotate_xy
+or
+    uses rc_rotate_xy
+
+makes available an active variable to hold the current angle of rotation
+and two procedures.
+
+The rotation is assumed to be about the point chosen as the origin of
+the user's coordinate frame.
+
+Warning: all though all the drawing of lines and points using the
+rc_procedures will be rotated, printing will not be.
+
+--     rc_frame_angle (active variable, current rotation angle)
+This is the active variable (See HELP * ACTIVE_VARIABLES) holding the
+current frame angle. It is an active variable in order that whenever it
+is updated two additional hidden variables are set corresponding to the
+sin and the cosine of the angle, used by the rc_rotate_xy procedure so
+that it doesn't have to compute them each time it is called.
+
+--     rc_rotate_frame(angle)
+This is equivalent to the following, but slightly more efficient:
+    rc_frame_angle + angle -> rc_frame_angle
+
+--     rc_rotate_xy(user_x, user_y) -> window_y -> window_x
+
+This procedure can be assigned to rc_transxyout and will ensure that
+in future the angle assigned to rc_frame_angle will be used in
+calculating window coordinates from user coordinates.
+
+
+-- Temporarily altering the user coordinate frame ---------------------
+
+It is sometimes convenient to have a procedure that uses an existing
+function but draws at a different scale or angle or relative to a
+different origin. If the global variables that define the user
+coordinate frame are made dlocals of the drawing procedure then the
+frame will automatically be reset when the procedure exits. E.g.
+
+define rc_do_relative(rc_xorigin,rc_yorigin,rc_xscale,rc_yscale,proc);
+    lvars proc;     ;;; the drawing procedure
+
+    dlocal rc_xorigin, rc_yorigin, rc_xscale, rc_yscale;
+
+    ;;; call the drawing procedure
+    proc()
+enddefine;
+
+If rc_rotate_xy has been assigned to rc_transxyout, and different
+rotations of the frame are to be used, then the procedure do_relative
+can be defined to have an additional input variable, rc_frame_angle,
+which should also be declared dlocal in do_relative.
+
+
+-- Printing strings in the window -------------------------------------
+
+--     rc_print_at (pointcoords, string)
+Print the string at location represented by two numbers or a point
+data structure.
+
+--     rc_print_here(string)
+Print the string at the current turtle location.
+
+
+-- Clipping facilities used by rc_drawline ----------------------------
+
+Although the underlying windowing primitives may automatically clip
+lines when they go beyond the window boundary, users can also clip
+relative to an internal frame.
+
+--     rc_clipping (default true)
+If the variable rc_clipping is -true- then lines are clipped if they
+go beyond limits defined by the following variables:
+
+--     rc_xmin rc_xmax rc_ymin rc_ymax
+
+These are used by the procedure rc_drawline. I.e. only the portion of
+the line within the clipping rectangle is drawn, up to the clipping
+boundary. It may turn out that doing the clipping inside POPLOG is
+faster than leaving it to the lower level windowing facilities.
+Experiment with rc_clipping set both true and false.
+
+NOTE: The values of these variables are in window coordinates, not user
+coordinates.
+
+-- LIB * RC_CLIP_REGION allows clipping relative to user coordinates --
+
+(David Young, November 1992)
+
+LIB *RC_CLIP_REGION provides an extension to the *RC_GRAPHIC utilities
+which simplifies setting the clipping region in some applications.
+
+--     rc_clip_region(REGION)
+--     rc_clip_region(XMIN, XMAX, YMIN, YMAX)
+
+    In the first form, REGION should be a list of length 4 containing
+    values for XMIN, XMAX, YMIN and YMAX. In the second form, these
+    values are given as separate arguments. The clipping region (see
+    *RC_GRAPHIC/Clipping) is set to the rectangular region specified by
+    the four values in user coordinates. (Note that rc_xmax etc. are in
+    window coordinates - all that -rc_clip_region- does is to translate
+    its arguments using -rc_transxyout- and to set rc_xmax etc.)
+
+    -rc_clipping- is not affected.
+
+-- Optional use of two numbers or point data-structure (pointcoords) --
+
+Most of the rc_ routines that take two coordinates to represent a
+point can also take a point data-structure provided that the user-
+definable procedure -rc_destpoint- if applied to such a data-structure
+returns two numbers, an x coordinate and a y coordinate. Similarly, the
+user-definable procedure -rc_conspoint- is used by rc_thispoint to
+create a point data-structure. The specifications above use the argument
+type "pointcoords" to represent the option of either two numbers or
+a point data structure.
+
+For example if pt1 is a point data-structure and rc_destpoint(pt1)
+returns the values x1 and y1, and similarly for pt2, x2, y2, then the
+following commands are equivalent:
+
+    rc_drawline(x1, y1, x2, y2);
+    rc_drawline(pt1, pt2);
+    rc_drawline(x1, y1, pt2);
+    rc_drawline(pt1, x2, y2);
+
+The default value of -rc_conspoint- is -conspair- and the default value
+of -rc_destpoint- is -destpair- so that Pop-11 pairs, created using
+-conspair- can be used for points.
+
+
+--     rc_conspoint(x,y) -> point
+User-definable procedure for creating a point data-structure from two
+coordinates. Default value is conspair
+
+--     rc_destpoint(point) -> y -> x
+User-definable procedure for producing two coordinates given a point
+data-structure. Default value is destpair
+
+--     rc_getxy(pointcoords) -> y -> x
+Given either a point data-structure or two numbers representing a point
+it returns the two numbers. This is used by all the procedures that
+accept either two numbers or a point structure to ensure that two
+numbers are available inside the procedure.
+
+
+-- The current window (rc_window) -----------------------------------
+
+All the rc_graphic procedures make use of a current window, held in the
+variable -rc_window-
+
+Its size and location on the screen can be controlled by the user.
+
+The current window is set up using the procedure -rc_new_window-
+described above.
+
+
+-- Drawing in multiple windows ----------------------------------------
+
+Each time rc_new_window is invoked it checks if rc_window is a live
+window, in which case it destroys it, and then after creating a new
+widget it assigns it to rc_window. If you wish to preserve the existing
+window and create a new one do the following:
+
+;;; Save existing window
+vars oldwindow = rc_window;
+
+;;; Prevent it being destroyed by rc_new_window
+false -> rc_window;
+
+;;; Create new window
+rc_new_window(400, 400, 300, 500, true);
+
+;;; save the new window
+vars newinwdow = rc_window;
+
+Then in order to draw in either window just assign it to rc_window and
+call the drawing functions. They all use rc_window non-locally.
+
+
+-- Coordinate transformations: rc_transxyin, rc_transxyout ------------
+
+The package also includes facilities for transforming from user
+coordinates to window coordinates via a procedure that is user
+definable rc_transxyout. The default value of this procedure
+makes it easy to change the origin and scale, or to reflect the
+x or y axis about the origin, using the global variables
+
+--     rc_xscale, rc_yscale,
+
+--     rc_xorigin, rc_yorigin;
+
+Clipping utilities are also provided.
+
+The values of the scale and coordinate origin variables are used
+by the default window-to-screen transformation procedure
+-rc_transxyout- and screen-to-window transformation procedure
+-rc_transxyin-.
+
+By default the origin is set to the middle of the window, so that
+rc_jumpto(0,0) will make the current location the centre of the screen.
+
+By default rc_xscale is set to 1, so that x increases to the right
+and rc_yscale is set to -1 so that y increases upwards.
+
+
+-- LIB * RC_SET_SCALE: setting scales in inches, cm, frame units ------
+
+This library has to be loaded explicitly, using the "uses" or "lib"
+command:
+
+    lib rc_set_scale
+or:
+    uses rc_set_scale
+
+The procedure rc_set_scale- makes it easy to set the scale variables so
+that the user coordinate units are understood in terms of inches,
+centimetres or multiples of the window width and height.
+
+--     rc_set_scale(type, xscale, yscale)
+
+The type is a word or false, indicating how the second and third
+argument, both numbers, are to be interpreted, as follows.
+
+If type is
+    "inches"
+       -Then xscale is the number of inches per user unit to right
+       -Then yscale is the number of inches per user unit up screen
+
+    "cm"
+       -Then xscale is the number of centimetres per user unit to right
+       -Then yscale is the number of centimetres per user unit up screen
+
+    "frame"
+       -Then xscale is the number of window widths per user unit to
+        right
+       -Then yscale is the number of window heights per user unit up
+        screen
+
+    false
+        Just use xscale and yscale as given (y positive upwards)
+
+For example, the command
+
+
+rc_set_scale("inches", 2, 2)
+
+Implies that the command rc_draw(1) should draw a line of 2 inches.
+
+rc_set_scale("frame", 0.25, 0.25)
+Implies that the command rc_draw(1) should draw a line that is a quarter
+of the width of the rc_window, assuming that the width and height are
+the same.
+
+
+For the first two options to work a global variable has to be set by the
+user:
+
+--     rc_pixels_per_inch (default 90)
+
+This represents the number of dots (pixels) per inch on the screen. It
+may be possible to have this computed automatically, but it will not
+need to change for a particular terminal once set.
+
+
+-- LIB * RC_SET_COORD_FRAME can simplify setting scales and origins ---
+
+(David Young, November 1992)
+
+LIB *RC_SET_COORD_FRAME provides an extension to the *RC_GRAPHIC
+utilities which simplifies setting scales and origin for many
+applications.
+
+--     rc_set_coord_frame(TYPE, WINDOW_REGION, USER_REGION)
+
+    The procedure sets the parameters -rc_xscale-, -rc_yscale-,
+    -rc_xorigin- and -rc_yorigin-. TYPE can be as in LIB RC_SET_SCALE
+    (see *RC_GRAPHIC/rc_set_scale) - i.e. it can be <false>, "inches",
+    "cm", or "frames", and it specifies the units used for
+    WINDOW_REGION. In addition, TYPE can be "existing" - see below.
+
+    WINDOW_REGION is normally a list of length 4 (but see below),
+    specifying a rectangular region of -rc_window-, in the order [minX
+    maxX minY maxY], in window coordinates. (Window coordinates have X
+    running from left to right and Y from top to bottom, with the origin
+    in the top left corner of the window.) USER_REGION is normally a
+    list of length 4 specifying a rectangular region of user coordinates
+    in the same way. The scale and origin are set so that USER_REGION is
+    mapped onto WINDOW_REGION.
+
+    If TYPE is "existing", then WINDOW_REGION specifies a region
+    relative to the existing user coordinates, and not in window
+    coordinates at all. In this case the procedure implements an
+    incremental change from one user coordinate frame to another,
+    rather than referring back to the absolute window coordinates.
+
+    Instead of specifying the regions as lists, either or both may be
+    specified as 4 separate numerical arguments. If either region is
+    actually an array, its boundslist is used.
+
+--     Examples
+
+1. To put the origin of user coordinates in the middle of the window,
+with X running left to right and Y running bottom to top (as is
+conventional for drawing graphs, for instance), and with 20 user units
+from left to right and from top to bottom, do:
+
+    rc_set_coord_frame("frame", [0 1 1 0], [-10 10 -10 10]);
+
+Note how the last two entries in WINDOW_REGION have been reverse to
+force the reversal in Y-axis direction. The call could have been:
+
+    rc_set_coord_frame("frame",  0, 1, 1, 0,   -10, 10, -10, 10);
+
+2. Suppose ARR is a 2-D array, and you want to make entries in this
+array correspond to a region of the window 100 screen pixels wide by 50
+screen pixels high, set in by 10 pixels from the top left corner of the
+window. Then do:
+
+    rc_set_coord_frame(false, [10 109 10 59], ARR);
+
+
+-- LIB * RC_DRAWGRAPH : graph drawing package -------------------------
+
+This library has to be loaded explicitly, using the "uses" or "lib"
+command:
+
+    lib rc_drawgraph
+or:
+    uses rc_drawgraph
+
+rc_drawgraph(xmin,xmax,ymin,ymax,xstep,ystep,xline,yline,xincr,fun)
+                                             -> minyvalue -> maxyvalue
+
+This provides a procedure for drawing a graph of a function of one
+variable.
+
+It draws the x and y axes and marks them at intervals specified by the
+user. It then draws the function by computing its y value for values of
+x within a range specified by the user at specified intervals, and then
+interpolates. It returns the highest and lowest values found for the
+function, in case these are useful for re-scaling the picture.
+
+The procedure rc_drawgraph takes the following arguments
+        xmin,xmax,ymin,ymax,    ;;; limits of graph
+        xstep,ystep,            ;;; steps between marks on axes
+        xline, yline,           ;;; lengths of marks on axes
+        incr,                   ;;; amount by which to increment x
+        procedure fun           ;;; function for graph
+
+And produces two results
+        -> minyvalue
+        -> maxyvalue
+
+These two outputs are useful if you want to know whether the graph has
+all remained visible, etc.
+
+If the user wishes to further annotate the graph, the procedure
+rc_print_at can be used to print labels, etc.
+
+
+A more sophisticated extension that provides for annotated axes,
+parametrised functions, etc. is described in
+
+TEACH * RC_GRAPHPLOT, HELP * RC_GRAPHPLOT
+
+
+-- USEFUL ADDITIONAL X FACILITIES -------------------------------------
+
+The following sections describe facilities that are not provided
+directly in LIB RC_GRAPHIC but are made available by the underlying
+X interface. The are all explained more fully in
+
+    HELP * Xpw and files cross-referenced there.
+
+E.g. to change the colour used for drawing in the current window on a
+colour display, do something like:
+
+    XpwSetColor(rc_window, 'red');
+    XpwSetColor(rc_window, 'green');
+    XpwSetColor(rc_window, 'black');
+
+
+-- Changing line drawing style ----------------------------------------
+
+
+rc_linewidth -> integer;                               [active variable]
+integer -> rc_linewidth;
+
+Access or update line width of the current window. The integer can be 0
+upwards.
+
+
+The following functions make use of macros defined in LIB XpwPixmap.ph
+that hold integer values.
+
+rc_linefunction -> integer;                            [active variable]
+integer -> rc_linefunction;
+
+Access or update line drawing function of the current window. The
+integer can be one of the draw functions listed in REF * XpwPixmap.
+The following draw functions are provided:
+
+    GXclear             GXand           GXandReverse
+    GXcopy (default)    GXandInverted   GXnoop
+    GXxor               GXor            GXnor
+    GXequiv             GXinvert        GXorReverse
+    GXcopyInverted      GXorInverted    GXnand
+    GXset
+
+
+rc_linestyle -> integer;                               [active variable]
+integer -> rc_linestyle;
+
+Access or update the line style of the current window, where the integer
+is one of:
+        LineSolid       (default)
+        LineOnOffDash
+        LineDoubleDash
+
+
+
+-- Changing foreground/background colours -----------------------------
+
+Facilities described in REF * XpwPixmap include mechanisms that access
+or update the foreground or background colour of the widget.
+
+
+-- Changing font ------------------------------------------------------
+
+XpwSetFont(rc_window,<fontname>) -> <boolean>
+    Changes the current font used by rc_print_at. Returns a number if it
+    succeeds, and false if it fails. The <fontname> is a string. E.g.
+        XpwSetFont(rc_window,'9x15bold')
+
+See REF * XpwCore
+
+
+-- LIB * RC_MOUSE - mouse interaction in the graphics window ----------
+
+The command
+    lib rc_mouse
+or
+    uses rc_mouse
+
+makes available an extension providing mouse-based interaction
+facilities, as follows.
+
+
+--     rc_mouse_draw(listpoints, stop_button)
+
+This is used to draw pictures made of straight lines in the current
+graphic window (rc_window), using the mouse buttons to indicate the ends
+of the lines. It starts drawing as soon as a button, other than the
+stop_button, is pressed in the graphics window, then uses a
+"rubber-band" facility to follow the mouse motion. Whenever a button
+is pressed it then draws a line which is preserved thereafter. If it is
+the stop_button, then the drawing stops and the procedure exits.
+
+The first argument, listpoints, should be true if the procedure is to
+produce a list of points (produced by applying rc_conspoint to the x and
+y user coordinates), and false if it should not produce a list of
+points. In the latter case it returns no result.
+
+The second argument is the number of the button that is to indicate when
+the final point has been drawn. so
+
+    rc_mouse_draw(true, 3) -> pointlist;
+
+will get a picture made of lines, returning a list of point
+data-structures, the picture being terminated by pressing mouse button
+3. The number of buttons provided on different mice will be different,
+so find out what works on your machine. On HP machines left button is
+no 1, right button number 3 and both buttons together count as button 2.
+
+The use of rc_mouse_draw, which packages the use of the mouse into the
+most convenient form, is illustrated in TEACH * RC_GRAPHIC
+
+It is implemented in terms of the more general and basic facilities
+described below. Calling -rc_mouse_draw- will cause -rc_mouse_setup- to
+be run on -rc_window- if it has not done so already.
+
+--     rc_rubber_function (integer)
+
+This variable specifies the line-drawing function to be used for the
+"rubber banding", i.e. drawing a temporary line between the last line
+end and the current mouse position. Its default value is GXxor. On
+colour terminals and on some black and white terminals it may be
+necessary to do
+
+    GXequiv -> rc_rubber_function;
+
+to get the required effect.
+
+--     rc_transxyin(x_window, y_window ) -> y_user -> x_user ;
+
+This procedure is defined to translate from window to user coordinates
+when the mouse button is pressed. If rc_rotate_xy is assigned to
+rc_transxyout, then rc_rotate_xyin should be assigned to rc_transxyin
+
+
+--     rc_mouse_setup(widget)
+
+This makes the facilities described below applicable to the graphics
+widget to which it is applied. If the value of the variable
+rc_mouse_setup is a procedure then the command
+
+    rc_mouse_setup(rc_window)
+
+is given automatically by the procedures rc_new_window and rc_start
+described above. This turns on the lists rc_button_procedures and
+rc_move_procedures, for that window, as described below. If
+rc_mouse_setup has not been invoked, then the list has no effect.
+
+
+--     rc_mouse_disable(widget)
+
+This turns off mouse button and movement processing for the widget
+
+
+--     rc_mousing   (boolean, default false)
+
+Making this true enables automatic handling of mouse events by the
+procedures in (or named in) the list rc_button_procedures and
+rc_move_procedures. Making it false disables handling.
+
+
+--     rc_button_procedures (list, default [])
+--     rc_move_procedures (list, default [])
+
+These are lists of procedures or procedure names.
+
+If rc_mouse_setup has been applied to a widget (e.g. rc_window) AND
+rc_mousing is non-false, then the procedures in (or named in) the list
+are run when a mouse move event or a button event occurs in the widget
+specified, i.e. when a mouse button is pressed or released. If
+rc_mousing is false, or rc_button_procedures is an empty list, then
+nothing happens when a button is pressed or released. Similarly if
+rc_move_procedures is an empty list, movement of the mouse produces no
+effect.
+
+If the list rc_button_procedures is non-empty and rc_mousing is non
+false, then, whenever a mouse button event happens, each of the
+procedures is run with three arguments,
+    1. the widget (usually rc_window)
+    2. a Pop-11 data item, i.e. "button"
+    3. a number representing which button was involved (e.g. 1, 2, or
+       3), a positive integer if the button was pressed, and negative if
+       it was released.
+
+If a mouse-button "event handling" procedure is to make use of the
+position of the mouse cursor when the button was pressed it can do the
+following, to get the position in window coordinates and then transform
+them to screen coordinates.
+
+    rc_transxyin(XptVal rc_window(XtN mouseX, XtN mouseY)) -> (x, y);
+
+If the list rc_move_procedures is non-empty and rc_mousing is non
+false, then, whenever a mouse motion event happens, each of the
+procedures is run with three arguments,
+    1. the widget (usually rc_window)
+    2. a Pop-11 data item, i.e. "move"
+    3. an integer, which is 0 if no button is down at the time of the
+        move, 256 if button 1 is down, 512 if button 2 is down and
+        1024 if button 3 is down. For combinations of buttons the
+        numbers are ORed together. (I.e. bits 8,9 and 10 are used
+        to indicate which buttons are down.)
+
+If a mouse-motion "event handling" procedure is to make use of the
+position of the mouse cursor when it is moved it can use the same
+techniques as for mouse_button events.
+
+
+All these facilities are packaged up for easy use in the next procedure
+
+--     rc_mouse_do(first_input, other_input, test_exit)
+
+This procedure is invoked with three procedures as inputs, each taking
+three arguments. It makes it easy to get the mouse to draw a picture
+made of straight lines, and to record the locations of the ends of the
+lines.
+
+The three procedures are each applied to four things
+    1. The x coordinate, in the user frame
+    2. The y coordinate, in the user frame
+    3. If it is a button event then the number of the button pressed
+        (releases are ignored) and if it is a move event the number
+        indicating whether any button is down and if so which, as
+        indicated above.
+    4. The word "move" or "button" to indicate the type of event
+
+The first procedure (first_input) is applied only on the first occasion
+the button is pressed.
+
+The second procedure (other_input) is applied on all other occasions.
+
+The third procedure (test_exit) is applied on EVERY occasion, and if it
+returns a non-false result the procedure rc_mouse_do terminates.
+
+Locally rc_mouse_do makes rc_mousing true, restricts the list
+rc_button_procedures to contain only a special privately defined
+procedure that brings the above about.
+
+Calling -rc_mouse_do- will cause -rc_mouse_setup- to be run on
+-rc_window- if it has not done so already.
+
+It uses repeated calls of syssleep to ensure that the procedure waits
+until the picture has been drawn. If the test_exit procedure returns a
+non-false result this interrupts the sleeping.
+
+The procedure rc_mouse_draw, described above, is defined by applying
+rc_mouse_do to three simple procedures. For details
+    SHOWLIB * RC_MOUSE
+
+The callback facilities used here are described in REF * XTOOLKIT
+
+
+-- Asynchronous mouse-button event handling ---------------------------
+
+If rc_mousing is made true and the names of one or more appropriate
+procedures are put in the list rc_button_procedures, then the procedures
+will be run whenever a mouse button is clicked in the graphics window
+(if rc_mouse_setup has been applied to it).
+
+However if the procedure rc_mouse_do, or a procedure defined in terms of
+it, e.g. rc_mouse_draw, is running, then it will supersede the global
+assignment to rc_button_procedures by re-setting it locally to contain
+only one procedure required for rc_mouse_do.
+
+
+-- LIB * RC_CONTEXT: USING SEVERAL WINDOWS AND SWITCHING BETWEEN THEM -
+
+The procedure -rc_context- and its updater are provided to make it easy
+to manipulate a number of different rc_graphic windows and to switch
+between them.
+
+As explained above, the rc_graphic procedures operate on the _current_
+window held in the variable rc_window, and use a collection of global
+"context" variables defining the state of that window, its size, the
+current x and y origin, the transformation procedure to map user
+coordinates onto window coordinates, etc.
+
+Thus in order to be able to switch between different windows, it is
+necessary to be able to save the context variables associated with the
+current window before setting the variables required for the new window.
+This facility is provided by the procedure rc_context and its updater.
+
+In order to use it it is necessary to load LIB * RC_CONTEXT. However
+before doing that you need to consider which global variables you
+require to define the context to be saved and restored.
+
+--     rc_context_vars: specifying the context variables
+
+For example, you may wish to associate different transformation
+procedures mapping user to window coordinates with different windows. In
+that case rc_transxyout (explained above) would need to be saved and
+restored when switching between windows. However if the same mapping is
+used for all windows then it is wasteful to save and restore the mapping
+procedure, though you may still wish to save and restore rc_xorigin,
+rc_yorigin, rc_xscale and rc_yscale, for instance.
+
+A mechanism is provided to allow the user to specify the variables to
+be saved and restored. This is done by assigning a list of their names
+to rc_context_vars. If this is not done BEFORE loading LIB RC_CONTEXT,
+a default set of context variables will be used, as follows.
+
+--     The default rc_context_vars
+    ;;; window variables
+    rc_window           ;;; this should ALWAYS be the first item
+
+    rc_window_x
+    rc_window_y
+    rc_window_xsize
+    rc_window_ysize
+
+    ;;; clipping variables
+    rc_clipping
+    rc_xmin
+    rc_ymin
+    rc_xmax
+    rc_ymax
+
+    ;;; turtle state
+    rc_xposition
+    rc_yposition
+    rc_heading
+
+    ;;; transformation to user coordinates
+    rc_transxyin
+    rc_transxyout
+    rc_xscale
+    rc_yscale
+    rc_xorigin
+    rc_yorigin
+
+    ;;; active variables
+    rc_frame_angle
+    rc_linewidth
+    rc_linestyle
+    rc_linefunction
+
+    ;;; callback facilities
+    rc_button_procedures
+    rc_move_procedures
+    rc_mousing
+
+    ;;; a field for the user to associate with each window
+    rc_props
+
+If the only thing you are interested in saving and restoring is the
+current location and heading of the "turtle" then you should do
+
+[   rc_window           ;;; this should always be the first item
+    ;;; turtle state
+    rc_xposition
+    rc_yposition
+    rc_heading
+
+]   -> rc_context_vars;
+
+It is then up to you to make sure that you never use any procedures
+that depend on the other variables that may have different values
+for different windows, such as rc_window_x and rc_window_y.
+
+You may wish to use a different rc_rubber_function in different windows,
+for use with rc_mouse_draw, in which case it can be added to the list.
+
+NB The list should always include rc_window as the FIRST item, since
+that is the variable that holds a pointer to the window itself, and
+that is used by rc_destroy_context
+
+NB The list rc_context_vars MUST be set up BEFORE lib rc_context is
+compiled, since the references are compiled into the procedures. If
+the variables to be saved and restored are changed after the library
+has been compiled then create the new version of rc_context_vars
+and then recompile. However, previously created contexts will be
+unusable.
+
+
+--     rc_context(<false|context>) -> context
+--     context -> rc_context()
+
+Loading LIB RC_CONTEXT provides this procedure and its updater.
+
+In order to create a record of the current context, call the procedure
+rc_context with either false or a previously existing context vector as
+argument. It will return a context vector containing all the saved
+values for the current context, where the context is defined by the list
+rc_context_vars, as explained above.
+
+The context vector returned by rc_context can later be used with its
+updater to restore the context.
+
+If rc_context is invoked with a context vector as argument, it will
+store the values in that vector and return it. If called with -false-
+as argument it creates a new context vector and returns that.
+
+After having saved the context corresponding to the current window you
+may wish to create a new window with its own set of values. You can
+do this either using -rc_new_window- or else by assigning -false- to
+rc_window and calling -rc_start-, as illustrated below.
+
+
+--     rc_destroy_context(context)
+
+This procedure can be used to dispose of a context. It will destroy the
+window and remove the pointer to it from the context, so that the record
+can be garbage collected.
+
+
+--     Example of use of more than one window
+
+A typical way to use the facility provided by LIB RC_CONTEXT would
+be as follows
+
+;;; Load the library
+
+lib rc_context
+
+rc_start();     ;;; create or clear a window
+
+;;; .... do some drawing ...
+
+;;; Save the current context in a variable called window1;
+
+vars window1 = rc_context(false);
+
+;;; Then ensure that rc_start creates a new window
+
+false -> rc_window;
+
+rc_start();             ;;; alternatively use rc_new_window
+
+;;; draw some pictures, etc.
+
+;;; Now save the new window and its context as window2
+
+vars window2 = rc_context(false);
+
+;;; Restore the old window
+
+window1 -> rc_context();
+
+;;; draw more pictures
+
+;;; Now save window1, using the previous record, and restore the second
+;;; window
+
+rc_context(window1) -> window1;
+
+window2 -> rc_context();
+
+etc.
+
+
+-- ADDITIONAL OPERATIONS ON GRAPHICS WINDOW ---------------------------
+
+The REF * XpwGraphic file describes additional mechanisms that can
+be applied to the rc_window widget in order to change or interrogate
+the state of the window, including functions for copying or inserting
+sub-images.
+
+
+-- INTERFACING TO A DIFFERENT WINDOW MANAGER --------------------------
+
+If the RC_GRAPHIC package is to be ported to a different window system,
+a small number of interface procedures will need to be redefined. In
+particular, all those whose names start "xt_" "Xpt" or "Xpw" will need
+to be re-defined if the package is ever re-implemented in terms of some
+other graphics system than LIB * XptNewWindow or LIB * XpwGraphic .
+
+In the following list of low level interface procedures, used by LIB
+RC_GRAPHIC, coordinates are screen-based or window-based, unlike the
+"turtle" procedures, which employ user coordinates. For full details on
+the low level interface procedures see the rc_ library files.
+
+XpwDrawPoint(window,x,y);
+    Takes a window (i.e. rc_window) and two coordinates (integers). It
+    draws a point.
+
+XpwDrawLine(window,x1,x2,y1,y2)
+    Takes a window and four coordinates (integers), and draws a line.
+
+XpwDrawRectangle(window, x, y, width, height).
+    Draws a rectangle top left corner x,y, with horizontal and
+    vertical sides of the lengths given.
+
+XpwDrawArc(window,x,y,width,height,start_angle,angle_incr)
+    Draws an arc on a circle or ellipse bounded by the rectangle whose
+    top left corner is (x, y), with given width and height. The arc is
+    defined by the start_angle (relative to the centre) and the amount
+    the angle is to be increased, angle_incr. See HELP * XpwGraphic
+
+XpwDrawString(window, x, y, string)
+    This takes a window, two coordinates and a string, and prints the
+    string in the window at the location specified.
+
+XpwClearWindow(window);
+    This takes a window and clears it
+
+XptDestroyWindow(window);
+    This takes a window and destroys it
+
+XptNewWindow(namestring, size-position-vector, arglist, class) -> w
+    This takes several arguments and returns a graphics window widget
+    record. The second argument defines size and position of window on
+    screen. Used in xt_new_window. For details SHOWLIB * xt_windows
+
+XpwGraphic
+    This is not a procedure but the name of a window class, used by
+    xt_window. It will probably not be required in any re-implementation
+    based on some other window system.
+
+XptVal <widget>(<resource1>,...,<resourceN>) -> (<value1>,...,<valueN>)
+<value1>,...,<valueN> -> XptVal <widget>(<resource1>,...,<resourceN>)
+    This is used for accessing and altering various features and
+    capabilities of the widget. (REF * XptVal)
+
+
+The next three are defined in LIB RC_GRAPHIC
+
+xt_islivewindow(window) -> boolean
+    This will have to be re-defined for a different windowing system.
+
+xt_new_window(string,xsize,ysize,xloc,yloc) -> window
+    This will have to be re-defined for a different windowing system.
+    The string is the name of the window.
+
+If user programs employ any other Xpw or Xpt facilities, then they too
+would have to be ported to the new interface.
+
+
+-- See Also -----------------------------------------------------------
+
+HELP * X
+    This gives a more comprehensive overview of documentation on the
+    POPLOG X interface.
+
+TEACH * RC_GRAPHIC
+TEACH * RC_GRAPHPLOT
+    These two give tutorial introductions to the relative coordinates
+    graphics facilities.
+
+HELP * RC_GRAPHPLOT
+    Describes an extension to this file
+
+SHOWLIB * RC_GRAPHIC, * RC_ROTATE_XY, * RC_MOUSE, * RC_DRAWGRAPH
+SHOWLIB * RC_CONTEXT, * RC_GRAPHPLOT, * RC_GRAPHPLOT2
+
+TEACH * XTOOLKIT
+    Introduction to the POPLOG X Toolkit interface
+
+TEACH * Xpw
+    Tutorial examples of the use of the POPLOG Widget Set
+
+HELP * Xpw
+    An overview of the POPLOG Widget Set
+
+
+-- Acknowledgements ---------------------------------------------------
+
+To Roger Evans, Ian Rogers and Jon Meyer for designing and implementing
+the basic facilities underlying this package. Jon Meyer designed and
+implemented the POPLOG Widget Set described in HELP * Xpw. Andreas
+Schoter and Adrian Howard helped to convert LIB RC_GRAPHIC and
+associated libraries, to work for POPLOG V14. Thanks to Ian Rogers for
+helping me understand how to use the relevant X facilities, and to
+David Hogg and David Young for discussions and suggestions regarding
+requirements. David Young designed and implemented the rc_graphplot
+extensions.
+
+
+--- C.x/x/pop/help/rc_graphic
+--- Copyright University of Sussex 1990. All rights reserved. ----------

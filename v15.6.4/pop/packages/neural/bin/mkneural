@@ -1,0 +1,40 @@
+#!/bin/csh -f
+# --- Copyright University of Sussex 1988. All rights reserved. ---------
+# File:            $popneural/bin/mkneural
+# Purpose:         make a saved image of Poplog-Neural
+# Author:          Julian Clinton, July 1992
+# Documentation:   $popneural/help
+# Related Files:   $popneural/bin/mkneural.p
+
+# popneural should be set up before this script is
+# run.
+
+if (! $?popneural) then
+	echo "Environment variable 'popneural' not defined"
+	exit 1
+endif
+
+if ($#argv == 1) then
+	setenv NEURAL_SAVEPATH ${1}/neural.psv
+else
+	echo "usage: mkneural <image-directory>"
+	exit 1
+endif
+
+$popsys/pop11 %nort \
+	$popliblib/mkimage.p \
+	-install \
+	$NEURAL_SAVEPATH \
+	$popneural/bin/mkneural.p \
+	": nn_init();"
+
+if ( $status == 0 ) then
+	rm -f ${1}/neural.psv-
+	exit 0
+else
+	exit 1
+endif
+
+# --- Revision History ---------------------------------------------------
+# --- Julian Clinton, Jul 27 1992 - re-wrote to use mkimage
+#	Now takes target target directory for the image as an argument

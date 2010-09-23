@@ -1,0 +1,137 @@
+TEACH ELIZA2                                 Steven Hardy, November 1981
+
+This file follows directly  on from TEACH *  ELIZA which should be  read
+before reading this.
+
+To prevent the  conversation becoming  too predictable you  may want  to
+make use of the ONEOF procedure  built into POP-11. Given a list,  ONEOF
+picks an element  at random.  Thus the  'response' procedure  definition
+could start:
+
+    define response(list);
+    vars x, y;
+      if list matches [??x mother ??y] then
+          oneof([[tell me more about your family]
+                  [did you have a happy childhood]
+                  [did your father and mother get on well]])
+                      =>
+      ...
+    enddefine;
+
+If you try this mechanism be sure to get all your brackets right!
+
+    ---------------------------------------------------------------
+
+Secondly, you could use ONEOF in a condition, thus:
+
+    if oneof([[heads] [tails]]) = [heads]
+    and list matches [??x mother ??y] then
+        oneof([ ... ]) =>
+
+    ---------------------------------------------------------------
+
+Thirdly, you could get your program to 'remember' something typed in  by
+the user (perhaps selected at  random) and later regurgitate at  random.
+For example, 'doctor' could be modified thus:
+
+    define doctor();
+    vars problem, input;
+        [good day - what is your problem] =>
+        readline() -> problem;
+        problem -> input;
+        until input matches [??x bye ??y] do
+            response(input);
+            readline() -> input
+        enduntil;
+        [good bye] =>
+    enduntil;
+
+and then add an extra clause to response, thus:
+
+    if oneof([[heads] [tails]]) = [heads] then
+        [earlier you said ^^problem] =>
+
+    -----------------------------------------------------------
+
+You might find it helpful to include, and use, the following definition:
+
+    define flip() -> result;
+        if oneof([[heads] [tails]]) = [heads] then
+            true -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+You can then write:
+
+    if flip() then
+        [earlier you sad ^^problem] =>
+    ....
+
+    -----------------------------------------------------------
+
+Finally, you will  have noticed  that your program,  unlike the  library
+program ELIZA,  doesn't  do 'person  conversion'.  That is,  it  doesn't
+change I to YOU or MY to YOUR. If the user says that her problem is:
+
+    ? i hate my family
+
+then DOCTOR might later respond:
+
+    ** [earlier you said i hate my family]
+
+instead of
+
+    ** [earlier you said you hate your family]
+
+One way  to  fix  this  would  be to  write  a  procedure  called,  say,
+CHANGEPERSON and insert calls of it thus:
+
+    define doctor();
+    vars input, problem, newinput, x, y;
+        [good day - what is your problem] =>
+        readline() -> input;
+        changeperson(input) -> problem;
+        problem -> newinput;
+        until newinput matches [??x bye ??y] do
+            response(newinput);
+            readline() -> input;
+            changeperson(input) -> newinput
+        enduntil
+    enddefine;
+
+You can model CHANGEPERSON on RESPONSE, here is an example:
+
+    define changeperson(list) -> result;
+    vars x, y;
+        if list matches [??x i ??y] then
+            [^^x you ^^y] -> result
+        elseif list matches [??x my ??y] then
+            [^^x your ^^y] -> result
+        else
+            list -> result
+        endif
+    enddefine;
+
+    ------------------------------------------------------------
+
+Notice the way we arrange  for a POP-11 procedure  to have a result.  We
+modify the  first  line  of  the procedure  definition  to  include  '->
+result'. This says the procedure has  a result. The procedure must  then
+assign some value to  RESULT. The procedure  calling a procedure  with a
+result can assign it to some variable, thus:
+
+    changeperson(input) -> newinput;
+
+The variable NEWINPUT will take as its value the RESULT of CHANGEPERSON.
+
+    ------------------------------------------------------------
+
+The only problem with this definition is that it will only make one change
+- not all possible changes as desired. The solution to this problem will be
+to make use of an UNTIL (or WHILE loop) - or perhaps several. See if you
+can work out a way of doing this for yourself.
+
+--- C.all/teach/eliza2 -------------------------------------------------
+--- Copyright University of Sussex 1988. All rights reserved. ----------

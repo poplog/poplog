@@ -1,0 +1,716 @@
+TEACH WHYSYNTAX                                     Chris Mellish October 81
+                                              revised, Mark Keefe January 86
+
+In this demo, we will consider some of the limitations of ELIZA-like
+programs, and how we can improve on them by producing programs that know
+rather more about the structure of linguistic utterances. If you haven't
+already done so, you should work through HELP * ELIZA and play around with
+the POP-11 ELIZA program before you read this demo. We will be meeting
+some rather useful extensions to the basic POP-11 matching abilities,
+and you should also make sure that you are familiar with the contents of
+HELP * LISTS.
+
+---- ELIZA IS LIMITED IN VARIOUS WAYS -------------------------------------
+
+If you have played with ELIZA at all, you will no doubt have been
+frustrated by some of the rather stupid responses the program can give.
+For instance, you might have seen interactions like the following:
+
+    eliza();
+
+    hello what is your problem?
+    ? i hate computers
+    have you just had a bad experience with computers?
+   ..........
+   ..........
+    ? i hate to wash the dishes
+    have you just had a bad experience with to wash the dishes?
+
+From your experience of writing ELIZA-like programs, you should be able
+to see what could be going wrong in examples like this. Here it looks as
+if the program is responding to a pattern like
+
+   stimulus:   [i hate ??x]
+
+with the response
+
+   response:   [have you just had a bad experience with ^^x?]
+
+This works all right when X matches the phrase [COMPUTERS], but it is
+completely wrong when X matches [TO WASH THE DISHES]. How could we fix
+this? Whatever approach we take, it would obviously be good to have the
+response come out after any of:
+
+    ? i hate tall women
+   .......
+    ? i hate university lecturers
+
+but not after:
+
+    ? i hate to sound stupid
+
+---- SIMPLE PATTERN MATCHING IS INADEQUATE  -------------------------------
+
+Somehow, we cannot adequately describe the phrases for which the "Have
+you just had a bad experience with ....?" response is appropriate using
+just simple matching. Why is this? The main reason seems to be because
+the basic matching operations simply do not know anything about what
+English words mean or what their functions are. All the basic matching
+operations can take into account is the sequence of WORDS in the pattern
+and the utterance and whether a correspondence can be built up between
+them. So all we can say is things like:
+
+   "any number of arbitrary words can appear here"  [... ??x ...]
+   "some particular word must appear here"          [... apple ...]
+
+As we have seen, this is not good enough. The words that must appear in
+the "X position" of [I HATE ??X] for the response to be appropriate
+CANNOT be just "arbitrary words". Some sequences, like "computers",
+"university lecturers" do work, but others, like "to clean my teeth" and
+"to sound stupid" do not.
+
+--- BOOLEAN PROCEDURES ALLOW US TO SPECIFY MORE INTERESTING PATTERNS ---
+
+The way that we can specify more stringent requirements in POP-11
+patterns is by using BOOLEAN PROCEDURES. Let's start with a simpler
+example of this. Consider the following possible ELIZA strategy:
+
+   stimulus:   [i am ??x]
+   response:   [i am sorry you are ^^x]
+
+In this example, we really want to impose more conditions on what X can
+be. For instance, this kind of sympathetic response would be all right
+if the "patient" said "I am bored" or "I am terribly depressed", but
+would be very strange if he said instead "I am delighted" or "I am
+really happy". The extra requirement to impose is that the phrase should
+describe some generally unpleasant state. Only then would sympathy be
+appropriate. The first stage in formulating a pattern to capture this
+requirement involves writing a POP-11 procedure to determine whether a
+list of words (such as the value of X here) does indeed describe an
+unpleasant state. This we will now do.
+
+--- DEFINING A BOOLEAN PROCEDURE ---------------------------------------
+
+Let's look at how we might write a program in POP-11 to determine
+whether a list of words does indeed describe an unpleasant state. In the
+absence of any deep theories about the meanings of words, we will just
+have to write an approximation to the ultimate "unpleasant state
+interpreter", cataloguing certain common phrases that do indeed describe
+unpleasant states. Here is a procedure of this form:
+
+    define unpleasant(phrase) -> yesno;
+    vars x;
+        if phrase matches [bored]
+        or phrase matches [at the end of my tether]
+        or phrase matches [terribly ??x] then
+            true -> yesno
+        else
+            false -> yesno
+        endif
+    enddefine;
+
+Notice the structure of this procedure. It takes a single argument
+(PHRASE), which is the list of words on which it is performing a test.
+It also produces a result (whatever is the value of YESNO when the
+instructions have been finished). There are three lines in the
+definition talking about matching conditions. The conditions are:
+
+   phrase matches [bored]
+   phrase matches [at the end of my tether]
+   phrase matches [terribly ??x]
+
+These are linked together by the word OR. The idea is that the results
+of the three matches are "brought together" to make one overall truth
+value to express whether the phrase expresses an unpleasant state. A
+phrase is talking about an unpleasant state if it is "bored" OR if it is
+"at the end of my tether" OR if it is of the form "terribly ...". If any
+one of these conditions is "true", then the overall truth value for the
+IF condition is also "true". So the THEN actions will be carried out and
+YESNO will get the value "true". Otherwise the value for the IF
+condition is "false" and YESNO will get the value "false". Notice that
+in both cases we actually give YESNO the value of another VARIABLE (TRUE
+or FALSE). This is OK, because TRUE and FALSE are already introduced
+when you come into POP-11, and they have the truth values "true" and
+"false" respectively. Of course, UNPLEASANT contains a very incomplete
+catalogue of unpleasant state phrases and is maybe not even partially
+adequate. Nevertheless, it is a perfectly good POP-11 procedure and will
+do for our purposes.
+
+-- BOOLEAN PROCEDURES ARE PROCEDURES WITH TRUTH VALUES AS RESULTS ------
+Let us digress briefly to consider the idea of truth values as procedure
+results. Normally, truth values that are worked out are immediately
+"used up" by conditional statements. For instance, when we write:
+
+   if phrase matches [i hate ??x] then ....
+
+we expect a truth value to be produced for whether PHRASE actually does
+match the pattern. This truth value is immediately used to determine
+what to do next in the program. In the UNPLEASANT procedure, we
+explicitly produce a truth value as a result. This must be used by
+whichever procedure calls UNPLEASANT in the first place. We can finally
+"use up" the truth value by saying something like:
+
+   if unpleasant(x) then ....
+
+or by another method which we will come to.
+
+It would be a good idea, to make sure that you understand how to write
+and use a procedure like UNPLEASANT, to type in the above definition or
+a similar one (storing it in a file) and practice using it in various
+situations. For instance:
+
+   unpleasant([my dog has fleas])=>
+   unpleasant([bored])=>
+   unpleasant([terribly bored])=>
+   unpleasant([terribly excited])=>
+
+We have called UNPLEASANT a BOOLEAN PROCEDURE. This is because it is a
+procedure that produces "true" or "false" as its result. The word
+BOOLEAN comes from the name of George Boole, a mathematical logician who
+worked in the 19th Century. Other Boolean procedures that you may have
+come across in POP-11 are MATCHES, =, ISINTEGER and <.
+
+---- SUMMARY SO FAR -------------------------------------------------------
+
+A quick summary of where we are. We want to be able to improve the
+performance of a program like ELIZA by allowing it to be more
+discriminating about the utterances to which it makes certain responses.
+We saw that silly responses were easy to generate because simple
+matching could not distinguish between good and bad phrases for this
+purpose. We also wrote an example (UNPLEASANT) of a BOOLEAN PROCEDURE,
+hoping that it could eventually be used in an ELIZA program. By BOOLEAN
+PROCEDURE here, we just mean any procedure that produces "true" or
+"false", according to whether some condition is true or false. For
+instance, UNPLEASANT is a Boolean procedure. It can be given any phrase
+and will answer "true" or "false" according to whether it thinks that
+the phrase describes an unpleasant state.
+
+---- USING BOOLEAN PROCEDURES IN AN ELIZA PROGRAM ------------------------
+
+How can we use Boolean procedures in an ELIZA program? One way of using
+them may have already occurred to you. If our original program contains
+the fragment:
+
+   if utterance matches [i am ??x]
+      then [i am sorry you are ^^x]=>
+   ....
+
+then we can make it more discriminating by changing this fragment to
+something like:
+
+   if utterance matches [i am ??x] and unpleasant(x)
+      then [i am sorry you are ^^x]=>
+   ....
+
+Here we are using a complex conditional using AND. We saw in UNPLEASANT
+how we can specify some overall truth value that depends on a number of
+simpler conditions using OR. AND is just the same, except that this time
+the overall truth value is only "true" if ALL the tests also come out
+"true". So here the "I am sorry ..." message will only appear if the
+person's remark matches [I AM ??X] AND the value of X (as set by the
+matching operation) is an "unpleasant" phrase.
+
+- BOOLEAN PROCEDURES CAN BE USED AS RESTRICTION PROCEDURES IN PATTERNS -
+
+POP-11 actually allows you to use Boolean procedures in matching in a
+more convenient way. We could have written the above example much more
+concisely as:
+
+   if utterance matches [i am ??x:unpleasant]
+      then [i am sorry you are ^^x]=>
+   ....
+
+Whenever you mention a ?? variable in a POP-11 pattern, an extra
+condition can be placed on what kind of phrase can match there in the
+following way. This extra condition takes the form of a Boolean
+procedure that RESTRICTS what possible matches are allowed. We say that
+the procedure is being used as a RESTRICTION PROCEDURE in the pattern.
+Here's how you use a restriction procedure. Where previously you put ??
+and a variable name, now you put:
+
+   ??                                   ) As before
+   the variable name                    )
+   :                                         ) These are new
+   the name of a restriction procedure       )
+
+(Of course, you can squash them up on one line, as above).
+
+---- WHAT DOES THIS MEAN? ---------------------------------------------------
+
+What does it mean when we mention a restriction procedure in a pattern
+in this way? Say we indeed write a program that at some point goes:
+
+   if utterance matches [i am ??x:unpleasant]
+      then ...
+   ...
+
+This will make sense when UTTERANCE (a variable) has got some
+appropriate value and we want to determine whether that value is of a
+certain form. The basic idea is that the match will succeed if the value
+is a list starting with the words [I AM], and that the variable X will
+receive whatever words come after that in the list (just as if we had
+??X on its own there). However, by specfifying a restriction procedure
+(UNPLEASANT), we make one extra requirement for the match to succeed.
+After X has been given a value, we require that the call:
+
+   unpleasant(x)
+
+returns the result "true". Otherwise we will not allow the match to
+succeed. Notice that in this context UNPLEASANT HAS to be the name of a
+Boolean procedure. It also has to be a procedure that expects EXACTLY
+ONE argument (because we are going to call it with X). It is not
+allowable to specify anything other than a procedure of this form after
+a variable name and a colon in a pattern. A mishap will be caused if an
+appropriate definition of UNPLEASANT has not been given by the time the
+pattern is matched. Remember: in order to be used as a restriction
+procedure, a procedure must expect a single item as an argument and
+produce a truth value as its result. Each restriction procedure we will
+use here will in fact all be a procedure which, given a list of words as
+its argument, produces a value "true" or "false". It does this according
+to whether the list satisfies some test. A restriction procedure can be
+seen as the procedural embodiment of a property (like "unpleasant" or
+"longer than 3 words").
+
+---- EXERCISE ---------------------------------------------------------
+
+Before you read any further, try defining something that could serve as
+a restriction procedure yourself. For instance, you could define a
+procedure PLEASANT (to test whether a phrase talks about a pleasant
+state of affairs), along the same lines as UNPLEASANT. When you have
+done this, try it out in some matches by typing things like:
+
+   [i am happy] matches [i am ??x:pleasant] =>
+   [i am terribly depressed] matches [i am ??x:pleasant] =>
+   [happy is the name of my rabbit] matches [??x:pleasant ??y] =>
+   [john was overjoyed yesterday] matches [??x ??y:pleasant ??z] =>
+
+Typing lines like these will cause the POP system to type out "true" or
+"false" according to whether the matches succeed. When they do succeed,
+it is worthwhile looking to see what values the appropriate variables
+(X, Y and Z) have afterwards.
+
+-- Testing for a single word ------------------------------------------
+
+It is probably worthwhile to remember at this point that PATTERN
+VARIABLES in MATCHES expressions can be ditinguished by "?" as well as
+"??".  Recall that when a PATTERN VARIABLE is preceeded by "?", as in
+
+[I am happy] matches [I am ?x]
+
+the variable can take only take on the value of a single item, rather
+than a list of items (TEACH *MATCHES) and it is subsequently assigned
+the value of the matching item, rather than a list containing the values
+of all the matching items.  In the above example, "x" is assigned
+the word "happy" as its value.
+
+This will be of use to us later since we will frequently want to test a
+phrase, for example, to determine whether it begins with some particular
+type of adjective.
+
+RESTRICTION PROCEDURES can be used after "?" variables in the same
+manner as after "??" variables.  Everything we have said above about
+restriction procedures still applies, however when "?" is used in front
+of a pattern variable, we must remember that the variable does not
+necessarily contain a list (it may contain a word as above) so the
+restriction procedure may have to use some other BOOLEAN PROCEDURE than
+MATCHES to test the variable.  Remember, any procedure (even your own)
+that returns only TRUE or FALSE as results is acceptable as a
+restriction procedure.  Suppose you know that you want to "accept" any
+phrase of the form:
+
+I am happy, cheerful, dreamy, etc.
+
+Then you could define a restriction procedure PLEASANT using MEMBER as
+follows (HELP MEMBER):
+
+    define pleasant(word) -> yesno;
+        member(word, [happy, cheerful, dreamy]) -> yesno
+    enddefine;
+
+Try this out with the following:
+
+[I am dreamy] matches [I am ?x:pleasant] =>
+x =>
+[I am depressed] matches [I am ?x:pleasant] =>
+
+---- DESCRIBING APPROPRIATE ELIZA RESPONSES ----------------------------------
+
+Let us return to our original problem: selecting an appropriate response
+to an utterance of the form:
+
+   [i hate ??x]
+
+We saw that the appropriate response depended on what value X actually
+got as a result of the match. The response
+
+   [have you just had a bad experience with ^^x]
+
+was only appropriate in some cases (when X was [COMPUTERS], but not [TO
+WASH THE DISHES]). Let's formulate this in terms of restriction
+procedures. If the reply is appropriate for some values of X but not
+others, there must be some property of phrases that applies to the good
+values and does not apply to the bad ones. For instance, we might
+conjecture that the good phrases all contain exactly one word, but the
+bad ones do not, or that the first letter of the first word of a good
+phrase always comes before "m" in the alphabet (I don't actually believe
+any of these!). Whatever the property is, once we have pinned it down,
+we ought to be able to write a restriction procedure that tests for that
+property being present. So eventually we should be able to write an
+improved ELIZA that includes a bit of program something like:
+
+   if input matches [i hate ??x:mytest]
+      then [have you just had a bad experience with ^^x]=>
+   ...
+
+where MYTEST is the name of some procedure that needs to be defined.
+
+-- DESCRIBING "GOOD" PHRASES FOR THIS EXAMPLE --------------------------
+
+Now for the problem of defining MYTEST. What is it that all the "good"
+phrases for this example have in common? A clue is given by the output
+sentence in which these phrases have to be used. What kind of phrases
+can be stored in X for the list:
+
+   [have you just had a bad experience with ^^x]
+
+to represent a plausible sentence? Well, here's a possible start that
+will get us quite a long way. A phrase of the form "experience with ..."
+usually only makes sense if we are talking about experience with some
+specific thing(s). "Experience with computers" makes sense because
+computers are things. Similarly, "experience with tall women" and
+"experience with university lecturers" all make sense, because tall
+women and university lecturers are also things. However, "experience
+with to wash the dishes" makes no sense, because the sequence of words
+"to wash the dishes" is not talking about things in at all the same way.
+
+---- PHRASES TALKING ABOUT THINGS ------------------------------------
+
+How can we write the procedure MYTEST so that it says "true" when it is
+given a phrase  talking about a thing and "false" otherwise? One obvious
+way is for the procedure to compare the phrase with each of a long list
+of examples, as UNPLEASANT did. So we could write:
+
+    define mytest(phrase) -> result;
+        if phrase matches [computers]
+        or phrase matches [tall women]
+        or phrase matches [university lecturers]
+        or phrase matches [boring lecturers]
+        or .... then
+            true -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+This method is very laborious and neglects the fact that there is
+important STRUCTURE in common between a large class of phrases that talk
+about things. For instance, we can talk about "tall women", "short
+women", "brave women", "mean angry women" and so on. All these phrases
+are talking about kinds of women. We can tell this just from the last
+word - "women" in each case. This single word says immediately what
+class of objects we are discussing, and the other words merely serve to
+narrow our attention to some restricted part of the class. The word
+"women" is called a NOUN - a word that "names" some class of objects.
+The words "computers" and "lecturers" are also nouns. These nouns are
+all in the PLURAL form - we are talking about more than one member of
+the class in these examples. The corresponding SINGULAR forms of these
+nouns are "woman", "computer" and "lecturer" and are used when we are
+talking about one member of the class at a time, as in "I hate the
+Cognitive Studies computer".
+
+Nouns are important, because a large number of phrases that talk about
+things actually contain nouns. In fact, we will be looking at a class of
+phrases where nouns play a central role - these are called NOUN PHRASES.
+
+---- A FIRST DESCRIPTION ---------------------------------------------
+
+As a second step towards a sensible definition of MYTEST, we could
+decide that we will say that any phrase containing a noun should pass
+the test. Our second definition will look something like:
+
+    define mytest(phrase) -> result;
+    vars x,y,z;
+        phrase matches [??x ?y:noun ??z] -> result
+    enddefine;
+
+This is not yet complete, but notice what we have done here. In order to
+test whether a phrase is talking about a thing or things, we are using
+the matcher again to see whether the phrase is of a certain form.
+
+Notice that there is only a single '?' before NOUN. This is because
+verbs are a 'lexical category' and hence are only a single word.
+Noun phrases are a 'syntactic category' and so can be any number of words
+so we must use a double query, ie '??'.
+
+As part of the pattern, we have specified that a certain lexical
+category (to be stored in the variable Y) satisfies another restriction
+procedure, NOUN. We must, of course, define noun so that it tests
+whether a phrase is a noun and returns "true" or "false" accordingly.
+That we will do in a moment. But first, note that the procedure MYTEST
+will itself be used as part of a matching operation to determine what
+reply should be made to the latest utterance. So when our (mythical)
+ELIZA program gets to use this definition, what will actually be
+happening will be something like the following:
+
+   ELIZA definition uses ...           (to determine next response)
+      MATCHES, which uses...           (to try pattern [i hate ??x:mytest])
+         MYTEST, which uses...         (to see if the phrase has a noun)
+            MATCHES, which uses...     (to try pattern [??x ??y:noun ??z])
+               NOUN
+
+This is nothing to be worried about. There is nothing wrong in
+procedures calling other procedures calling other procedures..... and so
+on for as long as we like (although we have to be a bit careful when a
+procedure indirectly calls ITSELF).
+
+---- DEFINING "NOUN" -------------------------------------------------------
+
+Now for the definition of NOUN. Unfortunately, this will have to detail
+all the nouns that we know about - a lengthy business that we won't
+bother to finish properly here. Neverthless, it is somewhat shorter than
+detailing all the possible phrases that talk about things - there are
+many fewer of them. Here's a start towards a definition of NOUN:
+
+    define noun(word) -> isit;
+        member(word, [cat, dog, computer, computers, ... ]) -> isit
+    enddefine;
+
+In general, if we expect to be constructing programs that handle
+language intelligently, we will have to tell them about whole
+collections of words. One thing to say about each word is the
+grammatical category (like "noun") to which it belongs. We might
+organise this information by making (potentially) very long procedures,
+like the above attempt at NOUN. On the other hand, we might like to
+think of there being some central store of information (called a
+DICTIONARY) about individual words. For instance, we could keep a
+dictionary by having facts like:
+
+   [cat noun]
+   [computer noun]
+   ....
+
+in the database. With a more ambitious program, we might store some
+representation of a word's MEANING in the dictionary as well. Another
+important thing to know about words is information about their
+MORPHOLOGY - that is, how the exact form of a word changes according to
+the context. We talked above about the singular and plural forms of
+nouns. Ideally, we would only need one dictionary entry for all the
+words:
+
+   computer, computers, computer's, computers' (and maybe more...)
+
+This entry would have to indicate how the word may appear in different
+forms in different places. Most words change their shape according to
+quite simple rules.
+
+---- THE FIRST SOLUTION IS INADEQUATE ----------------------------------------
+
+Given (possibly incomplete) definitions of MYTEST and NOUN, we are now
+in a position to offer a first solution to the problem: when is the
+sequence:
+
+   stimulus:  [i hate ??x]
+   response:  [have you just had a bad experience with ^^x?]
+
+appropriate? The solution is: when the phrase in X contains a noun.
+Unfortunately, this solution will allow through precisely the example we
+saw where the response is NOT appropriate! If the person says:
+
+   i hate to wash the dishes
+
+then the variable X will get the list [TO WASH THE DISHES]. This list
+does indeed contain a noun - the word "dishes". (The word "wash" can
+also be a noun, although it is used as another part of speech here). So
+our program will continue to make an inappropriate response to this
+utterance.
+
+---- CAPTURING THE NOTION OF "NOUN PHRASE" MORE PRECISELY ------------------
+
+The trouble with our existing description of a phrase talking about a
+thing is that it is too loose - it also applies to any larger phrase
+that contains a phrase talking about a thing! Let us try to pin down
+more precisely the class of phrases which are centred around nouns - so
+called NOUN PHRASES. We must give some description that will enable a
+program to tell where a noun phrase begins and where it ends. As a first
+approximation, we could say that a noun phrase should always END with a
+noun. This is the case with all the noun phrases we have come across so
+far, although we might want to generalise it later. So much for the end
+of a noun phrase, but what about the words before the noun? We saw that
+words like "mean", "angry" and "tall" can appear before a noun. These
+words are called ADJECTIVES. We could define a procedure ADJECTIVE to
+recognise one of these exactly as we did with NOUN. So a noun phrase may
+have an adjective before the noun. Can anything come before this? There
+is another class of words, called DETERMINERS, that can come before
+adjectives and mark the start of a noun phrase. These are words like
+"the", "each", and "my".
+
+---- PUTTING THIS INTO A PROGRAM ----------------------------------------
+
+Let's embody this improved notion of what a noun phrase is in a program.
+This program will replace MYTEST by providing a stricter test for
+"nounphraseness". So let's call it NOUN_PHRASE. Here's how we can start
+to write it:
+
+    define noun_phrase(phrase)-> trueorfalse;
+    vars x, y, z;
+        phrase matches [?x:det ??y:adjs ?z:noun] -> trueorfalse
+    enddefine;
+
+This definition makes use of two new restriction procedures, DET and
+ADJS, which will themselves have to be defined. According to this
+definition, a phrase is a noun phrase if it consists of three parts. The
+first (X) must pass the test for being a determiner. The second (Y) must
+pass the test for being a number of adjectives. The third (Z) must pass
+the test for being a single noun. DET is to be a procedure that
+recognises a determiner (just like NOUN recognises a noun), and you
+might like to define a version of this yourself (look at the NOUN
+definition to see what kind of form the definition can have). ADJS is
+rather more interesting. We saw before that a noun phrase can contain
+ANY NUMBER OF adjectives (for instance "the big hairy angry lumbering
+gorilla"). So we need to have a test that takes this into account.
+
+---- DEALING WITH ALTERNATIVES ------------------------------------
+
+Let's consider how we can define ADJS. Let's assume that we can at some
+stage define a simpler procedure ADJ, which recognises a single
+adjective (this will be defined very much like NOUN). We will need to
+use ADJ in the definition of ADJS. Now ADJS is supposed to return "true"
+or "false" depending on whether the phrase it is given is a string of
+adjectives. The definition is going to be complicated by the fact that
+the result should also be "true" if the phrase is a string of ZERO
+adjectives - that is, if the phrase has no words in it. We have to
+provide for this case. Otherwise we couldn't say that the phrase "the
+man" was of the form DET followed by ADJS followed by NOUN, as we would
+like.
+
+So there are two cases to be looked for. A phrase is of type ADJS if
+EITHER it consists of one or more adjectives OR it is an empty phrase.
+We can express these two possibilities by using OR in the definition:
+
+    define adjs(phrase) -> isitso;
+        if ....one or more adjectives....  or
+            ....empty phrase.... then
+            true -> isitso
+        else
+            false -> isitso
+        endif
+    enddefine;
+
+where the bits between dots are to be filled in. The test for the empty
+phrase is easy - we just have to see if the phrase matches []. What
+about the other case? Can we give a pattern for that? Well, whatever
+else is in it, such a phrase must start with an adjective. So our
+definition now looks like:
+
+    define adjs(phrase) -> isitso;
+    vars x;
+        if phrase matches [?x:adj ...something...]
+        or phrase matches [] then
+            true -> isitso
+        else
+            false -> isitso
+        endif
+    enddefine;
+
+Now what should "...something..." be? If the whole phrase consists of
+exactly one adjective, then "...something..." must match the empty
+phrase. Alternatively, if the phrase has more than one adjective, then
+"...something..." must match a phrase with one or more adjectives. This
+ought to be sounding rather familiar. In fact, this is exactly the
+criterion we used for determining what phrases ADJS itself should
+accept. So we can use ADJS inside its own definition:
+
+    define adjs(phrase) -> isitso;
+    vars x, y;
+        if phrase matches [?x:adj ??y:adjs]
+        or phrase matches [] then
+            true -> isitso
+        else
+            false -> isitso
+        endif
+    enddefine;
+
+---- SUMMARY OF PROCEDURES ----------------------------------------
+
+By now, we have developed (or hinted at how to develop) a number of
+procedures to be used in an ELIZA program. Each of these can be used as
+a RESTRICTION PROCEDURE, that is, it tests whether something satisfies a
+given condition and returns the value "true" or "false" accordingly. In
+fact, each of these is designed to test for a particular kind of English
+phrase, as follows:
+
+   NOUN_PHRASE      - a noun phrase, eg. "the noisy balloon"
+   NOUN             - a noun, eg. "monkey" or "bananas"
+   ADJ              - an adjective, eg. "funny" or "red"
+   DET              - a determiner, eg. "the" or "any"
+   ADJS             - a sequence of (possibly no) adjectives,
+                       eg. "" or "noisy filthy"
+
+All of these were developed as part of the enterprise of defining
+NOUN_PHRASE. The reason for defining NOUN_PHRASE was so that we could
+provide a better pattern to determine when a particular ELIZA response
+was appropriate. Given the existence of these procedures, we can have a
+piece of program that goes:
+
+   if input matches [i hate ??x:noun_phrase] then
+      [have you just had a bad experience with ^^x] =>
+   ...
+
+and we will know that this response will (almost) always be given only
+when it is more or less appropriate. Indeed, we can even improve on this
+to get:
+
+   if input matches [i hate ??x:noun_phrase ??y] then
+      [have you just had a bad experience with ^^x]=>
+   ...
+
+This bit of program will even produce a sensible response to "I hate
+gooseberries, they are so bitter". (What will the response be?)
+
+---- WHERE DOES THIS LEAD? ----------------------------------------
+
+In working through these examples, we have found that a really good
+ELIZA is going to have to know something about the STRUCTURE of English
+utterances - about what kinds of phrases there are and how a phrase
+divides up into subphrases. When we talk about utterances in this way,
+we are discussing the SYNTAX of the language concerned, here English.
+Traditionally, the syntax of a language is expressed by means of a
+GRAMMAR, which is a formal description saying what kinds of sequences of
+words are grammatical and what kinds of sequences are not. In these
+examples, we investigated briefly the grammar of noun phrases. We said
+that a noun phrase had to consist of a determiner followed by some
+number of adjectives and then a noun. A linguist would express this
+piece of grammatical knowledge something like this:
+
+   noun_phrase --> det adjs noun
+
+   adjs --> adj adjs
+   adjs -->
+
+The procedures we have defined are capable of telling whether something
+is a noun phrase according to the criteria of this small grammar. In
+doing so, they are also determining what the structure of a particular
+noun phrase is - which word is the DET, which words are the ADJS, etc.
+We could imagine building a program that built some kind of description
+of the structure of a phrase as it found it. Such a program would be
+called a PARSER. The question arises - would such a description be of
+any use? The answer that many people would give is:
+
+   Yes, a description of the syntactic structure of an utterance is of
+   fundamental importance for determining the meaning of the utterance
+   in a principled way. The existence of computer programs capable of
+   building such descriptions leaves the way open for a generation of
+   language understanding programs that go significantly beyond ELIZA
+   in their generality and usefulness......
+
+---- RELEVANT BACKGROUND READING -------------------------------------------
+
+Boden, M. "Artificial Intelligence and Natural Man",
+   Chapters 5 and 6.
+
+Schank, R. and Colby, K. "Computer Models of Thought and Language".
+   Article by T. Winograd
+
+TEACH * GRAMMAR    - Generating and analyzing sentences
+
+After this try TEACH * ISASENT    - Recognizing english sentences

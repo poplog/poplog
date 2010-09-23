@@ -1,0 +1,649 @@
+HELP RC_DIAL                                     Aaron Sloman March 2001
+
+Note: This package was first created in August 2000, then extended and
+generalised in March 2001. It may take a while for all the documentation
+files referring to dials to be updated.
+
+The latest descriptions are in this file and in TEACH * RC_DIAL
+
+LIB * RC_DIAL
+
+This is a package for creating dials with moving pointers, either
+directly on window objects or automatically formatted using the
+rc_control_panel tool. The rc_dial procedure uses several other
+libraries to provide the low level facilities, for which it provides a
+convenient high level interface. A closely related high level interface
+is available using the mechanisms described in HELP rc_control_panel
+
+Examples of the use of the rc_dial procedure are given in
+
+    TEACH * RC_DIAL
+
+Examples of dials used in control panels are given in
+    TEACH * RC_CONTROL_PANEL
+
+The overview file for the whole package is HELP * RCLIB
+
+
+CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- Overview
+ -- The procedure rc_dial
+ -- How rc_dial is invoked
+ -- . Required arguments:
+ -- . Optional arguments:
+ -- Using rc_dial with rc_control_panel
+ -- Example of [DIALS ...] field and rc_control_panel
+ -- Program commands to change dials in a panel
+ -- Further reading
+
+-- Introduction -------------------------------------------------------
+
+
+This provides an autoloadable procedure for constructing a "dial"
+composed of an arbitrary sector of a circle, with a rotating pointers,
+in a variety of configurations and colours, with the option to add
+
+o   marks
+        small radial dashes around the edge of the dial
+
+o   labels
+        numbers going round the edge, with or without the marks
+
+o   captions
+        text strings located next to the dial giving information
+
+This is part of the RCLIB package, and like sliders, textinput and
+number input panels, the dials are all instances of RCLIB classes which
+include facilities for graphical display, for manipulation using
+mouse or keyboard, for manipulation by program, and for attaching
+reactors, which propagate changes, and converters which convert between
+the graphical representation and some other representation, e.g. numbers
+in the case of dials. See HELP RCLIB/rc_informant.
+
+
+-- Overview -------------------------------------------------------
+
+This library extends the RCLIB package with a mechanism for creating
+dials with moving pointers, which have an internal state that can be
+linked to a Pop-11 variable. It includes facilities that make it easy
+to produce dials marked divisions, and numeric or other labels.
+
+These dials behave like sliders in that they can be moved using the
+mouse.
+
+The dial will not only display changes in some internal state: it is
+also possible to use the mouse to change the dial and that will change
+an internal state, e.g. the value of a variable, that a program can
+react to.
+
+Dials are instances of the rc_informant mixin described in HELP RCLIB,
+so all the facilities mentioned there are available, e.g.
+rc_informant_reactor methods which can cause changes in the dial to be
+propagated, including changing other graphical entities.
+
+In addition, a Pop-11 word or identifier can be associated with a dial
+in which case its its value will be automatically updated whenever the
+dial changes.
+
+-- The procedure rc_dial ----------------------------------------------
+
+The procedure rc_dial provides a high level interface to mechanisms
+provided in LIB rc_constrained_pointer, including these procedures
+and methods in that library, which can be used directly when
+greater flexibility is required.
+
+ define :method rc_draw_dial_marks(pic:rc_constrained_pointer, marks);
+ define :method rc_draw_dial_labels(pic:rc_constrained_pointer, labels);
+ define :method rc_print_dial_captions(pic:rc_constrained_pointer, captions);
+ define :method rc_draw_dial_decorations(pointer:rc_constrained_pointer);
+ define rc_install_dial_features(range, marks, labels, captions, pointer);
+ define rc_constrained_pointer_init(x, y, orient, minang, maxang, len, width, colour, bg) -> pointer;
+ define rc_install_pointer(pointer, win);
+ define rc_constrained_pointer(x, y, orient, minang, maxang, len, width, colour, bg) -> pointer;
+ define create_rc_pointer_dial(
+        x, y, orient, minang, maxang, len, width, colour, bg,
+            range, marks, labels, captions,
+                wid, specs, typespec) -> pointer;
+
+-- How rc_dial is invoked ---------------------------------------------
+
+The procedure takes a number of obligatory arguments and some optional
+arguments.
+
+-- . Required arguments:
+
+The minimal arguments required are these:
+
+rc_dial(
+    x, y, orient, angwidth, range, len, width, colour, bg) -> dial;
+
+
+Where the arguments are interpreted as follows:
+
+    x, y,
+        These are numeric coordinates (relative to the current
+        rc_graphic coordinate frame. See HELP rc_graphic)
+
+    orient,
+        This specifies the orientation of the "first" pointer position.
+        Its interpretation is quite complicated, because of the
+        versatility of the library.
+
+        If it is a semi-circular dial orient specifies the orientation
+        of the straight edge of the dial, and on which side of the
+        edge the dial is. If it is not semi-circular, orient specifies
+        a "minimal" orientation for the pointer.
+
+        The value of orient can be either a word or a number. Numbers
+        are interpreted in a manner which can be unexpected if you
+        change the sign of rc_yscale (since that reflects the graphic
+        window about the x axis), so words can be used instead to handle
+        default cases predictably.
+
+        The words can be any of these and have the same behaviour
+        whether rc_yscale is positive or negative:
+
+            "up"
+                Ensure dial goes up from starting position. E.g. a
+                semi-circular dial will have the curved bit on top.
+
+            "right"
+                Rotate 90 degrees clockwise from "up" position.
+
+            "down"
+                Rotate 180 degrees clockwise from "up" position.
+                (So a sem-circular dial will be upside down)
+
+            "left"
+                Rotate 270 degrees clockwise or 90 degrees
+                anti-clockwise from "up" position.
+
+        If orient is a number it can take any value between 0 and 360.
+        It does not have to be an integer. If rc_yscale is negative then
+        0 (or 0.0) is the same as "up" and as orient increases the dial
+        rotates clockwise.
+
+        If rc_yscale is positive, then 0 is the same as "down" and
+        as orient increases the dial rotates counter-clockwise, as
+        if the former version had been reflected top to bottom.
+
+        Note that generally the default for rc_yscale is negative
+        in simple uses of the rc_graphic facilities, (i.e. y values
+        increase upwards by default) though in rc_control_panel
+        the opposite is the default, which can be overridden using
+        panel properties.
+
+        (The drawing of dials by rc_control_panel in that case may need
+        to be improved.)
+
+
+    angwidth,
+        This is the angular width of the dial in degrees. E.g. 180
+        specifies a semi-circular dial. 90 specifies a quarter of
+        a circle. 360 specifies a whole circle. So if orient is "up"
+        (or 0, with rc_yscale negative) and angwidth is 180 you will get
+        a semi-circular dial with the curve on top. Three special cases
+        are allowed in which words are used instead of numbers:
+
+            o "semi"
+                Use a semi-circular dial. Equivalent to a numeric
+                value of 180.
+
+            o "quarter"
+                Use a half a semi-circle. Equivalent to 90
+
+            o "circle"
+                Use a full circle. Equivalent to 360
+
+    range,
+        As with sliders, the range argument is either a number giving
+        the maximum numeric value, or a vector of two to four numbers,
+        giving the numerical values to be mapped onto dial pointer
+        positions between the start position defined by orient and the
+        final position defined by angwidth.
+        The range can be one of the following
+
+        o A positive number N,
+            The range of values is then 0 to N, with default value = 0.
+
+        o A vector containing two, three or four numbers.
+            The first two numbers define the beginning and the end of the
+            interval, and the third number, if present, defines the default
+            value. If there is a fourth number it specifies the minimum step
+            value. E.g. {0 100 50 5} specifies a range from 0 to 100, with
+            minimum steps of 5, and an initial value of 50.
+
+        Note that the mapping between the numeric value and the dial
+        position is set up automatically. The numeric value of a dial d
+        is accessible as rc_informant_value(d). The angular
+        orientation of the dial is accessible as rc_axis(d).
+
+    len, width,
+        Two numbers, specifying the length of the dial pointer and the
+        width of the base of the pointer.
+
+    colour, bg
+        false, or strings, specifying the colour of the movable pointer
+        and the background colour used for the dial.
+        If either is false, the current default colour is used.
+        The global defaults are defined in LIB rc_constrained_pointer
+
+            rc_pointer_colour_def = 'grey30';
+            rc_pointer_bg_def = 'grey80';
+
+        These defaults may be replaced locally in a control panel, or
+        other setting.
+
+
+
+-- . Optional arguments:
+
+Optional extra arguments can be provided after those in any order,
+namely:
+
+    wid:
+        A word or identifier, whose value is to be updated
+        whenever the dial changes
+
+    specs:
+        A vector containing a featurespec overriding the class
+        defaults for this instance. See HELP featurespec
+
+        An example might be:
+
+            {rc_informant_places 2 rc_mouse_limit newproc}
+
+        The first part says that values should be specified to
+        only 2 decimal places.
+
+        Here newproc is a procedure for deciding whether the
+        mouse is in the range where it should be able to
+        move the pointer. The default is the method
+            rc_pointer_mouse_limit
+        defined in LIB rc_constrained_pointer
+
+
+    typespec:
+        A pop-11 class key which can be used to specify a sub-class of
+        the default class used by rc_dial, namely rc_constrained_pointer
+
+    win:
+        An instance of rc_window_object. If not specified the value
+        of rc_current_window_object is used.
+
+    marks:
+        A list of the form
+            [MARKS <vector> <vector> ...]
+        where each <vector> can specify some marks to be drawn
+        round the edge of the dial. Each <vector> is of the form
+
+        {extra-radius angular-gap mark-width mark-length colour}
+
+        Example:
+        This will make some short wide red marks at intervals
+        of 18 degrees, and some longer narrower black marks at
+        intervals of 90 degrees. I.e. one black mark extending
+        every fifth red mark. Note: because of the way numbers are
+        printed some of the numerals may very slightly to the left or
+        right of where you want them.
+
+        [MARKS
+            {5 18 4 8 'red'}
+            {8 90 2 10 'black'}]
+
+    labels:
+        A list of the form
+            [LABELS <vector> <vector> ...]
+        where each <vector> can specify some numerical labels to be
+        drawn round the edge of the dial. Each <vector> is of the
+        form:
+
+        {extra-radius angular-gap initial-value increment colour font}
+
+        Example:
+            For a semi-circular dial facing up this will produce red
+            numbers starting with 180 at one edge and DECREASING
+            clockwise in steps of 18 at intervals of 18 degrees, and
+            smaller blue numbers closer to the dial, starting at 0
+            in the same place and INCREASING in steps of 1 clockwise.
+            So if the dial is upright (circular bit on top) the
+            first numbers will go down from left to right, and the
+            second numbers will go up from left to right.
+
+            [LABELS
+              {42 18 180 -18 'red' '6x13'}
+              {20 18 0 1 'blue' '6x13'}],
+
+            I.e. the result will have these numbers in two
+            semi-circles, in clockwise order
+                180 162 144 126 108  90  72  54  36  18   0
+                  0   1   2   3   4   5   6   7   8   9  10
+
+    captions:
+        A list of the form
+            [LABELS <vector> <vector> ...]
+        where each <vector> can specify some text strings to be
+        printed near the dial. Where each <vector> is of the
+        form:
+
+        {relative location string colour font}
+
+        Example:
+
+        This will print a red caption using the 9x15 font and a blue
+        caption using 10x20. The first will be at location -100, -20
+        relative to the centre of the dial, and the second at location
+        -80 -40. I.e. the shorter string is lower down (if rc_yscale is
+        negative) and shifted to the right of the longer string.
+
+        [CAPTIONS
+            {-100 -20 'Degrees shown in red' 'red' '9x15'}
+            {-80 -40 'Values in blue' 'blue' '10x20'}]
+
+
+-- Using rc_dial with rc_control_panel --------------------------------
+
+DRAFT (Detailed specifications may change. Suggestions welcome)
+
+LIB rc_control_panel provides a powerful tool for generating control
+panels which are automatically formatted. For introductory examples
+see
+    TEACH popcontrol
+    TEACH rc_control_panel
+    TEACH rclib_demo.p
+    HELP rc_control_panel
+    TEACH rc_constrained_panel
+
+The procedure rc_control_panel takes various combinations of arguments,
+specifying location, the contents of the panel, the title, and possible
+additional arguments specifying a container panel. The simplest format
+is
+    rc_control_panel(x, y, field_specs, title) -> panel;
+
+where field_specs is a list of declarative specifications of fields
+to be created. This can contain a field with one or more dials
+specified in a list of the form:
+
+    [DIALS
+        <property value> <property value> ...  :
+        <dial spec>
+        <dial spec>
+        ... ]
+
+Where
+    The <property value> field property specifications include keywords
+    for properties, like "fieldbg", "spacing", "margin", "offset", and
+    others all explained in detail in
+        HELP rc_control_panel/'<field property>'
+
+    For a DIALS field, important property keywords include these:
+        {dialwidth <num>}
+        {dialheight <num>}
+        {dialbase <num>}
+        {offset <num>}
+        {spacing <num>}
+        {margin <num>}
+        {dialbg <string>}
+
+
+    Where:
+        dialwidth is an approximate indication of the width of
+            each dial (though in fact they may vary, as in the example
+            below).
+
+        dialheight is an approximate indication of the height of
+            each dial.
+
+        dialbase is an approximate indication of space to be allowed
+            for captions below the dial.
+
+        offset specifies how much to shift the first dial to the right
+
+        spacing specifies an additional gap between dials
+
+        margin specifies extra height at top and bottom of the
+            dials field.
+
+        dialbg specifies the default background colour.
+
+    These numbers are used by rc_control_panel to help it guess the
+    width and height required for the DIALS field. However for any
+    given display you may need to experiment with different combinations
+    of these, and the coordinates of individual dials, especially
+    if they have different sizes or different orientations, as in the
+    example below.
+
+    The above property specifications for the field, are followed by
+    a colon, after which each <dial spec> is a list in a format that
+    corresponds closely to the arguments required to use rc_dial
+    directly.
+
+        (optional) A word or identifier whose value is to be
+            updated whenever the dial's value is changed.
+
+        The compulsory arguments required for rc_dial:
+
+            x, y, orient, angwidth, range, len, width, colour, bg
+
+        Note that here x and y are treated as relative coordinates,
+        i.e. relative to the location automatically allocated to the
+        dial by rc_control_panel (determined by the properties mentioned
+        above, offset, margin, dialwidth, dialheight and spacing).
+
+        For differently oriented dials, the default location will
+        not always be correct, so use the x,y values to compensate,
+        as in the example below.
+
+        The optional arguments are as for rc_dial, e.g. lists:
+
+            [MARKS ...] [LABELS ...] [CAPTIONS ...]
+
+        as described above. These will affect the requirements
+        for the dialheight and dialbase properties, and possibly
+        also the dialwidth property, so in general a little
+        experimentation with field properties and the actual
+        coordinates of the individual dials may be required to
+        obtain the desired layout.
+
+
+        Another optional argument illustrated below defines a
+        reactor procedure to run when the dial's value changes:
+            {reactor proc}
+        or
+            {reactor ^proc}
+
+    Where proc is the name of a procedure or method which takes a dial
+    and the new value, as illustrated in demo_reactor below.
+
+-- Example of [DIALS ...] field and rc_control_panel ------------------
+
+;;; Here is an example. The example is slightly complicated because
+;;; it displays three dials in a field in a panel, where the
+;;; orientations of the dials are all different. This means that
+;;; a little experimentation with coordinates of the dials is needed
+;;; to get them located correctly.
+
+;;; Make sure required libraries are compiled
+uses rclib
+uses rc_dial
+uses rc_control_panel
+
+;;; Define a reactor procedure to indicate changes to a dial
+;;; It should write to a Ved file. Some of the complexity in this
+;;; is required for XVed, not Ved.
+
+define demo_reactor(dial, val);
+    ;;; prevent warping of mouse pointer
+    dlocal vedwarpcontext = [];
+
+    ;;; print output in a Ved file
+    vededit('Reactor_out', vedhelpdefaults);
+    vedendfile();
+
+    ;;; Make sure printing goes to ved buffer
+    dlocal
+        cucharout = vedcharinsert,
+        cucharerr = vedcharinsert;
+
+    printf('Dial changed: %p New value: %p\n',
+            [%rc_informant_ident(dial), val%]);
+;;;    rc_flush_everything();
+;;;    vedrefresh();
+enddefine;
+
+;;; variables to be associated with the three dials on the panel
+vars dial1, dial2, dial3;
+
+;;; Field specifications for two dials associated with those
+;;; variables
+
+define test_DIALS() -> dial_panel;
+
+    ;;; now create a panel
+
+    rc_control_panel(
+        "right", "bottom",
+        [ {width 200}
+
+            ;;; A text field at the top of the panel
+            [TEXT {font '*-helvetica-*-r-*-18-*'}:
+                'This displays three dials'
+                'The value of the first is in'
+                'the variable "dial1", the second'
+                'in "dial2", the third in "dial3".']
+            ;;; A field containing three dials arranged in a
+            ;;; row but with different orientations, etc.
+            ;;; The label "threedials" for this field allows programs
+            ;;; to access the dials, as shown later.
+            [DIALS
+                ;;; label and general properties of the field
+                {label threedials}
+                {fieldbg 'grey95'}{spacing 25}{fieldheight 50}
+                {dialwidth 100} {dialheight 120} {dialbase 30}
+                {margin 4} {offset 70}{gap 3}:
+
+                ;;; Now the specs for the three dials
+                [dial1 0 0 180 180 {0 10 5 1} 60 15 'yellow' 'blue'
+                    [MARKS
+                        ;;; {extra radius, angular gap, mark width, length, colour}
+                        {5 18 2 8 'blue'}
+                        {8 90 2 10 'black'}]
+                    [LABELS
+                        ;;; {extra radius, angular gap, initial value, increment,
+                        ;;;         colour font}
+                        {40 18 180 -18 'red' '6x13'}
+                        {20 18 0 1 'blue' '6x13'}]
+                    [CAPTIONS
+                        ;;; {relative location, string, colour, font}
+                        {-100 20 'Degrees shown in red' 'red' '9x15'}
+                        {-80 40 'Values in blue' 'blue' '10x20'}]
+
+                    {reactor demo_reactor}
+                ]
+
+                ;;; a large additional x_offset (70) because of extra
+                ;;; width of dial1, also because this dial is rotated
+                ;;; 90 degrees to left.
+                [dial2 70 -50 -90 180 {0 50 25 1} 50 15 ^false ^false
+                    [LABELS
+                        {15 36 0.0 10 'blue' '6x13'}]
+                    {reactor demo_reactor}
+                ]
+
+                ;;; this one is rotated 90 degrees to right, so needs no
+                ;;; extra x offset.
+                [dial3 0 -50 90 180 {0 50 40 1} 50 15 ^false ^false
+                    [LABELS
+                        {15 18 0 5 'blue' '6x13'}]
+                    {reactor demo_reactor}
+                ]
+            ]
+            ;;; an action button to dismiss the panel
+            [ACTIONS {align right}: {blob 'KILL' rc_kill_panel}]
+        ],
+        'dial_panel'); -> dial_panel
+enddefine;
+
+;;; create the panel
+
+vars dial_panel = test_DIALS();
+
+;;; Check these values after moving the dial pointers:
+
+dial1, dial2, dial3 =>
+
+-- Program commands to change dials in a panel ------------------------
+
+The dials in a control panel can be changed by program command, using
+the updater of
+
+     dial_value_of_name(panel, label, num);
+
+The {label threedials} property in the DIALS field specification above,
+provides a handle for accessing the three dials, using the procedure
+dial_value_of_name defined in rc_control_panel, by analogy with
+slider_value_of_name (see HELP rc_control_panel).
+
+dial_value_of_name (like its updater) is defined in terms of
+rc_pointer_value and rc_fieldcontents_of.
+
+;;; Examples of use
+;;; update the first dial
+
+3 -> dial_value_of_name(dial_panel, "threedials", 1);
+
+;;; Update the second and third dials
+4 -> dial_value_of_name(dial_panel, "threedials", 2);
+5 -> dial_value_of_name(dial_panel, "threedials", 3);
+
+;;; Check effects:
+dial1, dial2, dial3 =>
+
+;;;
+8 -> dial_value_of_name(dial_panel, "threedials", 1);
+15 -> dial_value_of_name(dial_panel, "threedials", 2);
+45 -> dial_value_of_name(dial_panel, "threedials", 3);
+
+dial1, dial2, dial3 =>
+
+
+;;; Change all the dials under program control
+vars x;
+for x from 0 by 1 to 15 do
+    ;;; update the first dial
+    x-> dial_value_of_name(dial_panel, "threedials", 1);
+
+    x*5 -> dial_value_of_name(dial_panel, "threedials", 2);
+    x*4 -> dial_value_of_name(dial_panel, "threedials", 3);
+    syssleep(20);
+endfor;
+
+For more information on accessing components of control panels, see
+HELP rc_control_panel
+
+This also includes information about [DIALS ...] fields in panel
+specifications.
+Further Examples can be found in TEACH rc_control_panel and
+HELP rc_control_panel. Search for '[DIALS'.
+
+
+-- Further reading ----------------------------------------------------
+
+Further examples are given in
+    TEACH * RC_DIAL
+
+See also
+    HELP * RCLIB
+    HELP * RCLIB_NEWS
+
+and other files referred to therein.
+
+If you do not yet have rclib installed locally, these files are all
+remotely browsable in the teach/ or help/ subdirectories of
+
+    http://www.cs.bham.ac.uk/research/poplog/rclib/
+
+--- $poplocal/local/rclib/help/rc_dial
+--- Copyright University of Birmingham 2002. All rights reserved. ------

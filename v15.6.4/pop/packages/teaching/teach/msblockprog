@@ -1,0 +1,168 @@
+;;;TEACH MSBLOCKPROG                        David Hogg May 1983
+;;;
+;;; see TEACH MSBLOCKS
+;;; To make this file yours type:    ENTER name myblocks.p
+;;; Subsequently you can load it with the command:  ENTER l1
+;;; You can store it on the disk with: ENTER w1
+;;; If you log out then log in again later you can do LOAD myblocks.p
+
+;;;***************************************************************************
+;;;           Blocks world grammar
+;;;***************************************************************************
+
+
+lib tparse
+
+vars blocks_grammar blocks_lexicon;
+
+[
+    [s [v np pp] [wh1 vbe np] [wh2 vbe pp]]
+    [np [pn] [det snp] [det snp pp]]
+    [snp [noun] [ap noun]]
+    [ap [adj] [adj ap]]
+    [pp [prep np]]
+] -> blocks_grammar;
+
+[
+    [noun   block box table one]
+    [wh1    where]
+    [wh2    what]
+    [pn     it]
+    [v      put move pickup putdown]
+    [vbe    is]
+    [adj    white red blue green big small large little]
+    [prep   on onto to over in at under above by]
+    [det    each every the a some]
+] -> blocks_lexicon;
+
+
+setup(blocks_grammar,blocks_lexicon);
+
+
+
+;;;**************************************************************
+;;; Blocks world database
+;;;**************************************************************
+
+
+
+    [
+        [isa block objR] [colour red objR]   [size large objR]
+        [isa block objr] [colour red objr]   [size small objr]
+        [isa block objG] [colour green objG] [size large objG]
+        [isa block objg] [colour green objg] [size small objg]
+        [isa block objB] [colour blue objB]  [size large objB]
+        [isa block objb] [colour blue objb]  [size small objb]
+        [objb ison objG]
+        [objG ison objR]
+        [objR ison table]
+        [objg ison table]
+        [objr ison objB]
+        [objB ison table]
+
+    ] -> database;
+
+
+
+;;;****************************************************************
+;;; Extracting meaning from parse trees
+;;;****************************************************************
+
+lib facets;
+
+resetfacets();
+facet mng;
+
+
+semrule srule  [s [wh1 where] [vbe is] ?np]   [where ^(mng(np))] -> mng(self);
+endsemrule;
+
+semrule nprule   [np [det =] ?snp]   mng(snp) -> mng(self); endsemrule;
+
+semrule snprule1 [snp ?noun]   mng(noun) -> mng(self); endsemrule;
+
+semrule snprule2 [snp ?ap ?noun]   [^^(mng(ap)) ^^(mng(noun))] -> mng(self);
+endsemrule;
+
+semrule aprule1 [ap ?adj]   mng(adj) -> mng(self); endsemrule;
+
+semrule aprule2 [ap ?adj ?ap]   [^^(mng(ap)) ^^(mng(adj))] -> mng(self);
+endsemrule;
+
+semrule nounrule [noun ?wrd]   [[isa ^wrd ?x]] -> mng(self); endsemrule;
+
+semrule adjrule [adj ?wrd]   [[= ^wrd ?x]] -> mng(self); endsemrule;
+
+
+
+;;;***********************************************************
+;;; Control program for the analysis of 'wh' sentences
+;;;***********************************************************
+
+vars  process_where_question process_what_question;
+
+
+define analyse(sentence);
+
+    ;;; Parses and extracts meaning from given sentence and calls an
+    ;;; appropriate procedure to answer the question
+
+    vars trees tree meaning;
+
+    ;;; Begin by finding all the parses of the given sentence
+
+    listparses("s",sentence) -> trees;
+
+    ;;; Check that the sentence was parsed ok then select the first parse
+    ;;; for further analysis (the others will be ignored)
+
+    if trees = [] then
+        [cannot parse sentence] =>          ;;; maybe this should use mishap
+    else
+        trees(1) -> tree;
+
+        ;;; extract the meaning from the parse tree
+
+        mng(tree) -> meaning;
+
+        ;;; find out whether this was a WHERE or WHAT question and call the
+        ;;; appropriate procedure
+
+        if meaning matches [where ==] then
+            process_where_question(meaning)
+        elseif meaning matches [what ==] then
+            process_what_question(meaning)
+        endif;
+    endif;
+enddefine;
+
+
+
+define process_where_question(meaning);
+
+    ;;; Answers WHERE questions
+
+    vars patterns objects x y;
+
+    ;;; extract the patterns from the meaning and use WHICH to find those
+    ;;; objects in the database which satisfy it
+
+    meaning --> [where ?patterns];
+    which("x",patterns) -> objects;
+
+    ;;; If nothing or more than one object matches the patterns then
+    ;;; output an appropriate message otherwise answer the question
+
+    if objects = [] then
+        [no block matches that description] =>
+    elseif objects matches [?x] then
+
+        ;;; find an object underneath the selected object and output a message
+        ;;; stating giving this location
+
+        lookup([^x ison ?y]);
+        [on top of ^y] =>
+    else
+        [more than one block matches that description] =>
+    endif;
+enddefine;

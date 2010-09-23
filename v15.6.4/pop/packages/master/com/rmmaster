@@ -1,0 +1,119 @@
+#!/bin/sh
+# --- Copyright University of Sussex 1987.  All rights reserved. ---------
+# File:            $usepop/pop/local/com/rmmaster
+# Purpose:         Removes master files, including associated links.
+# Author:          Robert Duncan and Simon Nichols, Aug 17 1987
+# Documentation:
+
+cmd=`basename $0`
+USAGE="Usage: $cmd [ -d master-directory ] file1 file2 ..."
+NEWMASTER="@"NEWMASTER"@"
+
+case "$poplocal" in
+    "") poplocal=$usepop/pop;;
+    *)  ;;
+esac
+
+case "$popmaster" in
+	"") popmaster="$usepop/master"; export popmaster;;
+	*)	;;
+esac
+
+PATH="$poplocal/local/com/newmaster:$PATH"; export PATH
+
+rootdir="$popmaster"
+
+while true
+do
+    case $1 in
+        -d) shift
+            case "$1" in
+                "") echo $USAGE; exit 1;;
+                *)  rootdir=$1; shift;;
+            esac;;
+        *) break;;
+    esac
+done
+
+logfile=$rootdir/install/LOG
+savedir=$rootdir/deletions
+
+if [ $# -eq 0 ]
+then
+    echo $USAGE; exit 1
+fi
+
+cd $rootdir/install
+
+if [ "`lockfile -k newmaster $logfile`" ]
+then
+    echo "$cmd: cannot remove file(s): LOG file in use"; exit 1
+fi
+
+for path in $*
+do
+    Spath=
+    case "$path" in
+        /*C.*)  Cdir=`expr "$path" : '.*\(C\.[^/]*\).*'`
+                subdir=`expr "$path" : '.*C\.[^/]*/\(.*\)/'`
+                file=`expr "$path" : '.*C\.[^/]*.*/\(.*\)'`;;
+        C.*)    Cdir=`expr "$path" : '\(C\.[^/]*\).*'`
+                subdir=`expr "$path" : 'C\.[^/]*/\(.*\)/'`
+                file=`expr "$path" : 'C\.[^/]*.*/\(.*\)'`
+                path=$rootdir/$path;;
+        /*S.*)  Spath=`expr "$path" : '.*\(S.*\)'`;;
+        S.*)    Spath=$path; path=$rootdir/$path;;
+        *)      echo "$cmd: invalid filename: $path"; continue;;
+    esac
+    if [ ! -f $path ]
+    then
+        echo "$cmd: file $path does not exist"; continue
+    fi
+
+    if [ -z "$Spath" ]
+    then
+        # remove links in S. directories
+        for d in `grep -l $Cdir $rootdir/S.*/CDIRS`
+        do
+            Sdir=`expr "$d" : '\(.*\)/CDIRS'`
+            if [ -f $Sdir/TRANSLATE_NAME ]
+            then
+                sfile=`$Sdir/TRANSLATE_NAME $file`
+            else
+                sfile=$file
+            fi
+            echo "rm $Sdir/$subdir/$sfile"
+            rm -f $Sdir/$subdir/$sfile
+        done
+
+        # delete any associated DIFFS
+        rm -f $rootdir/$Cdir/$subdir/DIFFS/$file
+    fi
+
+    # check that all the links have gone
+    case "`ls -l $path | awk '{ print $2 }'`" in
+        1)  ;;
+        *)  echo "$cmd: file $path has outstanding links";;
+    esac
+
+    # save a copy of the file and delete the original
+    fileid=`expr \`cat $savedir/fileid\` + 1`
+    echo "mv $path $savedir/RM$fileid"
+    if mv $path $savedir/RM$fileid
+    then
+        echo $fileid > $savedir/fileid
+        case $Spath in
+            "") path=$Cdir/$subdir/$file;;
+            *)  path=$Spath;;
+        esac
+        echo "$NEWMASTER RM $path pop `date`" >> $logfile
+        echo "$path RM$fileid pop `date`" >> $rootdir/install/DELETED
+    else
+        echo "$cmd: can't delete $path"
+    fi
+done
+
+unlockfile -k newmaster $logfile ||
+    (echo "$cmd: can\'t unlock $logfile"; exit 1)
+
+exit 0

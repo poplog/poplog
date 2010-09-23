@@ -1,0 +1,191 @@
+HELP VED_SORTMR                                   Aaron Sloman, Dec 1995
+
+ENTER sortmr [ -i | -n ] [-r] [ -c<char> ] [ N ]
+
+A utility for sorting the marked range in the buffer using the N'th
+field for sorting, with or without mapping upper into lower case (-i),
+with the option to sort a field on numerical value (-n), to sort in
+reverse order (-r), and to use any character as field
+separator(-c<char>).
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- Control flags
+ -- . Ignoring case differences (-i or -f)
+ -- . Sorting on numerical value (-n)
+ -- . Field separator (-c<char>)
+ -- . ved_sortmr_spacer
+ -- Examples
+ -- Warnings
+ -- The procedure field_before
+ -- See also
+
+-- Introduction -------------------------------------------------------
+
+The VED command "ENTER smr" sorts the lines in the marked range into
+alphabetical order. E.g. mark the following and do "ENTER smr"
+
+
+one apple
+an elephant
+two oranges
+eleven carrots
+a biscuit
+
+
+Unfortunately  "ENTER smr" will not suffice if you wish to sort on the
+basis of the second word in each line.
+
+The ved_sortmr (ENTER sortmr) procedure allows you to sort on any
+"field". For example, mark the following lines and sort on the second
+field by using the command: ENTER sortmr 2
+
+one   apple    5
+an elephant    10
+two oranges    15
+eleven carrots  20
+a  biscuit      35
+
+The sort command has several formats which will now be explained.
+
+-- Control flags ------------------------------------------------------
+
+Various control flags may appear after ENTER sortmr, before the number
+specifying which field to use.
+
+-- . Ignoring case differences (-i or -f)
+-i
+    The flag "-i", if present means "ignore case".
+
+Note: for compatibility with ved_smr, the flag "-f" can also be used, to
+`fold' upper into lower case.
+
+-- . Sorting on numerical value (-n)
+
+-n
+    The flag "-n", if present means "ignore case".
+
+    NB -n and -i cannot both be present
+
+-- . Field separator (-c<char>)
+-c<char>
+    The sorting is normally done relative to the N'th space-separated
+    field.
+
+    However if the flag -c<char> is present, then the N'th field
+    separated by occurrences of <char> is used. E.g. mark the next
+    three lines then try ENTER sortmr -c@ 2
+
+a@big@dog
+an@angry@cat
+the@bad@boy
+
+Mark the above again and try: ENTER sortmr -c@ 3
+
+If you wish to sort whole lines including spaces in lexical order,
+e.g. this
+
+the elephant
+the book
+the apple
+the cat
+
+then you can chose a character that does not occur in the text to be
+sorted, e.g. ENTER sortmr -c$
+
+
+-- . ved_sortmr_spacer
+
+Instead of using a flag with field-separator in every command, the
+field-separator character can be assigned to the global variable
+
+    ved_sortmr_spacer
+
+which defaults to `\s`, i.e. the space character.
+
+If the field separator is one of the characters in the string
+ved_sortmr_skip, which defaults to '\s\t' (i.e. space and tab) then
+two or more successive occurrences count as one, and leading
+sequences of the characters (at the beginning of a line) are ignored.
+I.e. the first field comes after them.
+
+
+-- Examples -----------------------------------------------------------
+
+ENTER sortmr 3
+    This sorts the marked range using the third field.
+
+ENTER sortmr -i 3
+    This sorts the marked range using the third field, and maps
+    upper into lower case
+
+ENTER sortmr -c@ 4
+    This sorts using the field between the 3rd and 4th occurrences
+    of `@`
+
+E.g. try it on this example, with different numbers for the sort field.
+
+note@73@the@man@on@the@moon@is@cheese
+letter@169@every@clever@child@learns@fast
+message@5@one@summer@does@not@make@a@swallow
+NB@505@people@live@in@glass@houses
+
+Try the above with
+    ENTER sortmr -c@ 2
+    ENTER sortmr -c@ -n 2
+
+
+ENTER sortmr -i -c\t 2
+    This sorts using the field between the 1st and 2nd tab characters
+    and ignores case.
+
+The number specifying the field is optional, and defaults to 1.
+
+
+-- Warnings -----------------------------------------------------------
+
+Warning: if a character field separator character is specified
+then field 1 is that BEFORE the first occurrence of the character,
+so that if a line starts with the character it has an empty first
+field.
+
+However, if no character is specified, then the field specifier defaults
+to the space character. Leading spaces are NOT ignored.
+
+If the N'th field is missing on one or more lines vederror will be
+called thus:
+
+        vederror('Not enough fields in: ' >< string);
+
+
+-- The procedure field_before -----------------------------------------
+
+The user-definable procedure field_before produces an alphabetic
+comparison of two strings, using specified fields. It takes five
+arguments and produces a boolean result if the specified field of the
+first string is alphabetically earlier than the corresponding field of
+the second string. The arguments are:
+
+    s1        - a string
+    s2        - a string
+    startloc  - a procedure which can be applied to a string and
+                which yields a number to be used as the first location
+                in the string
+                    startloc(string) -> N
+    endloc   -  a procedure applied to a string and an integer
+                index into the string, and returning an integer result
+                to be used as a second index into the string
+                    endloc(s1, N1) -> N2
+    caseless -  a boolean, which is true if the alphabetic comparison
+                is to be caseless 0 if the comparison is to be numeric
+                and otherwise false.
+
+-- See also -----------------------------------------------------------
+
+    REF * ved_smr
+        A Utility for sorting on the basis of the whole line
+
+
+--- $poplocal/local/help/ved_sortmr
+--- Copyright University of Birmingham 1995. All rights reserved. ------

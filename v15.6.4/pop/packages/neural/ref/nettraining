@@ -1,0 +1,170 @@
+REF NETTRAINING                                Julian Clinton  Oct 1989
+                                           Updated J. Clinton  Aug 1992
+
+       Copyright University of Sussex and Integral Solutions Ltd.
+                           All Rights Reserved
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<    FUNCTIONS & VARIABLES    >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<      IN LIB NETTRAINING     >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+Poplog Neural Net Training Set Functions And Utilities.
+
+Keywords: training, examples, learning, neural
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Teaching Variables
+ -- Learning Procedures
+ -- Altering Behaviour During Training
+ -- Printing Information To The Screen
+
+-- Teaching Variables -------------------------------------------------
+
+nn_training_cycles                                            [variable]
+        Holds the number  of times an  example set is  presented to  the
+        network during a training session. Initial value is 1000.
+
+
+nn_random_select                                              [variable]
+        Defines whether examples are picked  at random from the  example
+        set. Initial value is false.
+
+
+-- Learning Procedures ------------------------------------------------
+
+nn_learn_egs(EGS_NAME, NET_NAME, ITERATIONS, CYCLE)          [procedure]
+        Given a  training set,  a  network, an  integer and  a  boolean,
+        -nn_learn_egs- teaches  the  examples the  specified  number  of
+        times. If CYCLE is true then the examples are shown in the  same
+        order as they are in the example set. If CYCLE is false then the
+        examples are selected at random.
+
+        If -nn_events-  is  an  empty list  or  -nn_event_timer-  is  0,
+        training is done in one call  of the training routine. If  there
+        are some procedures to to be executed and -nn_event_timer-  is >
+        0, training is performed in chunks. After every -nn_event_timer-
+        iterations, all procedures in the list -nn_events- are  applied.
+        Not that at the start  of each training run, -nn_iterations-  is
+        set to 0.
+
+        Note that the values  of -nn_current_net-, -nn_current_egs-  and
+        -nn_training_cycles- are dlocal'd  so that  any user  procedures
+        run while applying -nn_events- procs  can find out what  network
+        and example set are being used.
+
+
+nn_learn_egs_item(ITEM, EXAMPLE_SET, NETWORK, ITERATIONS)    [procedure]
+        Given an  item,  an  example  set, a  network  and  an  integer,
+        -nn_learn_egs_item- presents the selected example the  specified
+        number of times. ITEM  can be either an  example in the  example
+        set or an index into it.
+
+        If -nn_events-  is  an  empty list  or  -nn_event_timer-  is  0,
+        training is done in one call  of the training routine. If  there
+        are some procedures to to be executed and -nn_event_timer-  is >
+        0, training is performed in chunks. After every -nn_event_timer-
+        iterations, all procedures in the list -nn_events- are  applied.
+        Not that at the start  of each training run, -nn_iterations-  is
+        set to 0.
+
+        Note that the values  of -nn_current_net-, -nn_current_egs-  and
+        -nn_training_cycles- are dlocal'd  so that  any user  procedures
+        run while applying -nn_events- procs  can find out what  network
+        and example set are being used.
+
+
+-- Altering Behaviour During Training ---------------------------------
+
+It is often  useful during training  to be able  to do particular  tasks
+such as saving  the state of  a network, finding  out the accuracy  with
+which a network is learning the training examples. There are a number of
+variables and  procedures  which  allow you  to  run  procedures  during
+training.  These  variables  and  procedures  affect  the  behaviour  of
+-nn_learn_egs- and  -nn_learn_egs_item-.  They  are  also  used  by  the
+*POPNEURAL library to  implement the  'Log Options' menu  which you  can
+customise.
+
+
+nn_event_timer                                                [variable]
+        This variable (an integer) defines how often during training you
+        wish to run your  procedures. If the value  of this variable  is
+        zero then the events  are not run otherwise  the events are  run
+        after the number of training cycles defined by this variable.
+
+
+nn_events                                                     [variable]
+        This variable is a list of procedures which are to be run  after
+        the number of training  cycles defined by -nn_event_timer-.  The
+        list  is  passed  to  *MAPLIST.  Any  results  returned  by  the
+        functions are discarded left on the stack.
+
+
+nn_logfile                                                   [procedure]
+        This procedure is  used to write  information about the  current
+        state of network training to file. The variables described below
+        are used to define what information is stored in the log file.
+
+
+nn_iterations                                                 [variable]
+        This variable  is written  to the  log file  by -nn_logfile-  to
+        specify how many times a network has been trained on an  example
+        set.  Note  that  this  is  not  updated  automatically  by  the
+        functions which train neural networks.
+
+
+logfilewrite                                           [active variable]
+        A  boolean  which  is  used  to  decide  whether  the  procedure
+        -nn_logfile- is added to or  deleted from the list  -nn_events-.
+        Assigning <true> adds -nn_logfile- while <false> removes it.
+
+
+logfilename                                                   [variable]
+        Defines the name  of the  file written to  by -nn_logfile-.  The
+        name is a string and should include any pathname information.
+
+
+logfrequency                                           [active variable]
+        Defines the  frequency with  which -nn_logfile-  (and any  other
+        procedure in  -nn_events-)  should be  run.  This is  an  active
+        variable which returns or updates the value of -nn_event_timer-.
+
+
+logaccuracy                                                   [variable]
+        Defines whether the  accuracy of  the network  is tested  (using
+        -nn_result_accuracy-) and written to the log file.
+
+
+logtestset                                                    [variable]
+        Defines whether the examples being used to train the network are
+        sent to the file. The input into and output from the network  is
+        written to  the log  file  and if  the  target output  for  each
+        example is defined then this is also written.
+
+
+logsavenet                                                    [variable]
+        Defines whether the  network is saved  each time a  log file  is
+        written. The name of the file is sent to the log file.
+
+
+logecho                                                       [variable]
+        Defines whether particular pieces of information written to  the
+        log file are also written to the screen.
+
+
+-- Printing Information To The Screen ---------------------------------
+
+nn_print_weights(NETNAME)                                    [procedure]
+        Prints out  the strength  of the  connections in  the  specified
+        network.
+
+
+nn_print_activs(NETNAME)                                     [procedure]
+        Prints out  the current  activation of  units in  the  specified
+        network.
+
+
+--- Copyright Integral Solutions Ltd. 1990. All rights reserved. ---

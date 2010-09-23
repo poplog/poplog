@@ -1,0 +1,442 @@
+HELP SIM_PICAGENT                                  Aaron Sloman Feb 1999
+
+Section on multiple windows needs improvement
+
+LIB SIM_PICAGENT
+Composite simulation and pictorial objects and agents
+
+
+CONTENTS
+
+ -- Introduction: agents and objects in two spaces
+ -- Two sets of coordinates
+ -- -- Derived mixins
+ -- The mapping between the simulated world and the picture
+ -- Simulation and picture coordinates
+ -- -- sim_set_coords(obj, x, y);
+ -- -- Accessing the simulation and picture coordinates
+ -- -- . sim_coords(obj:sim_multiwin_mobile) -> (x, y);
+ -- -- . rc_coords(obj:sim_multiwin_mobile) -> (x, y);
+ -- -- Methods for altering locations (after drawing)
+ -- -- . x, y -> sim_coords(obj:sim_multiwin_mobile)
+ -- -- . rc_move_to(obj:sim_multiwin_mobile, x, y, drawmode)
+ -- -- . sim_move_to(obj:sim_multiwin_mobile, x, y, drawmode);
+ -- Other utilities
+ -- -- sim_distance(obj1:sim_multiwin_mobile, obj2:sim_multiwin_mobile) -> num
+ -- -- sim_transxy_to_pic(x, y) -> (x,y)
+ -- -- sim_transxy_from_pic(x, y) ->(x, y) ;
+ -- Other libraries used
+ -- Some examples of pictures in more than one window
+ -- Index
+
+-- Introduction: agents and objects in two spaces ---------------------
+
+This library defines new mixins based in the RCLIB graphical extensions
+to RC_GRAPHIC (See HELP RCLIB), and uses those mixins to define a new
+collection of mixins in combination with the classes sim_object and
+sim_agent. This makes it possible to create simulated objects and
+agents which have depictions that are movable both in a simulated 2D
+world and also in a 2-D picture (created using rc_new_window_object).
+Such depictions are also mouse sensitive, so that all the mechanisms
+described in HELP * RCLIB and HELP * RC_LINEPIC are applicable.
+
+In addition it is possible to have the same thing located in two or more
+windows, where the windows may correspond to different portions of the
+2-D simulation world, and may have different scales.
+
+We use this class for the windows:
+
+define :class sim_picagent_window; is rc_window_object;
+
+    slot sim_picframe =
+        consvector(#| sim_picxorigin_def, sim_picyorigin_def,
+            sim_picxscale_def, sim_picyscale_def |#);
+
+enddefine;
+
+The sim_picframe slot determines how the picture coordinates correspond
+to simulation coordinates.
+
+-- Two sets of coordinates --------------------------------------------
+
+The top level mixin defines objects which have two sets of coordinates,
+one pair for pictures (rc_picx, rc_picy) and one pair for the simulated
+2D world (sim_x, sim_y). The former are not represented directly, but
+computed by methods.
+
+define :mixin sim_multiwin;
+    ;;; The basic mixin linking simulations and drawings
+    ;;; for linked picture objects
+    is rc_keysensitive rc_selectable rc_linepic;
+
+    ;;; initially known to contain no pictures
+    slot rc_pic_containers == [];
+
+    /*
+    ;;; see LIB RC_LINEPIC
+    ;;; These two will be simulated, derived from sim_x, sim_y
+    slot rc_picx == 0;
+    slot rc_picy == 0;
+    */
+
+    ;;; Two sim coordinates for location within a simulation
+    slot sim_x == 0;
+    slot sim_y == 0;
+
+    ;;; Two sim coordinates for old location within a simulation
+    slot sim_oldx == false;
+    slot sim_oldy == false;
+enddefine;
+
+
+As long as the picture coordinates are not manipulated directly, but
+only using the methods described below, the picture and world
+coordinates will be kept in correspondence.
+
+-- -- Derived mixins
+
+define :mixin sim_multiwin_static; is sim_multiwin;
+    ;;; for unmovable linked picture objects
+
+    ;;; by default these are not draggable
+    slot rc_drag_handlers = { ^false ^false ^false};
+enddefine;
+
+define :mixin sim_multiwin_mobile; is sim_multiwin rc_linepic_movable;
+    ;;; no new slots
+enddefine;
+
+;;; Descendants of sim_multiwin_static (objects and agents)
+define :mixin sim_immobile; is sim_multiwin_static sim_object;
+    ;;; objects which can be drawn and selected, but not moved
+    ;;; No internal processing mechanisms, by default
+    slot sim_rulesystem == [];
+    ;;; other slots inherited from sim_object
+enddefine;
+
+define :mixin sim_immobile_agent; is sim_multiwin_static sim_agent;
+    ;;; Agents which can be drawn and selected, but not moved
+    ;;; other slots inherited from sim_agent
+enddefine;
+
+
+;;; Descendants of sim_multiwin_mobile (objects and agents)
+
+define :mixin sim_movable; is sim_multiwin_mobile sim_object;
+    ;;; other slots inherited from sim_object
+enddefine;
+
+define :mixin sim_movable_agent; is sim_multiwin_mobile sim_agent;
+    ;;; otherwise slots inherited from sim_agent
+enddefine;
+
+
+
+-- The mapping between the simulated world and the picture ------------
+
+The instances of the new classes have locations in both a 2-D simulation
+space and in the 2-D picture. Each space has its own coordinate frame.
+
+The mapping between the two spaces is defined by vector of four numbers
+stored in the window object's slot sim_picframe, corresponding to
+xorigin, yorigin, xscale, yscale.
+
+When the vector is {0 0 1 1} the values map the simulation space
+directly onto the picture window, with the origin coincident, and the
+scales the same.
+
+To move the simulation origin to a point 20 pixels down and 30 to the
+right of the rc_graphic origin, and expand the picture size by 50%,
+while reversing the direction of the y axis, use
+
+        {20 30 1.5 -1.5}
+
+This will not change the sizes of the drawn representations of objects,
+only the distances between them (and the speed with which they move
+across the screen).
+
+In order to change the size of depicted objects alter rc_xscale,
+rc_yscale in the picture window, e.g. by setting up the window object
+with a suitable scale. (See HELP RCLIB/rc_new_window_object)
+
+-- Simulation and picture coordinates ---------------------------------
+
+To make sure that the simulation coordinates and the picture coordinates
+are always in step it is important not to alter them directly, but
+always to use standard methods.
+
+-- -- sim_set_coords(obj, x, y);
+
+In order to initialise an object before it is drawn, use sim_set_coords,
+which takes an object or agent and its coordinates in the simulation
+space and, sets the coordinates in both the simulation space and the
+picture space.
+
+-- -- Accessing the simulation and picture coordinates
+
+-- -- . sim_coords(obj:sim_multiwin_mobile) -> (x, y);
+
+The method sim_coords returns the current simulation coordinates of its
+argument.
+
+-- -- . rc_coords(obj:sim_multiwin_mobile) -> (x, y);
+
+The method rc_coords returns the current picture coordinates of its
+argument.
+
+-- -- Methods for altering locations (after drawing)
+
+-- -- . x, y -> sim_coords(obj:sim_multiwin_mobile)
+
+To specify a new location in simulation space, for an instance of a
+movable class, use the updater of sim_coords, as in:
+
+    x,y -> sim_coords(obj);
+
+This will also automatically change the picture coordinates, and cause
+the object to move on the screen.
+
+-- -- . rc_move_to(obj:sim_multiwin_mobile, x, y, drawmode)
+
+The method rc_move_to defined in HELP RCLIB/rc_move_to moves the object
+to the specified location in picture coordinates (showing the move if
+the final argument is true, and showing a trail if it is the word
+"trail"). If it is false, nothing is shown.
+
+It also automatically updates the simulation coordinates, if applied to
+a sim_multiwin_mobile object.
+
+The method rc_move_by(pic:rc_linepic_movable, dx, dy, drawmode)
+can be applied to these objects. It will invoke rc_move_to which will
+behave as described.
+
+
+-- -- . sim_move_to(obj:sim_multiwin_mobile, x, y, drawmode);
+
+This is equivalent to the following
+
+    x, y -> sim_coords(obj);
+
+except that the final argument gives extra control over what happens on
+the screen, as in rc_move_to. Note that here x and y are in simulation
+coordinates, not screen coordinates.
+
+
+-- Other utilities ----------------------------------------------------
+
+-- -- sim_distance(obj1:sim_multiwin_mobile, obj2:sim_multiwin_mobile) -> num
+
+Returns a number representing the distance between the two objects.
+
+-- -- sim_transxy_to_pic(x, y) -> (x,y)
+
+Given simulation coordinates return the picture coordinates, using the
+frame variables described above.
+
+-- -- sim_transxy_from_pic(x, y) ->(x, y) ;
+
+Gven x,y in picture coordinates, return simulation coordinates.
+
+-- Other libraries used -----------------------------------------------
+
+We assume that lib sim_agent has been compiled, and that its classes
+sim_object and sim_agent have already been defined. Likewise we assume
+that several of the rclib libraries have been defined.
+
+
+-- Some examples of pictures in more than one window ------------------
+
+uses rclib;
+uses simlib;
+uses sim_picagent;
+
+
+define :class testpic;
+    is sim_movable;
+    ;;; slot rc_pic_lines = [SQUARE {0 0 20}];
+    ;;; use RSQUARE to make it work upside down also
+    slot rc_pic_lines = [WIDTH 2 RSQUARE {-10 10 20}];
+    slot rc_mouse_limit = 10;
+enddefine;
+
+define :class statpic;
+    is sim_immobile;
+    ;;; slot rc_pic_lines = [SQUARE {0 0 20}];
+    ;;; use RSQUARE to make it work upside down also
+    slot rc_pic_lines = [WIDTH 4 RSQUARE {-10 10 20}];
+    slot rc_mouse_limit = 10;
+enddefine;
+
+define newpic(x, y, label, windows) -> pic;
+
+    instance testpic;
+        sim_x = x;
+        sim_y = y;
+        rc_pic_strings = [{-4 0 ^label}];
+    endinstance -> pic;
+
+    rc_add_containers(pic, windows);
+
+enddefine;
+
+define newstatic(x, y, label, windows) -> pic;
+
+    instance statpic;
+        sim_x = x;
+        sim_y = y;
+        rc_pic_strings = [{-4 0 ^label}];
+    endinstance -> pic;
+
+    rc_add_containers(pic, windows);
+
+enddefine;
+
+vars
+    win1 =
+        rc_new_window_object(20, 5, 250, 250, true, 'win1',newsim_picagent_window),
+    win2 =
+        rc_new_window_object(300, 5, 250, 250, {125 125 1 1}, 'win2',newsim_picagent_window),
+    win3 =
+        rc_new_window_object(580, 5, 500, 500, {250 250 2.0 -2.0} , 'win3',newsim_picagent_window),
+
+    windows = [^win1 ^win2 ^win3],
+;
+
+;;; vars windows = [^win1];
+
+{0 0 1 -1} -> sim_picframe(win3);
+/*
+applist(windows, rc_kill_window_object);
+
+rc_current_window_object =>
+win1 -> rc_current_window_object;
+win2 -> rc_current_window_object;
+win3 -> rc_current_window_object;
+*/
+vars
+    p1 = newpic(50, 50, 'p1', windows),
+    p2 = newpic(100, 100, 'p2', windows),
+    p3 = newpic(-100, -100, 'p3', windows),
+;
+
+;;; now try moving the objects in different windows.
+
+win1.sim_picframe=>
+
+vars x,y, vec = sim_picframe(win1);;
+for x from -100 by 1 to 100 do
+        x -> vec(1); x -> vec(2);
+;;;     1.0+x/600 ->> vec(3) -> vec(4);
+        rc_start();
+        rc_redraw_window_object(win1);
+        syssleep(1);
+endfor;
+
+rc_redraw_window_object(win3);
+
+p1 =>
+p1.sim_coords =>
+p1.sim_x =>
+p1.rc_picx=> p1.rc_picy=>
+p1.rc_coords =>
+p1.sim_oldx,p1.sim_oldy=>
+
+win1.sim_picframe=>
+
+p2 =>
+p2.sim_coords =>
+sim_move_to(p1,100,-40,true);
+rc_move_to(p1,100,-40,true);
+rc_move_to(p1,-100,-40,true);
+rc_undraw_linepic(p2);
+rc_draw_linepic(p2);
+sim_picframe(win1) =>
+sim_picframe(win2) =>
+sim_picframe(win3) =>
+rc_yscale =>
+sim_picyscale =>
+rc_current_window_object =>
+rc_active_window_object =>
+rc_active_window_object -> rc_current_window_object;
+rc_move_to(p3, -10, 10, true);
+rc_move_to(p3, -100, 100, true);
+rc_move_by(p3, 5,-5, true);
+
+sim_move_to(p2, -100, 100, true);
+rc_move_to(p3, -100, 100, true);
+
+vars
+    s1 = newstatic(0, 100, 'a', [^win1]); ;;; [^win1 ^win3]);
+vars
+    s2 = newstatic(0, -100, 'b', [^win2 ]),
+;
+rc_remove_container(p2, win3);
+rc_remove_container(p2, win2);
+rc_remove_container(p2, win1);
+
+p2.rc_pic_containers =>
+
+
+issim_multiwin_static(s1) =>
+rc_add_container(s1, win2);
+rc_add_container(s2, win3);
+
+p2 =>
+p2.rc_pic_containers =>
+win3 =>
+{0 0 -1 -1} -> sim_picframe(win3);
+{0 0 0.5 0.5} -> sim_picframe(win3);
+win3 -> rc_current_window_object;
+;;; clear the window
+rc_start();
+;;; Redraw it
+rc_redraw_window_object(win3);
+
+rc_add_container(p2, win3);
+win3.rc_window_contents ==>
+p2 =>
+
+;;; add it normally to win1
+rc_add_container(p2, win1);
+rc_add_container(p2, win2);
+
+
+applist(windows, rc_kill_window_object);
+
+
+-- Index --------------------------------------------------------------
+
+ define vars procedure sim_transxy_to_pic(x, y, frame) /* -> (x,y) */;
+ define vars procedure sim_transxy_from_pic(x, y, frame) /* ->(x, y) */;
+ define :class sim_picagent_window; is rc_window_object;
+ define :mixin sim_multiwin;
+ define :method rc_coords(obj:sim_multiwin) -> (x, y);
+ define :method rc_picx(obj:sim_multiwin) -> x;
+ define :method rc_picy(obj:sim_multiwin) -> y;
+ define :method sim_coords(obj:sim_multiwin) -> (x, y);
+ define sim_set_coords(obj, x, y);
+ define :method sim_distance(obj1:sim_multiwin, obj2:sim_multiwin) -> num;
+ define :mixin sim_multiwin_static; is sim_multiwin;
+ define :mixin sim_multiwin_mobile; is sim_multiwin rc_linepic_movable;
+ define :method updaterof sim_coords(x, y, obj:sim_multiwin_mobile);
+ define :method print_instance(pic:sim_multiwin_static);
+ define :method print_instance(pic:sim_multiwin_mobile);
+ define :mixin sim_immobile; is sim_multiwin_static sim_object;
+ define :mixin sim_immobile_agent; is sim_multiwin_static sim_agent;
+ define :mixin sim_movable; is sim_multiwin_mobile sim_object;
+ define :mixin sim_movable_agent; is sim_multiwin_mobile sim_agent;
+ define :method rc_draw_linepic(pic:sim_multiwin_static);
+ define :method rc_draw_linepic(pic:sim_multiwin_mobile);
+ define :method rc_draw_oldpic(pic:sim_multiwin_mobile);
+ define :method rc_move_to(obj:sim_multiwin_mobile, x, y, drawmode);
+ define :method sim_move_to(obj:sim_multiwin_mobile, x, y, drawmode);
+ define :method rc_pictures_selected(win_obj:sim_picagent_window, x, y, findone) -> num;
+ define :method rc_add_containers(pic:sim_multiwin, windows);
+ define :method rc_add_containers(pic:sim_multiwin_mobile, windows);
+ define :method rc_add_container(pic:sim_multiwin, win_obj);
+ define :method rc_add_container(pic:sim_multiwin_mobile, item);
+ define :method rc_remove_container(pic:sim_multiwin_mobile, win_obj);
+
+
+--- $poplocal/local/sim/help/sim_picagent
+--- Copyright University of Birmingham 1999. All rights reserved. ------

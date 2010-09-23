@@ -1,0 +1,127 @@
+HELP NEWNETS                                    Julian Clinton  Jan 1990
+
+Adding New Neural Network Types To Poplog-Neural
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Generic Function Description
+ -- Areas For Improvement
+
+-- Generic Function Description ---------------------------------------
+
+New types  of  neural net  are  added to  Poplog-Neural  as  NN_NET_DATA
+records. Currently, NN_NET_DATA records have the following accessors for
+slots:
+
+ NN_NET_TITLE           <string>    - a string of the net type
+ NN_NET_DATAWORD        <word>      - the dataword of the recordclass
+ NN_NET_CONS_FN         <procedure> - constructor function
+ NN_NET_DEST_FN         <procedure> - destructor function
+ NN_NET_RECOGNISE_FN    <procedure> - recogniser
+ NN_NET_SAVE_FN         <procedure> - network save function
+ NN_NET_LOAD_FN         <procedure> - network load function
+ NN_NET_INPUTS_FN       <procedure> - number of net inputs function
+ NN_NET_OUTPUTS_FN      <procedure> - number of net outputs function
+ NN_NET_ARRAY_FN        <procedure> - function used to create arrays                    
+ NN_NET_APPLY_ITEM_FN   <procedure> - apply example function
+ NN_NET_APPLY_SET_FN    <procedure> - apply example set function
+ NN_NET_LEARN_ITEM_FN   <procedure> - learn example function
+ NN_NET_LEARN_SET_FN    <procedure> - learn example set function
+ NN_NET_VARLIST         <list>      - arguments to constructor function
+
+The records are stored in the property table NN_NET_DESCRIPTORS and  are
+indexed by  using  the  recordclass *DATAWORD  of  the  neural  network.
+Accessors are provided for all these slots so the user does not need  to
+de-reference the slot via the NN_NET_DESCRIPTORS property table.
+
+Suppose we are creating  a new type of  network which has the  following
+recordclass definition:
+
+    recordclass mynetwork
+                mynet_ins           ;;; number of input nodes
+                mynet_outs          ;;; number of output nodes
+                mynet_layers        ;;; the format in hidden layers
+                mynet_activs        ;;; the network activation array
+                mynet_weights       ;;; the network weights array
+                mynet_learn_params; ;;; variables controlling learning
+
+We will also  need to create  functions to allow  this network to  learn
+single examples and example sets and also to apply examples and  example
+sets to the network. These can be defined as:
+
+    define myapply_example(input_vector, machine, output_vector);
+        /* procedure code.... */
+    enddefine;
+
+    define myapply_example_set(input_vectors, machine, output_vectors);
+        /* procedure code.... */
+    enddefine;
+
+    define mylearn_example(input, target, machine);
+        /* procedure code.... */
+    enddefine;
+
+    define mylearn_example_set(inputs, targets, iterations,
+                               cycle_examples, machine, output_vector);
+        /* procedure code.... */
+    enddefine;
+
+We may also want  to customise the constructing  of the network,  rather
+than simply using  the class  CONS function (e.g.  CONSMYNETWORK) so  we
+could define a function which wraps the CONS function up to allow  extra
+arguments to be passed to the network:
+
+    define make_mynet(inputs, outputs,
+                      hidden_layers, decay,) -> netrecord;
+        /* procedure code.... */
+    enddefine;
+
+The generic functions used for teaching and testing networks expect  the
+arguments to be ordered as shown.  It is the responsibility of the  user
+to ensure that any extra arguments  needed by these functions are  added
+(e.g. by creating closures).
+
+Once we have done this, we can declare the new network type so that  the
+generic functions can  access them. We  can do this  using the  function
+NN_DECLARE_NET:
+
+    nn_declare_net('special learning',      ;;; description appearing
+                                            ;;; on menus,
+                   "mynetwork",             ;;; dataword of recordclass,
+                    make_mynet,             ;;; constructor function,
+                    explode,                ;;; general destructor
+                                            ;;; function,
+                    ismynetwork,            ;;; recogniser created by
+                                            ;;; recordclass definition,
+                    erasenum,               ;;; no save function defined
+                                            ;;; saver should take two
+                                            ;;; args and return one,
+                    identfn(%false,erase(%%)),
+                                            ;;; no loader function          
+                    mynet_ins,              ;;; where the number of
+                                            ;;; inputs is kept,
+                    mynet_outs,             ;;; where the number of
+                                            ;;; outputs is kept,
+                    newarray,               ;;; array creator                           
+                    myapply_example,        ;;; the four main
+                    myapply_example_set,    ;;; test and
+                    mylearn_example,        ;;; teach
+                    mylearn_example_set,    ;;; functions,
+                    [net_inputs             ;;; a list of
+                     net_outputs            ;;; arguments
+                     hidden_layers_map      ;;; taken by the
+                     node_decay_rate]);     ;;; constructor function
+
+
+Once this has been done, we can call functions such as NN_LEARN_EGS  and
+NN_LEARNEGS_ITEM and keep the lower level functions invisible.
+
+
+-- Warning ------------------------------------------------------------
+
+While every effort will  be made to ensure  upward compatibility in  all
+areas of Poplog-Neural, it  may be necessary in  future versions to  add
+extra arguments to NN_DECLARE_NET.
+
+
+--- Copyright Integral Solutions Ltd. 1990. All rights reserved. ---

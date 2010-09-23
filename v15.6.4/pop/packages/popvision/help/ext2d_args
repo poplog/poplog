@@ -1,0 +1,62 @@
+HELP EXT2D_ARGS                                     David Young
+                                                    January 1994
+
+Simplifies applying C procedures written for the 2-D case to POP-11
+arrays of any number of dimensions.  Basically only useful for
+single-pixel operations.
+
+ext2d_args(arrlist, region) -> argrep
+
+        arrlist is a list of N arrays. region is a boundslist_style
+        region specification.
+
+        argrep is a repeater for a vector containing values suitable for
+        passing as arguments to an external procedure which can process
+        a 2-D region of an array, or the vector itself. The vector has
+        length 3N + 2 and its elements are:
+
+            1.  The size of the first dimension of the 2-D region
+
+            2.  The size of the second dimension of the 2-D region
+
+            3 + 3(I-1). The arrayvector of the I'th array in arrlist
+
+            4 + 3(I-1). The offset (not index) in the arrayvector of
+                         the start of the 2-D region in the I'th array
+
+            5 + 3(I-1). The size of the first dimension of the I'th
+                        array.
+
+        If a procedure is called to process successive 2-D regions
+        specified as above, the whole of the original region (of however
+        many dimensions) will be processed in the end.
+
+        Such a procedure in POP-11, for a single array, could look
+        roughly like
+
+                define proc2d(xsize2d, ysize2d, vec, offset, jump);
+                    lvars x, y;
+                    for y from 1 to ysize2d do
+                        for x from 1 to xsize2d do
+                            <     Process vec(offset + x)    >
+                        endfor;
+                        offset + jump -> offset
+                    endfor
+                enddefine;
+
+        where the arguments to proc2d are the first 2 elements of argvec
+        plus the three relating to the array in question. An external
+        procedure written in C can do similar things, noting that the
+        first element to be processed is at vec[offset] rather than
+        vec(offset+1) as in POP-11.
+
+        The repeater returns <termin> once all the slices of the region
+        have been processed.
+
+        If only one call is needed to process the whole of the region,
+        the vector rather than a repeater for it is returned by
+        ext2d_args.
+
+
+--- $popvision/help/ext2d_args
+--- Copyright University of Sussex 1994. All rights reserved.

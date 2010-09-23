@@ -1,0 +1,2185 @@
+HELP RC_LINEPIC                                  Aaron Sloman June 1997
+                                               Last changed: 10 Sep 2000
+
+OVERVIEW of LIB rc_linepic, and LIB rc_mousepic
+
+"Change notes" can be found in HELP RCLIB_NEWS.
+Some parts of this file were moved to the new
+help file: HELP RC_EVENTS, in September 2000
+
+The facilities described below are made available by means of these
+commands:
+    uses rclib
+    uses rc_linepic
+    uses rc_window_object
+    uses rc_mousepic
+    uses rc_opaque_mover
+
+This file gives an overview of the basic object oriented picture-drawing
+facilities that form part of the RCLIB package, extending the Pop-11
+RC_GRAPHIC library, and using the Objectclass extension to Pop-11.
+
+For more general information see HELP RCLIB.
+
+A general rapid, tutorial overview of the RCLIB package can be found in
+TEACH RCLIB_DEMO.P
+
+More detailed tutorial examples of the facilities described below can
+be found in TEACH RC_LINEPIC
+
+The event handling mechanisms are summarised in HELP RCLIB, and
+described in more detail in HELP RC_EVENTS
+
+
+CONTENTS
+
+ -- Introduction
+ -- The main libraries used
+ -- Overview of basic facilities
+ -- -- LIB rc_linepic facilities
+ -- -- LIB rc_mousepic and LIB rc_window_object facilities
+ -- -- A tutorial introduction is available
+ -- Starting up RCLIB facilities in Pop-11
+ -- How graphical objects are represented
+ -- -- rc_linepic_movable, rc_oldx, rc_oldy
+ -- -- Drawing a moving object (Glinefunction)
+ -- -- LIB rc_opaque_mover
+ -- -- Using different coordinate systems for objects and pictures
+ -- How a drawable picture is represented
+ -- rc_pic_strings: the list of strings in a picture object
+ -- -- rc_print_pic_string(x, y, string)
+ -- rc_pic_lines: the list of picture parts
+ -- -- Closed polygons
+ -- -- RECT, RRECT
+ -- -- SQUARE, RSQUARE
+ -- -- Circles
+ -- -- Arcs
+ -- -- Other user-defined keywords
+ -- -- rc_draw_ob(x, y, width, height, radius1, radius2);
+ -- -- rc_draw_blob(xcentre, ycentre, radius, colour);
+ -- -- Using a procedure or procedure name
+ -- -- Using turtle drawing specifications
+ -- Representing line width and style (WIDTH, STYLE)
+ -- Changing local scale XSCALE YSCALE
+ -- Representing rotation of part of an object: ANGLE
+ -- Specifying the COLOUR of a sub-picture
+ -- Coloured images: rc_foreground
+ -- Changing the background of a picture
+ -- Displaying digitised images using LIB popvision
+ -- Mixins provided for drawable objects
+ -- -- The rc_linepic mixin
+ -- -- The rc_linepic_movable mixin
+ -- -- The rc_rotatable mixin
+ -- -- Glinefunction
+ -- Methods associated with drawable objects
+ -- Mixins provided for mouse sensitive objects
+ -- -- The rc_selectable mixin
+ -- -- Moving an rc_selectable instance
+ -- -- The rc_keysensitive mixin
+ -- The rc_window_object class
+ -- Types of events and their handlers
+ -- -- rc_mousepic(win or win_obj + optional event list)
+ -- -- The property rc_window_object_of
+ -- Methods for mouse-sensitive objects
+ -- -- rc_current_window_object
+ -- -- Fast dragging: rc_fast_drag
+ -- -- Fast motion event tracking: rc_fast_move
+ -- -- rc_moving_picture_object
+ -- Warning: changing the window size, or coordinate frame
+ -- Making "live" buttons
+ -- List of mixins, procedures and methods
+ -- -- In LIB RC_LINEPIC
+ -- -- In LIB RC_WINDOW_OBJECT
+ -- -- -- Creating and destroying window objects
+ -- -- -- Some inaccessible utilities
+ -- -- -- Showing and hiding window objects
+ -- -- -- Redrawing and clearing window objects
+ -- -- In LIB RC_MOUSEPIC
+ -- -- In LIB RC_BUTTONS
+ -- -- In LIB RC_POINT
+ -- -- In LIB RC_LINKED_PIC
+ -- In $poplocal/local/rclib/auto
+ -- Related documentation
+ -- Index to rc_linepic
+ -- Index to rc_mousepic
+
+-- Introduction -------------------------------------------------------
+
+The libraries described here provide tools for producing interactive
+graphical software. Graphical windows (instances of rc_window_object)
+may have static or movable pictures of various sorts on them. These
+picture objects are all instances of the mixin rc_linepic. Additional
+mixins and classes can be used to add extra capabilities, e.g. the
+ability to move (rc_linepic_movable), the ability to rotate
+(rc_rotatable), the ability to handle mouse and keyboard events
+(rc_selectable). It is also possible to have the same entity shown
+simultaneously in several windows, linked in such a way that if it is
+moved in one window it will automatically also be moved in others, as
+shown in HELP RC_LINKED_PIC.
+
+Many additional facilities built on these are described in other help
+files, including buttons, sliders, and a procedure for creating
+automatically formatted control panels with multiple fields
+(HELP RC_CONTROL_PANEL).
+
+These facilities make essential use of mechanisms provided in the
+Objectclass extension to Pop-11.  (See HELP OBJECTCLASS)
+
+For example, objectclass classes and instances are associated with each
+window object and with each picture object drawn in window objects.
+These objects may have objectclass methods associated with them, for
+drawing the objects, moving them, or handling mouse or keyboard events.
+
+Because of the use of an object oriented design it is very easy for
+users to produce slightly different variants of built in classes of
+objects, which look different or have different behaviour.
+
+Methods for operating on these user defined objects can be defined
+without altering the code for the default object types. Using
+"call_next_method" it is easy to combine new and old behaviours in user
+defined classes.
+    (For an introduction to object oriented programming ideas see
+    TEACH OOP. If not at your site, it can be fetched from Birmingham
+        http://www.cs.bham.ac.uk/research/poplog/teach/oop
+    or at
+        ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/teach/oop
+
+    For an introduction to the Objectclass library see
+    TEACH OBJECTCLASS_EXAMPLE)
+
+-- The main libraries used --------------------------------------------
+
+The main libraries related to the facilities described here are:
+
+LIB RC_WINDOW_OBJECT
+    provides facilities for manipulating Pop-11 graphic windows,
+    including creation, moving, resizing, hiding, exposing, etc., and
+    switching between different windows. This makes the old RC_CONTEXT
+    library redundant.
+
+LIB RC_LINEPIC
+    provides facilities for drawing, moving and rotating pictures on a
+    graphic window. The pictures may be combinations of graphical items
+    and text items, and are specified declaratively.
+
+LIB RC_OPAQUE_MOVER
+
+LIB RC_MOUSEPIC
+    can be used to make windows or individual pictures sensitive to
+    mouse events (including clicking, dragging or mere motion) or
+    keyboard events.
+
+LIB RC_CONTROL_PANEL
+    defines a procedure for creating an automatically formatted panel
+    with a variety of fields containing text, buttons, sliders, etc.
+    For a simple example see TEACH RCLIB_DEMO.P/rc_control_panel
+    More detailed information is in HELP RC_CONTROL_PANEL
+
+LIB RC_SCRATCHPAD
+    makes it very easy to use the rc_window_object facilities to
+    create a variety of windows on which to give drawing commands,
+    while saving old pictures. Illustrated in
+        TEACH RCLIB_DEMO.P/rc_scratchpad
+
+LIB RC_POINT
+    defines a class of points, which can be created interactively with
+    the mouse, to determine a set of locations. See HELP RC_POINT
+
+LIB RC_BUTTONS
+    provides utilities for making buttons that can be associated with
+    procedures.
+
+LIB RC_LINKED_PIC
+    Provides facilities for drawing the same movable picture in
+    different windows, linked so that if the picture moves in one
+    it moves in all
+
+LIB RC_SLIDER
+    Is used for defining sliders of various kinds (not just horizontal
+    and vertical).
+
+LIB RC_CONSTRAINED_MOVER
+    Tools to create constrained movable pictures, e.g. a picture that is
+    constrained to a line between two points, or the inside of a
+    rectangle, or circle, etc. This is used in the slider library.
+
+LIB RC_TRANSFER_WINDOW_CONTENTS
+    A procedure for transferring the contents of one window to another,
+    with or without copying
+
+LIB PAINTING_DEMO
+    A "toy" demonstration of concept, showing how the RCLIB tools can be
+    used to create graphical interface for a toy painting tool, with a row
+    of brushes on top and a column of pain pots on the left. Look at the
+    program file and follow instructions.
+
+LIB RC_BLOCKS and LIB RC_HAND
+    A simple simulated robot which moves coloured blocks around in
+    response to English commands and answers simple questions about the
+    blocks. (Compare TEACH MSBLOCKS, TEACH MSDEMO).
+    For instructions see TEACH RC_LINEPIC/rc_blocks
+
+Additional libraries are listed in HELP RCLIB
+
+Make all these utilities and their documentation available with the
+command:
+
+    uses rclib
+
+[Note: this file grew as the libraries were developed. It is somewhat
+messy and repetitive. Please let me know of any errors, omissions or
+infelicities. It is intended for reference, after looking at the
+tutorial examples in TEACH files, such as
+    TEACH RCLIB_DEMO.P
+    TEACH RC_LINEPIC
+    TEACH RC_MOUSEPIC
+
+End Note:]
+
+-- Overview of basic facilities ---------------------------------------
+
+This file describes tools based on the OBJECTCLASS and RC_GRAPHIC
+libraries. These tools make it easy to create and manipulate pictures
+which correspond to structures in a program, for example a simulation
+program or a program which needs to display changing information
+graphically. In addition, the pictures can be made sensitive to events
+involving the mouse or keyboard, and can therefore be used to control
+events in the program. A button library is included. Window objects
+associated with rc_graphic windows make it easy to relocate windows, or
+change their size, and to switch between different windows when drawing,
+or using the mouse.
+
+-- -- LIB rc_linepic facilities
+
+(a) LIB RC_LINEPIC enables you to create static or moving (including
+    rotating) pictures in a Pop-11 graphical window, where picture parts
+    may use different line thicknesses or line styles or colours, and
+    where each object corresponds to an objectclass instance, with
+    associated methods for drawing and moving.
+
+    The pictures are specified in a declarative notation using
+    coordinates relative to the centre of the object. Drawing and
+    un-drawing involves interpreting the picture specification, in an
+    rc_graphic coordinate frame located at the centre of the object.
+    Strings can be included but cannot be rotated (though the point at
+    which they are printed can be). A set of mixins is provided, which
+    can be combined with classes of various sorts:
+         define :mixin rc_linepic;
+         define :mixin rc_linepic_movable; is rc_linepic;
+         define :mixin rc_rotatable; is rc_linepic_movable;
+
+    For instance part of a picture specification may be two rotatable
+    pink squares using linewidth 3, slanted at an angle of 45 degrees
+    relative to the object's internal frame:
+
+        [ANGLE 45 WIDTH 3 COLOUR 'pink' RSQUARE {5 -5 10} {0 50 20}]
+
+    Each vector triple defines a square, with the first two numbers
+    giving the location of the "top left" corner in the object's frame,
+    and the third its side. The description language is user-extendable.
+    Other cases are defined below.
+
+-- -- LIB rc_mousepic and LIB rc_window_object facilities
+
+(b) LIB RC_WINDOW_OBJECT and RC_MOUSEPIC add facilities for switching
+    between different rc_graphic windows, and also for adding "mouse
+    sensitivity" or "keyboard sensitivity" to a graphical window and
+    to objects that it contains. This considerably extends the features
+    provided in LIB RC_MOUSE described in
+        TEACH RC_GRAPHIC and HELP RC_GRAPHIC.
+
+    For example picture objects can be created which can then be selected
+    for action, such as interrogating the object or dragging it to a new
+    location. The following are provided
+
+         define :mixin rc_selectable;
+            For mouse sensitive objects
+
+         define :mixin rc_keysensitive;
+            For objects sensitive to keyboard events
+
+         define :class rc_window_object;
+            is rc_selectable  rc_keysensitive;
+            For windows sensitive to mouse and keyboard events,
+            possibly containing associated instances of the above mixins
+
+    with associated methods described below.
+
+    Users can attach "event" handlers to a whole Pop-11 graphic window,
+    and to individual objects in the window. These can react to any of
+
+        o mouse button events, e.g. mouse 3 down, mouse 2 up,
+        o mouse movement
+        o mouse dragging
+        o ordinary keyboard events
+
+    In every case the appropriate handler is informed of the type of
+    event the location on the window, and which modifier keys, if any
+    are down, i.e. Control, Shift, Meta.
+
+    Different event handlers are definable for the main different
+    categories of events, e.g. button_1_down, button_3_up,
+    button_3_drag, and others.
+
+    Because objectclass methods are used, users can safely redefine
+    these handlers for new classes of objects, without affecting the
+    original classes, and the call_next_method facility allows new
+    actions to be combined with inherited old actions.
+    (See HELP OBJECTCLASS/call_next_method)
+
+    LIB RC_BUTTONS provides facilities based on mousepic, for creating
+    live buttons.
+
+-- -- A tutorial introduction is available
+
+A detailed tutorial introduction is provided in TEACH RC_LINEPIC,
+which gives many examples, showing:
+
+(1) The use of LIB RC_WINDOW_OBJECT to create and manipulate Xgraphic
+    windows, including easy switching between different windows.
+
+(2) How to use mechanisms in LIB RC_LINEPIC to create static or moving
+    (including rotating) pictures in a Pop-11 graphical window, where
+    picture parts may use different line thicknesses or line styles,
+    or colours, and how to draw and move them, including making simple
+    moving or rotating pictures,
+
+(3) How to use mechanisms in LIB RC_MOUSEPIC to add "mouse sensitivity"
+    to a graphical window and to objects that it contains. This includes
+    making the graphic window, or individual objects depicted in it,
+    sensitive to dragging events, motion events, and keyboard events,
+    in addition to mouse button down or up events.
+
+(4) How to use LIB RC_BUTTONS to add "live" labelled buttons to a mouse
+    sensitive window.
+
+Because these libraries make extensive use of the Pop-11 Objectclass
+library, they make it relatively easy for users to extend and tailor the
+capabilities provided, by defining new classes and mixins and defining
+methods which override or extend the behaviours of the existing methods,
+either for some or all classes. This is one of the most important
+features of object oriented programming, allowing software produced for
+generic packages very easily to be re-used and tailored to new
+applications. (See TEACH OOP)
+
+The Poplog "propsheet" facility makes it possible to create pop-up
+menus, control panels, sliders, text input fields, etc. The mechanisms
+described here make it possible for mouse or keyboard events in a
+graphical window to trigger invocation of propsheet facilities. However,
+propsheet requires use of the motif libraries.
+
+The mechanisms described here enable similar facilities to be created in
+a more general fashion entirely within a Pop-11 Xgraphic window, e.g. by
+having buttons, sliders, etc. defined entirely within Pop-11. This does
+not require motif, and enables propsheet to be bypassed.
+
+At Birmingham and Sussex some propsheet facilities are also available
+in specially convenient forms in the libraries described in
+HELP POPUPTOOL and the recursive hypermenu system described in
+
+    TEACH MENU_DEMO and TEACH VED_MENU
+
+These are all freely available, along with the rc_linepic and
+rc_mousepic libraries from the Birmingham Free Poplog directory:
+
+    http://www.cs.bham.ac.uk/research/poplog/freepoplog.html
+    ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/freepoplog.html
+
+(These facilities all require Poplog Version 15.01 or later.)
+
+-- Starting up RCLIB facilities in Pop-11 -----------------------------
+
+Assuming the package is installed in its normal place, i.e. in the
+directory $poplocal/local/rclib/, and the file rclib.p in that
+directory has been linked into $poplocal/local/lib/ the following pop-11
+commands will compile the main package components.
+
+    uses rclib
+        This merely extends the search lists without compiling
+        anything.
+
+    uses rc_window_object
+        to make multiple windows easily available
+
+    uses rc_linepic
+        to provide the picture drawing facilities
+
+    uses rc_mousepic
+        to provide the mouse sensitivity
+
+All of these will compile objectclass if necessary.
+
+
+-- How graphical objects are represented ------------------------------
+
+The key idea is that an object that has a graphical representation
+should include some information on how to draw it and where to draw it.
+An objectclass mixin is provided, rc_linepic, which can be combined with
+other objects that need to be drawn.
+
+The information about how to draw an object normally consists of two
+lists:
+
+    o A list of lists of connected line images, which may be open
+      or closed polygons or circles or arcs of circles, or other
+      objects specified by how they should be drawn, relative to a
+      coordinate frame based on the object.
+
+      This information is held in the rc_pic_lines slot of an
+      rc_linepic instance. Where the list formats described below
+      are not sufficiently general it is possible for the contents
+      of rc_pic_lines to be a procedure, which handles the drawing,
+      or a word whose valof is such a procedure. (The procedure should
+      take one argument, a picture object).
+
+    o A list of strings, each associated with two coordinates from
+      which the printing of the string begins. This information is
+      held in the rc_pic_strings slot. This slot can also contain
+      a procedure instead of a descriptive list.
+
+The sub-picture specifications may have extra information e.g. about the
+width of lines to be used, whether the lines are dashed or not, the
+colour, the fonts to be used for strings, and in some cases the
+orientation of the sub-picture relative to the picture's coordinate
+frame.
+
+The information about where to draw each object consists of two numbers
+in slots called rc_picx, rc_picy, representing the conceptual "centre"
+of the rc_linepic object. The method rc_coords can be used to get both
+values at once.
+
+All drawing is done RELATIVE to this centre, using the rc_graphic
+drawing procedures. That is, the coordinates of the object's centre are
+assigned temporarily to rc_xorigin and rc_yorigin whenever an object is
+being drawn, using the information in rc_pic_lines and rc_pic_strings
+about coordinates. This means that the stored locations of the strings,
+ends of lines, centres of circles etc. need never change when the object
+is moved: only the "centre" coordinates need change.
+
+Facilities are provided for drawing the object by making the locations
+rc_picx and rc_picy the current origin for the rc_graphic primitives,
+and then drawing the line segments, and then drawing the strings, at the
+specified locations, i.e. relative to the location specified by the
+origin.
+
+-- -- rc_linepic_movable, rc_oldx, rc_oldy
+
+To allow objects to be moved with automatic re-drawing, a further mixin,
+rc_linepic_movable, is provided, which inherits the slots of rc_linepic,
+and adds two extra slots, rc_oldx and rc_oldy.
+
+By carefully making use of these, the drawing methods ensure that
+whenever an object is to be moved the existing picture of it (if there
+is one) is removed, by simply re-drawing the object at the old
+location, before it is drawn at the new location. This is done by the
+two methods rc_move_to (for moving an object to a specified location),
+and rc_move_by (for moving an object by a specified distance in the x
+and y directions), described below. Similar techniques are used by the
+rotation methods for rc_rotatable instances, rc_set_axis and rc_turn_by.
+These use the slot rc_oldaxis as well as rc_axis.
+
+The value of the slot rc_oldx is used to determine whether the picture
+needs to be un-drawn before moving. If the value is false, it is assumed
+that the picture is not already drawn, and it does not need to be
+undrawn.
+
+If the picture needs to be undrawn the rc_oldx and rc_oldy are assumed
+to contain the coordinates of the "old" centre at which the picture
+needs to be undrawn before it is drawn at the new centre. This means
+that if the window is cleared, the rc_oldx slot may have the wrong
+value, and two procedures are provided to ensure that a picture object,
+or a set of picture objects in a list have the undrawn status. See
+rc_undrawn(pic), and rc_undraw_all(list), below.
+
+-- -- Drawing a moving object (Glinefunction)
+
+Re-drawing removes the old picture because all the drawing makes use of
+the GXxor value for rc_linefunction. On some terminals this has to be
+replaced by GXequiv, as explained below.
+
+The global variable Glinefunction holds the linefunction value
+to be used for drawing movable objects. The procedure Gdrawprocedure has
+to be changed when Glinefunction is changed. This is done automatically
+by invoking the procedure
+
+    rc_setup_linefunction()
+
+This is done by rc_new_window_object and various other library
+procedures. Occasionally users will have to invoke it themselves
+if un-drawing does not work as expected. See HELP RCLIB_PROBLEMS
+
+-- -- LIB rc_opaque_mover
+
+Drawing and moving instances of rc_linepic_movable and its derivative
+rc_rotatable can sometimes produce strange effects when one picture
+object overlaps another,  because of the use of XOR or EQUIV as drawing
+functions. The rc_opaque_mover library overcomes this by defining two
+mixins:
+    rc_opaque_movable
+    rc_opaque_rotatable
+
+which can be used when it is known that one picture object will never
+move over another, and that the background over which the object will
+move is all one colour.
+
+For examples of the use of opaque movers, see
+
+    TEACH rc_opaque_mover
+
+-- -- Using different coordinate systems for objects and pictures
+
+The drawing methods all use current rc_graphic window coordinates, based
+on these global variables defined in LIB RC_GRAPHIC:
+
+Coordinate frame variables:
+    rc_xorigin, rc_yorigin, rc_xscale, rc_yscale
+
+Variables for "turtle" drawing procedures:
+    rc_heading, rc_xposition , rc_yposition,
+
+Clipping variables (one boolean and four integers):
+    rc_clipping, rc_xmin, rc_ymin, rc_xmax, rc_ymax,
+
+These variables can have different values associated with different
+window objects. They can also be different for individual pictures
+within a window. Minimally, drawable objects have their own private
+versions of rc_xorigin and rc_yorigin set up when they are drawn.
+
+For some purposes it may be necessary to use rc_frame_angle for rotated
+windows, though at present this is not supported. However, picture
+objects (instances of rc_linepic and its derivatives) within a window
+can be rotated using mechanisms in LIB RC_LINEPIC.
+
+If a simulation uses a graphical display showing objects whose
+coordinates in the simulated environment are different from those in the
+window, users will have to define a class (or mixin) for which the
+methods rc_move_to and rc_move_by are redefined to translate from the
+environment coordinates to the window coordinates for drawing. This
+could be used, for example, to allow the graphic window to show only
+part of the environment at a time, or to show the simulated environment
+at different scales.
+
+(Within the Sim_agent toolkit this is achieved by the library
+    LIB SIM_PICAGENT )
+
+Normally it will be possible to achieve this simply by varying the
+rc_graphic coordinate frame for the window as described in the
+rc_graphic HELP and TEACH files.
+
+However, if the coordinates of a window are changed and that window is
+part of an rc_window_object instance, then the stored frame values
+associated with the window object in the rc_window_frame slot will need
+to be changed, as described below.
+
+    (See LIB RC_WINDOW_OBJECT/rc_window_frame)
+
+-- How a drawable picture is represented ------------------------------
+
+A drawable picture is represented by two lists, a list of picture parts
+and a list of strings. Each of these is essentially specified
+declaratively and when the picture is drawn or "undrawn" (e.g. in order
+to be moved), the specifications are interpreted by drawing procedures.
+Users can extend the "language" by defining additional procedural
+specifications for picture parts.
+
+-- rc_pic_strings: the list of strings in a picture object ------------
+
+The rc_pic_strings slot is a list of strings and lists. The
+qualifiers FONT <string> and COLOUR <string> can be used to specify a
+font or colour for all the strings or for a particular string.
+
+Many examples can be found in TEACH RC_LINEPIC/rc_pic_strings
+and subsequent locations in that file.
+
+For example if the slot has this list
+
+    [FONT '8x13bold' COLOUR 'blue' {-20 20 'hello'} {-20 -20 'silly'}];
+
+Then the picture will include two
+strings coloured blue in the 8x13 bold font. 'hello' will be printed at
+location -20 20 and 'silly' at -20 -20, using the internal coordinate
+frame of the picture object.
+
+More examples are in the teach file.
+
+More precise specification:
+
+The list of strings in the slot rc_pic_strings of a rc_linepic instance
+is one of
+
+1. A procedure, which will be applied to the picture object, typically
+to print one or more text strings as part of the picture.
+
+2. A word whose valof is a procedure, which will be treated as in 1.
+
+3. A list of three element vectors, each of which contains two numbers,
+the x coordinate, the y coordinate and the string to be printed at the
+location specified. To specify a different colour or font, a sublist can
+be used in which the vectors are preceded by either or both of
+    COLOUR <string>
+    FONT <string>
+as illustrated below. The contents of each three element vector are
+given to the user-assignable procedure rc_print_pic_string, which takes
+three arguments
+    rc_print_pic_string(x, y, string)
+
+The string is printed using the coordinates relative to the origin of
+the object to be drawn (specified in its rc_picx and rc_picy slots).
+
+The default value of rc_print_pic_string is the procedure rc_print_at,
+described in HELP RC_GRAPHIC. It may sometimes be useful to change this
+procedure in order to cope with changes in the current picture scale
+
+For example, given the default values of 1 and -1 for rc_xscale and
+rc_yscale (see HELP RC_GRAPHIC) the list
+
+    [{-5 10 'Happy'} {25 10 'Harry'}]
+
+would print the string 'Happy' 30 pixels to the right of the string
+'Harry', each starting 10 pixels to above the location specified by the
+rc_picx and rc_picy fields of the picture object. (This assumes the
+default rc_xscale = 1 and rc_yscale = -1. See below for different
+coordinate frames).
+
+To specify font or colour for a group of strings, enclose them in an
+extra level of lists, using a format like:
+
+    [
+     [FONT '6x13bold' COLOUR 'purple' {-5 -10 'Jolly'} {25 -10 'Joe'}]
+     [{-5 10 'Happy'} {25 10 'Harry'}]
+     ]
+
+The second group of strings will be printed using the current default
+font and colour for the window.
+
+Different groups of strings can be in different sub-lists.
+
+At present there is no way to print strings in any orientation except
+horizontal, so if the facilities for rotation are used below, the
+location of the start of the string will be rotated when the picture is
+drawn, but the string will not be. This can be overcome in some cases by
+breaking a string down into separate characters, as illustrated in the
+teach file, which also shows how to change the font for the window.
+
+See TEACH RC_LINEPIC/'How to make a printed string rotate'
+
+-- -- rc_print_pic_string(x, y, string)
+
+As explained above this is the user definable procedure used for
+printing strings in rc_pic_strings. Its default is rc_print_at.
+
+In some cases if a picture is to appear in an window with scales
+inverted it may be possible redefine rc_print_pic_string to to pay
+attention to both the signs of x and y and the signs of rc_xscale and
+rc_yscale, to ensure appropriate offsets for strings.
+
+
+-- rc_pic_lines: the list of picture parts ----------------------------
+
+The rc_pic_lines slot of a drawable rc_linepic object is a list of
+specifications for sub-pictures, or a drawing procedure.
+
+The sub-pictures may include line segments indicated by the coordinates
+of their end points, circles each represented by the coordinates of its
+centre and the radius, arcs, represented by six numbers required as
+arguments for rc_draw_arc, and various other things, described below
+and illustrated in TEACH RC_LINEPIC
+
+The coordinates and other numerical values are represented as vectors of
+numbers. However, in case a more compact representation is required for
+points a record class can be defined and used for the purpose. e.g.
+    defclass rc_pt {rc_ptx, rc_pty}
+
+This produces a constructor procedure consrc_pt and fields rc_ptx,
+rc_pty. (The teach file shows how to use conspoint as a point
+constructor.)
+
+
+For example, this figure:
+                           (x2,y2)
+                (x1,y2) \  /-----------(x3, y2)
+                         \/
+                         /\
+                (x1,y1) /  \-----------(x3, y1)
+                           (x2,y1)
+
+Might be represented by a list containing two lists of connected
+line-segments, where each set of connected line-segments is a list of
+two element vectors, thus:
+
+    [ [ {x1  y1}  {x2  y2}  {x3  y2} ]
+      [ {x1  y2}  {x2  y1}  {x3  y1} ]]
+
+or, using POP11's built in pair record class for more compact internal
+structures:
+
+    [ [% conspoint(x1, y1), conspoint(x2, y2), conspoint(x3, y2) %]
+      [% conspoint(x1, y2), conspoint(x2, y1), conspoint(x3, y1) %]]
+
+This is harder to read, but may be more efficient. It also takes up a
+little less space.
+
+See also all the rc_draw_ procedures listed in HELP RCLIB, including
+these:
+  rc_draw_blob
+  rc_draw_centred_rect
+  rc_draw_circle
+  rc_draw_lines
+  rc_draw_lines_closed
+  rc_draw_lines_filled
+  rc_draw_coloured_circle
+  rc_draw_filled_rect
+  rc_draw_filled_centred_rect
+
+and many more. Some of these are illustrated below.
+
+-- -- Closed polygons
+
+A sublist of points can start with the word "CLOSED" in which case it is
+taken to be a closed polygon, and a line segment joining the last point
+to the first will be drawn. Thus a triangle sub-picture might be
+represented by
+
+    [CLOSED {-5 0}  {0 10}  {5 0}]
+or, equivalently:
+
+    [CLOSED %conspoint(-5,0), conspoint(0,10), conspoint(5,0)%]
+
+-- -- RECT, RRECT
+-- -- SQUARE, RSQUARE
+
+The keywords RECT and RRECT can be followed by vectors of four numbers,
+representing the coordinates of the top left corner of a rectangle, its
+width and its height. The difference is that RECT uses a built in
+procedure that can draw rectangles only in a one orientation, whereas
+RRECT respects rotations of rc_rotatable pictures, and is therefore
+somewhat slower. Example
+
+    [RECT {-10 15 20 30} {0 30 50 30}]
+
+This will draw one rectangle of width 20 and height 30 centred on the
+object's centre, and one of width 50 and height 30 with bottom left
+corner at the centre of the object. Using RRECT would produce the same
+result except that rotations will work as expected.
+
+The keywords SQUARE and RSQUARE are followed by vectors of three
+numbers, the first two representing the top left corner of the square
+and the third the length of the side. Use RSQUARE if the square is to be
+rotatable. E.g. This could be the specification of a picture containing
+two rotatable rectangles, two rotatable squares and a vertical line
+
+    rc_pic_lines =
+        [
+            [RRECT {-10 15 20 30} {0 30 50 30}]
+            [RSQUARE {5 -5 10} {0 50 20}]
+            [{0 0} {20 20}]
+         ];
+
+-- -- Circles
+
+If a sublist starts with the word "CIRCLE" it should then be followed by
+one or more three element vectors each of which has two numbers
+representing the centre of a circle (relative to the centre of the
+picture) and its radius. Thus the following sub-picture specification
+would produce a circle of radius 15 whose centre is 20 units above the
+centre of the picture.
+
+    [CIRCLE {0 20 15}]
+
+and this would draw two concentric circles of different radii, centred
+on the point (0,20).
+
+    [CIRCLE {0 20 15} {0 20 25}]
+
+-- -- Arcs
+
+If a sublist starts with the word "rc_draw_arc" it should then be
+followed by one or more six element vectors each of will specify an arc
+in the format of rc_draw_arc, as defined in
+    HELP RC_GRAPHIC/rc_draw_arc
+
+    rc_draw_arc(x, y, width, height, angle1, angleinc)
+
+Draws an arc on a circle or ellipse bounded by the rectangle whose top
+left corner is at (x,y) (relative to the object's picture centre) with
+given width and height.
+
+The arc is defined by the start angle of the radius angle1 and the
+amount by which it is to be increased angleinc, measured from the three
+O'clock position, in 64ths of a degree, counterclockwise (negative
+angles are measured clockwise).
+
+-- -- Other user-defined keywords
+
+If the user has defined a drawing procedure, then its name can be used
+as a key word, followed by one or more vectors of arguments to which the
+procedure should be applied. The next examples illustrate this, using
+autoloadable library procedures rc_draw_ob, rc_draw_blob
+
+-- -- rc_draw_ob(x, y, width, height, radius1, radius2);
+
+(Compare rc_draw_oblong in LIB RC_GRAPHIC, which does not require
+the first two arguments x, y.)
+
+The rclib library defines this above procedure for drawing a rounded
+rectangle (oblong) with top left corner at location x, y with the given
+width and height and radii of curvature for the corners. (radius1 is the
+horizontal radius, radius2 the vertical radius for each corner).
+For details see REF XpwDrawRoundedRectangle
+
+As shown in TEACH RC_LINEPIC this can be invoked by a list starting with
+the keyword "rc_draw_ob", followed by one or more vectors of 6 numbers,
+e.g.
+
+            [rc_draw_ob
+                ;;; two small ones, above and below the centre
+                {-15 15 30 12 3 3} {-15 -3 30 12 3 3}
+                ;;; and a bigger one enclosing them
+                {-25 20 50 40 10 10}]
+
+This will not be a properly rotatable figure.
+
+-- -- rc_draw_blob(xcentre, ycentre, radius, colour);
+
+This procedure can be used in picture specifications such as
+
+        [rc_draw_blob {-35 25 20 'red'} {35 25 20 'red'}
+            {35 -25 20 'green'} {-35 -25 20 'green'}]
+
+This will draw four circular blobs at the corners of a rectangle, the
+upper two being red and the lower two green.
+
+-- -- Using a procedure or procedure name
+
+The list in rc_pic_lines may contain a list of one of the following
+forms where <proc> is either a procedure or a word whose valof is
+a procedure (the latter is more useful for debugging and tracing).
+
+    [<proc>]
+    [<proc> <vector> <vector> <vector> ...]
+
+In the first form the procedure is simply run every time the picture is
+drawn (or re-drawn to remove it from the window).
+
+In the second form the procedure is applied to the elements in each of
+the vectors, as in the examples using RECT, CIRCLE rc_draw_blocb above.
+
+Each vector in turn is exploded (its elements put on the stack) and the
+procedure run. The first form is equivalent to the second form with one
+empty vector.
+
+    [<proc> {}]
+
+(Providing N empty vectors causes the procedure to be run N times.)
+
+-- -- Using turtle drawing specifications
+
+The file TEACH RC_GRAPHIC, describes "turtle geometry" drawing
+primitives rc_draw, rc_jumpto, rc_turn, rc_arc_around, which make use of
+a current location and heading of a notional mobile turtle.
+
+Users who would prefer to use such "turtle" specifications for the
+drawing of pictures can easily define a sub-category of rc_linepic,
+e.g. rc_turtlepic, for which extra slots are provided for current
+drawing heading (an angle), and current drawing location (two numbers,
+relative to the picture centre), and change the drawing methods
+so as to assume that rc_pic_lines contains lists like
+
+    [JUMPTO {5 5} TURNTO {10 10} DRAW {5} TURN {90} DRAW {5} ....]
+
+If users request this it could easily become part of the "standard"
+library. This may, in some cases, be more convenient than pre-computing
+the coordinates of ends a linked set of lines.
+
+
+-- Representing line width and style (WIDTH, STYLE) -------------------
+
+It is possible for any of the above picture specification lists or
+sublists to start with a WIDTH and or STYLE specification. Here are some
+examples
+
+    rc_pic_lines =
+        [
+            ;;; A solid oblong above the centre
+            [WIDTH 2 STYLE ^LineSolid
+                rc_draw_ob {-15 15 30 12 3 3}]
+
+            ;;; A dashed rectangle below
+            [STYLE ^LineOnOffDash RECT {-15 -3 30 12 } ]
+
+            ;;; A bigger thicker double-dashed oblong
+            [WIDTH 3 STYLE ^LineDoubleDash
+                 rc_draw_ob {-25 20 50 40 10 10}]
+
+            ;;; A simple horizontal line, default style and thickness
+            [{-30 -30} { 30 -30}]
+        ];
+
+The whole list assigned to the rc_pic_lines slot can also start with
+either or both types of specifications, in which case the will form the
+default for all the sub-pictures.
+
+-- Changing local scale XSCALE YSCALE ---------------------------------
+
+If the picture drawing routines are to a different scale from that of
+the window this can be specified using the keywords "XSCALE" and
+"YSCALE" each followed by a number. E.g. the following will cause
+a picture to be expanded 1.5 times horizontally and 2 times vertically,
+with Y increasing upwards.
+
+    [XSCALE 1.5 YSCALE -2 CIRCLE {0 20 15}]
+
+-- Representing rotation of part of an object: ANGLE ------------------
+
+The keyword ANGLE, followed by an integer representing an angle in
+degrees, can be used to specify that a sub-picture should be rotated
+relative to the object's coordinate frame.
+
+E.g. part of a picture specification may be two rotatable blue squares
+using linewidth 3, slanted at an angle of 45 degrees relative to the
+object's internal frame
+
+    [ANGLE 45 WIDTH 3 COLOUR 'blue' RSQUARE {5 -5 10} {0 50 20}]
+
+NB: only rotatable drawables can have an ANGLE specification.
+
+E.g. for the non-rotatable picture elements RECT and SQUARE this will
+not work, though the location of the top left corder will be "rotated"
+by the specified angle relative to the centre of the object.
+
+However there are procedures which fully respect the rc_graphic
+coordinate frame and therefore can be drawn rotated. Examples include
+  rc_draw_lines
+  rc_draw_lines_closed
+  rc_draw_lines_filled
+  rc_draw_filled_centred_rect
+  rc_draw_triangle
+  rc_draw_filled_triangle
+
+
+-- Specifying the COLOUR of a sub-picture -----------------------------
+
+As with width and style the keyword "COLOUR" followed by a string giving
+a colour specification (as listed in HELP XCOLOURS) can be used to
+define the colour used for sub-picture, e.g.
+
+    rc_pic_lines = [
+            ;;; red circle at 0,0 radius 20
+            [WIDTH 3 COLOUR 'red' CIRCLE {0 0 20} ]
+
+            ;;; blue circle at 0,20 radius 15
+            [WIDTH 2 COLOUR 'blue' CIRCLE {0 20 15}]
+            ];
+
+This would make an arrow with a blue head and a shaft of the current
+default colour:
+
+    rc_pic_lines
+        = [[{0 0} {30 0}] [COLOUR 'blue' {25 8}{30 0}{25 -8}]];
+
+A rectangle with a thick green vertical line on the right:
+    rc_pic_lines =
+          [
+            [CLOSED %conspoint(-30,20), conspoint(30,20),
+                conspoint(30,-20), conspoint(-30,-20)%]
+            [WIDTH 6 COLOUR 'green'
+                %conspoint(25,-15), conspoint(25,15)%]
+          ];
+
+A more complex example
+    rc_pic_lines =
+        [
+            ;;; A red solid line oblong above the centre
+            [WIDTH 2 STYLE ^LineSolid COLOUR 'red'
+                rc_draw_ob {-15 15 30 15 3 3}]
+            ;;; A dashed blue rectangle below
+            [STYLE ^LineOnOffDash COLOUR 'blue' RECT {-15 -3 30 12 } ]
+            ;;; A bigger thicker double-dashed green oblong
+            [WIDTH 3 STYLE ^LineDoubleDash COLOUR 'green'
+                 rc_draw_ob {-25 20 50 40 10 10}]
+            ;;; A simple horizonal line, default style and thickness
+            [{-30 -30} { 30 -30}]
+        ];
+
+For more examples see:
+    TEACH RC_LINEPIC/COLOUR
+
+A colour specification cannot precede a WIDTH or STYLE specification
+for sub-pictures nor the FONT specification for a string.
+
+
+-- Coloured images: rc_foreground -------------------------------------
+
+It is possible to change the foreground colour used globally for drawing
+and printing in the rc_graphic window. Here are some commands for doing
+that.
+
+    XpwSetColor(rc_window, 'yellow');
+    XpwSetColor(rc_window, 'green');
+
+However, these commands should not be used with LIB RC_LINEPIC as that
+will interfere with the caching mechanisms used. Instead always change
+colour using rc_foreground, or something based on it, e.g.
+
+    'yellow' -> rc_foreground(rc_window);
+    'green' -> rc_foreground(rc_window);
+    'black' -> rc_foreground(rc_window);
+    'grey' -> rc_foreground(rc_window);
+
+Since the procedure rc_foreground uses a simple cache to remember the
+colour it last associated with the window it can be confused if the
+colour is changed by any other means.
+
+-- Changing the background of a picture -------------------------------
+
+It is also possible to change the background colour, though that will
+clear the image. See HELP RC_BACKGROUND.
+
+You can change background colours of Xgraphic windows with these two
+commands:
+
+    'pink' -> window(XtN background);
+    XpwClearWindow(window);
+
+but the second procedure clears the window, so that everything will
+have to be redrawn after changing the background
+
+In general, to change the background of a window it is simpler to use
+rc_background and its updater, especially in connection with dlocal.
+See HELP RCLIB/rc_background
+
+To change the background of a portion of a window it is often useful
+to use one of these procedures, described in HELP RCLIB
+
+    rc_draw_bar(x, y, height, len, col);
+        draws a horizontal bar
+
+    rc_drawline_absolute(x1, y1, x2, y2, colour, width);
+    rc_drawline_relative(x1, y1, x2, y2, colour, width);
+
+        these draw a line of given colour and width between
+        two specified locations. The first uses absolute window
+        coordinates, and the second uses rc_xorigin, rc_yorigin,
+        rc_xscale, rc_yscale.
+
+These two can be used to extend a window and specify the default
+background for the extension. Both are described in HELP RCLIB
+
+    rc_lengthen_window_by(win_obj, len, colour);
+    rc_widen_window_by(win_obj, width, colour);
+
+The full list of available colours can be found in HELP XCOLOURS
+The default foreground colour in a newly created window is black, and
+the background white (unless you have used .Xdefaults to change this).
+
+With coloured or picture backgrounds and coloured objects the effect of
+using the GXxor or GXequiv value for Glinefunction can be surprising:
+you will not see the foreground colour you've selected. It's best to
+experiment with different colours to get the effect you require.
+
+If you wish to have rc_linepic objects visible when they move around
+on such a background it may be best to change the foreground colour to
+something like slate grey thus.
+
+    'SlateGrey' -> rc_foreground(rc_window);
+
+However, if you are sure that one picture object will never move over
+another, and that the background over which the object will move is all
+one colour, then make your objects inherit from these mixins defined
+in LIB rc_opaque_mover
+
+    rc_opaque_movable
+        This is used in LIB rc_opaque_slider, for sliders with
+        coloured bars
+
+    rc_opaque_rotatable
+        This used in LIB rc_constrained_pointer, for drawing coloured
+        pointers that move over coloured dials.
+
+For examples of the use of opaque movers, see
+    TEACH rc_opaque_mover
+
+
+-- Displaying digitised images using LIB popvision --------------------
+
+There are also facilities for showing digitised pictures in an
+rc_graphic window, using the popvision library produced by David Young
+at Sussex. Later, a subset of those facilities may be added to the RCLIB
+package.
+
+
+-- Mixins provided for drawable objects -------------------------------
+
+In LIB RC_LINEPIC, four mixins are provided:
+    rc_linepic
+    rc_linepic_movable
+    rc_rotatable
+    rc_rotatable_picsonly
+
+with associated methods for drawing objects which include slots derived
+from these mixins. (See HELP OBJECTCLASS/'Mixins')
+
+In LIB RC_WINDOW_OBJECT there are further mixins:
+
+    rc_selectable
+    rc_keysensitive
+
+described below, concerned with interactions using the mouse. It also
+defines a class for mouse and keyboard sensitive windows
+
+    rc_window_object;
+
+
+-- -- The rc_linepic mixin
+
+This is the "top level" mixin in this library, defined as follows
+
+define :mixin rc_linepic;
+    slot rc_picx = 0;
+    slot rc_picy = 0;
+    ;;; A procedure or list of line-pictures to draw.
+    slot rc_pic_lines = [];
+    ;;; A procedure or list of strings to draw.
+    slot rc_pic_strings = [];
+enddefine;
+
+The first two slots represent the notional "location" of an object. The
+third and fourth specify how it is to be drawn, either as procedures, or
+as a collection of lines and strings, using the representation described
+above.
+
+A number of methods are provided for manipulating instances of classes
+that use the mixin. These are defined later:
+
+Objects derived directly from the rc_linepic mixin are typically static
+objects, drawn once. The next mixin and its associated methods are used
+for objects that are meant to be movable.
+
+-- -- The rc_linepic_movable mixin
+
+This is defined as a subclass of rc_linepic, providing two extra fields
+which can contain false or previous x and y coordinates of an object.
+
+The mixin is defined thus:
+
+define :mixin rc_linepic_movable; is rc_linepic;
+    ;;; Extend the class to include a record of previous location.
+    slot rc_oldx = false;
+    slot rc_oldy = false;
+enddefine;
+
+When an instance is drawn, the current location of the object can be
+stored as "old" coordinates. Thus, when it is moved to a new location,
+the previous location, where the picture must be erased, is recorded.
+
+Erasing a picture is done simply by re-drawing it using a suitable
+setting for the value of the active variable rc_linefunction, which is
+allocated via the variable Glinefunction in this package described
+below.
+
+Depending on the display used, usually one of GXxor or GXequiv can be
+used for the value of Glinefunction. However you may need to define a
+new version of Gdrawprocedure, as described below.
+
+Methods associated with the rc_linepic_movable mixin are described
+below.
+
+
+-- -- The rc_rotatable mixin
+
+This mixin is defined thus.
+
+define :mixin rc_rotatable; is rc_linepic_movable;
+    slot rc_axis = 0;
+    slot rc_oldaxis = false;
+enddefine;
+
+The rc_axis field represents an initial orientation, which is 0. If the
+orientation is changed the object may need to be redrawn, with suitable
+rotation.
+
+For examples see TEACH RC_LINEPIC/rc_rotatable
+
+The methods associated with this mixin are listed below.
+
+
+-- -- Glinefunction
+
+The library uses a global variable Glinefunction, whose default value
+is GXxor.
+
+    GXxor -> Glinefunction;
+
+An alternative value, e.g. needed on DEC Alphastations, is
+
+    GXequiv -> Glinefunction;
+
+This sets drawing function used by rc_draw_linepic and related drawing
+procedures to allow simply redrawing the same thing to erase it.
+
+If this is changed then it may be necessarily also to change the
+definition of the procedure
+
+    Gdrawprocedure(pic, wasequiv, wastrailing, procedure proc)
+
+Two default versions are provided in LIB RC_LINEPIC, namely
+
+ define rc_xor_drawpic(pic, wasequiv, wastrailing, procedure proc);
+ define rc_equiv_drawpic(pic, wasequiv, wastrailing, procedure proc);
+
+The default value is rc_xor. The procedure rc_setup_linefunction()
+should set up the required version automatically, even though some of
+the drawing of movable objects may produce strange colours.
+
+See
+    HELP RCLIB_PROBLEMS
+
+If there are problems about this, please send email to
+    A.Sloman@cs.bham.ac.uk
+describing the symptoms and how to produce them, and specifying exactly
+which terminal you are using.
+
+
+Since December 1999 the problem of identifying the appropriate settings
+has been dealt with automatically. This section can therefore be ignored
+by most users.
+
+Users can change the default after experimenting to see if the examples
+in the teach file work on the terminal. If a picture does not move or
+disappear when it is supposed to, but always leaves a trail of previous
+images, or if colours come out wrong, or items drawn in black fail to
+appear on a white background, then try
+
+Normally if Glinefunction is GXequiv, then Gdrawprocedure should be
+rc_equiv_drawpic. However, on some terminals it may be necessary to
+use a different version of Gdrawprocedure with GXequiv.
+
+    HELP RC_GRAPHIC/rc_linefunction
+    TEACH RC_LINEPIC/Glinefunction
+
+Since December 1999 all of this should be handled automatically by
+rc_setup_linefunction(), which is invoked by several of the startup
+procedures.
+
+
+-- Methods associated with drawable objects ---------------------------
+
+Methods associated with the mixins listed above for drawable, movable or
+rotatable objects are as follows.
+
+    define :method rc_coords(pic:rc_linepic);
+    define :method updaterof rc_coords(x, y, pic:rc_linepic);
+        Access or update the two coordinates of a picture object
+
+    define :method rc_undrawn(pic:rc_linepic);
+        Make an object think it has not been drawn (e.g. after
+        rc_start();
+
+    define :method rc_linepic_bounds(pic:rc_linepic, absolute)
+            -> (xmin, ymin, xmax, ymax);
+    define :method rc_linepic_bounds (pic:rc_rotatable, absolute)
+            -> (xmin, ymin, xmax, ymax);
+
+        Finds the bounds required for drawing the lines.
+        If the second argument is true, absolute coordinates
+        are returned, otherwise relative coordinates as used in
+        the rc_pic_lines slot of pic. (Not always accurate.)
+
+
+    define :method rc_draw_oldpic(pic:rc_linepic_movable);
+    define :method rc_draw_oldpic(pic:rc_rotatable);
+        This draws pic in the previous location, which normally
+        removes it from the screen (depending on Glinefunction)
+
+    define :method rc_draw_linepic (pic:rc_linepic);
+    define :method rc_draw_linepic (pic:rc_linepic_movable);
+    define :method rc_draw_linepic(pic:rc_rotatable);
+        This draws the object in its current location.
+
+    define :method rc_move_draw(pic:rc_linepic_movable);
+        This calls both the above two methods to show the
+        object moving, assuming it was previously drawn in its
+        old location.
+
+    define :method rc_move_by(pic:rc_linepic_movable, dx,dy, draw);
+        This adds dx to the rc_picx slot and dy to the rc_picy slot
+        after storing the previous values in the "old" slots.
+
+        The final argument specifies the drawing mode. The method
+        draws the object in the old and the new locations, using
+        rc_move_draw, under the control of the mode parameter:
+
+        The fourth argument "draw"  can be one of
+            false:   do not draw the object at all, just change the
+                     coordinates internally.
+
+            true:    draw it as moving, eliminating the old version
+
+           "trail":  just draw the new location leaving the old one.
+                     This will produce a trail showing how the object
+                     has moved.
+
+    define :method rc_move_to(pic:rc_linepic_movable, newx, newy, draw);
+        This is similar to rc_move_by except that it is given absolute
+        instead of relative coordinates newx, newy, for the location.
+
+    define :method rc_set_axis(pic:rc_rotatable, ang, draw);
+    define :method rc_turn_by(pic:rc_rotatable, ang, draw);
+
+        These two are used to change the orientation of a
+        picture object. The "ang" argument should be a number
+        specifying the new orientation. In the case of rc_set_axis
+        it is the absolute new value of the orientation, whereas in
+        the case of rc_turn_by "ang" specifies the amount by which
+        the orientation should change. A positive value represents
+        counter-clockwise rotation.
+
+There are additional utility procedures described below.
+
+-- Mixins provided for mouse sensitive objects ------------------------
+
+LIB RC_MOUSEPIC makes available the ability to associate selectable,
+and draggable objects with a picture. Start by making the library
+available
+
+    uses rc_mousepic
+
+-- -- The rc_selectable mixin
+
+This defines an additional mixin, with a slot indicating a "selection
+square" within which the mouse pointer is able to select and drag an
+object.
+
+define :mixin rc_selectable;
+    ;;; This should normally be used with rc_linepic,
+    ;;; or rc_linepic_movable. The former is for static objects.
+
+    ;;; Next slot can hold a distance, or a rectangle specified by a vector
+    ;;; or a procedure. Give it a copy of the default value.
+    slot rc_mouse_limit = rc_select_distance;
+
+    ;;; Button event handlers. NB: Keypress handlers can be added
+    ;;; via mixin rc rc_keysensitive;
+    slot rc_button_up_handlers =
+        { rc_button_1_up rc_button_2_up rc_button_3_up };
+    slot rc_button_down_handlers =
+        { rc_button_1_down rc_button_2_down rc_button_3_down };
+    slot rc_drag_handlers =
+        { rc_button_1_drag rc_button_2_drag rc_button_3_drag };
+
+    ;;; Move event handlers
+    slot rc_move_handler = "rc_move_mouse";
+    slot rc_entry_handler ="rc_mouse_enter";
+    slot rc_exit_handler ="rc_mouse_exit";
+enddefine;
+
+If an attempt is made to select an instance of this with the mouse, and
+the point chosen has coordinates x, y, and the picture has centre
+located at px, py, then the value of the rc_mouse_limit slot will be
+used to determine whether the object is selected. E.g. if the value is
+a number then if abs(px - x) and abs(py - y) are both less
+than the value, the picture can be selected. The value can be a vector
+determining coordinates of opposite corners of a sensitive rectangle, or
+a boolean valued procedure which will be applied to (x, y, px, py, pic)
+to determine whether the object is selected or not.
+
+If there is an ambiguity because pictures overlap various options are
+available, as defined below.
+
+The sensitive area is by default a square to simplify computation. If
+this is too restrictive there are two other options. The value of
+the rc_mouse_limit slot can be
+
+1. An integer as explained above
+
+2. A vector of four integers representing a rectangle by any two
+diagonally opposite corners, in coordinates that are local to the
+picture object e.g. {xmin ymin xmax ymax}
+
+3. A procedure taking five arguments and returning a boolean.
+
+        limit_procedure(x, y, picx, picy, pic ) -> boolean;
+   Where
+    x, y are mouse cursor coordinates on the window
+
+    picx, picy, are the picture object coordinates on the window,
+
+    pic is the picture object.
+
+Examples can be found in TEACH RC_LINEPIC
+
+For cases where a square (or rectangle) or other simple procedure for
+recognising selection is not acceptable, it may be possible to define a
+type of composite object made of a collection of smaller objects
+(possibly some of them invisible, i.e. rc_pic_lines and rc_pic_strings
+both empty).
+
+-- -- Moving an rc_selectable instance
+
+The method rc_move_to gets redefined for rc_selectable instances:
+
+define :method rc_move_to(pic:rc_selectable, x, y, mode);
+    dlocal rc_moving_picture_object;
+    if pic == rc_moving_picture_object then
+        ;;; already moving
+        return();
+    endif;
+    pic -> rc_moving_picture_object;
+    call_next_method(pic, x, y, mode);
+    unless Drawing_defer_list == [] then
+        handle_drawing_deferred();
+    endunless;
+enddefine;
+
+
+The first part of this prevents dragging from interfering with a picture
+moving under program control and vice versa.
+
+The last part makes it possible for the event handler to notice that an
+event involves an object that is already being drawn (e.g. a mobile
+object), and to postpone action. When the movement of the object in
+question is completed, any deferred events will be processed.
+
+-- -- The rc_keysensitive mixin
+
+define :mixin rc_keysensitive;
+    slot rc_keypress_handler = "rc_handle_keypress";
+enddefine;
+
+The default handler for keyboard events is
+
+define :method rc_handle_keypress(pic:rc_selectable, x, y, modifiers, key);
+    ;;; Default does nothing, but uncomment this to trace key events
+    ;;; [keypress ^x ^y ^modifiers key ^key ] =>
+enddefine;
+
+This mixin, along with suitably defined versions of the above method can
+be used to create windows or classes of picture objects which are
+sensitive to keyboard events when the mouse is in their sensitive area.
+Examples of mappings between keyboard keys, and the code produced as the
+final argument for the method can be found in
+
+    HELP RC_KEYCODES
+
+However, the mappings may be different on different terminals, and it
+will be necessary to experiment with each type to find the appropriate
+interpretations of the codes.
+
+-- The rc_window_object class -----------------------------------------
+
+Instances of this class provide access to methods for manipulating
+graphical windows. The class, defined in LIB RC_WINDOW_OBJECT is
+
+define :class rc_window_object;
+    ;;; The main class for graphical window objects, with handlers that
+    ;;; are defined below. Pictures and strings can be drawn in
+    ;;; instances of this.
+    is rc_selectable  rc_keysensitive;
+
+    ;;; The graphical window
+    slot rc_widget = false;
+
+    ;;; x, y, width, height
+    slot rc_screen_frame = { 0 0 0 0};
+
+    slot rc_screen_adjust = {0 0};
+
+    ;;; Two vectors containing 12 rc_graphic startup values
+    ;;;     rc_xorigin, rc_yorigin, rc_xscale, rc_yscale
+    ;;; this is a vector with rc_xorigin, rc_yorigin, rc_xscale, rc_yscale
+    ;;; Once set these do not change. They are used to set rc_window_frame
+    slot rc_window_origin = {0 0 0 0};
+
+    ;;; this will hold origin variables plus other globals to be reset
+    ;;; just before this ceases to be the current window object, e.g.
+    ;;;     rc_xposition, rc_yposition, rc_heading,
+    ;;;     rc_clipping, rc_xmin, rc_ymin, rc_xmax, rc_ymax
+    slot lconstant RC_window_frame ;
+
+    ;;; Slot set true by rc_mousepic
+    slot rc_sensitive_window == false;
+
+    ;;; Sensitive objects in this window
+    slot rc_window_contents == [];
+
+    slot lconstant WIN_FRAME;
+
+    ;;; The currently selected picture object in this window
+    slot rc_mouse_selected == false;
+
+    ;;; Is there a real graphical object (a widget) yet
+    slot rc_window_realized == false;
+
+    ;;; Is it currently visible or not
+    slot rc_window_visible == false;
+
+    ;;; List of event types set by this procedure, in rc_mousepic
+    slot rc_event_types == [];
+
+    ;;; this slot value is accessed only via method rc_window_title
+    slot lconstant RC_TITLE == 'Xgraphic';  ;;; used by the method below.
+
+    slot rc_mouse_limit == 0;
+enddefine;
+
+
+The procedure rc_new_window object creates an instance of this class and
+inserts a poplog graphic window into the first slot, rc_widget.
+(See REF Xpw, for information on the poplog widget set.)
+
+-- Types of events and their handlers ---------------------------------
+
+As described below, the procedure rc_mousepic(<window object>) makes the
+window object sensitive to a variety of mouse events for which event
+handlers can be defined.
+
+The types of events so far supported in RCLIB are these (described
+further in HELP RC_EVENTS).
+
+    o Button events:
+        Button 1 to 3 going up or down. This invokes one of the
+        following methods
+
+            rc_button_1_up   rc_button_2_up   rc_button_3_up
+            rc_button_1_down rc_button_2_down rc_button_3_down
+
+    o Motion events
+
+    (a) Moving the mouse pointer over the window
+        If no button is depressed this invokes the method
+            rc_move_mouse
+
+    (b) Dragging with button 1, or 2, or 3 down
+        If a mouse button is held down at the same time as the mouse is
+        moved, this is a drag event invoking one of these methods,
+        depending on which button is down:
+
+            rc_button_1_drag rc_button_2_drag rc_button_3_drag
+
+    o Mouse events
+        The mouse entering or leaving a window invokes one of these
+        methods
+            rc_mouse_enter  rc_mouse_exit
+
+    o Keyboard events
+        keyboard key presses
+        Pressing or releasing a keyboard key, while the mouse cursor is
+        in the window. These events are handled by the method
+            rc_handle_keypress
+
+
+        This is available for instances of the mixin rc_keysensitive,
+        defined in:
+
+        LIB RC_WINDOW_OBJECT. For an example of its use see
+            TEACH RC_LINEPIC/rc_handle_keypress
+
+        For information on how to interpret the inputs to that
+        procedure see HELP RC_KEYCODES
+
+Later additional types of events may be added.
+    See REF XT_EVENT, REF XPT_XEVENT
+
+
+Apart from the entering and leaving events all of these may be trapped
+by a picture object within the window, if the mouse is within the
+picture object's sensitive region, as described below and in
+    HELP RC_EVENTS
+
+-- -- rc_mousepic(win or win_obj + optional event list)
+
+The procedure rc_mousepic applied to a window_object or widget (e.g. to
+rc_window) makes it sensitive to both mouse and keyboard events and
+allows it to contain sensitive objects.
+
+The following formats are possible.
+
+    rc_mousepic(win)
+    rc_mousepic(win, list)
+    rc_mousepic(win_obj)
+    rc_mousepic(win_obj, list)
+
+Where "win" is a graphic window, e.g. rc_window, win_obj is a
+window_object instance, and list, if present, contains some combination
+of the words "button", "mouse", "motion", "keyboard", defining the types
+of events that can be handled. (Other types may be added later.)
+
+Examples of the use of the use of rc_mousepic are shown in
+
+    TEACH RC_LINEPIC/'rc_mousepic('
+
+The effect of rc_mousepic is undone by rc_mousepic_disable.
+
+Further information about rc_mousepic and event types, is given in
+
+    HELP RC_EVENTS,
+
+including the use of rc_add_pic_to_window to inform a window of a
+picture object capable of handling some events. The file includes a
+description of what happens when an event occurs.
+
+
+-- -- The property rc_window_object_of
+
+This property is used to associate instances of the class
+rc_window_object with graphic windows. E.g. the current window object
+would be
+
+    rc_window_object_of(rc_window) -> win_obj
+
+In that case rc_widget(win_obj) will be rc_window.
+
+
+-- Methods for mouse-sensitive objects --------------------------------
+
+The complete list of procedures and methods relevant to sensitive
+objects can be found below in the section headed
+
+    'Index to rc_mousepic'
+
+A subset of the more important methods are described below.
+
+
+-- -- rc_current_window_object
+
+false or win_obj -> rc_current_window_object
+rc_current_window_object -> win_obj or false
+
+This active variable, which is localised in the event handler, is used
+to switch between windows. Assigning a window object to it saves the
+current window object's values and sets up the environment for the new
+window_object, to be used by drawing procedures, etc.
+
+When the value is false no drawing is possible (though there may still
+be active window_objects, visible or not).
+
+Because the value is localised in the event handler performing a mouse
+action on a window will not leave that window as the current one when
+the event is over, except in the case where the event kills the previous
+window (e.g. a kill button is clicked). To make a mouse event in a
+window set the window as the current one thereafter it is necessary to
+use "deferred" actions.
+
+-- -- Fast dragging: rc_fast_drag
+
+The global variable rc_fast_drag has a default value of true. This
+speeds up dragging but can also make it more discontinuous. To produce
+slower more continuous dragging do
+
+    false -> rc_fast_drag
+
+When this is true, the dragging event handler checks whether the
+following event in the event queue is also a dragging event. In that
+case the current event is not processed any further. This can especially
+speed up dragging of complex objects which take a long time to clear and
+redraw.
+
+-- -- Fast motion event tracking: rc_fast_move
+
+The global variable rc_fast_move has a default value of true. This
+speeds up handling of mouse motion events, but can also make it more
+discontinuous. To produce slower more continuous tracking do
+
+    false -> rc_fast_move;
+
+For faster tracking use the default
+
+    true -> rc_fast_move;
+
+In the latter case, the mouse motion event handler checks whether the
+following event in the event queue is also a motion event. If so, the
+current motion event is not processed any further.
+
+This can reduce the number of events processed. Whether this makes a
+noticeable difference will depend on how much work the motion event
+handler does, and how fast the computer and display are.
+
+-- -- rc_moving_picture_object
+
+This global variable is set locally by the rc_move_to method when
+applied to rc_selectable objects. However, if the object being moved is
+already the value of the variable rc_move_to does nothing.
+
+
+-- Warning: changing the window size, or coordinate frame -------------
+
+If you change the size of the window using the mouse, always re-run
+rc_setsize(), to ensure that Pop-11 knows the new window size, or call
+rc_window_location on the corresponding window_object.
+
+Information about the location and size of a window_object will be
+stored in the instance record, along with values for rc_xorigin,
+rc_yorigin, rc_xscale, rc_yscale, and other things.
+
+These values are stored in the rc_window_frame slot of each instance of
+the rc_window_object class, as explained above.
+
+
+-- Making "live" buttons ----------------------------------------------
+
+LIB RC_BUTTONS
+
+HELP RC_BUTTONS demonstrates how to make button objects which contain a
+descriptive label and cause a procedure to be invoked if clicked on
+(e.g. a Ved procedure or any other arbitrary action).
+    See TEACH RC_LINEPIC/RC_BUTTONS
+
+-- List of mixins, procedures and methods-----------------------------
+
+-- -- In LIB RC_LINEPIC
+
+[DRAFT -- to be extended]
+
+ define :mixin rc_linepic;
+    The core class
+
+ define :mixin rc_linepic_movable; is rc_linepic;
+    Adds slots relevant to movable objects
+
+ define :mixin rc_rotatable; is rc_linepic_movable;
+    For rotatable objects. Adds slots rc_axis, rc_oldaxis
+
+ define :mixin rc_rotatable_picsonly; is rc_rotatable;
+    ;;; rotation methods defined so that strings are not rotated,
+    ;;; only the picture elements
+
+ define rc_xor_drawpic(pic, wasequiv, wastrailing, procedure proc);
+ define rc_equiv_drawpic(pic, wasequiv, wastrailing, procedure proc);
+    Two procedures that can be assigned to Gdrawprocedure
+
+ define rc_setup_linefunction();
+    Does the setting up of Gdrawprocedure and Glinefunction
+
+ define :method rc_coords(pic:rc_linepic);
+ define :method updaterof rc_coords(x, y, pic:rc_linepic);
+
+ define :method rc_undrawn(pic:rc_linepic);
+ define rc_undraw_all(pics);
+ define active rc_frame_angle();
+ define updaterof active rc_frame_angle(angle);
+ define rc_rotate_coords(x, y) -> (x, y);
+ define rc_rotate_coords_rounded(x, y) -> (x, y);
+ define :method rc_linepic_bounds(pic:rc_linepic, absolute)
+            -> (xmin, ymin, xmax, ymax);
+ define :method rc_linepic_bounds (pic:rc_rotatable, absolute)
+            -> (xmin, ymin, xmax, ymax);
+
+ define rc_interpret_qualified_strings(list);
+ define vars procedure rc_interpret_strings(strings);
+ define vars procedure rc_interpret_qualified_pics(pic_specs);
+ define vars procedure rc_interpret_pics(pic_specs);
+
+ define vars procedure rc_draw_lines_normal
+        (startx, starty, pic_specs, strings, pic);
+    Given a start location make that the origin of the rc_graphic
+    coordinate system. Then draw all the line segments in line_lists
+    and the strings in strings. See examples above for the formats
+    used.
+
+    Like the next procedure, this assigns pic to the global variable
+        rc_current_picture_object, which can therefore be accessed
+        in drawing procedures
+
+ define vars procedure rc_draw_lines_rotated
+            (startx, starty, pic_specs, strings, ang, pic);
+    Draws a rotatable object, using "ang" to fix the orientation
+        sets rc_current_picture_object, for user drawing procedures
+
+ define :method rc_draw_linepic (pic:rc_linepic);
+    Draw pic in its current location.
+
+ define :method rc_draw_linepic (pic:rc_linepic_movable);
+    Draw pic in its current location and store that location in
+    the rc_oldx and rc_oldy slots.
+
+ define :method rc_draw_linepic(pic:rc_rotatable);
+
+ define :method rc_draw_oldpic(pic:rc_linepic_movable);
+    Does nothing if rc_oldx(pic) is false. Otherwise draws the object at
+    the old location (which will obliterate the picture if
+    rc_linefunction is set right)
+    Prevent re-drawing at old location by setting the old coordinates
+    false.
+
+ define :method rc_draw_oldpic(pic:rc_rotatable);
+    Similarly for rotatable objects. Needs to use the axis information.
+
+ define :method rc_move_draw(pic:rc_linepic_movable);
+    Draw a moving object. Draw at old location, then at new.
+    Uses rc_draw_oldpic then rc_draw_linepic.
+
+ define :method rc_move_to(pic:rc_linepic_movable, newx, newy, draw);
+    A method to move a picture to location newx,newy.
+    If the final argument (draw) is non false, then draw the picture
+    moving. If it is true obliterate old location. If it is the word
+    "trail" then leave the old location. If is false don't draw.
+    If rc_pause_draw is true, pause after drawing, until a key is
+    pressed. Can be used to slow down drawing.
+
+ define :method rc_move_by(pic:rc_linepic_movable, dx, dy, draw);
+    A method to move a picture by amount dx, dy.
+    If the final argument (draw) is non false, then draw the picture
+    moving. If it is true obliterate old location. If it is the word
+    "trail" then leave the old location. If is false don't draw.
+    If rc_pause_draw is true, pause after drawing, until a key is
+    pressed. Can be used to slow down drawing. (This uses rc_move_to).
+
+ define :method rc_set_axis(pic:rc_rotatable, ang, draw);
+ define :method rc_turn_by(pic:rc_rotatable, ang, draw);
+    These two rotate rotatable objects
+
+-- -- In LIB RC_WINDOW_OBJECT
+[DRAFT -- to be extended]
+
+ define rc_window_sync();
+    uses rc_window_sync_time to specify delay before calling
+    rc_sync_display() described in HELP RCLIB/rc_sync_display
+
+ define vars procedure rc_window_object_of
+    A property mapping widgets to window_objects
+
+ define :mixin rc_selectable;
+ define :mixin rc_keysensitive;
+
+ define :method rc_keypress_handler(pic:rc_linepic);
+    Default dummy version for picture objects. Could be redefined to
+    use call_next_method on rc_current_window_object
+
+ define :class rc_window_object; is rc_selectable  rc_keysensitive;
+    The main class representing windows.
+
+ define :method rc_window_title(win_obj:rc_window_object) -> string;
+ define :method updaterof rc_window_title(win_obj:rc_window_object);
+ define :method rc_screen_coords(win_obj:rc_window_object) /* -> (x, y, w, h) */;
+ define :method updaterof rc_screen_coords(x, y, w, h, win_obj:rc_window_object);
+    Access or update the internally stored values for location width and
+    height, without changing the actual widget.
+    The updater allows any of x, y, w, h to be false, in which case the
+    value will not be updated.
+
+ define :method rc_window_location(win_obj:rc_window_object) -> (x, y, w, h);
+ define :method updaterof rc_window_location(x, y, w, h, win_obj:rc_window_object);
+    The updater allows any of x, y, w, h to be false, in which case the
+    value will not be updated. This can be used to change the height or
+    width without altering location or vice versa. See also
+        HELP RCLIB/rc_lengthen_window_by
+        HELP RCLIB/rc_widen_window_by
+
+ define :method print_instance(win_obj:rc_window_object);
+
+
+-- -- -- Creating and destroying window objects
+
+ define :method rc_set_window_globals(win_obj:rc_window_object);
+ define vars rc_set_window_defaults(x, y, width, height) /* -> 12 results */;
+
+ define xt_new_window(string,xsize,ysize,xloc,yloc) -> widget;
+
+ define :method rc_realize_window_object(win_obj:rc_window_object);
+
+ define rc_new_window_object(x, y, width, height, setframe) -> win_obj;
+    Create new window object. Has various optional arguments, described
+    in HELP RCLIB (should be reorganised)
+
+ define :method rc_kill_window_object(win_obj:rc_window_object);
+
+-- -- -- Some inaccessible utilities
+
+Perhaps these should be made accessible?
+ define lconstant rc_get_current_globals(window);
+ define lconstant rc_save_window_object(win_obj);
+ define lconstant rc_restore_window_object(win_obj);
+
+-- -- -- Showing and hiding window objects
+ define :method rc_show_window(win_obj:rc_window_object);
+ define :method rc_hide_window(win_obj:rc_window_object);
+ define :method rc_raise_window(win_obj:rc_window_object);
+
+ define active rc_current_window_object /* -> win_obj */;
+ define updaterof active rc_current_window_object( win_obj);
+    Assigning to this automatically changes the current locals, e.g.
+    rc_window, rc_xorigin, rc_yorigin, scale, etc. etc.
+
+-- -- -- Redrawing and clearing window objects
+
+ define :method rc_redraw_window_object(win_obj:rc_window_object);
+ define :method rc_redraw_window_object(win_obj:rc_window_object, false);
+    Clear the window and redraw all the picture objects it knows about.
+    If optional extra false argument is give, the window is not cleared
+    first.
+
+ define :method rc_clear_window_object(win_obj:rc_window_object);
+    ;;; Clear the window
+
+-- -- In LIB RC_MOUSEPIC
+
+rc_mousepic(win);
+rc_mousepic(win, list);
+    Explained above.
+
+    win can be an Rc_graphic widget (e.g. rc_widget) or an instance
+    of rc_window_object.
+
+    Make the window mouse sensitive.
+    If list is provided, it specifies which kinds of events are handled.
+
+rc_mousepic_disable(widget);
+    Undo the above
+
+rc_add_pic_to_window(pic:rc_selectable, win_obj:rc_window_object, atfront);
+    See HELP RC_EVENTS/rc_add_pic_to_window
+
+    If atfront is true in the add procedure, the picture object is put
+    at the head of the list of objects known to the window, held in the
+    rc_window_contents slot. So it will be the first one found if an
+    event occurs with the mouse in the object's sensitive area.
+
+rc_remove_pic_from_window(pic:rc_selectable, win_obj:rc_window_object);
+    Add the mouse sensitive object to the window specified, or remove
+    it.
+
+-- -- In LIB RC_BUTTONS
+
+    There are several button classes and many button related procedures.
+    See HELP RC_BUTTONS for details
+
+-- -- In LIB RC_POINT
+    Facilities for creating mouse-movable points, e.g. for feeding
+    location input into a program.
+
+        See HELP RC_POINT
+
+-- -- In LIB RC_LINKED_PIC
+
+    Facilities for creating pictures known to several different windows,
+    so that (a) they can be drawn with slightly different appearances in
+    different windows (b) moving the picture in one window causes it to
+    move in the others that "contain" it.
+        See HELP RC_LINKED_PIC
+
+-- In $poplocal/local/rclib/auto --------------------------------------
+
+    See HELP RCLIB/'Autoloadable libraries'
+
+-- Related documentation ----------------------------------------------
+
+HELP RCLIB
+    A general overview of available facilities
+
+TEACH RC_LINEPIC
+    Examples illustrating rc_linepic and rc_mousepic
+
+TEACH RCLIB_DEMO.P
+    A wider but more compact range of introductory examples
+
+HELP RC_BUTTONS
+    The rc_buttons package
+
+HELP RC_POINT
+    Procedures for making mouse movable points for selecting coordinates
+    for program input
+
+TEACH RCLIBTEACHINDEX
+HELP RCLIBHELPINDEX
+    These give more complete lists of teach and help files
+
+General information about rc_graphic
+    TEACH RC_GRAPHIC
+    HELP  RC_GRAPHIC
+
+Introduction to Objectclass and its concepts
+    TEACH OOP (At Birmingham)
+    TEACH OBJECTCLASS_EXAMPLE
+    HELP  OBJECTCLASS
+
+
+Utilities
+    HELP RC_BACKGROUND
+        Shows how to change the background colour in an rc_graphic
+        window.
+
+    LIB RC_FOREGROUND
+        Shows how to change the foreground colour in an rc_graphic
+        window.
+
+    HELP RC_WINDOW_COORDS
+        For accessing and updating location of Xgraphic window
+
+    HELP RC_WINDOW_DIMENSIONS
+        For accessing and updating the window dimensions
+
+    TEACH RC_ARRAY
+    HELP  RCI_SHOW
+        Part of the popvision library available from Sussex. For
+        displaying images in rc_graphic windows. Popvision is available
+        from the Free Poplog site:
+            http://www.cs.bham.ac.uk/research/poplog/freepoplog.html
+
+    TEACH RC_GRAPHPLOT
+        Drawing graphs of many kinds
+
+    HELP RCLIB/rc_ant_demo
+        A demonstration of rc_linepic facilities.
+
+RCLIB and associated libraries and documentation are freely available
+from the Birmingham Poplog directory:
+
+    http://www.cs.bham.ac.uk/research/poplog/
+    ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/
+
+See the rclib/ subdirectory and the rclib.tar.gz compressed tar file.
+
+-- Index to rc_linepic ------------------------------------------------
+
+This was correct on 9 Jul 2000. For an up to date version see
+    LIB rc_linepic
+
+ define -- The main mixins
+ define :mixin rc_linepic;
+ define :mixin rc_linepic_movable; is rc_linepic;
+ define :mixin rc_rotatable; is rc_linepic_movable;
+ define :mixin rc_rotatable_picsonly; is rc_rotatable;
+ define :class dummy;  is rc_rotatable;
+ define -- Pausing utility (probably useless, except for debugging?)
+ define global vars rc_check_pausing();
+ define -- Procedures assignable to Gdrawprocedure
+ define rc_xor_drawpic(pic, wasequiv, wastrailing, procedure proc);
+ define rc_equiv_drawpic(pic, wasequiv, wastrailing, procedure proc);
+ define -- Utility procedures and methods
+ define :method rc_coords(pic:rc_linepic);
+ define :method updaterof rc_coords(/*x, y,*/ pic:rc_linepic);
+ define :method rc_undrawn(pic:rc_linepic);
+ define :method rc_undrawn(pic:rc_linepic_movable);
+ define vars procedure rc_undraw_all(pics);
+ define -- Utilities concerned with rotation.
+ define active rc_frame_angle();
+ define updaterof active rc_frame_angle(angle);
+ define rc_rotate_coords(x, y) -> (x, y);
+ define rc_rotate_coords_rounded(x, y) -> (x, y);
+ define -- picture bounds procedures
+ define :method rc_linepic_bounds(pic:rc_linepic, absolute)
+ define :method rc_linepic_bounds (pic:rc_rotatable, absolute)
+ define -- Core procedures for drawing lines and strings
+ define is_current_picture_object(pic);
+ define set_current_picture_object(pic);
+ define unset_current_picture_object(pic);
+ define :method rc_set_drawing_colour(pic:rc_linepic, colour, window);
+ define -- String procedures
+ define rc_interpret_qualified_strings(list, pic);
+ define vars procedure rc_interpret_strings(strings, pic);
+ define -- Utilities for drawing pictures
+ define -- Abbreviations for picture types
+ define vars procedure rc_interpret_qualified_pics(pic_specs, pic);
+ define lconstant apply_proc(procedure proc, args);
+ define vars procedure rc_interpret_pics(pic_specs, pic);
+ define vars procedure rc_draw_lines_normal(startx, starty, pic_specs, strings, pic);
+ define :method rc_draw_pics_rotated(pic:rc_rotatable, startx, starty, pics, ang);
+ define :method rc_draw_strings_rotated(pic:rc_rotatable, startx, starty, strings, ang);
+ define :method rc_draw_strings_rotated(pic:rc_rotatable_picsonly, startx, starty, strings, ang);
+ define vars procedure rc_draw_lines_rotated
+ define -- Methods for drawing and re-drawing pictures
+ define :method rc_draw_linepic(pic:rc_linepic);
+ define :method rc_draw_linepic(pic:rc_linepic_movable);
+ define :method rc_draw_linepic(pic:rc_rotatable);
+ define :method rc_draw_oldpic(pic:rc_linepic_movable);
+ define :method rc_draw_oldpic(pic:rc_rotatable);
+ define :method rc_undraw_linepic(pic:rc_linepic_movable);
+ define :method rc_undraw_linepic(pic:rc_rotatable);
+ define -- Methods for drawing moving pictures
+ define :method rc_move_draw(pic:rc_linepic_movable);
+ define :method rc_move_to(pic:rc_linepic_movable, newx, newy, draw);
+ define :method rc_move_by(pic:rc_linepic_movable, dx, dy, draw);
+ define -- Methods for rotation
+ define :method rc_set_axis(pic:rc_rotatable, ang, draw);
+ define :method rc_turn_by(pic:rc_rotatable, ang, draw);
+
+-- Index to rc_mousepic ------------------------------------------------
+
+This was correct on 10 Sep 2000. For an up to date version see
+    LIB rc_mousepic
+
+ define -- Global variables and mixin and class definitions
+ define rc_create_mouse_limit(pic);
+ define :method rc_coords(pic: rc_selectable) /* -> (x, y) */;
+ define :method updaterof rc_coords(/*x, y,*/ pic:rc_selectable);
+ define -- Utilities and methods concerned with mouse actions
+ define rc_object_selected(x, y, picx, picy, piclim, pic) /* -> boole */;
+ define :method rc_pictures_selected(win_obj:rc_window_object, x, y, findone) -> num;
+ define -- The core utilities for handling callbacks
+ define rc_defer_apply(proc);
+ define :method rc_mousexyin(win_obj:rc_window_object, x, y) /* -> (x, y) */;
+ define find_selected_object(window_obj, x, y) -> obj;
+ define vars procedure rc_get_handler(obj, type, button) -> handler;
+ define vars apply_or_unpack(proc, obj, x, y, modifiers, /*key*/);
+ define vars procedure rc_system_button_down_callback(obj, x, y, modifiers, item, button);
+ define vars procedure rc_system_button_up_callback(obj, x, y, modifiers, item, button);
+ define vars procedure rc_system_move_callback(obj, x, y, modifiers, item, button);
+ define vars procedure rc_system_drag_callback(obj, x, y, modifiers, item, button);
+ define vars procedure rc_system_keypress_callback(obj, x, y, modifiers, data, key);
+ define vars procedure rc_system_entry_callback(obj, x, y, modifiers, data, mode);
+ define vars procedure rc_system_exit_callback(obj, x, y, modifiers, data, mode);
+ define :method rc_set_front(pic:rc_selectable);
+ define -- User definable event handlers
+ define :method rc_button_1_down(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_1_down(pic:rc_window_object, x, y, modifiers);
+ define :method rc_button_2_down(pic:rc_selectable, x, y, modifiers);
+ define :method rc_make_selected(pic:rc_selectable, x, y, modifiers);
+ define :method rc_make_unselected(pic:rc_selectable, x, y, modifiers);
+ define :method rc_make_selected(pic:rc_window_object, x, y, modifiers);
+ define :method rc_make_unselected(pic:rc_window_object, x, y, modifiers);
+ define rc_kill_selected_window_objects();
+ define :method rc_button_3_down(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_3_down(pic:rc_window_object, x, y, modifiers);
+ define :method rc_button_1_up(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_2_up(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_3_up(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_1_drag(pic:rc_window_object, x, y, modifiers);
+ define :method rc_button_1_drag(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_2_drag(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_2_drag(pic:rc_window_object, x, y, modifiers);
+ define :method rc_button_3_drag(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_3_drag(pic:rc_window_object, x, y, modifiers);
+ define :method rc_move_mouse(pic:rc_selectable, x, y, modifiers);
+ define :method rc_mouse_enter(pic:rc_selectable, x, y, modifiers);
+ define :method rc_mouse_exit(pic:rc_selectable, x, y, modifiers);
+ define :method rc_handle_keypress(pic:rc_selectable, x, y, modifiers, key);
+ define -- The actual event handlers
+ define constant rc_modifier_codes =
+ define rc_reset_context();
+ define vars procedure process_defer_list();
+ define lconstant do_deferred();
+ define rc_clear_events();
+    Can be invoked by users to clear the current event list and the
+    defer event list.
+ define vars procedure rc_process_event(event);
+ define vars procedure rc_process_event_queue();
+    This processes the event queue.
+ define vars handle_drawing_deferred();
+ define :method rc_draw_linepic(pic:rc_selectable);
+ define :method rc_undraw_linepic(pic:rc_selectable);
+ define :method rc_move_to(pic:rc_selectable, x, y, mode);
+ define vars procedure rc_external_defer_apply();
+ define lconstant is_contained(w, container) -> boole;
+ define vars rc_handle_event(w, item, data, proc);
+    This sets actions onto the event queue
+ define vars procedure rc_do_button_actions(widget, item, data);
+ define vars procedure rc_do_move_actions(widget, item, data);
+ define vars procedure rc_do_mouse_actions(widget, item, data);
+ define vars procedure rc_do_keyboard_actions(widget, item, data);
+ define lconstant RC_DO_BUTTON_ACTIONS(/* widget, item, data */);
+ define lconstant RC_DO_MOVE_ACTIONS(/* widget, item, data */);
+ define lconstant RC_DO_MOUSE_ACTIONS(/* widget, item, data */);
+ define lconstant RC_DO_KEYBOARD_ACTIONS(/* widget, item, data */);
+ define -- Setting up rc_window
+ define rc_mousepic(win, /* list */);
+    Make the window mouse sensitive and add it to the property
+    associating windows with rc_live_window instances.
+    If list is provided, it specifies which kinds of events are handled.
+ define rc_mousepic_disable(widget);
+ define -- Adding picture objects to a window
+ define :method rc_add_pic_to_window(pic:rc_selectable, win_obj:rc_window_object, atfront);
+ define :method rc_remove_pic_from_window(pic:rc_selectable, win_obj:rc_window_object);
+
+
+--- $poplocal/local/rclib/help/rc_linepic
+--- Copyright University of Birmingham 2000. All rights reserved. ------

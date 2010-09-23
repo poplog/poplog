@@ -1,0 +1,822 @@
+HELP NEWOBJ                                         A. Sloman Oct 1985
+
+
+A PACKAGE FOR OBJECT ORIENTED PROGRAMMING - USING POP-11 PROCESSES
+                                                  A.Sloman May 1983
+                                                  Modified Oct 1985
+LIB NEWOBJ
+
+Please note: this package is for demonstration purposes only.
+
+It is supplied with POPLOG as an illustration of the use of syntax
+procedures to define an extension to the language, and the use of
+processes to implement object-oriented programming.
+
+TEACH * FLAVOURS provides a different style of object oriented package.
+
+CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- History
+ -- WHAT IS OBJECT ORIENTED PROGRAMMING?
+ -- LIB NEWOBJ
+ -- SELF and MESSAGE slots
+ -- Default Slot Values
+ -- Data associated globally with a class
+ -- Procedural features
+ -- MULTIPLE INHERITANCE
+ -- RPOBLEMS
+ -- Using the Program
+ -- CLASS definitions
+ -- MESSAGE_ACTIONS
+ -- CREATING INSTANCES OF A CLASS
+ -- DEFAULTS vs START_ACTIONS
+ -- SENDING MESSAGES
+ -- PRINTING OBJECTS
+ -- TRIGGERING CONSTRAINTS
+ -- USING |--> TO TRANSFER CONTROL PERMANENTLY
+ -- A MESSAGE COMPOSED OF A PROCEDURE WITH ARGUMENTS:
+ -- CLASS RECORDS
+ -- How Classes are represented
+ -- ACCESSING THE CLASS FROM ITS NAME
+ -- LISTING ALL SUPERCLASSES
+ -- Notes
+
+-- History ------------------------------------------------------------
+LIB OBJ was a local library package for object oriented programming,
+using POP-11 processes, implemented in May 1983. LIB NEWOBJ extends
+this to provide multiple inheritance and some other extensions and
+bug-fixes, including a separation between 'start_actions' and
+'default_actions', previously confused.
+
+Examples of the use of LIB NEWOBJ are presented at the end, after
+general discussion.
+
+-- WHAT IS OBJECT ORIENTED PROGRAMMING? --------------------------
+
+It is often thought that object-oriented systems are systems which
+make use of windows and pointing device. This is simply a confusion
+arising from the fact that object oriented systems provide excellent
+mechanisms for implementing window/mouse mechanism. Object-oriented
+programming is merely another form of data-abstraction, like records.
+The earliest versions are to be found in the language SIMULA-67.
+
+Object Oriented Programming (OOP) may be thought of in at least three
+different ways:
+
+(1) A new totally general programming paradigm.
+
+(2) An extension to existing programming paradigms which may be useful
+for some particular applications, e.g. designing window/mouse
+interfaces, simulation programs, etc.
+
+(3) A convenient mechanism for knowledge representation in AI or Expert
+Systems work. In this form OOP systems are sometimes called 'frames'
+systems. This application is becoming increasingly popular, but is of
+doubtful value since the 'built-in' inference mechanism provided by
+inheritance is very restricted and users have to supplement it with low
+level programming to achieve other forms of inference. This would not be
+necessary in a good representation language. Nevertheless, for some
+purposes, an OOP system may be useful for knowledge which has to be
+'compiled' into an efficient, special purpose, representation. This
+takes us back to (2).
+
+This package is offered in the spirit of (2).
+
+An 'object oriented' system provides a means of defining classes of
+objects, and then using these to define new classes, called their
+sub-classes, which 'inherit' information from their super-classes. A
+class can also be used to create 'instances' sometimes called
+'objects', where the features of the object are determined by the
+class (and therefore by all its superclasses).
+
+'Single-inheritance' systems allow each class to have only one
+super-class, so that from any object or sub-class, there is a single
+chain of 'upward' links through classes. 'Multiple-inheritance'
+systems allow a class to be defined as a sub-class of more than one
+super-class, so that the upward links branch out in tree-like
+fashion, requiring a search operation to find information in
+super-classes. LIB NEWOBJ, provides multiple inheritance, so that
+you can define the class 'teacher' as a sub-class of both 'person'
+and 'worker', for instance, as illustrated below.
+
+Such a system may provide, associated with each class, data features
+and procedural features, as follows.
+
+Data Features associated with a class:
+D1. A set of 'slots' or 'fields' with particular names, to be found in
+    each instance of the class.
+D2. Default values or 'fillers' for these slots.
+D3. A set of data associated globally with the class.
+
+Procedural Features associated with a class:
+P1. Actions to be performed when a new subclass is created.
+P2. Actions to be performed when a new instance of the class is created.
+P3. Actions to be performed when an instance (object) is sent a message.
+P4. Actions to be performed when a slot or field in an instance is
+    accessed or updated.
+P5. Actions to be performed when information associated globally with
+    the class is accessed or updated.
+
+All of these features, except perhaps D3 and P5 should be inherited
+from superclasses by their sub-classes.
+
+There are additional features of some object oriented systems which
+are not found in LIB NEWOBJ, including:
+
+1. The ability to have classes which are also objects. This would
+enable a class to be both an instance of a more abstract type of class
+and also a subclass of a more general class at the same level of
+abstraction. The mechanisms of this package might be used to implement
+such a system, but it is not already implemented.
+
+2. The ability to alter a class after some instances have been created,
+and have the instances automatically feel the effects. This package only
+allows this to a limited extent. e.g. a class cannot have a new field
+added. However the class_props facility mentioned below allows some
+of the benefits to be obtained.
+
+3. At present there is no powerful window/mouse-based user interface of
+the types found in LOOPS, KEE, FLAVORS, etc.
+
+-- LIB NEWOBJ -------------------------------------------------------
+
+The package is compiled by means of the POP-11 command:
+    LIB NEWOBJ;
+
+Special syntax is provided in the form of a CLASS definition, and
+procedures are provided for creating instances, sending them messages,
+etc. The instances have features determined by the class definitions.
+
+There are two main sorts of approaches to the implementation of
+"objects". One is to implement objects as data-structures like lists
+or records. Accessing or updating a slot is then relatively quick - as
+when a field of a record is accessed or updated. The second approach
+implements objects as processes. (For information about processes in
+POP-11 see HELP * PROCESS and for further details see REF PROCESS). In
+this case the fields or slots of an object are just the variables in
+the process, and the slot-fillers are the values. One advantage of
+using processes is that objects can retain control information between
+receiving messages (or having their fields accessed) and moreover if
+an action involves a lot of work in the context of one object, then
+having all the slots represented as variables rather than as fields in
+a record (or list) will mean that accessing is much faster. Another
+advantage is that no new syntax is required for the actions performed
+in the context of an object. E.g.
+    with fred do age + 1 -> age endwith;
+
+will represent a birthday, rather than
+    fput("fred","age", fget("fred","age") + 1)
+
+for example.
+
+A disadvantage of using processes is that switching the context to a new
+object is slower, since ALL of the environment (i.e. all the variables)
+must be restored, even if only one slot is to be examined. Another
+disadvantage of using processes is that each object takes up far more
+space. A very serious, disadvantage for some applications is that there
+cannot be two activations of the same process. So we cannot allow O1 to
+send a message to O2 and O2 to send one back to O1 unless O1 completely
+transfers control. (I.e. in the notation below, O1 must use '|-->' not
+'>-->' to send the message, if there is a risk of it being invoked
+recursively. However, using processes has the advantage that an active
+object can run for a while, then suspend itself in the midst of an
+arbitrary computation, arbitrarily deep in procedure calls, etc. and
+then later continue where it left off, on receipt of a 'wake up'
+message.
+
+Because LIB NEWOBJ uses the process mechanism, it may not be suitable
+for applications where the typical actions mostly involve one or two
+slot operations before the context changes to another object.
+
+Another major design decision is whether to have a totally uniform
+representation, where classes are themselves objects, and creating a
+new sub-class, for instance, is done by sending a 'new-class' message
+to an existing class. Alternatively, classes and objects may be
+represented differently. Obviously, on a conventional computer, at
+SOME level there has to be a different representation on top of which
+the classes objects are implemented. In LIB NEWOBJ classes are
+represented differently from the objects which are their instances. So
+the 'class/sub-class' relationship is totally different from the
+'class/instance' relationship. Logicians would disagree as to which is
+theoretically more satisfactory.
+
+Classes are here represented by POP-11 records of type "classtype"
+each of which stores information about the relevant class, including
+pointers to its superclasses and subclasses, and an updatable class
+property.
+
+Instances are represented by POP-11 processes, with slots and their
+fillers represented by local variables and their values. So feature D1
+is provided, including multiple inheritance.
+
+Each instance of a class (i.e. each object) is a process which has a
+local variable corresponding to each field name of its class, and each
+field name of the immediate superclasses of that class, and their
+superclasses, etc. However, if the same name is used in several
+superclasses it will just produce ONE field name in the instance.
+(Some systems allow the different fields to be kept distinct, forming
+different 'perspectives' of the same object. This allows greater
+modularity, but complicates the implementation. So for now we require
+different field names to be used where fields are to be kept
+distinct.)
+
+If the same field name is used in two classes, one of which is a
+superclass of the other, then a warning message is printed out when
+the second class is defined. The procedure which prints out the
+message is user definable, so checks can be suppressed. It takes three
+arguments:
+
+   check_duplicate_field(list1,list2,name);
+
+Where list1 is the list of field names for the class being defined,
+list2 is a list of field names in super classes, and name is the
+name of the new class.
+
+-- SELF and MESSAGE slots ------------------------------------------
+Whenever an instance is activated, which can only be done by sending a
+message, there will be two variables provided, 'self' which will point
+to the current instance, and 'message' which will point to the message
+sent. For that reason these variables should not be used in user
+programs or class definitions.
+
+-- Default Slot Values ----------------------------------------------
+Feature D2, default slot values, are represented in this package
+by the DEFAULTS field of a class definition, which may contain
+arbitrary POP-11 instructions. These are run, before the instance
+initialisation instructions are run. So at this stage default values
+may be assigned to slots, and if the instance initialisation actions
+do not assing new values the, the defaults will remain. Defaults for
+super-classes are run before sub-classes, so that defaults for a
+sub-class may override those for a superclass.
+
+See for instance the assignment to 'class_printer' in class THING,
+below.
+
+-- Data associated globally with a class ------------------------------
+Feature D3, data associated globally with each class, is provided by the
+POP-11 record associated with each class. The fields of these records are
+used by the system, except for the 'class_props' field which
+contains a POP-11 property which may be updated by user programs.
+
+-- Procedural features ------------------------------------------------
+Most of the procedural features mentioned above are implemented.
+
+P1, action to be performed when a subclass is created, is implemented
+for the system. When the new subclass has been created the
+user-definable procedure called 'user_class_initial' is run with the
+class record as argument. It defaults to do nothing.
+
+P2. Actions to be performed when a new instance of the class is
+created are specified by the 'START_ACTIONS' field of a class
+definition. These actions are run after the DEFAULTS have run and
+after any slot-values specific to the instance have been assigned
+(e.g. using the procedure NEW illustrated below).
+
+Actions specified for all superclasses are also run when an instance
+is created. Superclass actions are run first, so that defaults for a
+sub-class may override those for a superclass.
+
+P3. Actions to be performed when an instance (object) is sent a
+message, are specified by the 'MESSAGE_ACTIONS' field of a class
+definition, and also the corresponding fields of all super-classes of
+the class. When an object is sent a message, all the relevant message
+actions are run, with the message assumed to be held in the variable
+'message'. Then a common default message handler is run, as follows.
+The message may be a word, a procedure, or a list. If it is a word its
+value is returned; if a procedure, then the procedure is executed, and
+if it is a list it is assumed that class message handlers will have
+processed it. Anything else will cause an error message.
+
+Class message actions may trap messages and prevent further action by
+transferring control immediately to some other object, using the
+message operator '|-->' defined below.
+
+Features P4 and P5 are not implemented at present. P4, actions to be
+performed when a slot or field in an instance is accessed or updated,
+can be implemented by means of message handlers which deal with
+messages of the form:
+    [set_value ^variable ^value] or
+    [get_value ^variable]
+
+by invoking suitable 'demons', which may for instance be stored in
+lists in a suitable slot defined for the class in question. Or they
+may be stored in the class_props field of the class record so that the
+demons for a class may be updated after instances have been created.
+This low level package leaves it to users to implement such
+facilities, which would be quite straightforward. When 'active-values'
+are available in POP-11 they may be used to implement demons.
+
+P5, actions to be performed when information associated globally with
+the class is accessed or updated, can be implemented by defining a
+procedure to update the class_props of a class, which checks whether
+there are demons associated with the class, instead of updating the
+class_props directly.
+
+-- MULTIPLE INHERITANCE -------------------------------------------
+
+If a class definition for class C1 names several superclasses S1 ...
+Sn, in that order, then when an instance of C1 is created, or sent a
+message, the start actions and message actions of S1 to Sn (each
+preceded by the actions of its superclasses) are performed in the same
+order, before the start action or message action of C1. No
+class-action is performed if it has already been performed (for
+instance if S1 and S2 share a common superclass).
+
+DISCLAIMER
+
+This is highly provisional - subject to revision. In particular, it is
+not clear whether all the inheritance defaults are right, nor whether
+the default message receiving procedures are right.
+
+-- RPOBLEMS --------------------------------------------------------
+At present, the package needs an improvement to the process mechanism:
+
+Processes now die if you exit from them abnormally - e.g. with
+setpop. So after an error an object may fail to run. I have put in
+bodge to solve this temporarily, by redefining 'interrupt' in the
+message-sending operator >-->.
+
+-- Using the Program -----------------------------------------------
+To make this package available do LIB NEWOBJ; Users reading this
+file online using VED are advised to do ENTER lib newobj, so that
+they can run the examples given below. Using marked ranges and
+CTRL-D.
+
+To facilitate this, here is a VED procedure to 'mark current class':
+define ved_mcc;
+    ;;; mark current class;
+    vedpositionpush();
+    vednextline();
+    vedbacklocate('CLASS ');
+    vedmarklo();
+    vedlocate('ENDCLASS');
+    vedmarkhi();
+    vedpositionpop();
+enddefine;
+
+(Put the VED cursor in that procedure and use <ESC> C to compile
+it, or mark and ENTER lmr.)
+
+-- CLASS definitions --------------------------------------------------
+Classes can be defined using the following format (illustrated later):
+    CLASS           <name>
+    SUBCLASS_OF     <undef or superclasses>
+    CLASS_FIELDS    <names>
+    DEFAULTS        <pop-11 code>   ;;; run before instance initialised
+    START_ACTIONS   <pop-11 code>   ;;; run at end of initialisation
+    MESSAGE_ACTIONS <pop-11 code>
+    ENDCLASS;
+
+
+EXAMPLES
+--------
+The following top level class definition is provided automatically by
+LIB NEWOBJ. It defines a top-level class called "thing" which has no
+super-classes.
+
+    CLASS thing
+    SUBCLASS_OF undef
+    CLASS_FIELDS
+        name
+        class_printer
+    DEFAULTS
+        default_printer -> class_printer;
+    START_ACTIONS
+    MESSAGE_ACTIONS
+    ENDCLASS;
+
+Note the empty START_ACTIONS and empty MESSAGE_ACTIONS fields.
+Now we can define a class called "person", a subclass of "thing", thus:
+
+    CLASS person
+    SUBCLASS_OF thing
+    CLASS_FIELDS
+        age sex spouse children
+        ;;; inherits fields "name" and "class_printer" from class thing
+    DEFAULTS
+        false -> spouse; [] -> children;
+    START_ACTIONS
+        ;;; these are run when a new instance is created
+        [new person born - name ^name] =>
+    MESSAGE_ACTIONS
+        ;;; An instance is run by sending it a message with >--> or |-->
+        vars temp ;     ;;; local 'temporary' variable for each activation
+        if message matches [birthday] then
+            age + 1 -> age;
+            [happy birthday! ^name is now ^age years old] =>
+        elseif message matches [marry ?temp] then
+            if temp = spouse then
+                ;;; already married to this one - do nothing
+            elseif isword(spouse) and spouse /= temp then
+                mishap('BIGAMY', [^name ^temp ^spouse])
+            else
+                temp -> spouse;  ;;; will be remembered as new slot filler
+                [^name marrying ^spouse] =>
+                [marry ^name] |--> spouse;
+            endif
+        elseif message matches [divorce ?temp] then
+            if spouse = temp then
+                [^name divorcing ^spouse] =>
+                with valof(spouse) do false -> spouse endwith;
+                false -> spouse;
+            else
+                mishap('Cannot divorce, not married to ' >< temp,
+                    [spouse ^spouse])
+            endif
+        endif
+    ENDCLASS;
+
+A class defines a type of object which has a set of classfields,
+ a set of actions to be run when an instance is created
+ a mechanism for responding to messages.
+
+Online readers can do ENTER mcc (mark current class) with the cursor
+in the above class definition, followed by CTRL-D to compile it, in
+preparation for examples below.
+
+-- MESSAGE_ACTIONS -------------------------------------------------
+If there is nothing after MESSAGE_ACTIONS then only the procedure
+default_response (defined below) will be called. If there is a message
+action, then the procedure is called anyway. It will do nothing if
+message is FALSE, or if it is a list. Otherwise if the message is a
+word it is assumed to be a field name, and the value is left on the
+stack. If the message is a procedure it is run. If its a list, then
+the relevant message_actions should interpret the list.
+
+NB: If local variables are defined in the MESSAGE_ACTIONS, using VARS,
+as 'temp' is in CLASS PERSON above, then this will be local to each
+invocation of the instance. The value will not be remembered from one
+invocation to another. 'LVARS' may be used for efficiency, but not for
+pattern variables used with the pattern matcher, since, at present,
+this does not handle lexical variables.
+
+If you want a value to be remembered between activations of an instnce
+then it must be declared as a class field.
+
+A class inherits classfields and other information from its
+super-classes.
+
+-- CREATING INSTANCES OF A CLASS -----------------------------------
+Instances are created using
+    new([<classname> <initial value specs>])
+
+or more generally with the procedure new_instance. It is generally
+more convenient to use the procedure NEW, e.g. mark the next two lines
+and use CTRL-D to get them obeyed:
+
+    vars mary john;
+    new([person name mary age 34 sex female]) -> mary;
+The start action prints out:
+    ** [new person born - name mary]
+All examples below can be run in similar fashion:
+    new([person name john age 33 sex male]) -> john;
+    ** [new person born - name john]
+
+The latter is roughly equivalent to
+    new_instance("person",
+        procedure;
+         "john" -> name; 33 -> age; "male" -> sex
+        endprocedure)
+          -> john;
+
+So new_instance is more general than 'new'. (SHOWLIB NEWLOBJ, then
+search for new-instance, for more details.)
+
+-- DEFAULTS vs START_ACTIONS -------------------------------------
+
+As the above example shows, if you use 'new' to create an instance and
+give its fields certain vaules, then the START_ACTIONS are run AFTER
+the values have been assigned. Thus start actions cannot be used to
+assign default values. Hence the need for the DEFAULTS field. The
+START_ACTIONS field is required so that actions may be performed AFTER
+initialisation with given slot values.
+
+-- SENDING MESSAGES -----------------------------------------------
+
+A message may be sent to an object (i.e. an instance of a class). A
+message is a word, a procedure, or a list. In the latter case it may
+trigger a message action, as indicated above in the 'person' class
+definition. If it is a word, it merely causes the value of the
+corresponding variable to be returned. If it is a procedure, then
+the procedure is run in the environment of the object. If it is a
+list, then the list is matched against patterns in order to invoke
+the appropriate message action.
+
+A message is sent to an instance using '>-->' or '<--<' or 'with'.
+
+If control is to be transferred permanently to another instance use
+    '|-->' or '<--|'
+
+The following formats are available for sending a message and
+regaining control after the message has been processed:
+
+    <message> >--> <object>;
+
+    <object>  <--< <message>;
+
+    with <object> do <actions> endwith;
+
+The last is 'syntactic sugar' equivalent to:
+    procedure; <actions> endprocedure >--> <object>;
+
+All of these are defined in terms of >--> which has 'message' and
+'self' as local variables whose values are available when the instance
+runs.
+
+RUNPROC is used to run the process, with the message on the stack. The
+process picks up the message and transfers it to the internal variable
+'message'. When the message has been processed, SUSPEND is used to
+return control to the sender. (See HELP * PROCESS)
+
+One instance can send a message to another without re-gaining control,
+i.e. using RESUME, not RUNPROC, by means of the following format:
+    <message>    |--> <object>;
+
+or, equivalently:
+
+    <object>  <--| <message>;
+
+TYPES OF MESSAGE: A message may be a word which is a field name, in
+which case the value is returned. E.g. send a message to the object
+john created above, to find john's age:
+
+    "age" >--> john  =>
+    ** 33
+
+or mary's spouse:
+    "spouse" >--> mary =>
+    ** <false>
+
+(Marked range and CTRL-D can be used to verify the above, and try
+variants.)
+
+If a message is a list, it will be interpreted by the message_actions
+defined in the object's class or perhaps one or more of its
+superclasses.
+
+The definition of the class 'person' above contained the following
+instructions in the MESSAGE_ACTIONS field:
+
+        elseif message matches [marry ?temp] then
+            if temp = spouse then
+            elseif isword(spouse) and spouse /= temp then
+                mishap('BIGAMY', [^name ^temp ^spouse])
+            else
+                temp -> spouse;
+                [^name marrying ^spouse] =>
+                [marry ^name] |--> spouse;
+            endif
+
+The next line can be marked and compiled, to send john a message:
+    [ marry mary] >--> john;
+
+The following is printed out in the context of john, by the 'else'
+clause above:
+    ** [john marrying mary]
+
+Then a message is sent and control transferred permanently to the
+spouse, i.e. mary, using '|-->', producing:
+    ** [mary marrying john]
+
+Mary then sends an appropriate message back to john, but the process
+does not loop forever since the line
+            if temp = spouse then
+
+finds that john is already married to mary, so no action is
+performed.
+
+We can now find that they have new values for the 'spouse' fields.
+    "spouse" >--> john =>
+    ** mary
+    "spouse" >--> mary =>
+    ** john
+
+Another example of a message which triggers a message action.
+    [birthday] >--> mary;
+    ** [happy birthday ! mary is now 35 years old]
+
+If the message is sent again a new age will be printed out.
+
+An unrecognised message causes nothing to happen (though the
+MESSAGE_ACTION might have been defined to cause a mishap, or print a
+warning):
+    [funny message] >--> john =>
+    **
+
+Finally, a message may be a procedure to be executed e.g.
+    procedure;
+        "mary" -> spouse
+    endprocedure
+     >--> john;
+
+  or
+    with john do "mary" -> spouse endwith;
+
+-- PRINTING OBJECTS ---------------------------------------------------
+There is a default printing procedure.
+
+    with mary do class_printer () endwith;
+    <person mary>
+
+This can be changed:
+    with mary do
+        procedure; [person ^name age ^age spouse ^spouse] =>
+        endprocedure -> class_printer;
+    endwith;
+
+Now the previous command will produce different print out:
+
+    with mary do class_printer () endwith;
+
+which prints out:
+
+    ** [person mary age 35 spouse john]
+
+We can check that bigamy is not allowed:
+    vars fred;
+    new([person name fred age 43 sex male]) -> fred;
+    ** [new person born - name fred]
+
+-- TRIGGERING CONSTRAINTS ------------------------------------------
+Try an illegal marriage.
+
+    [marry fred ] >--> mary;
+
+    ;;; MISHAP - BIGAMY
+    ;;; INVOLVING:  mary fred john
+    ;;; DOING    :  messages_person person runproc >-->
+
+    [divorce john] >--> mary;
+    ** [mary divorcing john]
+
+Now the marriage is no longer illegal:
+
+    [marry fred ] >--> mary;
+    ** [mary marrying fred]
+    ** [fred marrying mary]
+
+-- USING |--> TO TRANSFER CONTROL PERMANENTLY ----------------------
+
+The following illustrates the fact that messages run in different
+environments, and that |--> prevents the return of control to the
+sender:
+    with fred do
+        [in ^name] =>
+        procedure;
+            [now in ^name] =>
+        endprocedure; |--> spouse;
+        [in ^name] => ;;; this shouldn't run because of |--> above
+    endwith;
+    ** [in fred]
+    ** [now in mary]
+
+-- A MESSAGE COMPOSED OF A PROCEDURE WITH ARGUMENTS: ---------------
+If the message to be sent is a procedure P which takes N arguments,
+then use the syntax
+
+    a1, a2, a3,..aN, P, N >--> instance;
+
+or
+    P(%a1,a21,a3....aN%) >--> instance
+
+-- CLASS RECORDS ------------------------------------------------
+Every instance of whatever type is given a default field called
+'class_key' which points to a record for the class type for the
+instance.
+    "class_key" >--> mary =>
+    ** <classtype person, super [thing], 0 subclasses>
+
+The 'person' class has only one superclass, 'thing'. There are (as
+yet) no subclasses.
+
+The procedure SUPERCLASSES returns a list of all the superclasses of a
+class_key. The super_class of the class_key of mary is the 'thing'
+class:
+    superclasses("class_key" >--> mary) =>
+    ** [<classtype thing, super <false>, 1 subclasses>]
+
+-- How Classes are represented ----------------------------------
+Classes are represented as POP-11 records of type 'classtype' with
+the following classfields (subject to change):
+
+  classname superclasses subclasses classfields
+  startactions defaultactions message_actions
+  class_procedure class_props;
+
+A default top-level class called "thing" is provided, with default
+fields called 'name' and 'class_printer'. If all classes are
+descendants of this class, they are guaranteed to have these
+classfields. But a class can have FALSE as its superclasses. This is
+achieved by using the name 'undef' in the class declaration, as in the
+definition of CLASS thing, above.
+
+-------------------------------------------------------------------
+MULTIPLE SUPERCLASSES
+
+We define class 'worker' as a subclass of 'thing', then define
+'teacher' as having 'worker' and 'person' as SUPERCLASSES but with
+some extra fields.
+
+    CLASS worker
+    SUBCLASS_OF thing
+    CLASS_FIELDS
+        employer salary jobtype
+        ;;; inherits fields "name" and "class_printer" from class thing
+    DEFAULTS
+        100 -> salary;
+    START_ACTIONS
+        [new worker- ^name working for ^employer for ^salary] =>
+    MESSAGE_ACTIONS
+        if message matches [promotion] then
+            salary + 10 -> salary;
+            [Congratulations! ^name now earns ^salary] =>
+        elseif message matches [sacked] then
+            undef -> employer; 0 -> salary;
+        endif
+    ENDCLASS;
+
+Now a class with TWO super-classes:
+
+    CLASS teacher
+    SUBCLASS_OF
+        person worker
+    CLASS_FIELDS
+        subject school
+    DEFAULTS
+    START_ACTIONS
+        [^name starting to teach ^subject at ^school] =>
+    MESSAGE_ACTIONS
+        if message matches [teach] then
+            [^subject is very very interesting] =>
+        endif
+    ENDCLASS;
+
+    vars harry;
+    new([teacher name harry employer lea
+            salary 150 school eton subject maths])
+     -> harry;
+
+The start-actions of the different super-classes (person, worker,
+teacher) will cause different messages to be printed out
+    ** [new person born - name harry]
+    ** [new worker - harry working for lea for 150]
+    ** [harry starting to teach maths at eton]
+
+;;; send a message to harry as worker
+    [promotion] >--> harry;
+    ** [Congratulations ! harry now earns 160]
+
+;;; send a message to harry as teacher
+    [teach] >--> harry;
+    ** [maths is very very interesting]
+
+;;; or as person:
+    [marry mary] >--> harry;
+    ** [harry marrying mary]
+
+    ;;; MISHAP - BIGAMY
+    ;;; INVOLVING:  mary harry john
+    ;;; DOING    :  messages_person person runproc >-->  ....
+
+-- ACCESSING THE CLASS FROM ITS NAME ------------------------------
+Given the name of a class, the corresponding classtype record can be
+found in the property class_of_name:
+     class_of_name("worker") =>
+     ** <classtype worker, super [thing], 1 subclasses>
+
+     class_of_name("teacher") =>
+     ** <classtype teacher, super [person worker], 0 subclasses>
+
+-- LISTING ALL SUPERCLASSES -------------------------------------
+
+The procedure ALL_SUPERS can be used to create a list of all the super
+classes of an object or classtype (including the current class). The
+list will have no duplications:
+    all_supers(harry) ==>
+    ** [<classtype thing, super <false>, 2 subclasses>
+         <classtype person, super [thing], 1 subclasses>
+         <classtype worker, super [thing], 1 subclasses>
+         <classtype teacher, super [person worker], 0 subclasses>]
+
+The procedure can be given a class name as argument:
+    all_supers("worker") ==>
+    ** [<classtype thing, super <false>, 2 subclasses>
+        <classtype worker, super [thing], 1 subclasses>]
+
+
+NB This package is liable to be withdrawn, extended, modified.
+
+TEACH ADVENT.NEWOBJ gives the beginning of an adventure game using
+LIB NEWOBJ, to illustrate its use.
+
+-- Notes ------------------------------------------------------------
+
+Mark Rubinstein has implemented an more ambitious experimental system
+modelled loosely on the ZetaLisp FLAVORS system. It is called LIB
+FLAVOURS and is described in TEACH * FLAVOURS
+
+Acknowledgement:
+In 1985, when this package was produced, Aaron Sloman was supported by a
+Fellowship from the GEC Research Laboratories.
+
+----<Copyright University of Sussex 1986.  All rights reserved.>-------

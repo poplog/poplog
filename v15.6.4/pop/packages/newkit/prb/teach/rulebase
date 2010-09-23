@@ -1,0 +1,1184 @@
+TEACH RULEBASE                            Riccardo Poli and Aaron Sloman
+                                                            October 1995
+                                                       Updated  Jul 2000
+
+This teach file is based on a set of lecture notes originally prepared
+by Riccardo Poli to introduce the techniques of rule based programming,
+using LIB POPRULEBASE.
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Rule-based  Knowledge
+ -- Protocol Analysis (Newell & Simon)
+ -- Rule-based systems
+ -- WARNING: Pop-11 Database procedures will not work
+ -- Working  Memory
+ -- -- Choosing a good representation
+ -- The Rulebase
+ -- Deduction systems and reaction systems
+ -- Variations in rule syntax
+ -- How to make poprulebase available
+ -- An example medical rule-based system
+ -- Running the rules
+ -- Putting the rule system into a file, ready to run
+ -- Testing the program
+ -- Exercise: extend the diagnosis example
+ -- More information about Poprulebase
+ -- Types of conditions
+ -- -- Simple conditions
+ -- -- -- Pattern variables in conditions
+ -- -- Complex conditions
+ -- Actions
+ -- The Rule Interpreter prb_run
+ -- Conflict Resolution Strategies
+ -- A Rule-based Toy Eliza
+ -- Now a master procedure to run the eliza rules
+ -- A sample session
+ -- Exercises
+ -- Further reading
+
+-- Rule-based  Knowledge ----------------------------------------------
+
+Many AI systems express knowledge in the form of a system of rules. The
+reasons for this are two-fold. First it turns out that for some kinds of
+applications, this is a very convenient format. Secondly there are some
+cognitive scientists (e.g. A.Newell, H.A.Simon) who believe that a great
+deal of human knowledge is somehow stored in our minds in the form of
+condition-action rules.
+
+One of the techniques for designing expert systems is to study the
+things an expert says and does, and then try to design a set of rules
+whose behaviour matches the observed behaviour. Recording and studying
+the observed behaviour is sometimes referred to as protocol analysis.
+
+-- Protocol Analysis (Newell & Simon) ---------------------------------
+
+o Protocol Analysis
+ -  Is  a  method  of  studying  subjects'  mental processes in the
+    performance of a task.
+ -  Subjects have to say what is going on in their mind while they
+    solve a specific problem.
+
+o The analysis of such "protocols" led some researchers to conjecture
+that each problem is solved as follows:
+
+ -  The problem is represented in our mind somehow. There is an initial
+    representation, and then as we think about the problem the
+    representation changes. The representation that exists at each stage
+    is called the "state" of the problem. Thus solving a problem
+    involves going through a succession of states.
+
+ -  Relatively small units of thinking transform the state of the
+    problem into others which are progressively "nearer" to the solution
+    or goal state. These small units use "operators".
+
+ -  Each operator transforms a state to another state.
+
+o Operators often have the form of inference rules such as:
+
+        IF [the state of the problem is X]
+        THEN [do Y so as to reach the state Z]
+
+    Then when the state is X there may be one or more rules that apply
+    to such a state (the conditions of the rules match the state), in
+    which case one (or more) of the rules can be selected, and its
+    action Y performed, so that a new state Z exists.
+
+    A collection of such rules is called a "ruleset". A rule-based
+    system is a collection of one or more rulesets which can be applied
+    to an initial problem representation (the initial state) and then
+    the operators (rules) are repeatedly checked to see which ones are
+    applicable (have their conditions satisfied). Applicable rules may
+    be "fired", i.e. their actions performed, changing the state to a
+    new one, after which the process is repeated. This continues until
+    either a STOP action is performed or there are no more applicable
+    rules.
+
+
+-- Rule-based systems -------------------------------------------------
+
+Rule-based systems, (also called production systems) provide a technique
+for codifying (implementing) rule-based knowledge.
+
+o A rule-based system includes:
+
+ -  A database of facts, also called the working memory, representing
+    the current state of the problem solving process.
+
+ -  A set (called a rulebase or ruleset) of rules of inference (or
+    productions) representing the "atomic" mental operators
+
+ -  A program called an interpreter that actually applies the rules
+    to solve a problem. The interpreter implements the process of making
+    decisions about which rules to fire, and then performing their
+    actions.
+
+
+NOTES:
+o Rule-based systems are NOT necessarily expert systems. They may be
+systems designed to perform some task that is not the sort of thing any
+human expert is able to do.
+
+o Expert systems are normally systems whose performance is comparable to
+those of a human expert in a very specific field. (However in principle
+it is possible to design an expert system to perform a task for which
+there are not (yet) any human experts.)
+
+o Some rule-based systems have a far more complex structure than that
+described here. For example there may be different sets of rules that
+are run in parallel.
+
+-- WARNING: Pop-11 Database procedures will not work ------------------
+
+If you are accustomed to using the Pop-11 database, as described in
+TEACH DATABASE, TEACH RIVER2, HELP DATABASE, TEACH DATATHINK, and
+others, then you need to be warned that the database that you are
+accustomed to is different from the one used by LIB POPRULEBASE.
+
+The main difference is that the normal database is a single list of data
+items, whereas in POPRULEBASE a more complex structure is used based on
+a type of structure which in Pop-11 is called a property. This provides
+a mapping from keywords to database items which allows a single long
+list to be replaced by many short lists, which will make some programs
+run much faster.
+
+Unfortunately this means that the following cannot be used in connection
+with the Poprulebase database:
+
+    add, remove, present, allpresent, alladd, flush, which
+    foreach
+    forevery
+    it
+
+However, you will probably not need these, as the ACTIONS available in
+poprulebase enable you to do most of the same things.
+
+If for any reason (e.g. efficiency) you need to use procedures that
+operate directly on the poprulebase database, you can find information
+on how to transform Pop-11 database instructions to work with
+Poprulebase in this file:
+    HELP * PRB_DATABASE
+
+
+-- Working  Memory ----------------------------------------------------
+
+o The working memory is a database including facts about the problem
+that are currently taken to be be true.
+
+o Each fact can be represented as a (possibly compound) item such as:
+
+    [need_some_food]
+
+    [engine temperature 50]
+
+    [engine water_level 30]
+
+    [appointment
+        [9:00 am] [March 3] [duration 60] [lecture on boring R.B.S.]]
+
+o The number and kind of facts present in working memory during the
+solution of a problem can change as the rules are activated. The actions
+of the rules may remove some facts and add others.
+
+-- -- Choosing a good representation
+
+Often the same information can be represented in several different ways,
+and part of the problem of designing a rule-based system is choosing a
+good representation. Consider the following alternative ways of storing
+information about a person
+
+Format 1: a single "flat" list of attribute/value pairs
+    [person name fred age 30 job teacher wife mary]
+
+Format 2: a single structured list of lists.
+    [person [name fred] [age 30] [job teacher] [wife mary]]
+
+Format 3: a set of separate lists each storing one fact about fred.
+    [person fred]
+    [age fred 30]
+    [job fred teacher]
+    [wife fred mary]
+
+Exercise: Think about the river world (as described in TEACH RIVER)
+and ask yourself how many different ways there are of storing
+information about the current state of the world, i.e. where the man,
+fox, chicken, grain and boat are.
+
+See if you can analyse the advantages and disadvantages of different
+representations.
+
+-- The Rulebase -------------------------------------------------------
+
+o The rulebase is a collection of rules representing the knowledge about
+the problem and how to solve it.
+
+o Rules have the following general form:
+
+    IF
+        [condition1] AND [condition2] ... AND [conditionN]
+    THEN
+        [do_something1] [do_something2], ...., [do_somethingM]
+
+(However the actual syntax used can vary according to the language
+used, and the types of rules required.)
+
+o The semantics of this formalism is:
+
+    if each of the conditions:
+
+        [condition1], [condition2], ... [conditionN]
+
+    matches something which is present in the database (i.e. if all
+    the conditions are satisfied, or each says something "true") then
+    the actions:
+
+        [do_something1], ...., [do_somethingM]
+
+    should all be done.
+
+    This interpretation can be modified by a "conflict-resolution"
+    strategy, which may determine that if several rules have all
+    their conditions satisfied, not all of them should have their
+    actions run. (See prb_allrules, below)
+
+o The portion of the rule between "if" and "then", i.e.
+
+    [condition1] AND ... AND [conditionN]
+
+is called the "left-hand side", the "condition part", the "head" or the
+"antecedent" of the rule. Sometimes the separate portions are referred
+to as conditions, sometimes as triggers.
+
+o The portion:
+
+    [do_something1], ...., [do_somethingM]
+
+is called the "right-hand side", the "consequent", the "body" or the
+"action part" of the rule.
+
+
+-- Deduction systems and reaction systems -----------------------------
+
+o Rules can have two kinds of right-hand sides:
+
+ -  A [do_something] item can be an assertion that an item is true or
+    false, and therefore should be added to removed or removed from the
+    working memory. E.g.
+
+        [at fox left_bank]          ;;; fact to be added
+        [NOT at fox right_bank]     ;;; fact to be removed
+
+    We'll call these "inference" actions.
+
+ -  A [do_something] item can be an action such as: writing a message,
+    asking the user for information, turning a switch on, activating a
+    siren,...
+
+    We'll call these simply "actions", or "behaviours".
+
+o If the right-hand sides of all the rules of the rulebase are
+inference actions, the rule-based system can be thought of as a
+"deduction" or "inference" system. Otherwise it is a "reaction" system
+or "behaviour" system. Very often it is a mixed system, with both kinds
+of actions.
+
+
+-- Variations in rule syntax ------------------------------------------
+
+Although rules always have conditions and actions, there are many
+variations in the syntax used to express rules.
+
+For example:
+
+o Besides the conditions and actions a rule may include other items,
+such as a label representing the rule's name or a number representing
+the rule's importance, or a label representing which ruleset it belongs
+to.
+
+o There are many variations of the IF-THEN rule syntax seen above. Each
+interpreter has a DIFFERENT SYNTAX, but nearly always the SEMANTICS is
+the SAME, or roughly the same.
+
+Example formats are:
+
+Example 1:
+  RULENAME: hello
+    IF fact([She said: hi])
+    THEN say('How are you?')
+
+Example 2:
+  rule hello
+         [She said: hi];
+         'How are you?' =>;
+  endrule;
+
+Example 3:
+    [rule hello [She said: hi] -> [SAY 'How are you?']]
+
+Example 4:
+    [hello: if she said hi then say how are you?]
+
+Example 5:
+
+    say("how are you?") :- said(she, hi).
+
+    (That's like the format of rules in Prolog.)
+
+Example 6:
+
+    define :rule hello in greetrules
+         [She said: hi]
+         ==>
+         [SAY 'How are you?']
+    enddefine;
+
+Example 7: (two rules in a ruleset)
+
+    define :ruleset greetrules;
+
+       RULE hello
+         [She said: hi]
+         ==>
+         [SAY 'How are you?']
+
+       RULE farewell
+         [She said: bye]
+         ==>
+         [SAY 'Bye -- see you later']
+         [STOP]
+
+    enddefine;
+
+
+o The Pop-11 package POPRULEBASE allows the syntax of example 6 for an
+individual rule definition to be added to a ruleset called greetrules.
+This syntax is rarely needed. Instead it is more common to define
+all the rules in a ruleset, and the syntax of Example 7 shows how each
+rule within the RULESET definition is formulated (in simple cases).
+
+(There are other Pop-11 production system interpreters supporting rule
+based programming, for instance those referred to in TEACH * EXPERTS,
+and TEACH * PRODSYS)
+
+
+-- How to make poprulebase available ----------------------------------
+
+Poprulebase is a library program which allows you to define a collection
+of rules which operate on a database of "facts". It makes use of the
+pop-11 pattern matcher, so if you have not already learnt about that you
+should read TEACH * MATCHES, and perhaps TEACH * RESPOND. For a summary
+of all the main properties of the pattern matcher see HELP * MATCHES.
+The matcher is also described in Chapter 7 of the Pop-11 Primer
+(TEACH PRIMER).
+
+If you know about the Pop-11 database library, please note that the
+database used by Poprulebase has a very different form from the simple
+database. So the commands "present", "remove", "add" will not work.
+Instead there are special new versions, e.g. prb_in_database, prb_add,
+prb_flush1, prb_flush. (See HELP * PRB_DATABASE for more on the
+differences).
+
+You can load the library by means of the following commands:
+
+uses prblib;        ;;; Make the library package available
+
+uses poprulebase;   ;;; compiles the main poprulebase library file
+
+Mark and load those lines.
+
+This may take a little time, as it is a large file.
+
+(If you use the library frequently you may be able to avoid
+recompilation every time by starting up Pop-11 with the following
+command, which starts up pop-11 with the poprulebase saved image:
+
+    pop11 +prb
+
+If this has not been set up at your site, ask your local poplog
+administrator to do it.)
+
+-- An example medical rule-based system -------------------------------
+
+We now give a very simple rule-based system, which helps you decide
+whether you are ill, and if so what to do about it. (Do not take this
+seriously!)
+
+We first define a ruleset containing a collection of rules, and then use
+the poprulebase procedure prb_run to "run" the rules.
+
+To define the ruleset we start with
+
+    define :ruleset ....
+
+and finish with
+
+    enddefine;
+
+In between there are individual rules, in the format
+
+    RULE <name>
+        <conditions>
+        ==>
+        <actions>
+
+
+Copy the following, right down to the "enddefine" into a
+file of your own called
+
+    medrules.p
+
+;;; ======= start copying from here ========
+uses prblib
+uses poprulebase
+
+;;; We are going to define a ruleset called "prb_rules".
+;;; This is the first line of the definition, which extends down to
+;;; the occurrence of "enddefine" below.
+
+define :ruleset prb_rules;
+
+    ;;; The first rule checks whether the program has started. If
+    ;;; not, it requests symptoms from the user, and records that
+    ;;; the program has started, to prevent the rule firing again.
+    ;;; The name of the rule is "start_diagnose"
+  RULE start_diagnose
+    [NOT started]
+         ==>
+    [SAY 'I shall do my best to diagnose your problems']
+    [started]
+
+    ;;; The second rule checks to see whether there is a
+    ;;; sentence in the database, and if not, asks the user
+    ;;; to type something in. It then waits until something
+    ;;; is typed in. Whatever is typed in is stored in the
+    ;;; database in the form
+    ;;;         [sentence <words typed in>]
+
+  RULE get_sentence
+    [NOT sentence ==]
+         ==>
+    [READ 'Please tell me one symptom' [sentence ANSWER]]
+
+    ;;; The next rule determines whether the user has had
+    ;;; enough.
+
+  RULE stop
+    [sentence bye]
+         ==>
+    [SAY 'Thank you for using my services. Bye.']
+    [STOP]
+
+    ;;; Now we have some rules that do diagnosis.
+
+    ;;; Note that each rule removes the sentence after
+    ;;; making the diagnosis, so that a new symptom will be
+    ;;; requested on the next cycle of the interpreter.
+
+  RULE stomach
+    [sentence == stomach ==]
+         ==>
+    [NOT sentence ==]
+    [SAY 'You have eaten too much. Fast for two days.']
+
+  RULE cough
+    [sentence == cough ==]
+         ==>
+    [NOT sentence ==]
+    [SAY 'Buy some cough mixture and go to bed.']
+
+    ;;; The next rule has an OR condition, which includes two
+    ;;; conditions, either one of which will cause the rule to fire
+
+  RULE headache
+    [OR [sentence == headache ==] [sentence == head == aches]]
+         ==>
+    [NOT sentence ==]
+    [SAY 'You probably have flu. Take an aspirin']
+
+    ;;; Now a default rule which deals with any other form
+    ;;; of sentence
+
+  RULE default
+    [sentence == ]
+         ==>
+    [NOT sentence ==]
+    [SAY 'That is very serious, please see a specialist.']
+
+enddefine;
+
+;;; ===== Copy up to here into your file medrules.p =======
+
+
+-- Running the rules --------------------------------------------------
+
+You can mark and load that rulesystem definition, and then ask Pop11's
+poprulebase system to run it as follows:
+
+    ;;; Make sure that onle ONE rule is run on each cycle of the
+    ;;; rule interpreter.
+    false -> prb_allrules;
+
+    ;;; Now invoke the rule interpreter with the above ruleset, and an
+    ;;; empty database.
+    prb_run(prb_rules, []);
+
+The procedure prb_run takes as input a rulesystem, and a database. In
+this case the rulesystem is called prb_rules, as defined above, and the
+database is an empty list.
+
+That command is best put into a procedure, as follows:
+
+-- Putting the rule system into a file, ready to run ------------------
+
+When you have stored those rules in your file medrules.p, you can
+add the following commands at the end of the file so that when you load
+the file the rules will be activated.
+
+Notice the use of prb_allrules to control the firing of rules: if its
+value is false, then on every run through the ruleset only the first
+rule whose conditions are true will have its actions executed.
+(For information about prb_allrules is in HELP POPRULEBASE.)
+
+;;; Put the following in your file medrules.p
+
+;;; Define a master controlling program, which will set some of the
+;;; global variables, then call prb_run, with the above rules and an
+;;; empty database
+
+define diagnose();
+
+    ;;; First set some global variables which control the behaviour
+    ;;; of the interpreter.
+
+    dlocal
+        ;;; Prevent prb_run continually pausing.
+        prb_walk = false,
+
+        ;;; Prevent more than one active rule firing.
+        prb_allrules = false,
+
+        ;;; Make this true for more tracing
+        prb_chatty = false;
+
+    ;;; now run the interpreter
+    prb_run(prb_rules, []);
+
+enddefine;
+
+;;; now the command to run it
+
+diagnose();
+
+-- Testing the program ------------------------------------------------
+
+You can test the program by compiling the complete file. Here are two
+ways of doing that.
+
+    1. You can read the file into VED (if it is not already there)
+    and do
+        ENTER l1
+    to load (compile) one file.
+
+or
+    2. You can store the file on the disk ("ENTER w", or "ENTER wq") and
+    then compile it explicitly with this Pop-11 command
+        load medrules.p
+
+
+In response to what the program prints out you should try typing
+in some symptoms, e.g.
+
+
+    My head always aches when I think
+    I cough all the time
+    My stomach hurts most of the time
+    My stomach does not hurt any more
+    When I cough my head aches
+
+End by typing just:
+
+    bye
+
+-- Exercise: extend the diagnosis example -----------------------------
+
+Add a rule which looks for the word "tooth" and tells you to visit
+a dentist.
+
+Try adding a rule that looks for the word "better" and expresses joy at
+the patient's recovery.
+
+Try adding one or two other rules.
+
+Note: you need to be careful about the order in which the rules are
+added. Remember that Poprulebase tries the rules in the same order
+as you have typed them in.
+
+However, if you have already compiled a ruleset and you wish to change
+it, you can recompile it with ESC c (or mark and load the ruleset).
+
+
+-- More information about Poprulebase ---------------------------------
+
+That simple example illustrates only a small subset of what you can do
+with Poprulebase. The rest of this file provides more information about
+the types of conditions and the types of actions available. Still more
+information is provided in TEACH * POPRULEBASE, and TEACH * PRBRIVER
+
+The most complete information is in HELP * POPRULEBASE, which also
+refers to some additional help files.
+
+Remember the warning given above: the database used in this system is
+different from the normal Pop-11 database.
+
+-- Types of conditions ------------------------------------------------
+
+-- -- Simple conditions
+
+o Simple conditions can represent a single fact or an entire class of
+facts. The latter is achieved by using a pattern which can be matched
+against items in the database and which may be able to match different
+items on different occasions. The pattern
+
+    [sentence == cough == ]
+
+used above could match a whole class of database items, including
+
+    [sentence I cough all the time]
+
+    [sentence My cough is much better now]
+
+-- -- -- Pattern variables in conditions
+
+o Simple conditions can include variables which are preceded by the
+query ("?") or double query ("??") sign. If a fact matching such
+a condition is found then the variables are bound correspondingly.
+
+E.g. if the database contains the fact
+
+    [appointment [9:00 am] [March 3] [lecture on boring R.B.S.]]
+
+then the condition:
+
+    [appointment [9:00 am] = ?x]
+
+is satisfied, and the variable "x" is bound to the list
+    [lecture on boring R.B.S.].
+
+Another condition that would be satisfied by the same database item is
+
+    [appointment ??x  =]
+
+And here the variable "x" will be bound to the list
+    [[9:00 am] [March 3]]
+
+For revision on the difference between "?" and "??" see
+    TEACH * MATCHES
+    HELP * MATCHES
+
+-- -- Complex conditions
+
+o Complex conditions usually contain simple conditions and some sort of
+operator which transforms them into a new kind of condition.
+
+o The simplest way of combining simple conditions is with the AND
+operator. In POPRULEBASE it is implicit. Example of complex conditions
+are:
+
+    [engine temperature ?x] [engine water_lever ?y]
+
+    [engine temperature ?x] [max_secure_temperature ?x]
+
+I.e. a sequence of conditions is interpreted as if they were all joined
+by AND.
+
+o More complex conditions can be obtained by using other operators such
+as "NOT", "OR" or "IMPLIES", as explained below.
+
+o The NOT operator makes a simple condition satisfied if the
+corresponding fact is not known to be true (i.e. is not in working
+memory). E.g. the condition
+
+    [NOT is very cold]
+
+is satisfied if the fact
+
+    [is very cold]
+
+is NOT in the database. If the latter is in the database, then the
+condition will not be satisfied.
+
+o The OR operator allows complex conditions that are true if ANY of
+the related simple conditions is true. E.g.
+
+    [OR [engine temperature high]
+        [engine water_level low]]
+
+is satisfied if EITHER the temperature of the engine is high OR its
+water level is low.
+
+o An IMPLIES condition includes two lists, an antecedent, which is
+itself a list of conditions, and a consequent, which is a condition,
+e.g.
+
+    [IMPLIES [ [male ?x] [adult ?x] ] [teacher ?x]]
+
+This condition would be satisfied if all the known males that were
+adults were also teachers.
+
+
+o A WHERE condition is a type of complex condition that does not contain
+any simple conditions. Rather it contains Pop-11 expressions. A WHERE
+condition allows Pop-11 to carry out a test other than matching a
+pattern against the database, in order to decide whether the conditions
+so far satisfied have been satisfied in an appropriate way, so that the
+rule should be fired.
+
+For example, in the following set of conditions, the final complex
+condition can be used to check the values of the variables x and y set
+in the previous two conditions:
+
+    [engine temperature ?x] [max_secure_temperature ?y] [WHERE x > y]
+
+The complete set of conditions including the two simple conditions and
+the final complex WHERE condition is satisfied if the current engine
+temperature is known, if the maximum secure temperature is known, and
+the first is greater than the second. This sort of thing might be used
+to check that some machine's temperature is in a danger zone.
+
+Exercise:
+Try extending the diagnosis example with three new rules, called
+hightemp, lowtemp and normaltemp. They should all look for occurrences
+of sentences of the form
+
+    [sentence my temperature is ?x:isnumber]
+
+and the first two should use a WHERE condition to decide what to do
+about a very high temperature, and what to do about a very low
+temperature. If the temperature is neither too high nor too low the
+third rule should fire, and make an appropriate comment.
+
+There are additional types of complex conditions described in
+HELP POPRULEBASE
+
+-- Actions ------------------------------------------------------------
+
+Poprulebase allows different kinds of actions.
+
+o Simple facts in the body of a rule are considered facts to be added to
+the database. E.g. the "action":
+
+    [Eliza is a stupid program]
+
+is considered a fact to be added to the database if the condition(s) of
+the rule are satisfied.
+
+o The
+
+    [NOT <pattern>]
+
+action removes from the working memory ALL the items matching the given
+pattern.
+
+E.g.
+
+    [NOT Eliza is ==]
+
+would removed from the database all items starting with these two words
+"Eliza" then "is".
+
+
+o The
+    [SAY <message>]
+action prints a message on the screen. E.g.
+
+    [SAY 'Hiya, I am a cool psychotherapist']
+
+o The
+
+    [READ <question> <data item>]
+
+action prints a question, reads the data typed by the user and adds the
+information to the database. E.g. the action
+
+    [READ 'Tell me something' [This is the ANSWER]]
+
+adds to the working memory a list containing the words "This is the"
+plus whatever the user has typed (the typed text is contained the
+special variable ANSWER).
+
+o The
+    [STOP]
+action simply stops the interpreter (for example when the problem has
+been solved).
+
+There are many other types of actions described in the previously
+mentioned HELP and TEACH files.
+
+-- The Rule Interpreter prb_run ---------------------------------------
+
+o The rule interpreter prb_run is a program that performs inferences
+and/or actions on the basis of the knowledge in the working memory and
+in the rulebase.
+
+It is given a ruleset and a database and repeatedly runs through the
+rules looking for ones whose conditions are satisifed by the database
+(runnable rules). It may then perform the actions of all the runnable
+rules or only a subset. It will then start going through the rules
+again, with the possibly changed datatase.
+
+Each run through the ruleset is called a "cycle". It may perform a fixed
+number of cycles and then stop, or it may stop because there are no more
+rules with satisfied conditions, or it may stop because one of the
+actions encountered was a "STOP" action, as illustrated above.
+
+o Prb_run performs the following steps on each cycle:
+
+ -  Matching: find the rules whose conditions are satisfied by the
+    current contents of the working memory. Such rules are said to be
+    "fireable", or "runnable"
+
+ -  Conflict resolution: if more than one rule is runnable, decide
+    which rule(s) to use (fire) if any.
+
+ -  Acting/Firing: perform the actions or assert the facts that are in
+    the body of the "winning" rule or rules.
+
+The program can be set to run all the fireable rules, or to select only
+one. If prb_allrules is true it will select all of them. If it is false,
+it will run only the first rule whose conditions are true.
+
+If prb_allrules is true, then different strategies for selecting a
+subset of rules to run.
+
+The interpreter prb_rub can also be given a number, which specifies
+the maximum number of cycles for which it should run. E.g. you can
+specify that if it has not solved the problem after 100 cycles the
+interpreter should stop.
+
+
+-- Conflict Resolution Strategies -------------------------------------
+
+If more than one rule is runnable, and only one rule should be run on
+each cycle, then there is a "conflict" and a conflict resolution
+strategy is required.
+
+There are several different kinds of conflict resolution strategies:
+
+o Fire the first rule whose conditions are satisfied
+    (rule-order strategy)
+
+    A variant of this is to avoid firing the same rule twice if
+    there are other fireable rules (refractoriness strategy).
+    (This requires the interpreter to remember which rules have
+    already fired.)
+
+o Select the rule whose conditions have most recently been made true.
+    (recency strategy)
+
+o Use the rule with more conditions or the rule with fewer possible
+bindings (specificity)
+
+o Fire all the fireable rules
+    (this may be appropriate for deduction systems, though some
+    other systems can use this to simulate parallel actions, e.g.
+    propagation through a neural net).
+
+
+-- A Rule-based Toy Eliza ---------------------------------------------
+
+Here is a sample rule-based Eliza implementation. It should be
+self explanatory, though some comments have been inserted to explain
+what is happening. Try extending it.
+
+Note: in earlier versions of this teach file "vars" declarations
+were used for the pattern variables. These are no longer needed.
+
+uses poprulebase;
+
+define :ruleset eliza_rules;
+    ;;; The next bit can specify that prb_allrules should be false when
+    ;;; this ruleset runs. I.e. only one rule should fire on each cycle
+
+    [DLOCAL [prb_allrules = false]];
+
+  RULE start
+    ;;; This rule should fire once only
+    [NOT started]
+         ==>
+    [SAY 'Hiya, I am a cool psychotherapist, tell me your problem']
+    ;;; Prevent the rule firing again
+    [started]
+
+  RULE get_sentence
+    ;;; no sentence to reply to
+    [NOT sentence ==]
+         ==>
+    ;;; get a sentence to reply to, and store it in the database
+    [READ '' [sentence ANSWER]]
+
+  RULE stop
+    ;;; if the user typed only "bye" then stop
+    [sentence bye]
+         ==>
+    [SAY 'The bill is 10 pounds.\nYou can send the money to Riccardo']
+    [STOP]
+
+  RULE doctor
+    [sentence == doctor ==]
+         ==>
+    ;;; delete the sentence and respond to it.
+    [NOT sentence ==]
+    [SAY 'Do you think you need a doctor?']
+
+  RULE hello
+    ;;; use several patterns to recognise a greeting
+    ;;; This rule will fire if ANY of the patterns matches the
+    ;;; sentence just typed in.
+    [OR
+        [sentence == hi ==]
+        [sentence == hello ==]
+        [sentence == hiya ==]]
+         ==>
+    [NOT sentence ==]
+    [SAY 'How are you?']
+
+  RULE family
+    ;;; Look for any reference to a close relation.
+    ;;; You could add other options.
+    [OR
+        [sentence == mother ==]
+        [sentence == father ==]
+        [sentence == family ==]]
+         ==>
+    [NOT sentence ==]
+    [SAY 'Tell me more about your family']
+
+  ;;; Now some rules using pattern variables
+  RULE I_am
+    ;;; E.g. if the user types "I am feeling blue today"
+    [OR [sentence I am ??x] [sentence i am ??x]]
+         ==>
+    ;;; delete the sentence so that it will not trigger a reaction
+    ;;; again
+    [NOT sentence ==]
+    ;;; Save it as an "old" sentence for possible use later in
+    ;;; the rule pic_old_sentence, below
+    [old_sentence you were ??x]
+    [SAY 'Why do you say you are' ??x '?']
+
+  RULE I_feel
+    [sentence I feel ??x]
+         ==>
+    [NOT sentence ==]
+    [old_sentence you felt ??x]
+    [SAY 'Do you often feel' ??x '?']
+
+  ;;; Now a rule with two pattern variables
+  RULE someone_said
+    [OR
+        [sentence ??x1 said ??x2]
+        [sentence ??x1 says ??x2]
+        [sentence ??x1 thinks ??x2]
+    ]
+        ==>
+    [NOT sentence ==]
+    [old_sentence ??x1 thought ??x2]
+    [SAY 'Does anyone else think' ??x2 '?']
+
+  RULE pick_old_sentence
+    ;;; Something was typed which did not match an earlier rule
+    [sentence ==]
+    ;;; pick the most recently stored old sentence, use it to
+    ;;; generate a response.
+    [old_sentence ??x]
+         ==>
+    ;;; now delete both what has just been typed
+    [NOT sentence ==]
+    ;;; and the old sentence
+    [NOT old_sentence ??x]
+    ;;; and use the old sentence to produce some output
+    [SAY 'Previously you said ' ??x ', can you elaborate on this?']
+
+  RULE pardon
+    [sentence ==]
+    [NOT old_sentence ==]
+         ==>
+    [NOT sentence ==]
+    [SAY [popval
+            oneof(['Pardon?'
+                'Tell me more about it'
+                'Can you be a bit clearer on this'])]]
+enddefine;
+
+;;; Note the last action included a list of the form
+;;;     [popval <pop-11 expression> ]
+;;; Such a list is replaced with the result of evaluating the
+;;; Pop-11 expression.
+
+
+-- Now a master procedure to run the eliza rules ----------------------
+
+define run_eliza();
+
+    ;;; First set some global variables which control the behaviour
+    ;;; of the interpreter.
+
+    dlocal
+        ;;; Prevent prb_run continually pausing. Make it true
+        ;;; to slow things down and show what is going on
+        prb_walk = false,
+
+        ;;; Make this true for more tracing
+        prb_chatty = false;
+
+    ;;; now run the interpreter
+    prb_run(eliza_rules, []);
+
+enddefine;
+
+;;; The startup command
+
+run_eliza();
+
+
+-- A sample session ---------------------------------------------------
+
+Here is a sample session.
+
+** [Hiya, I am a cool psychotherapist, tell me your problem]
+? I am very sorry
+** [Why do you say you are very sorry ?]
+? Because my mother died
+** [Tell me more about your family]
+? They were all very very very fat.
+** [Previously you said
+      you were very sorry , can you elaborate on this?]
+? No doctor! I do not want to
+** [Do you think you need a doctor?]
+? Absolutely not!
+** [Tell me more about it]
+? never!
+** [Tell me more about it]
+? I said never!
+** [Pardon?]
+? bye
+** [The bill is 10 pounds.
+You can send the money to Riccardo]
+
+-- Exercises ----------------------------------------------------------
+
+1. Try extending the diagnosis program or the eliza program so that
+earlier interactions are remembered and used to produce more intelligent
+responses.
+
+2. Try turning the eliza program into a diary management program, which
+keeps track of your appointments at various times and allows you to tell
+it about new appointments and to answer questions about what you are
+supposed to do when. See TEACH * DIARY for a different approach, based
+on the Pop-11 database facility.
+
+3. Look at TEACH * PRBRIVER. This describes a planning program
+implemented using poprulebase. It solves the river crossing problem
+described in TEACH * RIVER. Read the introduction to PRBRIVER and
+the section giving a run of the depth first search program. Then try to
+design and implement a rule-based planning program which can be given as
+initial state any (legal) configuration in the river world and as goal
+state any other (legal) configuration, and which will then search for a
+sequence of legal moves to achieve the goal state.
+
+Legal states are those in which the characters (man, fox, chicken,
+grain) are at the left or right bank, and if the man is not on a bank,
+then that bank must not contain two items one of which will eat the
+other. (Fox will eat chicken if left unattended and chicken will eat
+grain if left unattended). Legal moves are those in which the man
+crosses from one side to the other either alone or with one other item
+in the boat. The boat cannot carry the man and two or more items.
+
+Solving the problem involves creating a plan representing a sequence of
+moves, where a move is one of
+
+    [move man] [move fox] [move chicken] [move grain]
+
+(where the last three involve moving the man also).
+
+In order to construct such a plan the program will have to have rules
+that store information about the current plan in the database. Initially
+the plan will be empty. As different moves are explored the plan can be
+extended. If a dead end is reached part of the plan has to be undone.
+To prevent the program going round in circles, the problem solver may
+have to store, in the database, a history of previous moves tried, or
+previous states reached, as well as the current state being examined and
+the current moves being tested.
+
+The database will also need to store information about the goal state.
+Try to work out how many different rules will be needed, e.g. to select
+a new move, to check whether it achieves a legal state, to check whether
+no more moves are possible so that back-tracking is needed, to check
+whether the search has gone in a loop to a previous state, to check
+whether the goal state has been achieved, to build a record of the
+current plan, to build a record of the history, etc.
+
+This is quite a difficult task, so if you start doing it and cannot
+complete it you may find it useful to look at the solutions in
+TEACH * PRBRIVER, and then try copying parts of them to complete your
+solution. The solution given there uses quite sophisticated features of
+Poprulebase, described in TEACH * POPRULEBASE and HELP * POPRULEBASE
+
+4. TEACH * DIAGNOSIS describes the task of designing an expert system
+which diagnoses hypertension.
+
+
+TEACH * POPRULEBASE includes a number of examples, and ends with a set
+of additional possible exercises.
+
+WARNING:
+    Some of the online documentation uses an older syntax, which
+    involves defining all the rules separately, according to
+    the format of example 6 above.
+
+
+-- Further reading ----------------------------------------------------
+
+TEACH * POPRULEBASE
+    Gives more information about poprulebase and several examples
+TEACH * PRBWINE
+    A toy wine advisor
+TEACH * PRBZOO
+    A toy animal identifier
+TEACH * PRBGROCERIES
+    An expert system for packing groceries into bags at a supermarket
+    checkout.
+TEACH * PRBRIVER
+    An extended example showing how to use poprulebase to create a
+    planning program to solve the problem of getting the man, fox,
+    chicken, and grain across the river. (Quite difficult.)
+TEACH * DIAGNOSIS
+    An introduction to a medical expert system.
+
+HELP  * POPRULEBASE
+HELP  * PRB_FILTER
+HELP  * PRB_EXTRA
+HELP  * PRB_TRACE_PROCS
+    These files give the definitive description of the whole
+    poprulebase library.
+HELP  * PRB_NEWS
+    This describes recent changes to poprulebase.
+
+HELP * PRB_DATABASE
+    Advice on how to use database-like commands with prb_database
+
+
+LIB * POPRULEBASE
+    This library file contains the main "engine" of poprulebase. There
+    are also additional autoloadable library files, usually stored in
+    $poplocal/local/prb/auto/
+
+There is a toolkit for simulating interacting agents, which uses
+Poprulebase. See TEACH * SIM_AGENT
+
+TEACH * EXPERTS
+    An introduction to some additional pop-11 rule-based systems
+
+--- $poplocal/local/newkit/prb/teach/rulebase
+--- Copyright University of Birmingham 2000. All rights reserved. ------

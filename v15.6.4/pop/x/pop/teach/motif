@@ -1,0 +1,423 @@
+TEACH MOTIF                                         Tom Khabaza Dec 1990
+                                         Updated: Adrian Howard Mar 1992
+                                        Updated: Julian Clinton Nov 1993
+
+This teach file contains a tutorial to demonstrate the creation and
+manipulation of some widgets from the Motif widget set. The tutorial in
+this file can also be found in the X chapter of the Poplog User Guide.
+
+In order to run this tutorial, you must be running Poplog on a system
+which provides the "Xm" (Motif) widget set libraries, and be running an
+X Window Server which is capable of supporting Motif applications. See
+HELP *MOTIF for details of the Poplog Motif widget set interface.
+
+This teach files follows the same format and provides an essentially
+similar demonstration program to that in TEACH *OPENLOOK.
+
+The complete source code for this tutorial is in LIB *XmTutorial. This
+tutorial is a direct parallel to TEACH *OPENLOOK and LIB *XolTutorial.
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- The Task
+ -- The Application Code
+ -- Loading The X-related Libraries
+ -- Loading Motif Widget Classes
+ -- Initialising The Toolkit
+ -- Creating A Top Level Window
+ -- Creating widgets
+ -- The Role Of "Callback Routines"
+ -- Updating The Resources
+ -- Adding Callbacks To The Widgets
+ -- Initialising The program
+ -- Things To Try
+ -- Destroying The Panel
+
+-- The Task -----------------------------------------------------------
+
+We want to be able to examine, display and modify the (integer) values
+of a collection of variables. We are going to build a simple application
+using the X Toolkit Intrinsics and the Motif widget set to perform this
+task.
+
+The application contains a single button and a "scale".  The button is
+labelled with a variable name and its value. The scale displays the same
+value, and can also be used to set it using the mouse.  Pressing the
+button changes the variable displayed; repeated pressing cycles through
+the complete set of variables.
+
+
+-- The Application Code -----------------------------------------------
+
+The names of variables to be manipulated by the application are stored
+in a list in the global variable -variable_list-.  The variables being
+manipulated are also global, and are initialised to zero:
+
+    vars variable_list = [a b c d e];
+    vars a=0, b=0, c=0, d=0, e=0;
+
+In order to "cycle" through the variables stored in variable_list,
+another global variable stores the current position in the list,
+initially set to the beginning.  Another holds the name of the variable
+currently selected:
+
+    vars    current_variable,
+            current_variable_list = variable_list;
+
+We then provide a routine for selecting the current variable.  If
+-current_variable_list- is -nil-, then we should "wrap round", starting
+again at the beginning of -variable_list-.  The head of
+-current_variable_list- becomes the current variable, and the tail
+becomes the new -current_variable_list- (for use next time).
+
+    define new_current_variable;
+        if current_variable_list = [] then
+            variable_list -> current_variable_list;
+        endif;
+        hd(current_variable_list) -> current_variable;
+        tl(current_variable_list) -> current_variable_list;
+    enddefine;
+
+
+-- Loading The X-related Libraries ------------------------------------
+
+A number of X-related libraries are needed for this application.  First
+we load the general library for making other X-related libraries
+available:
+
+    uses popxlib;
+
+We also require the libraries for widget handling, callback manipulation
+and event management:
+
+    uses xt_widget;
+    uses xt_callback;
+    uses xt_event;
+
+Finally, we will define a set of general X-related constants and
+structures provided in Poplog to make coercion between X types and
+Poplog types more convenient. Here we will compile them using
+* loadinclude:
+
+    loadinclude xpt_coretypes;
+
+
+-- Loading Motif Widget Classes ---------------------------------------
+
+Widget classes are accessed through a number of constants defined in
+autoloadable libraries. Individual widget classes are accessed through
+these constants --- thus the Motif Scale widget class can be made
+accessible by:
+
+    uses xmScaleWidget;     ;;; defines xmScaleWidget constant
+    xmScaleWidget =>
+    ** <Xm WidgetClass ScaleWidget>
+
+(Notice that we refer to this class as the "ScaleWidget" class rather
+than just the "Scale" class, since we may at other times need to access
+a "ScaleGadget" class.)
+
+
+In addition to loading the Motif widgets, we also require one widget
+supplied in the X Toolkit widget set: the ApplicationShellWidget. This
+will be the top-level window for our application. The following code
+thus loads the ApplicationShellWidget, RowColumnWidget, PushButtonWidget
+and ScaleWidget classes and all the associated procedures and data.
+
+    exload_batch;
+    uses
+        xtApplicationShellWidget,
+        xmRowColumnWidget,
+        xmPushButtonWidget,
+        xmScaleWidget;
+    endexload_batch;
+
+This is surrounded by the brackets "exload_batch ... endexload_batch" to
+ensure that then external loading of procedures and data-structures
+takes place in a single "batch", that is in a single call to the linker,
+for increased efficiency.
+
+Motif also has a number of constants which are typically used as
+attribute specifiers (e.g. -XmHORIZONTAL-, -XmVERTICAL-). These are
+defined in an include file, 'XmConstants.ph'. In this example, we will
+compile the file rather than simply including it as it would be in a
+source file:
+
+    loadinclude XmConstants;    ;;; rather than: include XmConstants
+
+
+-- Initialising The Toolkit -------------------------------------------
+
+Before creating any Motif widgets, we must perform various
+initialisations. The X Toolkit must be initialised, and we must create a
+connection with the X server, and an initial application context.  These
+functions are performed by the single call:
+
+    XptDefaultSetup();
+
+
+-- Creating A Top Level Window ----------------------------------------
+
+We now create a top-level application shell in which to place other
+widgets.  The application shell is created by the standard Toolkit
+routine -XtAppCreateShell-, which takes the application name, the
+application "class" name, the application shell widget class, the
+display on which the shell is to appear, and an ArgList.
+
+An "ArgList" is an X Toolkit structure containing a set of attribute
+value pairs; in this case the attributes are "resources", that is slots
+in a widget used to hold its attributes. ArgLists may be used to specify
+various properties of a widget or an application shell, for example at
+the point where it is created.
+
+    vars topwin =  XtAppCreateShell('panel', 'Demo',
+                            xtApplicationShellWidget,
+                            XptDefaultDisplay,
+                            [{allowShellResize ^true}]);
+
+The application name is used as the title for the window created; the
+application class name is used by the X resource database manager, but
+we can ignore it here. In this example, the ArgList is used to set the
+base window's allowShellResize resource to the boolean -true-,
+indicating that this window should respond to resize requests from its
+children.
+
+
+-- Creating widgets ---------------------------------------------------
+
+We now create three widgets, one from each of the classes loaded
+previously.  To create a widget we must supply a name (a string), the
+class of the widget, the widget's "parent" and an ArgList specifying the
+widget's initial resources.  Widgets are arranged hierarchically, with
+every widget (except for top-level shells) having a "parent" widget.
+Normally each widget, when displayed, will be visually "inside" its
+parent widget (where the parent is visible).
+
+Of the widget classes loaded above, the "row column" class needs some
+explanation.  A row column widget is used to contain and manage other
+widgets.  Widgets placed within a row column widget are automatically
+arranged in a sensible default arrangement with sufficient space and no
+overlap.  By default, resizing actions are performed when necessary.
+
+The Poplog X Toolkit routine -XtCreateManagedWidget- is used to create
+the widgets.  -XtCreateManagedWidget- corresponds to the standard X
+Toolkit routine used to create widgets that respond appropriately to
+management from their parent and window manager:
+
+    vars
+        rowcol =   XtCreateManagedWidget('mycontrol',
+                        xmRowColumnWidget,
+                        topwin, [{orientation ^XmHORIZONTAL}]),
+
+        button =    XtCreateManagedWidget('mybutton',
+                        xmPushButtonWidget,
+                        rowcol, [{recomputeSize ^false}]),
+
+        scale =    XtCreateManagedWidget('myscale',
+                        xmScaleWidget,
+                        rowcol, [
+                            {width 100}
+                            {orientation ^XmHORIZONTAL}
+                            {maximum 50}]);
+
+The rowcol is created with the top window as its parent; the button and
+scale both have the rowcol as their parent.  Thus the rowcol is used to
+manage to two visible widgets.  The rowcol has an ArgList specifying
+that it is organised horizontally. The button has an ArgList which
+specifies that its size should not change when it's label is altered.
+The scale is given three non-default resource settings: a width of 100
+pixels, a horizontal orientation and a maximum value of 50.
+
+The value of the constant -XmHORIZONTAL- is provided by the Motif
+constans include file, 'XmConstants.ph' (supplying -XmVERTICAL- would
+specify a vertical orientation).
+
+
+-- The Role Of "Callback Routines" ------------------------------------
+
+Having created the widgets for our panel, we now specify how they should
+behave.  This is achieved by supplying the widgets with "callbacks",
+that is procedures to be called when the widget is manipulated with the
+mouse.  Each callback has a name indicating the circumstances under
+which the procedure is called.  For example, the "activate" callback is
+called when the associated widget is selected with the mouse, and the
+"drag" callback is called when the associated scale is moved using the
+mouse.
+
+
+-- Updating The Resources ---------------------------------------------
+
+The callback routines attached to both widgets will change the display
+by updating the resources of the widgets.  The resources to be updated
+are the label of the button and the value of the scale.  The former is
+always set to the current variable name concatenated with its value and
+separated by a space.  The latter is always set to the value of the
+current variable.  Separate routines provide these two functions:
+
+    define set_button_label;
+        lvars string;
+
+        XmStringCreateLtoR(
+            current_variable sys_>< ' ' sys_>< valof(current_variable),
+            XmSTRING_DEFAULT_CHARSET) -> string;
+
+        string -> XptValue(button,XmN labelString,TYPESPEC(:XmString));
+    enddefine;
+
+    define set_scale_value;
+        valof(current_variable) -> XptValue(scale, XmN value);
+    enddefine;
+
+Resources are updated using the Poplog X Toolkit routine -XptValue-.
+This takes a widget, a resource name and an (optional) coercion type. If
+the coercion type is not provided, it defaults to "int" --- the correct
+type in -set_scale_value-. However, in -set_button_label- we are dealing
+with a Motif compound string. First we build the string using the Motif
+procedure -XmStringCreateLtoR-, passing it a  string and a "character
+set". Then we set the resource using the "TYPESPEC(:XptString)" coercion
+argument. The resource name argument is a string. The -XmN- convenience
+macro is used here to convert a word into a string, so repeated use of
+the same resource name will not create a new string each time.
+
+
+-- Adding Callbacks To The Widgets ------------------------------------
+
+Every callback routine is called with three arguments: the widget whose
+callback is being invoked, the "client data" supplied when the callback
+is added to the widget, and the "call data" indicating the event which
+caused the callback.  In the case of the button's callback, none of this
+data is used; we simply call -new_current_variable- to move on to the
+next variable, -set_button_label- to give the button its new label, and
+-set_scale_value- to set the scale value to the value of the new
+variable:
+
+    define switch_variable_callback(widget, client_data, call_data);
+        lvars widget, client_data, call_data;
+        new_current_variable();
+        set_button_label();
+        set_scale_value();
+    enddefine;
+
+This is attached to the activate callback of the button using the X
+Toolkit routine -XtAddCallback-:
+
+    XtAddCallback(button, XmN activateCallback,
+            switch_variable_callback,
+            'Data for button activate callback');
+
+The final argument of this call is the "client data" passed to the
+callback routine when it is called.  This allows the callback routine to
+distinguish between widgets in cases where the same callback routine has
+been used for more than one widget.  However, in the present
+comparatively simple case this is not used by the callback routines, and
+is therefore effectively a dummy argument.
+
+The second callback procedure, -set_variable_callback-, is used to set
+the value of the selected variable when the scale is moved.  Here, the
+call data argument is used to access the new value given by the position
+of the scale.  The argument contains a Poplog "external pointer" object,
+pointing to a Motif Scale callback structure XmScaleCallbackStruct.
+First the -call_data- argument is declared as an XmScaleCallbackStruct
+type, using the -l_typespec- construct. Then the "value" field of this
+structure is accessed using -exacc- (see REF *EXTERNAL for details).
+This value is assigned to the current variable and the button label is
+set appropriately.
+
+    define set_variable_callback(widget, client_data, call_data);
+        lvars widget, client_data, call_data;
+        l_typespec call_data: XmScaleCallbackStruct;
+
+        exacc call_data.value -> valof(current_variable);
+
+        set_button_label();
+    enddefine;
+
+This is attached to the scale's valueChanged and drag callbacks thus:
+
+    XtAddCallback(scale, XmN valueChangedCallback,
+            set_variable_callback,
+            'Data for scale valueChanged callback');
+
+    XtAddCallback(scale, XmN dragCallback,
+            set_variable_callback,
+            'Data for scale drag callback');
+
+The valueChanged callback is called every time the value represented by
+the slider position is changed. The drag callback is called when the
+slider is continuously "dragged" with a mouse button. We have to add the
+procedure to drag and valueChanged since the valueChanged callback is
+only called when the mouse button is released during "dragging".
+
+
+-- Initialising The program -------------------------------------------
+
+First we set up the current variable and set the button's label:
+
+    new_current_variable();
+    set_button_label();
+
+We now "realise" the widgets, making them visible on the screen:
+
+    XtRealizeWidget(topwin);
+
+The application now appears on the display and responds to mouse events
+in the manner that we have specified.
+
+
+-- Things To Try ------------------------------------------------------
+
+The Scale widget includes several resources which you might be
+interested in changing:
+
+To give the scale a label, use:
+
+    vars label =
+        XmStringCreateLtoR('value', XmSTRING_DEFAULT_CHARSET);
+    label -> XptValue(scale, XmN titleString, TYPESPEC(:XmString));
+
+The scale can also have a small display showing its current value:
+
+    true -> XptValue(scale, XmN showValue, TYPESPEC(:XptBoolean));
+
+This value display can be set to display a floating point number, such
+as 0.4 or 1.5 by moving the placement of the decimal point:
+
+    1 -> XptValue(scale, XtN decimalPoints);
+
+The scale position can be altered directly from Pop-11 using the
+following procedure:
+
+     define update_scale(x);
+         lvars x;
+         x -> valof(current_variable);
+         set_button_label();
+         set_scale_value();
+     enddefine;
+
+     ;;; Set the current variable to 45
+     update_scale(45);
+
+
+-- Destroying The Panel -----------------------------------------------
+
+The panel continues to exist as long as the variables topwin, rowcol,
+scale and button contain the widgets that comprise it.  If these objects
+are discarded, by assigning another value to the variables thus
+
+    false ->> topwin ->> rowcol ->> scale -> button;
+
+then the widgets will destroyed when there are garbage-collected.
+Alternatively, the widgets can be explicitly destroyed using
+-XtDestroyWidget- thus:
+
+    XtDestroyWidget(topwin);
+
+When a widget is destroyed with -XtDestroyWidget- all it's children are
+also destroyed. Therefore we can safely destroy the entire application
+by destroying the top level widget.
+
+
+
+--- C.x/x/pop/teach/motif
+--- Copyright University of Sussex 1992. All rights reserved. ----------

@@ -1,0 +1,296 @@
+REF XT_DISPLAY                      Jason Handby, Adrian Howard Sep 1991
+                                         Revised: Adrian Howard Nov 1992
+
+       COPYRIGHT University of Sussex 1990. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<< DISPLAY MANAGEMENT ROUTINES >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This REF  file details  the  procedures that  are  supplied by  the  two
+library  packages  LIB * XT_DISPLAY   and  LIB * FAST_XT_DISPLAY   which
+provide the Pop-11 interface to various X Toolkit Intrinsics relating to
+the management of displays.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   LIB XT_DISPLAY
+
+  3   LIB FAST_XT_DISPLAY
+
+
+
+---------------
+1  Introduction
+---------------
+
+Before an application can do anything it must establish a connection  to
+a server. The application does this  by opening a display and adding  it
+to its  application  context.  A single  application  context  can  have
+multiple displays, but a single display cannot be used by more than  one
+application context  (ie,  a single  application  can talk  to  multiple
+servers, but different application contexts  cannot use the same  server
+connection).
+
+Displays are  specified by  strings. A  display string  is of  the  form
+'HOST:SERVER.SCREEN'.
+
+    HOST
+        refers to the name of the machine running the server.
+
+    SERVER
+        is the  server number  on that  machine. This  represents  which
+        keyboard-mouse-monitor triple  to use  on the  host running  the
+        server. Since most machines only  have a single keyboard,  mouse
+        and monitor this number is usually zero.
+
+    SCREEN
+        specifies  the  default  screen  that  should  be  used  by  the
+        application.
+
+The '.SCREEN' part of a display string is optional, so both 'aurora:0.0'
+and 'aurora:0' are legal display strings.
+
+The library LIB * XT_DISPLAY provides the Pop-11 interface to  various X
+Toolkit Intrinsics relating to the  management of displays. The  library
+LIB * FAST_XT_DISPLAY   (loaded   automatically   by   LIB * XT_DISPLAY)
+provides the non-type checking interface to the same procedures. The use
+of these  libraries can  often  be avoided  by  using the  higher  level
+procedures,    eg    XtAppInitialize    and    XtVaAppInitialize    (see
+REF * XT_APPINIT).
+
+LIB * XT_DISPLAY and LIB * FAST_XT_DISPLAY allow the following functions
+to be performed:
+
+   #  The opening and initialisation of a display.
+   #  The addition of a display to an application context.
+   #  Closing of a display and its removal from an application context.
+   #  Finding the display associated with a widget.
+   #  Finding the application context associated with a display.
+   #  Importing an external display object into Pop-11.
+   #  Accessing a Pop-11 device referring to a given display.
+
+More information  on the  types of  the arguments  and results  for  the
+following procedures can be found in REF * XPT_TYPES.
+
+For more details about opening display connections see section 2.1 of:
+
+               X Toolkit Intrinsics - C Language Interface
+                       MIT X Consortium Standard,
+                         X Version 11, Release 4
+
+        Copyright (C) 1985, 1986, 1987, 1988, 1989 Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+
+
+-----------------
+2  LIB XT_DISPLAY
+-----------------
+
+XtDisplayInitialize(appcontext, displayptr,                  [procedure]
+                    app_name, app_class,
+                    optiondesclist, num_options,
+                    argc_io, argv_io)
+        This  procedure  initialises  a  display  and  adds  it  to   an
+        application context.  This procedure  does not  actually  open a
+        display (most  application will  want  to use  XtOpenDisplay  or
+        XtAppInitialize  instead).   XtDisplayInitialize  performs   the
+        following operations:
+
+          o It initialises the display and adds it to the given
+            application context
+
+          o It fetches the language string that is to be used for the
+            specified display (see REF * XT_UTIL/XtResolvePathname).
+
+          o It builds the resource database, parsing any supplied
+            command line options (see REF * XT_RESOURCE).
+
+        displayptr is  an XptDisplayPtr  to the  display that  is to  be
+        added to  the application  context appcontext.  Remember  that a
+        display can be in only one application context at a time.
+
+        app_name and app_class are strings that specify the instance and
+        class names of the application.
+
+        optiondesclist is an XptOptionDescList structure that  specifies
+        how  the  command   line  arguments  are   to  be  parsed.   See
+        REF * XPT_GENERALTYPES for a full  explanation of the format  of
+        the structure.  num_options is  a  CARDINAL that  specifies  the
+        number of options in optiondesclist.
+
+        argv_io is  an XptStringList  structure containing  the  command
+        line arguments  ('-display', '-geometry',  etc). argc_io  is  an
+        XptCardinalPtr pointing to the number of command line  arguments
+        that are stored in argv_io.
+
+        If the boolean resource 'synchronous' is true ('+synchronous' in
+        argv_io) then the display connection is placed into  synchronous
+        mode by XtDisplayInitialize,  ie requests to  the server are  no
+        longer buffered and are acted upon immediately. This can be very
+        useful when debugging applications since errors will be reported
+        when they  occur.  It  will,  however,  slow  program  execution
+        considerably.
+
+        If  the  boolean  resource  'reverseVideo'  is  true  ('+rv'  in
+        argv_io) then the intrinsics exchange 'XtDefaultForeground'  and
+        'XtDefaultBackground' for widgets created on this display.
+
+        After   the   call    to   XtDisplayInitialize   the    variable
+        XptUnprocessedArgs will  contain  a  list of  any  command  line
+        arguments that  were not  successfully parsed.  If some  of  the
+        command line arguments were  not parsed successfully, the  usual
+        response would  be  for  the caller  of  XtDisplayInitialize  to
+        display the unparsed arguments  along with a  list of the  legal
+        command line options.
+
+        NOTE:   if    you    refresh   argc_io    and    argv_io    with
+        refreshXptCardinalPtr and  refreshXptStringList they  will  also
+        contain any command  line arguments that  were not parsed,  plus
+        (on Unix systems) the command used to invoke the program.
+
+
+XtOpenDisplay(appcontext, display,                           [procedure]
+              app_name, app_class,
+              optiondesclist, num_options,
+              argc_io, argv_io) -> displayptr
+        This procedure  opens a  display and  add it  to an  application
+        context,  returning  an  XptDisplayPtr  displayptr  to  the  new
+        display.
+
+        If display is a display string,  an attempt is made to open  the
+        display it  specifies. If  display is  false then  XtOpenDisplay
+        uses the value of any '-display' command line option in argv_io.
+        If no such command  line option exists,  then the users  default
+        display is used. On Unix systems the default display will be the
+        value of the display environment variable.
+
+        After  the  display  has   been  opened,  the  procedure   calls
+        XtDisplayInitialize with  the  new  display  and  the  specified
+        appcontext, app_class, optiondesclist, num_options, argc_io, and
+        argv_io (which are as for XtDisplayInitialize).
+
+        The application name  passed to XtDisplayInitialize  will be  as
+        follows:
+
+          o If a '-name' command line option was specified in argv_io,
+            then then its value will be passed.
+
+          o If there was no such command line option, and app_name is a
+            string, then app_name will be passed.
+
+          o If app_name is false then the value of the Unix
+            environment variable RESOURCE_NAME will be passed.
+
+          o If RESOURCE_NAME is not set, then the name used to invoke
+            the program will be used (on Unix systems this will be the
+            first element of argv_io, stripped of any directory and
+            file-type components).
+
+          o If the name used to invoke the program cannot be found (eg,
+            the first element of argv_io does not exist, or is an empty
+            string), then the application name 'main' is passed.
+
+        After the call to XtOpenDisplay the variable  XptUnprocessedArgs
+        will contain a list of any command line arguments that were  not
+        successfully parsed. See XtDisplayInitialize on how this  should
+        be handled.
+
+        NOTE:   if    you    refresh   argc_io    and    argv_io    with
+        refreshXptCardinalPtr and  refreshXptStringList they  will  also
+        contain any command  line arguments that  were not parsed,  plus
+        (on Unix systems) the command used to invoke the program.
+
+
+XtDisplay(widget) -> displayptr                              [procedure]
+        Returns a  pointer to  the display  associated with  the  widget
+        widget. Also see XtDisplayOfObject and XtScreen.
+
+
+XtDisplayToApplicationContext(displayptr) -> appcontext      [procedure]
+        Return the application  context descriptor  associated with  the
+        given display. This procedure will give an error if the  display
+        does not have an associated application context.
+
+
+XtCloseDisplay(displayptr)                                   [procedure]
+        This procedure closes the specified display and removes it  from
+        its application context  (if any). If  this procedure is  called
+        from some form of external callback (see REF * XT_CALLBACK)  the
+        display is not  closed until  the callback  has been  completed.
+        This  procedure  is  the  default  destroy  action  for  display
+        descriptors.
+
+        All the  widgets  associated  with  the  specified  display  are
+        destroyed  with  fast_XtDestroyWidget  before  the  display   is
+        closed.
+
+        This procedure need only be  called if the application is  going
+        to continue executing, otherwise XtDestroyApplicationContext can
+        be used.
+
+
+
+
+----------------------
+3  LIB FAST_XT_DISPLAY
+----------------------
+
+fast_XtDisplayInitialize(appcontext, displayptr,             [procedure]
+                         app_name, app_class,
+                         optiondesclist, num_options,
+                         argc_io, argv_io)
+fast_XtOpenDisplay(appcontext, display,                      [procedure]
+                   app_name, app_class,
+                   optiondesclist, num_options,
+                   argc_io, argv_io) -> displayptr
+fast_XtDisplay(widget) -> displayptr                         [procedure]
+fast_XtDisplayToApplicationContext(displayptr) -> appcontext [procedure]
+fast_XtCloseDisplay(displayptr)                              [procedure]
+        As for the  procedures in LIB * XT_DISPLAY,  but without  checks
+        for valid arguments.  These procedures  should only  be used  in
+        fully debugged programs. See REF * XTOOLKIT for full details  of
+        the Poplog X  naming conventions for  non-checking and  checking
+        procedures.
+
+
+XptImportDisplayPtr(exptrclass) -> displayptr or false       [procedure]
+false or displayptr -> XptImportDisplayPtr() -> exptrclass
+        Given an external pointer class  record pointing to an  external
+        display structure, return the displayptr record for it (creating
+        a new one if  necessary). If exptrclass is  a null pointer  then
+        false is returned.
+
+        If exptrclass refers to a display, it must be one that has  been
+        registered with  the  toolkit, ie  one  that has  an  associated
+        application context.
+
+        If the updater is given false  it coerces it to a null  external
+        pointer. If  it is  given a  displayptr it  returns an  external
+        pointer class record  that refers  to the  display. NOTE:  Since
+        displayptr is an external pointer class record, the updater acts
+        like identfn when given a non-false value.
+
+        This routine can  be used as  a conversion procedure  in a  type
+        specification (see REF * DEFCLASS).
+
+
+XptImportUnregisteredDisplayPtr(exptrclass)                  [procedure]
+                -> displayptr or false
+false or displayptr -> XptImportUnregisteredDisplayPtr() -> exptrclass
+        Arguments and  results are  as for  XptImportDisplayPtr,  except
+        that exptrclass refers to  a display pointer  that has NOT  been
+        registered with the toolkit (ie, it does not have an  associated
+        application context).
+
+
+
+--- C.x/x/pop/ref/xt_display
+--- Copyright University of Sussex 1991. All rights reserved.

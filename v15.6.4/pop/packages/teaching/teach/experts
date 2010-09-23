@@ -1,0 +1,349 @@
+TEACH EXPERTS                                 Chris Mellish January 1983
+
+=== EXPERT SYSTEMS =====================================================
+
+CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- LIB EMYCIN
+ -- LIB EPROSPECT
+ -- LIB ESHELL
+ -- Assignment
+ -- References
+
+
+-- Introduction --------------------------------------------------------
+
+There has been a  great deal of interest  recently in so-called  "expert
+systems" -  MYCIN, PROSPECTOR,  DENDRAL, R1  and many  more -  practical
+applications of AI techniques in restricted domains where expert  advice
+is hard to  get or expensive.  To start thinking  about expert  systems,
+look at some of the literature referred  to at the end of this file  and
+try to answer for yourself the following question:
+
+        What is an expert system?
+
+It is suggested that you  concentrate your attention on some  particular
+system, but that you also consider particular points relating to  expert
+systems in general.  Pay special  attention to the  special problems  of
+having a system  work in the  "real world"  and the way  they have  made
+expert systems look. Questions that you might consider include:
+
+        How "deep" is the system's knowledge of its domain?
+        How is its knowledge represented?
+        What are the main components of the program?
+        How are inferences organised?
+        What role  do  "probabilities"  or  "likelihoods"  play  in  its
+            operation?
+        What is the user interface like?
+
+There are several  programs in the  POP-11 library to  help you get  the
+feel of what it is  like to produce an  expert system. These are  simple
+examples of "expert system  shells". It is  important to note,  however,
+that these programs  are mainly  to illustrate the  INFERENTIAL side  of
+expert systems, and  they do not  address questions about  explanations,
+user interface and  so on. In  a real world  application, these  factors
+could be at least as important as whether the program actually draws the
+correct conclusions. These programs are  also very simple, and miss  out
+many of the things that feature in  the programs they are based on.  You
+are invited to  use them as  a basis for  developing more  sophisticated
+methods, which you have either worked  out for yourself or derived  from
+the literature (use SHOWLIB to look at the code).
+
+To understand most expert systems, you must have some idea of what makes
+up a RULE BASED SYSTEM. See  * PSYS for some references and  information
+about a library program that can be used to run simple sets of rules  in
+a "forwards" (or "antecedent") fashion. The syntax used for rules in the
+other programs is similar to that used in PSYS.
+
+TEACH * PRODSYS describes a somewhat more sophisticated package,
+implemented in LIB * PRODSYS.
+
+There is a still more sophisticated tool for building expert systems,
+based on forward chaining rules, namely LIB * NEWPSYS. It is described
+fully in HELP * NEWPSYS, and an example of its use is described in
+TEACH * PSYSRIVER
+
+The next three sections of this file describe libraries based on well
+known systems.
+
+
+-- LIB EMYCIN ----------------------------------------------------------
+
+This library program implements an  EMYCIN-like control strategy. It  is
+limited in at least the following ways:
+
+   - the numerical formulae used are a simplification of EMYCIN's
+
+   - rules can only  have one conclusion and  the premises are  always a
+        conjunction
+
+   - there is no context mechanism, and so the system is always  talking
+        about a single object, the values of whose attributes are to  be
+        determined
+
+Here is an example of some rules for the EMYCIN program:
+
+[
+  [ [age young] [species human] [sex male] => 1 [word boy] ]
+  [ [age young] [species human] [sex female] => 1 [word girl] ]
+  [ [age old] [species human] [sex male] => 1 [word man] ]
+  [ [age old] [species human] [sex female] => 1 [word woman] ]
+  [ [age young] [species dog] => 1 [word puppy] ]
+  [ [age old] [species dog] [sex female] => 1 [word bitch] ]
+  [ [age old] [species dog] => 0.5 [word dog] ]
+  [ [legs 2] => 1 [species human] ]
+  [ [legs 4] => -1 [species human] ]
+  [ [legs 4] => 0.5 [species dog] ]
+  [ [height short] => 0.5 [species dog] ]
+  [ [height tall] => 0.5 [species human] ]
+] -> system;
+
+Note that all  facts are lists  of the form  [<attribute> <value>].  The
+facts on the left hand side are  supposed to be conjoined (as in  PSYS),
+so that all  have to be  true for the  right hand side  to be true.  The
+numbers in the rules represent the strength of the implication:
+
+   -1  - the lhs is conclusive evidence that the rhs is not true
+    0  - the lhs says nothing at all about the truth of the rhs
+    1  - the lhs is conclusive evidence that the rhs is true
+
+and numbers in between indicate various degrees of certainty.
+
+To run the system on a set of rules, call:
+
+    emycin(goal,system);
+
+where GOAL is a word giving the attribute that we are interested in  (eg
+the TREATMENT in  a medical setting)  and SYSTEM is  the list of  rules.
+When a question is asked, the system will ask for both a value for  some
+attribute and a certainty.  At any point, one  can ask "why" instead  of
+specifying a value for  an attribute. The certainty  should be a  number
+between -1 and 1.  As with the rules,  -1 represents certain  falsity, 1
+represents certain  truth and  numbers in  between represent  things  in
+between. This same scale of certainties is used in trace messages and in
+the conclusions printed out at the end.
+
+The database is used to  store information about attributes. An  example
+fact is:
+
+  [height [short 0.3] [tall -0.4]]
+
+This means that it  is 0.3 certain  that the height  is short, and  -0.4
+certain that the height is tall. The database is emptied when EMYCIN  is
+called and can be examined when it has finished.
+
+The global variable CUTOFF  can be assigned a  value to stop the  system
+considering any  rule, one  of whose  premises has  a certainty  below a
+certain value. The default is 0.2.
+
+
+-- LIB EPROSPECT -------------------------------------------------------
+
+This program  is  supposed  to  give  some  idea  of  how  execution  is
+controlled in the PROSPECTOR program. The program is limited at least as
+follows:
+
+   - the numerical formulae used  are a simplification of  PROSPECTOR's.
+     Formulae derived from papers about  PROSPECTOR seem to make  little
+     sense, and this means that EPROSPECT's numbers are also doubtful.
+
+   - rules can only  have one conclusion and  the premises are  always a
+     conjunction
+
+   - there is no context mechanism, and no pruning of the search  space,
+     and so the system will always ask all questions
+
+Here is an example of some rules for the EPROSPECT program:
+
+   [
+     [ [age young] [species human] [sex male] => 10 0.1 [word boy] ]
+     [ [age young] [species human] [sex female] => 10 0.1 [word girl] ]
+     [ [age old] [species human] [sex male] => 10 0.1 [word man] ]
+     [ [age old] [species human] [sex female] => 10 0.1 [word woman] ]
+     [ [age young] [species dog] => 10 0.1 [word puppy] ]
+     [ [age old] [species dog] [sex female] => 10 0.1 [word bitch] ]
+     [ [age old] [species dog] => 5 0.1 [word dog] ]
+     [ [legs 2] => 10 0.1 [species human] ]
+     [ [legs 4] => 0.1 10 [species human] ]
+     [ [legs 4] => 5 0.1 [species dog] ]
+     [ [height short] => 5 0.1 [species dog] ]
+     [ [height tall] => 5 0.1 [species human] ]
+   ] -> system;
+
+Facts in the EPROSPECT program are just any lists of words. No variables
+are allowed. They do not have to be attribute-value pairs, and so:
+
+   [the ground is dotted with molehills]
+
+would be quite acceptable as a fact.
+
+Each rule now has  two numbers. The first  says to what degree  positive
+evidence for the lhs  is positive evidence for  the rhs, and the  second
+says to what degree  negative evidence for the  lhs is evidence for  the
+negation of  the rhs.  These numbers  are MULTIPLIED  by other  numbers,
+which means that  numbers less  than 1  cause a  decrease in  certainty,
+whereas numbers greater than 1 cause an increase.
+
+To call up the EPROSPECT system, do:
+
+   eprospect(system,priors);
+
+where SYSTEM  is  the list  of  rules and  PRIORS  is a  list  of  prior
+probabilities. PRIORS is a  list of lists each  containing a fact  and a
+number, for instance:
+
+   [ [[the ground is lumpy] 0.3] [[the trees smell queer] 0.6] ]
+
+Prior probabilities express how likely it  is in general that the  facts
+hold. They are numbers in the range  0 to 1. Any facts not mentioned  in
+the list given to EPROSPECT are assumed to have prior probability 0.5.
+
+When a question is asked, the system will ask for your certainty  that a
+given fact is true. -5 means that  the fact is certainly false, 5  means
+certainly true, and numbers in between express other degrees of  belief.
+The numbers printed out in trace messages and in the conclusions at  the
+end are, however, PROBABILITIES, and lie in the range 0 to 1 (0 - false,
+1 - true).
+
+The database is used to store  information about facts. An example  fact
+is:
+
+  [ [the ground is stony] 0.5 ]
+
+This means that  the system  currently believes  that, with  probability
+0.5, the ground  is stony.  The database  is emptied  when EPROSPECT  is
+called and can be examined when it has finished.
+
+
+-- LIB ESHELL ----------------------------------------------------------
+
+This is an expert system shell  inspired by the idea in PROSPECTOR  that
+"forwards" propagation of likelihoods should be able to affect the goals
+of the system. Unlike EPROSPECTOR, this shell does not always ask  every
+single question, and it picks the next question intelligently  according
+to a strategy it has decided on (like trying to confirm the most  likely
+hypothesis, or disconfirm  less likely  hypotheses). Internally,  ESHELL
+attaches likelihoods in the range 0  to 1 with propositions, and, as  in
+PROSPECTOR, whenever the probability attached to a given proposition has
+changed, the probabilities of all propositions depending on it are  also
+changed. In order  to assess  the amount  by which  a probability  might
+change in the session, it actually keeps track of a RANGE in which  each
+probability will lie. As the  session progresses, the ranges  associated
+with each proposition gradually become  more and more restricted,  until
+one goal hypothesis is clearly better than any other.
+
+Propositions in ESHELL have the same format as in EPROSPECTOR, that  is,
+they are lists of words. Rules  are again similar, except that there  is
+only one weight attached to a  rule (as in EMYCIN). Conditions in  rules
+can be rather more general, so that:
+
+    [and <condition1> <condition2> ... <conditionn>]
+    [or <condition1> <condition2> ... <conditionn>]
+    [not <condition>]
+
+are allowed  (arbitrarily  nested).  Here are  some  example  rules  for
+ESHELL:
+
+[
+    [[west wind] => 0.6 [rain]]
+    [[south wind] => 0.8 [warm]]
+    [[high clouds] => 0.9 [high pressure]]
+    [[not [rain]] => 1 [dry]]
+    [[not [high pressure]] => 0.6 [west wind]]
+    [[clear sky] => 0.9 [high pressure]]
+    [[low pressure] => 0.6 [rain]]
+    [[not [high pressure]] => 1 [low pressure]]
+    [[low clouds] => 0.8 [rain]]
+    [[summer] [warm] => 0.2 [rain]]
+    [[not [high clouds]] [not [low clouds]] => 1 [clear sky]]
+    [[not [winter]] => 1 [summer]]
+    [[winter] [high pressure] => 0.9 [cold]]
+    [[winter] => 0.7 [cold]]
+    [[and [summer] [not [high pressure]]] => 0.6 [cold]]
+    [[not [cold]] => 1 [warm]]
+    [[dry] [warm] => 1 [dry warm]]
+    [[rain] [warm] => 1 [wet warm]]
+    [[dry] [cold] => 1 [dry cold]]
+    [[rain] [cold] => 1 [wet cold]]
+]
+
+
+To run ESHELL, prepare a set of rules as above and then call:
+
+    setup(<rules>)
+
+This converts the rules into  an internal representation that is  rather
+more efficient for execution. To start a consultation, call:
+
+    run()
+
+The system will first of all ask whether you can enter any facts at  the
+start, before  it starts  asking questions.  If you  can, type  them  in
+WITHOUT LIST BRACKETS, one on each line. The system will stop  expecting
+facts when it is  given an empty  line. It will  then ask questions.  In
+response to a question, type HELP to get information about the  possible
+facilities.
+
+At the end of a consultation, you can get a brief summary explaining the
+degree of belief in a proposition by using the macro WHY, eg:
+
+    why wet cold
+
+
+With each of the  library programs, there is  a global variable  CHATTY.
+Setting this to TRUE causes extra tracing information to be printed  out
+whilst the system is working.
+
+
+-- Assignment ---------------------------------------------------------
+
+Write at least  a very  short set  of rules  for each  of PSYS,  EMYCIN,
+EPROSPECT and ESHELL and get them  running. Concentrate on one of  these
+for a larger program,  and produce a writeup  of it, together with  some
+comments on  why you  chose this  particular rule  interpreter and  what
+differences there would  have been if  you had used  the others for  the
+same task. Some suggestions for tasks follow:
+
+   - A program that advises you what to wear, by guessing what the weather
+     will do.
+
+   - A program to diagnose the underlying cause of some particular POP-11
+     mishap message.
+
+
+-- References ---------------------------------------------------------
+
+TEACH * PRODSYS
+HELP  * NEWPSYS
+TEACH * PSYSRIVER
+
+
+Allan Ramsay and Rosalind Barrett,
+    POP-11 IN PRACTICE: EXAMPLES IN AI
+    Ellis Horwood and John Wiley, forthcoming (Dec 1986/Jan1987).
+
+Michie, D. (Ed) EXPERT SYSTEMS IN THE MICRO ELECTRONIC AGE,
+   Edinburgh University Press, 1979.
+
+(especially papers by Feigenbaum and Duda et al)
+
+McDermott, J. R1: A RULE BASED CONFIGURER OF COMPUTER SYSTEMS,
+   Artificial Intelligence Vol 19 No 1, 1982.
+
+Shortliffe, E. COMPUTER-BASED MEDICAL CONSULTATIONS: MYCIN,
+   Elsevier, 1976.
+
+Davis et al. PRODUCTION SYSTEMS AS A REPRESENTATION FOR A KNOWLEDGE-BASED
+   CONSULTATION PROGRAM, Artificial Intelligence Journal, Vol. 8, 1977.
+
+Lindsay, R. et al APPLICATIONS OF AI FOR ORGANIC CHEMISTRY: THE DENDRAL
+   PROJECT, McGraw-Hill, 1981.
+
+Papers on expert systems in IJCAI-81 and the MACHINE INTELLIGENCE series.
+
+
+See also TEACH * PRODSYS on the use of production systems
+
+--- C.all/teach/experts ------------------------------------------------
+--- Copyright University of Sussex 1991. All rights reserved. ----------

@@ -1,0 +1,55 @@
+# $popneural/bin/setneural
+
+if (! $?popneural) then
+    echo "setneural: popneural environment variable not set"
+    exit 1
+endif
+
+if (! $?HOST_TYPE) then
+    set OS_NAME = `uname -s`
+    set OS_RELEASE = `uname -r`
+    set MACHINE = `uname -m`
+    switch ($OS_NAME)
+
+        case SunOS:
+            if ( $OS_RELEASE =~ 4.* ) then
+                setenv HOST_TYPE sun4
+            else
+                # Solaris
+                setenv HOST_TYPE sun4r5
+            endif
+            breaksw
+
+        case ULTRIX:
+            setenv HOST_TYPE decstation
+            breaksw
+
+        case IRIX:
+            setenv HOST_TYPE irisr5
+            breaksw
+
+        case HP-UX:
+            setenv HOST_TYPE hp9000_700
+            breaksw
+
+        case OSF1:
+            setenv HOST_TYPE axposf
+            breaksw
+
+        case Linux:
+            setenv HOST_TYPE pclinux
+            breaksw
+
+        case unix:
+            # Vanilla SVR4
+            setenv HOST_TYPE i486
+            breaksw
+
+        default:
+            echo "setneural: cannot determine system type"
+            exit 1
+            breaksw
+    endsw
+endif
+
+set path=( $popneural/bin $path )

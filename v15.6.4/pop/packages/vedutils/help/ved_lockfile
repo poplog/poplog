@@ -1,0 +1,194 @@
+HELP VED_LOCKFILE (UNIX ONLY)                      Aaron Sloman Nov 1992
+
+LIB VED_LOCKFILE
+
+A library to prevent the same file being edited twice
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- Controlling locking via ved_lock_files
+ -- How to invoke ved_lock_file in your vedinit.p
+ -- Files with vedwriteable false are not locked
+ -- Files in non-writeable directories are not locked
+ -- VED procedures redefined
+ -- -- vedinitialise, vevedquitfile
+ -- -- ved_pved, ved_rqq, ved_name
+ -- -- discappend, ved_wapp, ved_wappr, ved_wappdr
+ -- Files in standard 'tmp' directories are not locked
+
+-- Introduction -------------------------------------------------------
+
+If you compile this library, e.g. by putting into your vedinit.p the
+command
+
+    uses ved_lockfile
+
+then every time you create or read in a VED file, a corresponding
+lock file with '.VLCK' appended to the name will be created to show
+that the file is in use. If the file is already in use you will be
+warned.
+
+When you quit the file the lock file is deleted, if it was created by
+the current process.
+
+Lock files will NOT be created for files accessed via commands like
+help, showlib, teach, or pved, for which -vedwriteable- is false.
+
+Programs that use discappend will abort with an error message if you
+attempt to use them to append to a file that is locked, e.g. see
+LIB VED_WAPP, LIB VED_WAPPR, LIB VED_WAPPDR
+
+
+-- Controlling locking via ved_lock_files -----------------------------
+
+You can temporarily or globally turn locking off by assigning false to
+
+    ved_lock_files
+
+The possible values for ved_lock_files, and their implications are as
+follows.
+
+false
+    Do not lock any files
+
+"true"
+    Lock all files except those in /tmp or /usr/tmp, the standard
+    temporary directories in Unix
+
+"mine"
+    Lock only files in the user's directory tree, i.e. with pathnames
+    starting with the value of popdirectory (see REF * popdirectory)
+
+A string
+    Lock only files whose path names start with the string
+
+A procedure
+    Lock only files for which ved_lock_files(vedpathname) is not
+    false
+
+A list
+    Each element in the list must either be a string or a two
+    element list of the form [not <string>]. Each item in turn
+    will be tested against vedpathname. If the item is a string
+    and it is an initial substring of vedpathname then the file
+    will be locked. If the item is of the form [not <string>] and
+    the string is an initial substring of vedpathname, then the
+    file will not be locked. As soon as an item satisfying one
+    of these two conditions is found, the remaining items on the
+    list are not considered.
+
+    Thus, it is possible to specify that files in a certain directory
+    tree are to be locked, but excluding a sub-tree, as long as the
+    [not <string>] entry for the sub-tree precedes the <string> entry
+    for the tree. E.g.
+
+        vars ved_lock_files = [[not ['~/silly/jokes/'] '~'];
+
+    Will cause all files in the user's directory tree to be lockable,
+    except those in the sub-directory ~/silly/jokes/
+
+
+-- How to invoke ved_lock_file in your vedinit.p ----------------------
+
+To ensure that files are locked do the following in your vedinit.p file
+(see HELP * INITIAL)
+
+    uses ved_lockfile
+
+To ensure that all and only files in your own directory tree are locked
+do
+
+    vars ved_lock_files = "mine";
+
+If you wish to lock all files that you edit in the directory tree below
+/user/friends do
+
+    vars ved_lock_files = '/user/friends';
+
+If you wish to lock files in your home directory, in a directory called
+$project and in fred's directory, except those in his 'mine'
+subdirectory, you can do:
+
+    vars ved_lock_files =
+        [ '$HOME'   '$project'  [not '~fred/mine/'] '~fred' ];
+
+
+-- Files with vedwriteable false are not locked -----------------------
+
+In all cases if vedwriteable is initially false for the file being
+edited, the file will NOT be locked, even if it would be locked
+according to the contents of ved_lock_files.
+
+Thus files will not be locked if edited using "pved" (See HELP * PVED)
+or using one of the standard VED documentation browsing commands, e.g.
+
+    ENTER help
+    ENTER teach
+    ENTER ref
+    ENTER showlib
+
+
+-- Files in non-writeable directories are not locked ------------------
+
+Lock files are created using the unix "touch" command, via a call of
+sysobey. This attempt to create a lock file may fail because the user
+does not have write-access to the directory. The file will then not be
+recorded as locked, even if it should have been locked according to
+ved_lock_files
+
+The user may, in such a case, get an error message, which may corrupt
+the current VED window, e.g. something like:
+
+    cannot create <filename> Permission denied
+
+Use the REFRESH key to refresh the screen.
+
+
+-- VED procedures redefined -------------------------------------------
+
+-- -- vedinitialise, vevedquitfile
+
+When LIB VED_LOCKFILE is loaded, it redefines -vedinitialse- to call
+ved_lockfile and -vedvedquitfile- to call ved_unlockfile, thus:
+
+    vedinitialise <> ved_lockfile -> vedinitialise;
+
+    vedvedquitfile <> ved_unlockfile -> vedvedquitfile;
+
+See REF * vedinitialise, * vedvedquitfile;
+
+
+-- -- ved_pved, ved_rqq, ved_name
+
+In order to make all this work some VED procedures had to be redefined.
+
+    ved_pved
+        had to be redefined to ensure that vedwriteable was made
+        false before vedinitialise was invoked
+
+    ved_rqq
+    ved_name
+        both had to be redefined to ensure that ved_unlockfile was
+        called on all relevant files, by ved_xx, ved_qq, etc.
+
+-- -- discappend, ved_wapp, ved_wappr, ved_wappdr
+
+In addition * discappend is redefined to call vederror if an attempt is
+made to append to a locked file. This also changes programs defined
+in terms of discappend, e.g.
+
+    ved_wapp
+    ved_wappr
+    ved_wappdr
+
+-- Files in standard 'tmp' directories are not locked -----------------
+
+There are some temporary files that are created using systmpfile before
+vedwriteable is made false. To prevent unnecessary lock files
+ved_lockfile checks whether the filename starts with '/tmp/', and if so
+does not create a lock file, unless the user defines ved_lock_files
+in such a way as to include these directories.
+
+--- $poplocal/local/help/ved_lockfile
+--- Copyright University of Birmingham 1992. All rights reserved. ------

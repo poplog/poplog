@@ -1,0 +1,130 @@
+HELP PRB_EXTRA                                Aaron Sloman, October 1994
+
+Note added:  29 Mar 1996
+Version 3 of the SIM_AGENT toolkit required the introduction of the
+concept of a rulesystem. This is described in HELP * RULESYSTEMS
+This made the facilities described below redundant. Thus the actions
+described below will, by default work as described in the new help file.
+
+If you wish to go on using the old facilities you can override the new
+default with the command
+    lib prb_extra
+
+However, the actions will not work if you are also using LIB * SIM_AGENT
+=======================================================================
+
+LIB PRB_EXTRA
+
+This library provides some extensions to LIB POPRULEBASE to support
+saving and restoring of contexts. In particular, it adds
+
+    PUSHRULES, POPRULES, PUSHDATA, and POPDATA actions,
+
+and some new utility procedures.
+
+In order to make the extensions available do:
+
+    uses prblib
+    uses poprulebase
+    uses prb_extra
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- PUSHRULES
+ -- POPRULES
+ -- PUSHDATA
+ -- POPDATA
+ -- Additional utilities
+ -- -- prb_clear_stacks()
+ -- -- prb_current_data_stack()
+ -- -- prb_current_rule_stack()
+
+-- PUSHRULES ----------------------------------------------------------
+
+    [PUSHRULES <ruleset>]
+        Save current rules on prb_database("prb_rule_stack"), and
+        make <ruleset> current.
+        Equivalent to:
+            prb_rules::prb_database("prb_rule_stack")
+                -> prb_database("prb_rule_stack");
+            <ruleset> -> prb_rules;
+            (If <ruleset> is just a word, it uses valof, otherwise
+            the whole expression is evaluated using compile).
+
+-- POPRULES -----------------------------------------------------------
+
+    [POPRULES]
+        Restores previous ruleset.
+        Equivalent to:
+            destpair(prb_database("prb_rule_stack"))
+                -> (prb_rules, prb_database("prb_rule_stack"))
+    [POPRULES <ruleset>]
+        As above, but first saves current ruleset as specified.
+        The <ruleset> specification could be a single word, in which
+        case -> valof(word) is used, or else a more complex
+        specification, e.g. "lastrules(myself)", in which case the code
+            prb_rules -> lastrules(myself)
+        will be used.
+
+
+-- PUSHDATA -----------------------------------------------------------
+
+    [PUSHDATA <database>]
+        Save current database on a stack, and make <database>
+        current.
+        Equivalent to something like:
+            copy(prb_database)::prb_database("prb_data_stack")
+                -> prb_database("prb_data_stack");
+            <database> -> prb_database;
+            (If <database> is just a word, it uses valof, otherwise
+            the whole expression is evaluated using compile).
+    [PUSHDATA [<patternlist>] <database>]
+        If [<patternlist>] is present then all items matching the
+        pattern are transferred from the initial database to the
+        new one. (They are removed from the initial one). If the
+        database pushed is empty, then the new database will contain
+        only items matching those in patternlist.
+
+
+-- POPDATA ------------------------------------------------------------
+
+    [POPDATA]
+        Restores previous database.
+        Equivalent to:
+            destpair(prb_database("prb_data_stack"))
+                -> (prb_database, prb_database("prb_data_stack"))
+    [POPDATA [<patternlist>] ]
+        If [<patternlist>] is present then all items matching the
+        pattern are transferred from the initial database to the
+        new one. (They are removed from the initial one). To transfer
+        all the data use [[==]].
+
+    [POPDATA <database>]
+    [POPDATA [<patternlist>] <database>]
+        As above, but allows current database to be saved as specified,
+
+-- Additional utilities -----------------------------------------------
+
+-- -- prb_clear_stacks()
+
+prb_clear_stacks()                                          [procedure]
+    Empties the stacks used by the above facilities.
+
+-- -- prb_current_data_stack()
+
+prb_current_data_stack() -> list                            [procedure]
+list -> prb_current_data_stack()
+    Gives a copy of the current stack of saved databases. The updater
+    applies copylist to the list and then makes it the current stack.
+
+
+-- -- prb_current_rule_stack()
+
+prb_current_rule_stack() -> list                            [procedure]
+list -> prb_current_rule_stack()
+    Gives a copy of the current stack of saved rulesets. The updater
+    applies copylist to the list and then makes it the current stack.
+
+--- $poplocal/local/help/prb_extra
+--- The University of Birmingham 1995.  --------------------------------

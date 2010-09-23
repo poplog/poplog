@@ -1,0 +1,308 @@
+TEACH DATATHINK                              Steven Hardy, November 1981
+
+
+This TEACH file  describes a program  which 'thinks' in  a VERY  limited
+way. The  program uses  DATABASE and  so TEACH  * DATABASE  is  required
+preparatory reading.
+
+This file describes how  to write 'rule based  systems'. These are  also
+sometimes called 'expert  systems' because they  are so successful  that
+some rule based systems  can make decisions as  well as a human  expert.
+The MYCIN expert system, for  example, can diagnose blood infections  as
+well as skilled consultants and better than most trainee doctors.  For a
+description of expert systems see:
+
+    THEMES AND CASE STUDIES OF KNOWLEDGE ENGINEERING
+    by Edward Feigenbaum in the collection of articles called
+
+        EXPERT SYSTEMS IN THE MICRO-ELECTRONIC AGE
+        which is edited by Donald Michie
+
+See also pages 144 to 147 and pages 241 to 246 in
+
+    ARTIFICIAL INTELLIGENCE
+    by Patrick Winston.
+
+
+-- DESCRIPTION OF THE PROBLEM ------------------------------------------
+
+This handout describes  how to  write a program  that can  be told  some
+'facts' about the  'world' and  which can deduce  implications of  those
+facts. For  example, if  the  DATABASE contained  the facts  that  [JOHN
+KISSES MARY] and that [JOHN HAS FLU] then the program could deduce  that
+[MARY HAS FLU].
+
+We need to distinguish two sorts  of knowledge that might be  accessible
+to the program: 'facts' (like the  three facts above) and 'rules'  (such
+as 'If a person  with flu kisses another  person then that other  person
+has flu too'). Facts will be 'represented' by assertions in the DATABASE
+and programs rules by instructions in POP-11.
+
+The program can be instructed to  'think' for a while. During this  time
+it might infer some new 'facts' using the 'rules'.
+
+
+-- EXAMPLE OF THE PROGRAM AT WORK --------------------------------------
+
+The program is to be called THINK. It must be given a number  specifying
+how much 'pondering'  it is  to do  (pondering will  be defined  later).
+Initially the program 'knows' two rules:
+
+    Anyone with flu feels bad
+    Anyone who is habitually kissed by someone with flu also has flu
+
+The initial set of facts 'known' to the program are given as a database,
+to which the results of its 'thinking' (if any) are ADDed.
+
+    [] -> database;
+    add([john kisses mary]);
+    add([john has flu]);
+    add([ethel kisses albert]);
+    database ==>
+    ** [[john kisses mary] [john has flu] [ethel kisses albert]]
+    think(10);
+    database ==>
+    ** [[john feels bad]
+        [mary has flu]
+        [john has flu]
+        [john kisses mary]
+        [ethel kisses albert]]
+
+Notice that the program might not infer everything that is in  principle
+derivable from the given facts (eg that MARY FEELS BAD).
+
+NB - the THINK procedure is NOT 'part of' the POP-11 system so the above
+example cannot be tried until you have told POP-11 how to 'think'  (that
+is until you have DEFINEd a procedure called THINK).
+
+
+-- A SIMPLE ONE RULE VERSION OF THINK ----------------------------------
+
+THINK is defined  so that it  repeats the same  set of instructions  the
+given number of times. Thus its definition is going to be:
+
+    define think(amount);
+        repeat amount times
+            ponder();
+        endrepeat
+    enddefine;
+
+We now need  to define  PONDER. PONDER's tasks  will be  to examine  the
+'antecedents' of each rule and see if they are present. If so, then  the
+'consequence' of the rule is ADDed.
+
+All rules  can  be  rephrased in  terms  of  an antecedent  (or  set  of
+antecedents) and a consequence. For  example the rule about anyone  with
+flu feeling bad has the antecedent [?X HAS FLU] and the consequence  [^X
+FEELS BAD]. Thus the definition of one rule PONDER is:
+
+    define ponder();
+        vars x;
+        foreach [?x has flu] do
+            add([^x feels bad])
+        endforeach;
+    enddefine;
+
+Put these two procedures  into a file (with,  say, <ENTER> ved  think.p)
+and also put in a SETUP procedure, such as:
+
+    define setup();
+        [] -> database;
+        add([john kisses mary]);
+        add([john has flu]);
+        add([ethel kisses albert]);
+        add([bill has flu]);
+        add([bill kisses ethel]);
+        add([mary kisses albert]);
+        add([carol kisses george]);
+    enddefine;
+
+And then go to POP-11 (with <ENTER> X) and try the procedures with the
+commands:
+
+    setup();
+    database ==>
+    think(10);
+    database ==>
+
+
+-- TRACE IS HELPFUL SINCE IT MAKES SILENT PROCEDURES TALKATIVE ---------
+
+Since all the  procedures used are  'silent' ones (ie  they don't  print
+anything) you might want to use TRACE, thus:
+
+    trace add;
+    trace ponder;
+    trace think;
+    trace setup;
+
+These commands should be put at the end of your program file.
+
+
+-- PROBLEMS WITH THIS DEFINITION OF PONDER -----------------------------
+
+There are several facets of these procedures that may puzzle you.  These
+are:
+
+    Why is ^ used in some places and ? used elsewhere?
+    Why do consequences get ADDed twice (or even more often).
+
+
+-- WHEN TO USE THE UP-ARROW AND WHEN TO USE QUERY ----------------------
+
+The basic rule to follow  is if your program is  trying to find a  value
+for some variable then it  should be a query  value and if your  program
+already has a value for a variable then it should use the up-arrow. Thus
+in the line of PONDER that says:
+
+    foreach [?x has flu] do
+
+the program  is trying  to find  a  value for  X (hence  it is  a  query
+variable). In the line that says:
+
+    add([^x feels bad]);
+
+then it using the previously found value for X (hence it is an  up-arrow
+variable).
+
+
+-- THE SAME CONSEQUENCE CAN BE ADDED TWICE -----------------------------
+
+Yes - of  course it  can. If  you tell POP-11  to ADD  something to  the
+DATABASE then it does so - even if that item is already in the DATABASE.
+In this event, the item will be in the DATABASE twice. We can avoid this
+problem in either of two ways. We could define a procedure called,  say,
+NOTE, which is exactly like ADD except that if the given item is already
+PRESENT then NOTE does nothing. Alternatively we could augment the  rule
+with an additional quasi-antecedent saying that the consequence must not
+already be PRESENT.
+
+
+-- NOTE: A PROCEDURE LIKE ADD ------------------------------------------
+
+Here is the definition of NOTE:
+
+    define note(item);
+        unless present(item) then
+            add(item)
+        endunless
+    enddefine;
+
+It can be used in  place of ADD in all  situations where you don't  want
+something added twice.
+
+
+-- AUGMENTING THE RULE -------------------------------------------------
+
+Alternatively, instead of using NOTE, we could augment the rule thus:
+
+    define ponder();
+        vars x;
+        foreach [?x has flu] do
+            unless present([^x feels bad]) then
+                add([^x feels bad])
+            endunless
+        endforeach
+    enddefine;
+
+
+-- AUGMENTING RULES IS TOO MESSY FOR US NOW ----------------------------
+
+Since there is no difference between using NOTE and augmenting the rule,
+we will use NOTE.
+
+
+-- A TWO RULE VERSION OF PONDER ----------------------------------------
+
+If we want to 'tell'  our program that anyone who  is poor feels bad  we
+must edit the definition of PONDER.  The new rule has antecedent [?X  IS
+POOR] and consequence [^X FEELS BAD]. The new rule is simply added as an
+extra FOREACH loop.
+
+    define ponder();
+        vars x;
+        foreach [?x has flu] do
+            note([^x feels bad])
+        endforeach;
+        foreach [?x is poor] do
+            note([^x feels bad])
+        endforeach;
+    enddefine;
+
+
+-- A TWO ANTECEDENT RULE -----------------------------------------------
+
+Having got clear how to add  simple one antecedent rules to the  program
+we must  now consider  two  antecedent rules,  like  the one  about  the
+dangers of kissing. Here the antecedents are [?X HAS FLU] and [^X KISSES
+?Y]. The  consequence is  [^Y  HAS FLU].  The  problem is  that  FOREACH
+accepts only  ONE pattern.  If we  have  more than  one pattern  we  are
+searching for  then we  must use  FOREVERY. This  is very  like  FOREACH
+except that it accepts a LIST of patterns rather than a single  pattern.
+If we use FOREVERY to add the new rule to PONDER we get:
+
+    define ponder();
+        vars x, y;
+        foreach [?x has flu] do
+            note([^x feels bad])
+        endforeach;
+        foreach [?x is poor] do
+            note([^x feels bad])
+        endforeach;
+        forevery [[?x has flu] [?x kisses ?y]] do
+            note([^y has flu])
+        endforevery;
+    enddefine;
+
+Alter your program to include this new definition (make sure to get  the
+up-arrows and queries right) and then try the new program.
+
+
+-- WE DON'T NEED FOREACH AS WE CAN ALWAYS USE FOREVERY -----------------
+
+FOREVERY takes a  list of patterns.  If that list  has only one  element
+then FOREVERY behaves like FOREACH. Thus, we could re-write PONDER as:
+
+    define ponder();
+        vars x, y;
+        forevery [[?x has flu]] do
+            note([^x feels bad])
+        endforevery;
+        forevery [[?x is poor]] do
+            note([^x feels bad])
+        endforevery;
+        forevery [[?x has flu] [?x kisses ?y]] do
+            note([^y has flu])
+        endforevery;
+    enddefine;
+
+
+-- SOME RULES FOR YOU TO TRY OUT ---------------------------------------
+
+Extend PONDER to include the following rules:
+
+    [?x is rich] implies [^x is happy]
+
+    [?x is happy] implies [^x is smiling]
+
+    [?x is a fireman] implies [^x has redbraces]
+
+    [?x mentions mother] implies [ask ^x about family]
+
+    [?x mentions illness] implies [^x should see health centre]
+
+    [?x has redbraces] and [?x mentions illness]
+                imply  [^x may have redbraces that are too tight]
+
+    [?x is a man] and [?x is single]
+                imply   [?x is a bachelor]
+
+
+Try these rules with an initial DATABASE containing such 'facts' as:
+
+    [john mentions illness]
+    [john is a fireman]
+
+
+--- C.all/teach/datathink ----------------------------------------------
+--- Copyright University of Sussex 1988. All rights reserved. ----------

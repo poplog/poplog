@@ -1,0 +1,293 @@
+HELP DATATYPESMENU                          Julian Clinton  Feb 1990
+                                        Updated J. Clinton  Aug 1992
+
+
+This file describes the options available on the Datatypes Menu.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- 'New'
+ -- . Toggle
+ -- . Ranges
+ -- . Sets
+ -- . Sequence Format
+ -- . Choice Format
+ -- . Character File
+ -- . Itemised File
+ -- . Line File
+ -- . Full File
+ -- . General
+ -- An Example
+ -- 'Display'
+ -- 'Edit'
+ -- 'Delete'
+ -- 'Set Current'
+ -- 'List All'
+ -- 'Load'
+ -- 'Save'
+
+-- 'New' --------------------------------------------------------------
+
+This option  allows  to create  a  new  datatype. A  menu  of  available
+datatype types appears (datatypes are currently sets, ranges or general)
+and you select the type  you want to create. You  will then be asked  to
+enter the details of the datatype.  The sort of information you will  be
+asked for depends on the type  of datatype being created. In each  case,
+you will  be  asked  to  provide  the name  of  the  new  datatype.  The
+information required after that  depends on the  type of datatype  being
+created.
+
+
+-- . Toggle -----------------------------------------------------------
+
+You will be asked to enter the item which represents a TRUE (or  active)
+state and then the item which represents the FALSE (or inactive)  state.
+These will then be passed to the procedure NN_DECLARE_TOGGLE.
+
+Note that it is  important that you provide  values appropriate for  the
+data source. For example, if examples are  going to be read from a  file
+as a series of characters (and so will not be passed through the  Pop-11
+itemiser), you should surround the values with back-quotes e.g.:
+
+    True value ? `1`
+    False value ? `0`
+
+
+-- . Ranges -----------------------------------------------------------
+
+After entering the name, you will be  asked to enter the lower bound  of
+the range and then the upper bound. Note that the value returned by  the
+function which takes information from the network (the output  converter
+function) will be coerced to  be the same type  as the upper bound  e.g.
+integer,  real  etc.  These  will  be  passed  to  the  NN_DECLARE_RANGE
+procedure.
+
+
+-- . Sets -------------------------------------------------------------
+
+You will be asked to  enter the items which will  make up the set.  Type
+each one followed  by <RETURN>  followed by another  <RETURN> after  the
+last item. You  will then  be prompted for  the unit  threshold used  to
+define whether a feature is present on output conversion. These will  be
+passed to the function NN_DECLARE_SET to create the datatype.
+
+
+-- . Sequence Format --------------------------------------------------
+
+You will be asked to enter  the sequence format. Literal items (such  as
+braces, commas etc.) should be given normally. Items which are  actually
+going to  be datatypes  should be  prefixed by  the "\"  character.  For
+example, to declare a sequence which can take two pairs of  co-ordinates
+surrounded by  braces of  the form  "From  <x>, <y>  To <x>,  <y>",  the
+sequence would be defined as:
+
+    Sequence: From \coord ,\coord To \coord ,\coord
+
+(where "coord" is presumably a range datatype).
+
+Note that if the sequence contains "\" characters, these should be shown
+as a double back-slash "\\".
+
+
+-- . Choice Format ----------------------------------------------------
+
+Choice formats are used in situations where a number of items from a set
+of possibilities need to be signalled in some way. For example,  suppose
+we have a set of symptoms (defined as a set called "symptom") which  has
+possible values  "coughs",  "sneezes",  "aches"  and  "spots".  In  this
+situation  we  would  normally  want  to  specify  a  subset  of   these
+possibilities but using  a normal  set datatype we  can't. We  therefore
+need to provide the  name of the  set of possible  choices and how  they
+will be formatted. Suppose we want to provide our choices in the form:
+
+    (coughs, spots, aches)
+
+The items we will have to specify are:
+
+    Name of set datatype: symptom
+    Start item: (
+    End item: )
+    Separator: ,
+
+Note that the start item and either the end item or the separator can be
+omitted.
+
+
+-- . Character File ---------------------------------------------------
+
+You will be prompted for a list  of datatypes which you should enter  in
+the order in which they appear in the file.
+
+Files declared as  character files  are read using  *DISCIN and  written
+using *DISCOUT. This means that each character read is considered as  an
+input to a  datatype converter function.  You will be  prompted for  the
+datatypes present in  the file. You  must ensure that  any toggles,  set
+items etc. have been defined to take this into account. For example,  if
+you are a reading a file character  by character and have defined a  set
+of characters,  you  should  have  specified  the  character  set  using
+backquotes:
+
+    nn_declare_set("alphabet", [`a` `b` `c` ......<etc.>]);
+
+This is necessary because *DISCIN returns the character code.
+
+Also note that you can only specify datatypes and not provide and format
+information (if necessary, this must have been done previously by  using
+a 'Sequence Format' datatype).
+
+
+-- . Itemised File ----------------------------------------------------
+
+When prompted, you should enter the datatypes in the order in which they
+will appear in the file. Again, any formatting information must  already
+have been  specified by  declaring either  a sequence  or choice  format
+datatype.
+
+Files declared  as itemised  files are  read using  *DISCIN appended  to
+*INCHARITEM and written  using *DISCOUT appended  to *OUTCHARITEM.  This
+means that items within a file will be itemised by the Pop-11  according
+to the rules defined in REF *ITEMISE.
+
+Note that Poplog-Neural  does not  take any  action to  ensure that  the
+*ITEM_CHARTYPE of a character  is modified in any  way. This means,  for
+example, that if you  have defined a separator  as "_" and your  example
+file contains something like:
+
+    coughs_sneezes_aches
+
+this will be returned as a single item (since the "_" is not a separator
+character by default).
+
+In the  same way,  characters like  "-",  "+" etc.  will be  split  into
+separate items. This means that if your file contains an item such as:
+
+    high-temperature
+
+this will be split into three items: "high", "-" and "temperature".
+
+
+-- . Line File --------------------------------------------------------
+
+For line files, you will be prompted for the name of the datatype  which
+is to receive the byte-structure read from the file (using *SYSREAD)  or
+used to write the file (using *SYSWRITE). You will then be prompted  for
+the size (in bytes) of the structure.
+
+A structure  of the  specified  size will  be  passed to  the  recipient
+datatype each time part of the file  is read. As many bytes as will  fit
+in the byte structure will  be read from the  file (if there are  enough
+left in  the  file),  regardless  of  any  line  break  characters.  The
+difference between a line file and  a full file (described below) is  in
+the file organisation argument used to open the file (with *SYSOPEN, see
+REF *SYSIO).
+
+
+-- . Full File --------------------------------------------------------
+
+For full files, you will be prompted for the name of the datatype  which
+is to receive the byte-structure read from the file (using *SYSREAD)  or
+used to write the file (using *SYSWRITE). You will then be prompted  for
+the size (in bytes) of the structure.
+
+A structure  of the  specified  size will  be  passed to  the  recipient
+datatype each time part of the file  is read. As many bytes as will  fit
+in the byte structure will  be read from the  file (if there are  enough
+left in the file). The  difference between a full  file and a line  file
+(described above) is in the file organisation argument used to open  the
+file (with *SYSOPEN, see REF *SYSIO).
+
+
+-- . General ----------------------------------------------------------
+
+You will be asked for the name  of the datatype. You will then be  asked
+to specify how many  data items constitute one  type datum of this  type
+and how many  results are produced  by the conversion  to real  numbers.
+This is specified as two items in a list. The results will be passed  to
+NN_DECLARE_GENERAL.
+
+
+-- An Example ---------------------------------------------------------
+
+Suppose we have a datatype where each datum is four separate items which
+are then mapped onto two input units. We would enter the data format  as
+[4 2]. Note this also specifies that the activation of two output  units
+would be taken by the output converter function which would then  return
+four items of data.
+
+You will then be  asked to enter  the name of  an already defined  which
+will take a number of  datum from the example  sets and convert it  to a
+format usable by a neural network (i.e. real numbers).
+
+Finally you  will  be  asked  type the  name  of  the  output  converter
+function. This is a function which  can take activation levels from  the
+network and return a number of results.
+
+The input and  output converter  function are usually  inverses of  each
+other i.e.
+
+    DATA -> input converter -> RAW DATA -> output converter -> DATA
+
+although there is no checking that the functions are inverses.
+
+
+
+-- 'Display' ----------------------------------------------------------
+
+This option allows you to  display information about an already  defined
+datatype. The  actual information  displayed depends  on the  type.  For
+sets, the  set members  are printed.  For ranges,  the lower  and  upper
+bounds are displayed and for general datatypes, the data format and  the
+input and output converter functions are created.
+
+
+-- 'Edit' -------------------------------------------------------------
+
+This option allows you to change the values associated with a  datatype.
+You can edit the members of sets,  the bounds of a range or the  format,
+input and output converters of general datatypes etc.
+
+
+-- 'Delete' -----------------------------------------------------------
+
+This option allows you to delete datatypes which you have created and no
+longer need. You will be prompted  for the datatype name and then  asked
+to confirm the  deletion. THIS  OPERATION CANNOT BE  UNDONE. You  should
+ensure that you have already saved any datatypes you want to keep.
+
+
+-- 'Set Current' ------------------------------------------------------
+
+This is defined to be the current  datatype and is held in the  variable
+NN_CURRENT_DT (used as the default  value when a datatype is  required).
+This option allows you to change the current datatype.
+
+
+-- 'List All' ---------------------------------------------------------
+
+This options prints the names of all currently defined datatypes.
+
+
+-- 'Load' -------------------------------------------------------------
+
+This option allows you to load a datatype from a file on disk.  Datatype
+files have a '.dt' suffix. You will prompted for the directory and  this
+will then  be  scanned  for all  files  ending  in '.dt'.  The  list  of
+datatypes in the current  directory will be  displayed. You should  then
+enter the names of the datatypes which you want to load from this  list.
+Press <RETURN> after each name.  When you have finished entering  names,
+press <RETURN> again.  The datatypes will  be loaded. Note  that if  you
+want to load all of the  datatypes in the current directory, type  'all'
+as the first datatype and then press <RETURN>.
+
+
+-- 'Save' -------------------------------------------------------------
+
+This option allows you to save a datatype to disk. You will be  prompted
+for the directory  and then a  list of the  currently defined  datatypes
+will be printed. Type the name of each datatype you want saved  followed
+by <RETURN>. Type <RETURN> again when you have finished entering  names.
+The specified datatypes will be saved,  one per file. The filename  will
+by the name of the datatype followed by a '.dt' suffix.
+
+
+--- Copyright Integral Solutions Ltd. 1990. All rights reserved. ---

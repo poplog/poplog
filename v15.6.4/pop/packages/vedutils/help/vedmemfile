@@ -1,0 +1,125 @@
+HELP VEDMEMFILE                       A.Sloman & Nicola Yuill April 1990
+                                        Updated Aaron Sloman  1 Feb 1996
+
+<ENTER> MEM <taskname>
+<ENTER> GOMEM <taskname>
+GOMEM <taskname>
+
+Facility for remembering which file you are editing and current cursor
+location in it, with the possibility of returning to that location in
+that file in a later Poplog session (e.g. after logging out). The
+taskname is optional, and is needed only if you wish to remember
+different files on different occasions and refer to them separately.
+
+<ENTER> MEMS <taskname>
+<ENTER> GOMEMS <taskname>
+GOMEMS <taskname>
+
+Facility for remembering all the files you are currently editing and
+current cursor locations in all of them, with the possibility of
+returning to all of them in a later Poplog session (e.g. after logging
+out). The taskname is optional, and is needed only if you wish to
+remember different groups of files on different occasions and refer to
+them separately.
+
+-- Overview -----------------------------------------------------------
+
+The general idea is that your work may switch between several tasks each
+concerned with several files. For each task you may wish VED to remember
+which file you were last working on and on which line of that file. The
+commands
+
+    <ENTER> mem
+    <ENTER> mem <taskname>
+
+are used to tell ved to remember the current file and its line number.
+If you don't specify a <taskname> it just assumes that you wish to
+record the file and line number anyway.
+
+Different locations in the same file can be recorded under different
+tasknames.
+
+Later, possibly after logging out and logging in again, you can give
+one of the following commands to return to a remembered file:
+
+To Pop-11
+
+    gomem
+    gomem   <taskname>
+
+To Lisp
+
+    @gomem
+    @gomem <taskname>
+
+
+To VED (using any Poplog language system)
+
+    <ENTER> gomem
+    <ENTER> gomem <taskname>
+
+It is possible also to set up your init.p or other initialisation file
+so that as soon as you return to Poplog it goes back to the file last
+recorded with the '<ENTER> mem' command.
+
+If instead of recording only one file you wish to remember several
+currently edited files, use "gomems" instead of "gomem" in the above
+commands.
+
+
+-- How it works -------------------------------------------------------
+
+Each time you give the '<ENTER> mem' command the name of the current VED
+file and the line number are stored in a special file, and when you give
+a gomem command that file is read to discover which file you were last
+editing and which line you were on.
+
+Using 'mems' and 'gomems' instead of 'mem' and 'gomem' makes it store or
+return to a group of files.
+
+-- Using a task name --------------------------------------------------
+
+A different memory file is used for each taskname. In order to decide
+which file name to use for the memory file the commands look at a global
+variable called vedmemfile, whose default value is the string
+
+    '$HOME/.memfile'                      (in Unix)
+    '[<YOUR LOGIN DIRECTORY>]MEMFILE'     (in VMS)
+
+You can assign another string to -vedmemfile- if preferred.
+
+If you give a task name as argument to <ENTER> mem, or to gomem, then
+that task name is appended to the string -vedmemfile-.
+
+Thus if you are editing a file called 'myfile' and you do
+    <ENTER> mem work
+
+then the full pathname for myfile and the current line number will be
+stored in a file called
+
+    .memfile.work   (in Unix)
+    memfile_work    (in VMS)
+
+in your $HOME directory (unless you have assigned a different string to
+vedmemfile).
+
+If you log out and later log in again and type, to Pop-11
+
+    gomem work
+
+or to VED
+
+    <ENTER> gomem work
+
+it will read the file '$HOME/.memfile.work' to find out where to go
+(or the corresponding VMS file).
+
+Similarly with gomems.
+
+If you don't specify a task name, then the name of the file used as the
+memory file is just the value of -vedmemfile-.
+
+--- Copyright University of Sussex 1988. All rights reserved. ----------
+
+--- $poplocal/local/help/vedmemfile
+--- Copyright University of Birmingham 1996. All rights reserved. ------

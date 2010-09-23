@@ -1,0 +1,944 @@
+TEACH RC_CONSTRAINED_POINTER                      Aaron Sloman Aug 2000
+
+Or TEACH RC_CONSTRAINED_DIAL
+
+DRAFT (To be completed - STILL UNDER CONSTRUCTION)
+
+LAST CHANGED: Tue Aug 29 18:40:10 BST 2000
+
+LIB RC_CONSTRAINED_POINTER: includes
+
+rc_constrained_pointer(
+    x, y, orient, minang, maxang,
+        len, width, colour, bg) -> dial;
+
+A procedure to create a dial with moving pointer, providing two-way
+interaction, analogous to sliders. This library provides the main
+procedures used in LIB RC_DIAL, described in TEACH RC_DIAL.
+
+
+LIB RC_LABEL_DIAL:
+
+rc_label_dial(
+    xcentre, ycentre, radius,
+        start, inc, lim, num, incnum, colour, font);
+
+A procedure to create numeric labels for such a dial.
+
+LIB RC_DRAW_ARC_SEGMENTS:
+
+rc_draw_arc_segments(
+    xcentre, ycentre, radius, start, gap, lim, inc, width, col);
+
+A procedure to create "tick" marks with numeric labels for such a dial.
+Draw sequence of segments of angular width inc, and linewidth width,
+at angular locations specified by start, gap, lim
+
+
+CONTENTS
+
+ -- Introduction
+ -- Examples using rc_constrained_pointer
+ -- LIB RC_CONSTRAINED_POINTER: General overview
+ -- The main procedure rc_constrained_pointer
+ -- Further examples, with additional procedures
+ -- Example p1
+ -- -- Associating a variable with the current state of the dial
+ -- -- Altering the mapping between pointer angle and stored value
+ -- Example p2
+ -- Example p3
+ -- Example p4
+ -- Example p5
+ -- Example p6
+ -- Examples p7 and after
+ -- -- Adding numeric labels and "tick" marks on a dial
+ -- Methods and procedures provided
+
+-- Introduction -------------------------------------------------------
+
+See the tutorial examples in TEACH RC_DIAL
+
+The remainder of this file shows some of the gory details that lie
+behind rc_dial
+
+-- Examples using rc_constrained_pointer ------------------------------
+
+The procedure that creates the basic picture object, draws the
+background and the moving pointer, without handling the range of values
+or step function is rc_constrained_pointer, defined below. We give here
+a range of examples of what it can do, to illustrate the versatility,
+then define it formally later.
+
+
+uses rclib
+uses rc_window_object
+uses rc_constrained_pointer
+
+;;; Some utilities for use in examples below.
+vars win1;
+
+;;; Here's a procedure to start a new window when needed, and assign
+;;; it to win1.
+
+define new_win1();
+    if rc_islive_window_object(win1) then
+        rc_kill_window_object(win1);
+    endif;
+    ;;; create a window object, with default picture coordinates
+    rc_new_window_object(
+        "right", "top", 480, 480, {240 240 1 -1}, 'win1') -> win1;
+enddefine;
+
+;;; create a new window
+new_win1();
+
+;;; create a dial in the centre of the window, with orientation
+;;; horizontal, angles ranging from 0 to 180, with background blue and
+;;; pointer coloured yellow, pointer length 100, width 20,
+
+vars dial1 =
+    rc_constrained_pointer(0, 0, 0, 0, 180, 100, 20,
+        'blue', 'yellow');
+
+;;; Try moving the blue pointer with the mouse. Note how the pointer
+;;; value of the dial changes as it is moved.
+rc_pointer_value(dial1) =>
+
+;;; It can also be moved by program
+
+45 -> rc_pointer_value(dial1);
+90 -> rc_pointer_value(dial1);
+135 -> rc_pointer_value(dial1);
+
+;;; contrast:
+rc_set_axis(dial1, 90, true);
+rc_set_axis(dial1, 45, true);
+rc_set_axis(dial1, 130, true);
+
+WARNING: the angle used by the method rc_set_axis, defined in
+LIB rc_linepic increased in the counter-clockwise direction
+when rc_yscale is negative (y increases up the screen) whereas
+the pointer value decreases when that happens.
+
+The pointer is an instance of rc_rotatable, which is explained in
+HELP rc_linepic. So the method rc_axis is applicable to it, to determine
+its "real" orientation, which changes as you move the pointer with the
+mouse.
+
+rc_axis(dial1) =>
+rc_pointer_value(dial1)=>
+
+;;; NOTE that the pointer is also an instance of rc_constrained_mover,
+;;; and the pointer value cannot be set beyond the limits of 0 and
+;;; 180, either by moving it with the mouse or by means of program
+;;; commands.
+
+-45 -> rc_pointer_value(dial1);
+rc_pointer_value(dial1) =>
+
+200 -> rc_pointer_value(dial1);
+rc_pointer_value(dial1) =>
+
+rc_set_axis(dial1, 330, true);
+rc_pointer_value(dial1) =>
+
+
+Besides the orientation used by rc_axis and rc_set_axis, there is also a
+virtual orientation, relative to the direction specified as angle 0,
+which in this case is pointing to the left. Compare the values after
+moving the pointer to various positions.
+
+rc_axis(dial1), rc_virtual_axis(dial1)=>
+
+As one goes down the other goes up.
+
+Later we show how "converter" procedures can be used to map the virtual
+angle onto some arbitrary range of numbers, or symbols, by assigning
+appropriate procedures to the slots rc_pointer_convert_in and
+rc_pointer_convert_out. That is done automatically by the procedure
+rc_dial, on the basis of the range argument, as
+illustrated above with examples d1 to d4.
+
+These dials are also instances of the rc_informant mixin described in
+HELP RCLIB. So various utilities can be associated with them, including
+reactor methods.
+
+
+Here are two more examples, a pair of back to back dials, e.g. with
+a range of 135, tilted through -45 and - 90 degrees respectively, using
+the default colours (dark grey and paler grey).
+
+;;; create a new window
+new_win1();
+
+vars
+    dial2 =
+      rc_constrained_pointer(
+        -10, -100, -45, 0, 135, 80, 16, false, false),
+
+    dial3 =
+      rc_constrained_pointer(
+        10, -100, 90, 0, 135, 80, 16, false, false);
+
+;;; try moving them and noting how their values change:
+
+rc_pointer_value(dial2), rc_pointer_value(dial3) =>
+
+We can give them both the value 0 at the top and a value between 0 and
+10 depending on how far they deviate from the top position, by setting
+up approriate converter procedures.
+
+define convert_ang_to_val(ang, pos) -> val;
+    ;;; convert the range 0 to 135 or the range 135 to 0 into the range
+    ;;; 0 to 10, depending whether pos is true or false.
+
+    ang/13.5 -> val;
+    unless pos then 10 - val -> val endunless;
+
+enddefine;
+
+define convert_val_to_ang(val, pos) -> ang;
+    ;;; convert in the opposite direction
+
+    val*13.5 -> ang;
+
+    unless pos then 135 - ang -> ang endunless;
+
+enddefine;
+
+;;; Use closures of these to create converters for dial2
+;;; (this is done automatically by the rc_dial procedure)
+convert_ang_to_val(%false%) -> rc_pointer_convert_in(dial2);
+convert_val_to_ang(%false%) -> rc_pointer_convert_out(dial2);
+
+;;; check the effect by moving the pointer and testing the value
+rc_pointer_value(dial2) =>
+
+;;; compare the real and virtual axes:
+rc_axis(dial2), rc_virtual_axis(dial2) =>
+
+;;; and see the effect of changing the value by program
+
+0 -> rc_pointer_value(dial2);
+vars x;
+for x from 0 by 1 to 10 do
+    x -> rc_pointer_value(dial2);
+    syssleep(20);
+endfor;
+
+Exercise 1:
+;;; Now set up the converters for dial 3, and test them.
+
+Exercise 2:
+;;; Change the converters so that they produce integer results only.
+
+;;; get rid of the window for now.
+rc_kill_window_object(win1);
+
+-- LIB RC_CONSTRAINED_POINTER: General overview -----------------------
+
+The library introduces a class which inherits from several other
+classes/mixins
+
+    define :class rc_constrained_pointer;
+        is rc_constrained_rotater rc_opaque_rotatable
+            rc_selectable, rc_informant;
+
+It is possible to use the usual objectclass mechanisms to create
+instances, produce subclasses, define new methods, etc. This file
+introduces the simplest procedural interface supporting the most
+commonly required facilities.
+
+It uses the procedure rc_constrained_pointer, described, with examples
+below.
+
+-- The main procedure rc_constrained_pointer --------------------------
+
+rc_constrained_pointer(
+    x, y, orient, minang, maxang, len, width, colour, bg) -> pointer;
+
+This creates a dial with movable pointer, where the pointer is
+represented as a movable coloured sector of circle pointing from the
+centre of the dial to a point on its circumference.
+
+The interpretation of three parameters orient, minang, maxang is quite
+complex, so the explanations that follow should be compared with the
+examples above, and the further examples given below.
+
+The parameters for rc_constrained_pointer are as follows:
+
+    x, y
+        coordinates of location on rc_current_window_object, in
+        rc_graphic coordinates. (See HELP rc_graphic). This location
+        is taken as the centre of the circular segment used for the
+        dial. If the dial occupies a semi-circle (i.e. minang and maxang
+        differ by 180) the pointer rotates around a point a little way
+        away from this location, in order to maintain the semi-circular
+        appearance. Otherwise it rotates around the x,y location.
+
+    orient
+        a number representing an angle in degrees whose value modulo 180
+        represents the orientation of the dial. This can be thought of
+        as the orientation of the direction of the dial where the
+        pointer has angle 0. In the case of a "normal" semi-circular
+        dial this is the orientation of the straight edge of the
+        semi-circle, and is 0 when the curved part is on top if
+        rc_yscale is negative (the default case) or when the curved part
+        is below, if rc_yscale is positive. (rc_xscale is always assumed
+        to be positive.)
+
+        With rc_xscale positive and rc_yscale negative you can make a
+        semi-circular dial with the curve on the right and the zero
+        point at the top, by setting orient to 90, or with the curve on
+        the left by setting it to -90, in which case the zero point
+        will be at the bottom.
+
+        Making orient 180 will create an "upside down" dial. (However,
+        the precise shape of the dial will depend on minang and maxang.)
+
+    minang, maxang,
+        Constraints on allowed values of the pointer angle, relative
+        to the orientation which is 0, as defined above. If rc_yscale
+        is negative (y increases upwards), then positive values of
+        minang and maxang involve clockwise rotations relative to the
+        zero point, otherwise counter clockwise.
+
+        Note that if you give an orient of 0 and the values of minang
+        and maxang are 0 and 180 then the dial's background will
+        be displayed as a semi-circle with pointer value 0 at one
+        end of the diameter and 180 at the other end(see example p1
+        below). If the orient is 90, minang is -90 and maxang 90, then
+        the appearance of the dial is the same, except that the top
+        point (centre of the curve) corresponds to angle value 0, and
+        the ends correspond to -90 and +90.
+
+        If the minang or maxang is outside the semi-circle the dial's
+        background will be extended to cover the range through which the
+        pointer can move, as in example p2, below.
+
+        If minang is -90 and and maxang is 270 a complete circle will be
+        drawn. If minang and maxang are greater than 0 and less than 180
+        then the dial will be smaller than a semi-circle, as in example
+        p3 below.
+
+    len, width,
+        len is the lenth of the dial's pointer, which is represented as
+        a narrow sector of circle. width is the width of the pointer at
+        its base. The value of len will determine the radius used for
+        the dial.
+
+    colour,
+        The colour of the pointer, a string, or false, meaning use the
+        default.
+
+    bg  Either a string representing the colour of the background,
+        or false, or the word "background". If it is false or
+        "background" the current background of the window will be used
+        (NB not necessarily the colour previously drawn where the dial
+        is.)
+
+-- Further examples, with additional procedures -----------------------
+
+;;; Set up libraries:
+
+uses rclib
+uses rc_window_object
+uses rc_constrained_pointer
+
+;;; create a window
+vars win1 = rc_new_window_object( "right", 20, 450, 450, true, 'win1');
+
+;;; If necessary the window can later be removed with this command:
+
+
+rc_kill_window_object(win1);
+
+
+
+-- Example p1 ---------------------------------------------------------
+;;; Create a dial with red pointer on a yellow background, at location
+;;; 120, 120, with horiziontal base, min and max angles set at 0 and
+;;; 180, pointer length 60, pointer width 10.
+
+vars p1 =
+    rc_constrained_pointer(120, 120, 0, 0, 180, 60, 10, 'red', 'yellow');
+
+;;; Try moving the dial with the mouse. To get a reaction press down
+;;; button 1 with the mouse pointer near the red pointer, then drag it.
+;;; After dragging to various locations check the value of the
+;;; following:
+
+rc_pointer_value(p1) =>
+
+;;; Try updating the value of the dial using a program command and
+;;; see what happens to the dial:
+
+0 -> rc_pointer_value(p1);
+20 -> rc_pointer_value(p1);
+90 -> rc_pointer_value(p1);
+180 -> rc_pointer_value(p1);
+250 -> rc_pointer_value(p1);
+290 -> rc_pointer_value(p1);
+-45 -> rc_pointer_value(p1);
+-135 -> rc_pointer_value(p1);
+
+;;; The value is constrained to lie between 0 and 180 because the
+;;; pointer is constrained to lie in the semi circle.
+
+;;; You can rotate the pointer using a program command
+
+;;; The following two procedures will be used later with other examples
+
+define pointer_demo_1(p, minval, inc, maxval);
+    lvars val;
+    for val from minval by inc to maxval do
+        val -> rc_pointer_value(p);
+        syssleep(1);
+    endfor;
+enddefine;
+
+pointer_demo_1(p1, 0, 2, 180);
+
+
+;;; or using rc_turn_by to turn a small amount at a time
+
+define pointer_demo_2(p, angmin, inc, num);
+    angmin -> rc_pointer_value(p);
+    repeat num times
+        rc_turn_by(p, inc, true);
+        syssleep(1);
+    endrepeat;
+enddefine;
+
+pointer_demo_2(p1, 0, 5, 36);
+
+
+-- -- Associating a variable with the current state of the dial
+
+vars valp1;
+
+"valp1" -> rc_informant_ident(p1);
+rc_informant_value(p1) -> valp1;
+
+;;; Try moving the dial with the mouse, or using program commands
+;;; and check the value of the variable after each move
+
+valp1 =>
+
+-- -- Altering the mapping between pointer angle and stored value
+
+;;; We can alter the mapping between the pointer angle and the stored
+;;; value. E.g. suppose we want the stored value to be a number betwee
+;;; 1 and 10, with 0 corresponding to the left hand end and 10 pointing
+;;; right.
+
+define procedure ang_to_val(ang) -> val;
+    ;;; convert the range 0 to 180 into the range 0 to 10
+
+    ang/18.0 -> val;
+    ;;; round to 1 decimal point
+
+    round(val*10)/10.0 -> val;
+
+enddefine;
+
+define procedure val_to_ang(val) -> ang;
+    ;;; convert in the opposite direction
+
+   val*18 -> ang
+
+enddefine;
+
+;;; set these up as converters for p1
+ang_to_val -> rc_pointer_convert_in(p1);
+val_to_ang -> rc_pointer_convert_out(p1);
+
+;;; Now set the pointer and check the appearance
+;;; This should make the angle 0 degrees (pointing right)
+10 -> rc_pointer_value(p1);
+
+rc_pointer_value(p1) =>
+
+valp1 =>
+
+;;; This should make the angle 90 degrees, pointing up
+5 -> rc_pointer_value(p1);
+
+valp1 =>
+
+;;; Check these out
+2.5 -> rc_pointer_value(p1);
+
+;;; Three quarters over
+7.5 -> rc_pointer_value(p1);
+
+;;; But the maximum cannot be exceeded
+12 -> rc_pointer_value(p1);
+
+valp1 =>
+
+14 -> rc_pointer_value(p1);
+
+valp1 =>
+
+;;; repeatedly move the pointer and print the value
+
+vars x;
+for x from 0 by 1 to 10 do
+    x -> rc_pointer_value(p1);
+    rc_pointer_value(p1) =>
+    syssleep(30);
+endfor;
+
+;;; We can make the program monitor and print out the value every
+;;; fifth of a second second while you move the pointer with the mouse
+
+repeat 50 times
+    valp1 =>
+    syssleep(20);
+endrepeat;
+
+;;; Interrupt with CTRL-c when you have had enough.
+
+
+-- Example p2 ---------------------------------------------------------
+
+;;; This one still has orientation 0, but the min and max angles are -45
+;;; and 225, producing a concave shape.
+;;; The cursor cannot be made to stop in the gap.
+
+;;; Its range is from an angle of -45 (relative to the left horizontal)
+;;; to 225 (increasing from left to right)
+
+;;; Giving false for colours gets default background and pointer colour
+;;; light grey and dark grey.
+
+vars p2 =
+    rc_constrained_pointer(120, -120, 0, -45, 225,
+        60, 10, false, false);
+
+;;; Move the cursor round and check the value
+rc_pointer_value(p2) =>
+rc_informant_value(p2) =>
+
+90 -> rc_pointer_value(p2);
+rc_pointer_value(p2) =>
+0 -> rc_pointer_value(p2);
+-45 -> rc_pointer_value(p2);
+rc_pointer_value(p2) =>
+-75 -> rc_pointer_value(p2);
+rc_pointer_value(p2) =>
+
+pointer_demo_1(p2, -20, 2, 90);
+pointer_demo_1(p2, -45, 4, 225);
+
+;;; now use turn_by
+pointer_demo_2(p2, -45, 3, 90);
+
+
+Try the same converters as before, i.e. using 0-180 as 0 to 10
+define procedure ang_to_val(ang) -> val;
+    ;;; turn the range 0 to 180 into the range 0 to 10
+
+    ang/18.0 -> val
+
+enddefine;
+
+define procedure val_to_ang(val) -> ang;
+    ;;; convert in the opposite direction
+
+   val*18.0 -> ang
+
+enddefine;
+
+;;; set these up as converters for p2
+ang_to_val -> rc_pointer_convert_in(p2);
+val_to_ang -> rc_pointer_convert_out(p2);
+
+;;; check the effect
+0 -> rc_pointer_value(p2);
+;;; move through 180 degrees
+10 -> rc_pointer_value(p2);
+
+;;; move to 270 degrees position
+15 -> rc_pointer_value(p2);
+
+;;; move the pointer with the mouse and check the value
+rc_pointer_value(p2) =>
+
+Try using rc_informant_ident as above to associate a variable with p2
+and see how its value changes as you move the pointer with the mouse
+or the updater of rc_pointer_value
+
+;;; A slightly different example, where the range goes from 0 to 270,
+;;; over the same 2-D area
+vars p2a =
+    rc_constrained_pointer(
+        120, -10, -45, 0, 270, 60, 10, false, false);
+
+rc_pointer_value(p2a) =>
+rc_informant_value(p2a) =>
+
+10 -> rc_pointer_value(p2a);
+90 -> rc_pointer_value(p2a);
+0 -> rc_pointer_value(p2a);
+;;; compare
+0 -> rc_pointer_value(p2);
+
+;;; move both pointers and check their values
+rc_pointer_value(p2), rc_pointer_value(p2a) =>
+
+-- Example p3 ---------------------------------------------------------
+
+Try setting up converters for the following examples, or develop your
+own versions and play with them.
+
+;;; This one has min and max angles of 45 and 135:
+;;; Only the required portion of the background is shown, i.e.
+;;; less than a semi-circle
+
+vars p3 =
+    rc_constrained_pointer(
+        -50, -180, 0, 45, 135, 70, 10, 'blue', 'red');
+
+rc_pointer_value(p3) =>
+
+pointer_demo_1(p3, 45, 1, 100);
+pointer_demo_1(p3, 60, 2, 135);
+
+pointer_demo_2(p3, 0, 3, 20);
+
+;;; slightly different version, going from 0 to 90
+
+vars p3a =
+    rc_constrained_pointer(
+        -120, -50, 45, 0, 90, 70, 10, 'blue', 'green');
+
+rc_pointer_value(p3a) =>
+
+pointer_demo_1(p3a, 0, 1, 90);
+pointer_demo_1(p3, 45, 1, 80);
+
+pointer_demo_2(p3, 0, 3, 20);
+
+
+-- Example p4 ---------------------------------------------------------
+
+A version forming a complete circle with the pointer going from
+bottom (-90) to bottom (270), increasing clockwise:
+
+vars p4 =
+    rc_constrained_pointer(
+        -100, 100, 0, -90, 270, 70, 10, 'blue', 'red');
+
+;;; move the pointer and check how the value changes,
+;;; especially as it moves past the bottom
+rc_pointer_value(p4) =>
+
+45-> rc_pointer_value(p4);
+90-> rc_pointer_value(p4);
+180-> rc_pointer_value(p4);
+-90-> rc_pointer_value(p4);
+225-> rc_pointer_value(p4);
+270-> rc_pointer_value(p4);
+
+;;; But it respects the upper and lower bounds
+-150-> rc_pointer_value(p4);
+390-> rc_pointer_value(p4);
+rc_pointer_value(p4) =>
+
+pointer_demo_1(p4, 270, -2, 0);
+
+pointer_demo_2(p4, 45, 5, 30);
+
+;;; Try creating converters for this making the range go from
+;;; 0 to 100
+
+-- Example p5 ---------------------------------------------------------
+;;; Start a new window if necessary.
+
+new_win1();
+
+;;; This one is tilted left 45 degrees, but has the normal semi-circle,
+;;; and range from 0 to 180, using default pointer and background
+;;; colours (false, false)
+
+vars p5 =
+    rc_constrained_pointer(
+        -100, 100, -45, 0, 180, 60, 10, false, false);
+
+rc_pointer_value(p5) =>
+
+rc_informant_value(p5) =>
+45-> rc_pointer_value(p5);
+90-> rc_pointer_value(p5);
+180-> rc_pointer_value(p5);
+200-> rc_pointer_value(p5);
+
+
+
+-- Example p6 ---------------------------------------------------------
+;;; Start a new window if necessary.
+
+new_win1();
+
+;;; min -45, max 225, tilted left 45
+vars p6 =
+    rc_constrained_pointer(
+        -100, 0, -45, -45, 225, 75, 10,'yellow', 'blue');
+
+rc_pointer_value(p6) =>
+
+45-> rc_pointer_value(p6);
+90-> rc_pointer_value(p6);
+180-> rc_pointer_value(p6);
+270-> rc_pointer_value(p6);
+
+rc_pointer_value(p6) =>
+rc_informant_value(p6) =>
+
+-- Examples p7 and after ----------------------------------------------
+;;; Start a new window if necessary.
+
+new_win1();
+
+;;; This is tilted left 90 degrees
+
+vars p7 =
+    rc_constrained_pointer(
+        200, -120, -90, 0, 180, 80, 15, 'red', 'orange');
+
+45-> rc_pointer_value(p7);
+90-> rc_pointer_value(p7);
+180-> rc_pointer_value(p7);
+270-> rc_pointer_value(p7);
+355-> rc_pointer_value(p7);
+rc_pointer_value(p7)=>
+
+new_win1();
+
+;;; try to work out in advance what this will look like and what
+;;; the range is
+
+vars p8 =
+    rc_constrained_pointer(
+        120, 120, -90, -45, 225, 100, 15, 'red', 'blue');
+
+rc_pointer_value(p8) =>
+45-> rc_pointer_value(p8);
+90-> rc_pointer_value(p8);
+180-> rc_pointer_value(p8);
+225-> rc_pointer_value(p8);
+270-> rc_pointer_value(p8);
+315-> rc_pointer_value(p8);
+
+pointer_demo_1(p8, 0, 2, 180);
+
+pointer_demo_2(p8, 45, 3, 50);
+
+;;; new window if needed
+
+new_win1();
+
+;;; This has a pointer facing up which can swivel round through 270
+;;; degrees from -45 (relative to the dial orientation of 135) to
+;;; +225 relative to that orientation.)
+
+vars p9 =
+    rc_constrained_pointer(
+        -100, -100, 135, -45, 225, 100, 15, 'red', 'blue');
+
+;;; check values for various locations
+rc_pointer_value(p9) =>
+
+;;; The next one is equivalent to the previous one, but in a different
+;;; location, and with -225 instead of 135 for the orientation.
+
+vars p10 =
+    rc_constrained_pointer(
+        -100, 100, -225, -45, 225, 100, 15, 'red', 'blue');
+
+rc_pointer_value(p10) =>
+0-> rc_pointer_value(p9);
+0-> rc_pointer_value(p10);
+
+100-> rc_pointer_value(p9);
+100-> rc_pointer_value(p10);
+
+;;; A dial top left, tilted left 90, but with a range from 45 to 135,
+;;; i.e. a quadrant:
+
+vars p11 =
+    rc_constrained_pointer(
+        100, 100, -90, 45, 135, 80, 15, 'red', 'blue');
+
+rc_pointer_value(p11) =>
+
+0 -> rc_pointer_value(p11);
+45 -> rc_pointer_value(p11);
+60 -> rc_pointer_value(p11);
+120 -> rc_pointer_value(p11);
+180 -> rc_pointer_value(p11);
+
+repeat 90 times
+    rc_turn_by(p11, 1, true);
+    syssleep(1);
+endrepeat;
+
+rc_set_axis(p11, 220, true);
+
+;;; this one has value 0 in the middle of the quadrant
+vars p12 =
+    rc_constrained_pointer(
+        150, -100, 0, -45, 45, 80, 15, 'red', 'blue');
+
+rc_pointer_value(p12) =>
+
+90 -> rc_pointer_value(p11);
+90 -> rc_pointer_value(p12);
+20 -> rc_pointer_value(p11);
+20 -> rc_pointer_value(p12);
+
+
+new_win1();
+
+/*
+-- -- Adding numeric labels and "tick" marks on a dial
+
+This is done automatically in some cases. But it can also be
+done by directly invoking the following procedures:
+*/
+
+;;; We can add "tick" marks around the dial edge, and some labels, using
+;;; these two procedures, described later:
+
+;;; rc_label_dial(
+;;;     xcentre, ycentre, radius,
+;;;         start, inc, lim, num, incnum, colour, font);
+;;;
+;;; rc_draw_arc_segments(
+;;;         xcentre, ycentre, radius, start, gap, lim, inc, width, col);
+
+
+vars p13 =
+    rc_constrained_pointer(
+        0, 0, 0, 0, 180, 80, 15, 'red', 'blue');
+
+
+vars
+    ;;; first find the centre of rocation of the pointer
+    (dx1, dy1) = rc_real_pivot_coords(p13),
+
+    ;;; and its length
+    len = rc_pivot_length(p13),
+
+    orient = (180 - rc_rotater_orient(p13) - rc_min_ang(p13)) mod 360,
+
+    endorient = orient - rc_maxdiff(p13);
+
+;;; We can then use dx1, dx2, len, and endorient as follows:
+
+;;; make red marks at 18 degree intervals, of dimension 2 by 8 roughly
+rc_draw_arc_segments(
+    dx1, dy1, len+5, orient, -18, endorient, 2, 8, 'red');
+
+;;; make longer black marks at intervals of 90 degrees
+rc_draw_arc_segments(
+    dx1, dy1, len+8, orient, -90, endorient, 2, 10, 'black');
+
+;;; put some numeric labels indicating degrees
+rc_label_dial(
+    dx1, dy1, len+42, orient, -18, endorient, 0, 18, 'red', '6x13');
+
+;;; and, if needed, some indicating the associated values,
+;;; going from 0 to 10
+rc_label_dial(
+    dx1, dy1, len+20, orient, -18, endorient, 0, 1, 'blue', '6x13');
+
+;;; Move the pointer and see what happens to this
+rc_pointer_value(p13) =>
+
+;;; or assign the value and see what happens
+0 -> rc_pointer_value(p13);
+36 -> rc_pointer_value(p13);
+90 -> rc_pointer_value(p13);
+144 -> rc_pointer_value(p13);
+
+
+-- Methods and procedures provided ------------------------------------
+
+From LIB rc_constrained_rotater
+
+ define :mixin rc_constrained_rotater;
+ define :method rc_setup_rotater(pic:rc_constrained_rotater);
+ define :method rc_constrain_rotater(pic:rc_constrained_rotater, vang) -> newang;
+ define :method rc_pivot_coords(pic:rc_constrained_rotater);
+ define :method updaterof rc_pivot_coords(x, y, pic:rc_constrained_rotater);
+ define :method rc_real_pivot_coords(pic:rc_constrained_rotater) -> (x,y);
+ define :method updaterof rc_real_pivot_coords(x0, y0, pic:rc_constrained_rotater);
+ define :method rc_end_coords(pic:rc_constrained_rotater);
+ define :method updaterof rc_end_coords(/*x,y, */ pic:rc_constrained_rotater);
+ define :method rc_real_end_coords(pic:rc_constrained_rotater) -> (x,y);
+ define :method updaterof rc_real_end_coords(x0, y0, pic:rc_constrained_rotater);
+ define :method rc_set_axis(pic:rc_constrained_rotater, ang, mode);
+ define :method rc_turn_by(pic:rc_constrained_rotater, ang, draw);
+ define :method rc_oriented_angle(pic:rc_constrained_rotater, ang) -> ang;
+ define rc_actual_to_virtual_angle(pic, ang) -> vang;
+ define :method rc_virtual_axis(pic:rc_constrained_rotater) -> vang;
+ define :method updaterof rc_virtual_axis(vang, pic:rc_constrained_rotater);
+ define :method rc_ang_to_point(pic:rc_constrained_rotater, x, y) -> ang;
+ define :method rc_move_to(pic:rc_constrained_rotater, x, y, mode);
+ define :method rc_move_by(pic:rc_constrained_rotater, dx, dy, draw);
+
+
+From LIB rc_constrained_pointer
+
+ define -- The class rc_constrained_pointer
+ define :class rc_constrained_pointer;
+ define -- methods for the class
+ define :method print_instance(pic:rc_constrained_pointer);
+ define :method rc_pointer_mouse_limit(x, y, picx, picy, pic:rc_constrained_pointer) -> boole;
+ define lconstant decoration_parameters(pic) -> (x, y, len, startorient, endorient);
+ define :method rc_draw_dial_marks(pic:rc_constrained_pointer, marks);
+ define :method rc_draw_dial_labels(pic:rc_constrained_pointer, labels);
+ define :method rc_print_dial_captions(pic:rc_constrained_pointer, captions);
+ define :method rc_draw_pointer_frame(pic:rc_constrained_pointer);
+ define :method rc_draw_constrained_pointer(pic:rc_constrained_pointer);
+ define lconstant adjust_step_value(pic, val) -> val;
+ define :method rc_set_axis(pic:rc_constrained_pointer, ang, mode);
+ define :method rc_pointer_value(pic:rc_constrained_pointer) -> val;
+ define :method updaterof rc_pointer_value(newval, pic:rc_constrained_pointer);
+ define :method rc_pointer_reactor(s:rc_constrained_pointer, val);
+ define -- spec abbreviations
+ define expand_dial_spec_abbreviations(spec) -> spec;
+ define -- Recognisers for optional arguments
+ define iswident(w);
+ define isspecvector(v);
+ define isrctypespec(item);
+ define ismarkspec(item);
+ define islabelspec(item);
+ define iscaptionspec(item);
+ define -- creation of dials
+ define rc_constrained_pointer_init(x, y, orient, minang, maxang, len, width, colour, bg) -> pointer;
+ define rc_install_pointer(pointer, win);
+ define rc_constrained_pointer(x, y, orient, minang, maxang, len, width, colour, bg) -> pointer;
+
+
+LIB RC_DIAL
+ define lconstant pointer_value_from_ang(vang, pic) -> val;
+ define lconstant pointer_ang_from_value(val, pic) -> vang;
+ define rc_dial(x, y, orient, angwidth, range, len, width, colour, bg) -> pointer;
+
+
+Additional methods are in LIB rc_constrained_rotater and other libraries
+from which this class inherits
+
+TO BE CONTINUED
+
+ define -- The most general dial creator
+ define create_rc_pointer(x, y, startorient, angwidth, len, width, bg, colour) -> pointer;
+
+This will be partly analogous to rc_slider
+
+--- $poplocal/local/rclib/teach/rc_constrained_pointer
+--- Copyright University of Birmingham 2002. All rights reserved. ------

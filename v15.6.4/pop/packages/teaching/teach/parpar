@@ -1,0 +1,367 @@
+TEACH PARPAR                              Chris Mellish, February 1983
+
+=== PARTIAL PARSE TREES, CONCEPT LEARNING ============================
+=== and INCREMENTAL DESCRIPTION REFINEMENT ===========================
+
+This TEACH file presents the notion of a partial parse tree as a
+representation for an object or class of objects. Partial parse trees
+are easily implemented and show how an object or objects fit into a
+hierarchical view of the world. Indeed, they have no doubt appeared
+under many names before (such as, perhaps, "and/or trees", "frames",
+???) Partial parse trees are shown to be relevant to both a Winston-like
+concept learning task, and also the notion of Incremental Description
+Refinement, used by Bobrow and Webber. There is a library program using
+partial parse trees for concept learning (see *LERNGRAM).
+
+--- PARTIAL PARSE TREES -------------------------------------------------------
+
+The function of a parse tree is to give a STRUCTURAL DESCRIPTION of some
+object. When a linguist uses a parse tree to describe a sentence, it actually
+conveys two kinds of information:
+
+   - the part-whole relationships between phrases
+
+   - the left-right relationships between phrases
+
+In the following, we will be using parse trees in domains where there is no
+corrolate to left-right ordering. It follows that we will concentrate on the
+first kind of information. We will denote trees using a standard list
+notation (with square brackets) and adopt the convention that the number of
+subtrees associated with any one label is always the same. Thus the first
+element of a list always determines exactly how many elements that list has.
+
+A parse tree can be seen as indicating the sequence of DECISIONS taken in the
+creation of the object described. For instance, the following parse tree for
+a sentence:
+
+   [s [np [pn john]] [vp [v hit] [np [pn steve]]]]
+
+indicates something like the following going on in an imaginary creator's
+mind:
+
+   - First of all, the object will be a s (with two parts)
+   - The first part will be a np (with one part)
+   - That part will be a pn (with one part)
+   .....
+
+Given an appropriate view of the world, we can use a parse tree as a
+description of an object. This description expresses how this particular
+object relates to the particular "options" available for "constructing"
+objects in general. For instance, consider the following "grammar" for
+possible worlds involving two objects:
+
+   world --> object + object + relations
+
+   object --> block
+   object --> wedge
+
+   relations --> touchrel + displacementrel
+
+   touchrel --> touchingrel
+   touchrel --> apart
+
+   touchingrel --> overlaps
+   touchingrel --> abuts
+
+   displacementrel --> above
+   displacementrel --> below
+
+A world consists of two objects and the relations that are true between them.
+Each object can be a block or a wedge. The relations must consist of a
+relation saying whether they are touching, together with a relation
+specifying their relative displacement. If the objects are touching, then in
+addition one can specify whether they overlap or abut. Given this grammar,
+the parse tree:
+
+   [world
+      [object block]
+      [object wedge]
+      [relations
+         [touchrel [touchingrel overlaps]]
+         [displacementrel above]
+      ]
+   ]
+
+would represent something like the following (we must have a convention about
+which objects are the subjects and objects of the relations specified):
+
+
+                         /\
+                        /  \
+                       /    \
+                    *--------*
+                    |        |
+                    |        |
+            --------*--------*--------
+
+A PARTIAL PARSE TREE is like a parse tree, except that it may include the
+special symbol "=" in the place of a leaf or subtree. For instance, the
+following is a partial parse tree relevant to the above grammar for worlds:
+
+   [world
+      [object block]
+      [object =]
+      [relations
+         [touchrel =]
+         [displacementrel =]
+      ]
+   ]
+
+A normal parse tree is a description of some particular object (here a world
+with two things in it). What meaning might we attach to a partial parse tree?
+One possibility is to see it as standing for a whole CLASS of objects, whose
+descriptions agree with the partial parse tree everywhere except where there
+is a "=", at which point any subtree can appear. Under this interpretation,
+the above partial parse tree would stand for a class which includes the
+following objects:
+
+   [world
+      [object block]
+      [object wedge]
+      [relations
+         [touchrel [touchingrel overlaps]]
+         [displacementrel above]
+      ]
+   ]
+
+   [world
+      [object block]
+      [object block]
+      [relations
+         [touchrel apart]
+         [displacementrel above]
+      ]
+   ]
+
+and various others. Another way of looking at this would be to say that the
+partial parse tree represents a CONCEPT, and that any object whose
+description "matches" the partial parse tree is an instance of that object.
+In this case, the above partial parse tree would represent something like
+the concept of any situation where there is a block and some other object.
+
+--- THE CONCEPT LEARNING TASK ------------------------------------------------
+
+Given the partial parse tree representation for objects and concepts, we might
+ask how one could generate the description of some desired concept, given
+examples and non-examples of that concept. This is the concept learning task
+that Winston discusses. It is desirable for a concept learning program to
+have a PARTIAL model of the desired concept at intermediate stages in the
+learning sequence. Ideally, it should progress by gradually refining this
+partial model in a way that does not require making decisions that may later
+have to be revoked.
+
+The key to using partial parse trees in the concept learning task is to have
+the program's partial model of the concept in the form of TWO partial parse
+trees. These represent roughly the aspects of the object that MUST BE in a
+particular form and the aspects that CAN BE in a particular form. So, for
+instance, a partial model of a concept in the above world might be:
+
+   CAN BE                                       MUST BE
+
+   [world                                       [world
+      [object block]                               [object =]
+      [object wedge]                               [object wedge]
+      [relations                                   [relations
+         [touchrel apart]                             [touchrel =]
+         [displacementrel =]                          [displacementrel =]
+      ]                                            ]
+   ]                                            ]
+
+How are we to interpret this model, in terms of what we can say about the
+objects that are and are not examples of the desired concept. The rule is:
+
+   If an object's description "matches" the CAN BE tree, it is an example
+
+   If an object's description doesn't "match" the MUST BE tree, it is not
+   an example
+
+   Otherwise the partial model does not determine whether it is an example
+   or not
+
+So the model that has been built up by this time is partial, inasmuch as
+there are some objects that it cannot decide about. If the concept learning
+program is to eventually understand the concept, it must eventually get to
+the state where the CAN BE and MUST BE trees are identical. It will then be
+able to say for certain whether any given object is an example of the concept
+or not.
+
+Exercise: What objects are classified by the above partial model as examples
+and non-examples?
+
+The following rules ensure that the CAN BE and MUST BE trees eventually
+converge to the same tree that represents the desired concept.
+
+1. The MUST BE tree starts off as the tree    =
+   The CAN BE tree starts off as the tree for the first example given
+
+2. When a new example is given, which cannot already be diagnosed as an
+   example, the CAN BE tree is changed to be a tree as similar as possible
+   to its previous value, such that it now matches the new example. This will
+   involve replacing bits of the old value with =s. For example, if the CAN
+   BE tree is:
+
+       [world
+          [object =]
+          [object wedge]
+          [relations
+             [touchrel [touchingrel overlaps]]
+             [displacementrel above]
+          ]
+       ]
+
+   and the new example is:
+
+       [world
+          [object block]
+          [object wedge]
+          [relations
+             [touchrel [touchingrel abuts]]
+             [displacementrel above]
+          ]
+       ]
+
+   then the new CAN BE tree is:
+
+       [world
+          [object =]
+          [object wedge]
+          [relations
+             [touchrel [touchingrel =]]
+             [displacementrel above]
+          ]
+       ]
+
+3. If a new near miss (non-example) is given and cannot be diagnosed as a
+   non-example, then the MUST BE tree must be changed in a minimal way so
+   that it is consistent with the CAN BE tree but no longer matches the
+   data. This involves finding some part of the CAN BE tree which is not =
+   but where the corresponding part of the MUST BE tree is =, and replacing
+   the = in the MUST BE tree by the value in the CAN BE tree. For instance,
+   if the partial model is:
+
+   CAN BE                                       MUST BE
+
+   [world                                       [world
+      [object block]                               [object =]
+      [object wedge]                               [object wedge]
+      [relations                                   [relations
+         [touchrel apart]                             [touchrel apart]
+         [displacementrel above]                      [displacementrel =]
+      ]                                            ]
+   ]                                            ]
+
+   and the data is:
+
+   [world
+      [object wedge]
+      [object wedge]
+      [relations
+         [touchrel apart]
+         [displacementrel below]
+      ]
+   ]
+
+   then the new MUST BE tree could be either of:
+
+   [world                                       [world
+      [object block]                               [object =]
+      [object wedge]                               [object wedge]
+      [relations                                   [relations
+         [touchrel apart]                             [touchrel apart]
+         [displacementrel =]                          [displacementrel above]
+      ]                                            ]
+   ]                                            ]
+
+   Notice that there may be several possible choices at this point, and so
+   one choice must be made non-deterministically.
+
+This ends the short description of the concept learning algorithm. You might
+like to try going through some cases by hand to see how it works. There is
+one problem that may arise: the trees never quite get to be equal, even
+though they are sufficient to say whether any world satisfying the grammar is
+an example or non-example. This is because, in order to REALLY pin down the
+concept, it is necessary to give non-examples which are not legal according
+to the grammar.
+
+
+--- INCREMENTAL DESCRIPTION REFINEMENT --------------------------------------
+
+Partial parse trees can be used as a representation for another task, called
+"Incremental Description Refinement". In this task, there is an object about
+which one initially knows nothing, and about which evidence is gradually
+accumulating. The idea is to be able to represent the partial information
+available about the object at any stage, and draw inferences where
+appropriate. This idea has been used by Bobrow and Webber and by Mellish (see
+references below). Under certain conditions, a partial parse tree can be an
+appropriate representation for this task. For instance, if the object being
+discussed was a world according to the "grammar" above, we might start by
+representing our knowledge about it as:
+
+    [world = = =]
+
+If we then discover that the world contains a block, this description might
+be "refined" (or "instantiated") to
+
+   [world [object block] = =]
+
+We might next find that the block is touching something. This leads to:
+
+   [world
+      [object block]
+      =
+      [relations
+         [touchrel =]
+         =
+      ]
+   ]
+
+and so on. One could write procedures to look at the partial parse tree at
+any time and say which properties DEFINITELY hold of the world, which
+properties DEFINITELY DO NOT hold, and which properties are as yet unknown.
+
+I hypothesise that the incremental description refinement task is not very
+different from the concept learning task, and that they are in fact both
+examples of a more general problem. However, the generalisation is currently
+beyond me.
+
+
+--- ACKNOWLEDGEMENTS --------------------------------------------------------
+
+This whole approach is secretly modelled on a "rational reconstruction" of
+Winston's concept learning program undertaken by Young, Plotkin and Linz.
+Alan Bundy has also played an important role in making the ideas clear to me.
+
+
+--- EXERCISES ---------------------------------------------------------------
+
+1. Write a "grammar" for a small world and use the above concept learning
+   algorithm to learn concepts from examples and non-examples. Since the
+   algorithm is non-deterministic at one place, it might be appropriately
+   programmed in Prolog.
+
+2. How do the ideas presented here relate to:
+
+   Halliday's Systemic Grammar?
+   Frames?
+   And/Or trees?
+   Winston's concept learning program?
+
+--- REFERENCES --------------------------------------------------------------
+
+Winston, P.H., "Learning Structural Descriptions from Examples", in Winston
+   (Ed), "The Psychology of Computer Vision", McGraw-Hill, 1975.
+
+Other articles by Winston on the same topic are to be found in Winston, P.H.,
+"Artificial Intelligence" (Addison Wesley, 1977) and Johnson-Laird, P.N. and
+Wason, P.C., (Eds) "Thinking" (Cambridge University Press, 1977).
+
+Young, R.M., Plotkin, G.D. and Linz, R.F., "Analysis of an Extended Concept
+   Learning Task", IJCAI-77.
+
+Bobrow, R.J. and Webber, B.L., "Parsing and Semantic Interpretation in the
+   BBN Natural Language Understanding System", Proceedings of the CSCSI/SCEIO
+   Conference, 1980.
+
+Mellish, C.S., "Incremental Evaluation: An Approach to the Semantic
+   Interpretation of Noun Phrases", Cognitive Studies Memo 82-1, University
+   of Sussex.

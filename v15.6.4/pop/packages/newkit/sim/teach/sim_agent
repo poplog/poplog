@@ -1,0 +1,878 @@
+TEACH SIM_AGENT                                    Aaron Sloman Nov 1994
+                                                      Updated April 2002
+
+
+NB In order to run sim_agent you must first do the following:
+
+    uses simlib
+
+LIB SIB_AGENT
+
+This is a sophisticated multi-agent simulation package, supporting a
+collection of agents and objects that behave in parallel with one
+another. The agents can have internal mechanisms that run in parallel,
+doing things like interpreting sensory information, working out what to
+do next, changing emotional states, making plans, generating new
+motives, etc.
+
+There is a demonstration teach file which contains executable code,
+called
+    TEACH SIM_FEELINGS
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- Components of the toolkit
+ -- The purpose of the toolkit
+ -- Summary of key ideas
+ -- Pre-requisites
+ -- Accessing the library
+ -- How to use the package
+ -- -- Setting environments for rulesets, rulefamilies and rulesystems
+ -- How it works
+ -- In more detail
+ -- Database format conventions
+ -- Example formats for database entries
+ -- -- New sensory input
+ -- -- Beliefs
+ -- -- Goals
+ -- -- Plans
+ -- -- Actions to be executed
+ -- -- New messages received
+ -- -- Messages to be sent
+ -- -- Other message types and formats
+ -- Note on formats
+ -- Types of objects and agents
+ -- -- Active objects
+ -- -- Agents
+ -- -- Autonomous agents
+ -- -- Passive objects
+ -- -- Inert objects
+ -- -- Instruments
+ -- -- Reactors
+ -- -- Triggers
+ -- Simple and compound objects
+ -- Further reading on SIM_AGENT
+
+-- Introduction -------------------------------------------------------
+
+The SIM_AGENT toolkit implements a discrete event simulation mechanism,
+in which objects and agents coexist and interact in simulated time.
+
+Objects have externally accessible properties and locations. They may
+also have complex "internal" states and internal state processing
+mechanisms.
+
+Agents are like objects except that the toolkit also allows them to use
+a standard communication mechanism.
+
+The toolkit runs by proceeding through a sequence of simulated time
+steps. In each time step each object and each agent can be involved in
+some processing. This may include both external and internal processing.
+
+External processing includes sensing and acting on other objects or
+agents, and changing location.
+
+Internal processing involves both symbol-manipulations within a
+rule-based system and also other forms of "sub-symbolic" processing,
+including activating neural nets or simply calling low level procedures.
+
+This makes the system suitable for a wide variety of applications
+including:
+
+    - adventure games involving a number of
+        interacting characters,
+    - control mechanisms in which a number of different components
+        concurrently monitor and send control signals to various parts
+        of a complex machine or factory,
+    - exploring designs for more or less human-like agents, interacting
+        with other agents and objects.
+
+The agents and objects may make use of Pop-11 graphical utilities
+implemented as part of the RCLIB package. This makes it easy to
+represent objects and agents by means of moving images on a screen, and
+also to allow interaction with those entities using a mouse.
+
+
+-- Components of the toolkit ------------------------------------------
+
+The toolkit is written in Pop-11 and built on top of:
+
+o The Pop-11 Objectclass library,
+    (See HELP OBJECTCLASS_EXAMPLE and TEACH OOP)
+
+o The Poprulebase system for defining and running condition-action
+  rules,
+    (See TEACH RULEBASE, HELP POPRULEBASE)
+
+o The Rulesystem extension to Poprulebase, which permits construction of
+  a collection of interacting rulesets communicating via an agent's
+  database,
+    (See HELP RULESYSTEMS)
+
+o The Pop-11 rc_graphic library for interactive graphics, and some
+  extensions to the library developed at Birmingham.
+    (See TEACH RC_GRAPHIC, HELP RC_GRAPHIC, HELP RC_LINEPIC,
+         TEACH RCLIB_DEMO.P)
+
+and other mechanisms.
+
+A very simple demonstration, which is gradually being extended, is
+available in the TEACH SIM_FEELINGS file, showing in outline how to
+construct two "teams" of interacting agents.
+
+-- The purpose of the toolkit -----------------------------------------
+
+The Sim_agent package is intended to make it relatively easy to
+implement a collection of interacting objects and agents, where each
+object (or agent) has internal complexity represented as a set of
+concurrent interacting condition-action rules which, in turn, can invoke
+additional mechanisms of any kind, including ordinary procedures, neural
+nets theorem provers, databases, genetic algorithms, etc.
+
+Unlike many agent toolkits this one is not committed to any particular
+architecture for the agents: they may have a variety of different
+internal mechanisms. The toolkit makes it possible to explore different
+archiectures within the same environment.
+
+The objects and agents interact in discrete time under the control of a
+"scheduler" which ensures that each object has a turn to "run" in each
+time-slice.
+
+Within each such object, each of its internal rulesets may have one or
+more chances to run within each time-slice. Varying the number of
+"cycles" for different rulesets within an agent allows different
+relative speeds of operation of different interacting mechanisms to be
+simulated, e.g. to allow planning processes to run more or less slowly
+relative to perceptual processes. Similarly, varying the number of
+complete internal runs within an agent makes it possible to simulate
+different speeds of thinking, perceiving, planning etc. between agents.
+
+The package is intended especially to support the design of
+architectures for agents that are to some degree intelligent, i.e.
+incorporate AI techniques (including both rule-based systems and such
+things as neural nets where appropriate). Unintelligent objects in the
+environment, e.g. tables, doors, rooms, may also be simulated. Their
+internal processes will typically be much simpler.
+
+The toolkit provides some basic but very general facilities, and it is
+intended that a variety of libraries will be built on top of it,
+supporting various kinds of agents and objects.
+
+The design has made it relatively easy to explore complex systems using
+a "rapid prototyping" methodology. In particular various kinds of
+tracing can be turned on and off without having to re-start the package,
+and during program development the incremental compiler makes it easy to
+modify or extend parts of an application without having to restart the
+system after each change.
+
+Extensive use is made of the sophisticated store management and garbage
+collection facilities provided by Pop-11.
+
+The sim_agent toolkit is built on ideas developed in the Cognition and
+Affect Project at the University of Birmingham, and was modified in part
+on the basis of comments and suggestions from users at DERA Malvern.
+
+-- Summary of key ideas -----------------------------------------------
+
+1.  The world is a collection of interacting objects of various kinds,
+    and of various degrees of complexity of internal architecture and
+    internal and external behaviour. A geographical region, for example,
+    can be thought of as a complex object containing other objects, some
+    of them static, some capable of changing location or other
+    properties. Some of them may be autonomous agents. A person may
+    be thought of as having sensors to perceive the environment,
+    activators for acting in the environment, and a large collection
+    of internal information stores and mechanisms for operating on those
+    stores, including changing them in the light of sensory information.
+
+2.  Each object can be represented as an instance of a general class
+    defined in the SIM_AGENT library. Two main classes are provided:
+    sim_object, for entities with little or no internal information
+    processing (e.g. physical obejcts) is the most general class, and
+    sim_agent, a slightly more sophisticated class, allows internal
+    processing of varying degrees of complexity and communication
+    between individuals.
+
+    Users can define their own subclasses of these classes, and, using
+    the features of Objectclass, can define new methods for their
+    subclasses, which extend the standard methods provided in the
+    toolkit.
+
+3.  Each object or agent is a mixture of
+    (a) "externally visible" data held in object slots, for instance
+        the object's location, speed of motion, size, and other features
+        might be in such slots.
+
+    (b) "internal data" held in one or more databases operated on by
+        condition-action rules and other internal mechanisms defined
+        for the object. Other agents do not have direct access to these
+        internal databases or the processes involving them.
+
+4.  The internal databases can form "working" memories for the
+    condition-action rules. A subset of the data will be transferred
+    between the local databases and externally visible slots, or vice
+    versa, from time to time, e.g. when perception occurs, messages come
+    in, messages are sent out, actions occur, etc.
+
+5.  Each agent type has a collection of rulesets, defined using the
+    formalism of LIB POPRULEBASE. The rulesets may change over time, as
+    may the individual rules within a ruleset. Different classes may
+    use different sets of rulesets. Poprulebase also provides support
+    for different sorts of mechanisms to be used by agents, e.g.
+    neural nets, or ordinary collections of procedures, if
+    condition-action rules are inappropriate.
+
+6.  The rulesets within an agent can be grouped in various ways.
+
+    (a) A ruleset is simply a list of condition-action rules, and in
+    each time slice a ruleset has a chance to have some number of cycles
+    of the rule interpreter.
+
+    (b) Some small rulesets are grouped into a "family" of cooperating
+    rulesets that take it in turns to work on different aspects of a
+    task. These are said to form a rule-family. Actions provided for the
+    rule language include transferring control to another ruleset in the
+    same family. At any time, each family has exactly one "current"
+    ruleset.
+
+    (c) Each agent has a "rulesystem", which is made up of a collection
+    of rulefamilies and rulesets, which are run in parallel, in the
+    sense that during each time-slice, every element of the rulesystem
+    (i.e. every rulefamily or ruleset in the system) has a chance to run
+    some number of times. I.e. each one gets a number of "cycles" of the
+    rule interpreter.
+
+
+
+    For example: a simple agent may have three rulefamilies, RF1 and
+    RF2, where the first family, RF1 is made up of four rulesets
+
+        RF1rs1 RF1rs2 RF1rs3 RF1rs4
+
+    and the second rulefamily is made up of three rulesets
+
+        RF2rs1 RF2rs2 RF2rs3
+
+    The rulesets (RF1rs1, RF2rs1, etc.) contain varying numbers of
+    condition-action rules.
+
+    Some of the actions allow a rulefamily to switch between rulesets.
+    Thus the family RF1 may start off using ruleset RF1rs1, and after
+    a while this may run an action that makes the current ruleset
+    RF1rs3, which may later hand control to RFrs2, and so on.
+
+    In parallel with all that (simulated parallelism, actually) the
+    other rulefamilies may be running, with their own rulesets switching
+    control as needed. For more details on the natation and what it
+    does, see:
+        HELP * POPRULEBASE, * RULESYSTEMS
+
+    It is a feature of a rulefamily that it "remembers" which of its
+    rulesets is current, so that if switching to a new ruleset occurs
+    during one time-slice, the new ruleset will be assumed to be the
+    current one in the next time-slice.
+
+    As an example, consider a rulefamily concerned with interpreting
+    visual information. The different rulesets may be concerned with
+    different subtasks, e.g. one being finding edge features, other
+    with grouping edge features into lines, another with finding
+    3-D interpretations of surface features, another with grouping
+    surface features into 3-D objects, etc. Another rulefamily in the
+    rulesystem of the same agent may be doing something completely
+    different in parallel with this, e.g. making a plan to achieve some
+    goal. The two rulefamilies can interact via shared databases.
+
+7.  Parallelism between rulefamilies within an agent is implemented by
+    limiting the number of cycles of the rule interpreter allocated
+    to each rulefamily, and repeatedly running all the rulefamilies
+    some number of times in each simulated time-slice. The same thing
+    can be done for all the other objects.
+
+8.  Agents can be given different relative speeds of execution by giving
+    them different values for the numbers of cycles their rulefamilies
+    are allowed in each time-slice.
+
+-- Pre-requisites -----------------------------------------------------
+
+In order to use SIM_AGENT you will need to be familiar with Objectclass
+(the Object Oriented extension to Pop-11) and the Poprulebase library
+which provides faciliteis for forward chaining condition-action rules.
+
+Introductions to Objectclass can be found in:
+
+    TEACH * OBJECTCLASS_EXAMPLE
+        - Tutorial example using lib objectclass
+    TEACH * OOP
+        - More general introductory overview of object oriented
+          programming
+    (HELP * OBJECTCLASS gives more complete information)
+    (REF * OBJECTCLASS
+        - Definitive reference of the objectclass library)
+
+For an introduction to POPRULEBASE see:
+    TEACH * RULEBASE
+    TEACH * POPRULEBASE
+        - Gives more information about poprulebase and several examples
+    TEACH * PRBRIVER
+        - An extended example showing how to use poprulebase to create
+          a planning system to solve the problem of getting the man,
+          fox, chicken, and grain across the river.
+
+Additional relevant teach files are listed in the above teach files.
+
+    HELP * POPRULEBASE
+        - Full documentation (points to additional HELP files that
+          are relevant).
+
+    HELP * RULESYSTEMS
+        - Gives an overview of the facilities available for setting up
+          interacting rulefamilies, each of which may be made up of
+          several rulesets.
+
+You should also look at these two news files to find out about recent
+changes:
+
+    HELP * SIM_AGENT_NEWS
+    HELP * PRB_NEWS
+
+The following tutorial file gives an introductory overview of the
+SIM_AGENT toolkit:
+    TEACH * SIM_FEELINGS
+
+-- Accessing the library ----------------------------------------------
+
+In order to load the sim_agent library you must already have poprulebase
+accessible. Depending on your local setup it is usually necessary to do
+
+    uses prblib
+
+to make the Poprulebase package available,
+
+    uses simlib
+
+to make the Sim_agent package available and
+
+    uses rclib
+
+to make the graphical extensions available.
+
+After doing all the above you can compile the Sim_agent package with the
+command:
+
+    uses sim_agent
+
+
+The sim_agent library is normally resident in
+
+    $poplocal/local/sim/
+
+and its subdirectories.
+
+It may be that you will find a pre-compiled saved image exists, which
+can be run with the command
+
+    pop11 +sim
+
+(Beware: this may not include the very latest version of sim_agent.)
+
+-- How to use the package ---------------------------------------------
+
+Once you have compiled the package (or started up the saved image if
+there is one) you can do the following:
+
+a. Define the classes of objects and agents required, making all of them
+    subclasses of sim_object or sim_agent.
+
+    For examples see TEACH * SIM_FEELINGS
+
+b. Define the sim_send_message and sim_do_action methods for the classes.
+    This requires deciding on the formats for different kinds of
+    messages and the protocols for sending and receiving them.
+
+    The SIM_FEELINGS tutorial does not include messages.
+
+c. Define the (poprulebase) rulesets for the different classes of agents, and
+    the rules for each ruleset.
+
+d. Consider which collection of rulesets makes up each rulefamily.
+
+e. Decide which classes of objects and agents will use which
+   rulefamilies and how they should be grouped into rulesystems.
+    (See HELP * RULESYSTEMS)
+
+f. Specify the initial databases for each type of agent.
+
+g. Create any other data-structures required, and corresponding
+    procedures to access and update them (e.g. a map of the world).
+    (This may or may not be an object with internal rules.)
+
+h. Define any required object-specific tracing methods, e.g. graphical
+    tracing methods. A default set of tracing methods is provided by
+    LIB * SIM_AGENT. These may produce too much printing to be useful.
+
+i. Create all the required initial instances of the agent classes and
+    put them into a list to be given to the master procedure
+    sim_scheduler, which repeatedly runs all the agents and objects,
+    as described below.
+
+-- -- Setting environments for rulesets, rulefamilies and rulesystems
+
+The following syntax forms are available:
+
+    "define :ruleset"
+        For creating a ruleset composed of a number of rules
+
+    "define :rulefamily"
+        For creating a rulefamily, which is a mixture of predefined
+        rulesets
+
+    "define :rulesystem"
+        For creating the complete rulesystem for an agent, in the form
+        of a list containing rulesets and rulefamilies to be run
+        concurrently.
+
+Within each ruleset, rulefamily, or rulesystem it is possible to set up
+the environment in which it runs. In particular, it is possible to use
+the [VARS ...] syntax described in HELP POPRULEBASE to set up some
+variables that can be used in conditions and actions in the rules,
+preceded by "?" and "??". By doing this in one go for a whole ruleset,
+or rulefamily or rulesystem one can save having to start off lots of
+rules with conditions that set up the same variables. It is also
+possible to specify that the ruleset, rulefamily or rulesystem should
+run within a section. That makes it possible to avoid interactions
+between the variables used in different collections of rules. Finally it
+is possible to specify for individual rulesets, rulefamilies or
+rulesystems what their "cycle limits" should be. I.e. how many cycles of
+the rule interpreter they should get in each run, in a simulated time
+interval. The limits specified lower down the hierarchy override those
+specified higher up. E.g. a rulefamily may set a lower or a higher limit
+than the rulesystem of which it is a part. Simularly, and ruleset within
+that family may specify a different limit. E.g. the limit may be raised
+for that ruleset if it is found that increasing its share of cycles in
+each time interval is the only way to make it perform reasonably.
+
+There is special syntax for setting the matcher variable environment,
+the section to be used, and the cycle limit, in each context.
+
+Another aspect of the environment that can be controlled individually
+for rulefamilies and rulesystems is whether they are to be set up in
+"debug" mode. If so lists and other things may be accessed indirectly
+via variable names, so that they can be redefined during development and
+testing, and the new ones will automatically be used. This can speed up
+development considerably.
+
+Some examples of these points can be found in TEACH * SIM_FEELINGS.
+
+-- How it works -------------------------------------------------------
+
+There is a scheduler procedure defined in LIB SIM_AGENT which is given a
+list of agents and a number N of cycles, e.g. if agent_list is a list of
+objects created by making instances of your classes, then this command
+
+    sim_scheduler(agent_list, 50);
+
+will run all the objects in the list for 50 simulated time-slices,
+whereas this command
+
+    sim_scheduler(agent_list, false);
+
+will run the simulation forever.
+
+For your initial tests it is wise to use a small number of cycles, until
+you understand what is going on.
+
+-- In more detail -----------------------------------------------------
+
+If the second argument of sim_scheduler is the number N it then
+repeatedly does the following (Phase 1, then Phase 2) N times:
+
+Phase 1.
+For each object in the list:
+
+ 1. Set up sensory detector inputs for the object, using the method
+       sim_run_sensors
+    defined in lib sim_agent, or a user version of the method.
+    This may insert new sensory information into the object's
+    database.
+
+ 2. For each of the object's rulefamilies run the rulefamily,
+    using prb_run, as defined in HELP POPRULEBASE.
+    This will typically change the object's local database.
+    To find out how to set up the rulefamilies see
+        HELP * RULESYSTEMS
+    Examples are provided in TEACH * SIM_FEELINGS and TEACH * SIM_DEMO
+
+ 3. Set up output actions to be performed during Phase 2.
+
+ 4. Set up output messages to be sent during Phase 2.
+
+Phase 2.
+For each object:
+
+ 1. Transmit its output messages to their targets, and clear the
+    object's output buffer.
+
+ 2. Perform the object's actions, which may change location or do other
+    things to change the world.
+
+
+The scheduler includes additional facilities to allow some objects to run
+faster than others, by using a "slowness" value associated with each
+object to run it only in a subset of cycles.
+
+
+-- Database format conventions ----------------------------------------
+
+If the toolkit is used for a simulation of any complexity it is
+necessary to use a disciplined approach to design of representations.
+
+Moreover, because the poprulebase databases are indexed on the first
+item in each list it is desirable to try to choose formats for database
+entries which make it unnecessary to use a variable as the first item in
+a condition. Each application will require detailed analysis of its
+ontology, i.e. which objects, properties, relations, events, goals,
+actions, messages, or percepts can occur.
+
+It may be desirable wherever possible to use a logical structure for
+anything with propositional content, e.g. beliefs, goals, the contents
+of information messages, requests for information, etc.
+
+What follows are some examples of conventions that might be used, though
+individual cases may have to be different.
+
+
+-- Example formats for database entries -------------------------------
+
+The database for each agent acts as a sort of blackboard for its
+rules. The following formats might be used for database entries and the
+corresponding patterns.
+
+The items marked with an asterisk are used by methods defined in the
+generic library, LIB SIM_AGENT.
+
+-- -- New sensory input
+
+* [new_sense_data ...]
+    Examples might be
+    [new_sense_data distance ?object ?distance]
+    [new_sense_data colour ?object ?colour]
+    [new_sense_data size ?object ?size]
+    [new_sense_data ison ?object1 ?object2]
+
+-- -- Beliefs
+    [belief ?predicate ?object]
+    [belief ?attribute ?object ?value]
+    [belief ?relation ?object1 ?object2]
+    [belief ?relation ?object1 ?object2 ....]
+
+    Example
+    [belief happy fred]
+    [belief size object3 large]
+    [belief ison cup1 table]
+
+A disadvantage of using the same keyword for all beliefs is that if the
+set of beliefs is large then the list to search through will be large.
+This may be addressed by combining the first two words, if appropriate,
+e.g.
+
+    [belief_happy fred]
+    [belief_size object3 large]
+
+It may be necessary to associate an identifier with each belief.
+
+-- -- Goals
+
+If possible, goals should share some structure with beliefs, so that one
+can check whether a goal is satisfied by comparing it with beliefs.
+
+Goals might have formats such as
+    [goal ?goaltype ?content ?attitude ?goal_id]
+
+For example
+
+    [goal achieve [ison cup table] adopted goal3]
+    [goal prevent [empty cup] rejected goal5]
+
+Often goals will have to be associated with a lot more information.
+This may be done by storing additional information, e.g.
+
+    [goal_reason goal5 [not [thirsty agent11]]]
+
+The above examples assume familiarity with the Pop-11 pattern matcher,
+which is heavily used in the toolkit. See HELP * MATCHES
+
+-- -- Plans
+
+A plan will have information about what it is for, i.e. the goal to be
+achieved, and possibly also a lot of additional information, e.g. what
+the steps of the plan are, whether the plan is complete, whether
+execution has begun, whether execution has been completed, etc. What the
+next step is.
+
+    [plan ?goal ?plan ?plan_id]
+    [plan_status ?plan_id not_begun]
+
+For plans that are not simple linear sequences of plan steps a more
+complex format may be desirable.
+
+-- -- Actions to be executed
+
+Internal actions can be achieved immediately by the actions in
+condition-action rules. However external actions are stored till the end
+of the time-slice and them carried out using the methods sim_do_actions
+and sim_do_action, defined in the sim_agent library. They have to be
+created in this form:
+
+* [do ....]
+    Format
+        [do ^procedure ^^args]
+Examples
+    [do move_to ?x ?y ?my_xloc ?my_yloc]
+    [do pick_up ?x]
+    [do put_in ?object ?vehicle]
+
+
+-- -- New messages received
+    (Compare message_out format below)
+* [message_in ...]
+
+    Example formats might be
+
+        [message_in ?sender ?message_id ?messagetype <message content>]
+
+    E.g. [message_in ?sender ?message_id instruct [goal at ?x ?y]]
+    (If the message_id is not false that could mean that acknowledgement
+    is wanted.)
+
+    Possible formats for ?messagetype <message content> are
+        ask <propositional form>
+        inform <propositional form>
+        instruct <action/goal form>
+        suggest <action/goal form>
+        acknowledge <message_id>
+        etc.
+
+-- -- Messages to be sent
+
+The rules for creating messages to be sent to other agents should use
+the form
+
+* [message_out ...]
+
+At the end of each time-slice, the scheduler takes these and transfers
+them to the recipients, after suitable modification.
+
+Possible more detailed formats might be:
+
+    [message_out ?recipient ?number ?messagetype <message content>]
+
+    E.g. [message_out ?recipient ?number instruct [goal at ?x ?y]]
+
+The possible message types and formats for the <message content> should
+be the same as for the [messages_in ...] items. When the message is
+transferred to the recipient's input buffer, using the library method
+sim_send_message, the second item is replaced by the sender, so that the
+recipient knows to whom to reply, etc.
+
+
+-- -- Other message types and formats
+
+Analysis of forms of communication between human beings shows that there
+is a very wide variety of types of speech acts including
+
+    giving information (making a statement)
+    requesting information (asking a question0
+    making a request
+    making a suggestion
+    giving an order
+    asking for an explanation
+    granting a request
+    refusing a request
+    promising
+    threatening
+    asking for clarification prior to replying to another type
+        of speech act
+    undertaking a commitment
+    insulting
+    complimenting
+    greeting
+    consoling
+    acknowledging any of the above
+
+and many more. A project involving sophisticated communication would
+have to handle a variety of types of speech acts. (See the discussion of
+the work of Richard Powers in M.A.Boden's book Artificial Intelligence
+and Natural Man.)
+
+-- Note on formats ----------------------------------------------------
+
+The above formats are merely examples illustrating what is possible.
+Even when formats are already supported by the existing library methods,
+it is easy to define new versions of those methods for user-defined
+agent classes, which handle different formats, if that is required.
+
+Additional suggestions are made in HELP * SIM_AGENT.
+
+
+-- Types of objects and agents ----------------------------------------
+
+In planning an application it is helpful to be very clear about the
+types of objects and agents to be included. It may be desirable to
+define a number of different classes derived from the two main
+classes in LIB SIM_AGENT (i.e. sim_object and sim_agent).
+
+The following are examples of distinctions that might be useful.
+However, in each application it is up to the designer to decide which
+distinctions are important. These examples are taken from the paper by
+Sloman & Poli (see below):
+
+The following are among the types of objects to be explored (these
+distinctions are all provisional and ``fuzzy''):
+
+-- -- Active objects
+-- -- Agents
+
+Active objects change their state spontaneously, i.e. without the
+intervention of other objects, e.g. volcanoes, rivers.
+
+Some of the active objects merely obey physical laws, whereas others,
+which we call agents also take in and manipulate information and vary
+their behaviour as a result of processing information stored within
+them.
+
+The division between agents and non-agents is not very sharp.
+
+-- -- Autonomous agents
+
+The Birmingham Cognition and Affect project is specially concerned with
+agents that are autonomous in that they generate their own motivators
+instead of being dependent on someone or something else to specify
+goals.
+
+-- -- Passive objects
+
+These are objects which do not change their state spontaneously.
+Examples might be walls, ditches, ladders, roads.
+
+A battery whose charge runs down, a volcano that erupts from time to
+time or a tree that grows would be examples of active objects, which are
+not agents.
+
+-- -- Inert objects
+
+If an object has no internal rulesets of its own, but exists merely to
+be sensed and acted on by other agents, then we can call it an inert
+object.
+
+-- -- Instruments
+
+Some passive objects become active under the control of agents, e.g.
+cars, spears, drills, screwdrivers, and we can refer to these as
+instruments.
+
+-- -- Reactors
+
+Other passive objects may react to impact or pressure (e.g. a wall). We
+could call these reactors.
+
+-- -- Triggers
+
+There are some reactors which when they act initiate a much larger
+or more important event produced by some other object or agent. E.g. the
+fuse on a firework, when lit, or the starter button on a powerful
+engine, when pressed, could cause the other object to which it is
+attached to initiate new behaviour.
+
+-- Simple and compound objects ----------------------------------------
+
+Relative to the framework provided by the toolkit we can distinguish
+objects or agents which are compound from those which are non-compound.
+
+A non-compound object or agent is composed of one sim_agent instance. A
+compound agent or object is composed of several. E.g. an elephant agent
+might have four slots containing leg agents, two containing tusk agents,
+one containing a trunk agent, one containing a tail agent, etc. Methods
+would have to be defined to ensure that if the elephant moved its
+component parts moved appropriately, and vice versa. At present the
+tookit has no direct support for compound agents, though users can
+create them and then define appropriate methods for managing them.
+
+
+Non-compound objects may have complex internal processes, involving
+several different rulesets or rulefamilies, but each is composed of only
+one instance of the sim_agent or sim_object class. An entity whose
+representation in the simulation requires two or more sim_agent
+instances would be a compound object.
+
+For example, if a human being were modelled as having arms, legs, head,
+eyes, etc. all of which were themselves separate objects managed by
+sim_scheduler, then the human being would be a compound object (relative
+to this toolkit). However if each human being were represented by a
+single instance of a sim_agent class (or subclass), however complex that
+instance might be internally, it would be a non-compound object.
+
+Thus compound objects are composed of (or possibly 'own') two or more
+other objects managed by the scheduler, e.g. a town (composed of roads,
+houses, parks, people, vehicles, etc.), a house (composed of rooms,
+doors, etc.) a family (composed of various people), etc.
+
+For creating objects with multiple interacting internal rulesets, see
+HELP * RULESYSTEMS. This shows how you can define condition-action rules
+in different rulesets, and group a collection of rulesets into a
+rulefamily. An agent can be given a set of rulefamilies grouped into a
+single rulesystem, to be stored in its sim_rulesystem slot, where the
+scheduler (in particular the sim_run_agent method) will find them. HELP
+* RULESYSTEMS also explains how you can allocate different amounts of
+processing to different rulesets, so that you can explore variations in
+relative speeds of different sub-mechanisms within an agent.
+
+
+-- Further reading on SIM_AGENT ---------------------------------------
+
+A tutorial file can be found in TEACH * SIM_FEELINGS
+
+An overview of some of the design objectives of the toolkit and a report
+on some experiments using it can be found in
+
+Sloman, A and Poli R, (1996)
+    SIM_AGENT: A toolkit for exploring agent designs, in
+    Intelligent Agents Vol II (ATAL-95)},
+    Eds. Mike Wooldridge, Joerg Mueller, Milind Tambe,
+    Springer-Verlag pp 392--407
+    (A slightly out of date version is available as University of
+        Birmingham Cognitive Science technical report: CSRP-95-4)
+
+
+The following online documentation is available after doing:
+
+    uses simlib
+
+TEACH * SIM_FEELINGS
+TEACH * SIM_DEMO
+    Provides a mixture of comments and code showing how to use
+    the library.
+
+TEACH * ARMYSIM.P
+    An introduction based on the example of two groups of tanks,
+    each with a commander. This is now out of date.
+
+More detailed information will be found in
+    HELP * SIM_AGENT
+
+It is assumed that the reader is already familiar with the Pop-11
+Objectclass system, and the Poprulebase library for rule-based
+programming.
+
+For Objectclass, see:
+    TEACH * OOP, HELP * OBJECTCLASS, TEACH * OBJECTCLASS_EXAMPLE
+
+For Poprulebase, see:
+    TEACH * RULEBASE, HELP * POPRULEBASE, HELP * RULESYSTEMS
+
+For full details SHOWLIB * SIM_AGENT, SHOWLIB * POPRULEBASE
+
+
+--- $poplocal/local/sim/teach/sim_agent
+--- Copyright University of Birmingham 2002. All rights reserved. ------

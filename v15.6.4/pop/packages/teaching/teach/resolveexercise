@@ -1,0 +1,107 @@
+TEACH RESOLVEEXERCISE                                 Chris Mellish 1984
+
+A PROLOG EXERCISE: THEOREM PROVING
+
+(NB: How to use the Prolog library. To load something from the library,
+ use the predicate 'library' with the name of the library file as its
+ argument, eg.
+
+   ?- library(resolve1).
+
+ To look at a library file, make sure that you have Prolog loaded and
+use the SHOWLIB command to VED:
+
+   <ENTER> showlib resolve1
+
+ To copy such a file to your directory, use SHOWLIB and then
+    <ENTER> name <new-file-name.pl>
+
+The Prolog library files RESOLVE1 and RESOLVE2 contain the basis for
+some simple theorem provers. Both of these work on the resolution
+principle and both assume that clauses are represented in the form given
+in TEACH * RESOLUTION. The Prolog library file CLAUSIFY provides a
+predicate 'clausify' which converts expressions into clauses from a
+Predicate Calculus format. You may want to use this to input your facts
+to the theorem provers.
+
+RESOLVE1 is very much a first stab at a resolution theorem prover, using
+the most immediate way one might think of expressing resolution in
+Prolog. It does, however, avoid some of the problems of depth first
+search, and it has a crude (and incorrect) loop detection mechanism.
+RESOLVE2 uses a refinement of resolution called LINEAR INPUT RESOLUTION,
+which involves working backwards from the theorem to be proved in a way
+that is reminiscent of Prolog.
+
+The minimal requirement for this exercise is to copy one of the files
+into your own directories, and annotate the program with a full
+explanation of how it works. I must point out that these simple theorem
+provers are not COMPLETE (in the sense defined in TEACH * RESOLUTION).
+In particular, RESOLVE2 fails to be complete in two ways:
+
+a) Since it uses a depth first search strategy, there must be some way
+to prevent infinitely deep searches. This program won't search deeper
+than an arbitrary five or six levels.
+
+b) More seriously, it is incapable of making the following inference:
+
+Herlock Sholmes, the world-famous deductive, notices that the ground
+next to a water-butt containing the body is wet. He infers the following
+fact:
+
+    1) Either it has just rained or else the water-butt has recently
+    been emptied.
+
+Further investigation reveals that, as well as containing a body, the
+water-butt is fairly full of rainwater. Herlock now infers:
+
+    2) Either it has just rained or else the water-butt has not
+        recently been emptied.
+
+Combining facts 1 and 2, Herlock is able to deduce that it has just
+rained. This deduction is easy to make using resolution: represent facts
+1 and 2 as:
+
+        fact [rained,emptied].
+        fact [rained,#emptied].
+
+The simple theorem prover RESOLVE2 is unable to complete the inference
+though: try tracing it (by spying on selected predicates) with the
+following question:
+
+        ?-prove(rained).
+
+A first exercise is to modify RESOLVE2 so that it can take an arbitrary
+formula as the goal to be proved. A more than minimal exercise is to
+improve this theorem prover in any of the following ways. Some examples:
+
+a) Both theorem provers are incredibly slow (try spying on them).
+Heuristics could be incorporated to speed them up. The most obvious is
+to modify them so that they use the shortest facts first.
+
+b) Instead of an arbitrary limit on the depth of search, alternative
+checks could be used. A fairly good idea (but fairly hard) is to keep a
+list of all the goals and subgoals that the theorem prover is currently
+working on, and only fail if it attempts a new subgoal identical to one
+it either has already tried, or is currently in the middle of. (Of
+course it would succeed, not fail, if it attempted a subgoal it has
+previously succeeded on.) Incidentally, to compare a subgoal with
+another is slightly non-trivial if they contain variables, and you don't
+want to 'unify' them (i.e. make them match by giving values to
+variables).
+
+c) Modify it to cope with the Herlock Sholmes example.
+
+d) Write an extension allowing a simple natural language interface. This
+would not be too hard for a very restricted grammar, e.g sentences like:
+
+        A dog is a mammal.
+
+See also TEACH * RESOLUTION
+
+For further reading see:
+
+A. Ramsay and R. Barrett
+    AI In Practice: Examples in POP-11
+    Ellis-Horwood 1987
+
+-----<Copyright University of Sussex 1987.  All rights reserved.>-------

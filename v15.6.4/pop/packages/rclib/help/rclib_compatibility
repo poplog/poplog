@@ -1,0 +1,270 @@
+HELP RCLIB_COMPATIBILITY                      Aaron Sloman, October 1999
+
+RCLIB is an extension of RC_GRAPHIC, as explained in HELP RCLIB.
+
+However, there are problems if after you have loaded the RCLIB
+facilities and especially the RCMENU library (which provides facilities
+for control panels) you try the examples in some of the teach files,
+e.g.
+    TEACH RC_GRAPHIC
+    TEACH RC_GRAPHPLOT
+    TEACH GSTART
+        (available at Birmingham)
+
+This file explains the problems and the solution.
+
+CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- The source of the problem
+ -- The problem
+ -- Two solutions: LIB RC_CONTEXT, and LIB RC_WINDOW_OBJECT
+ -- Making objects draw themselves in the right window
+ -- A remaining problem: old teach files
+ -- Using LIB RC_SCRATCHPAD
+ -- Destroying the current rc_graphic window: rc_destroy
+ -- An alternative solution
+
+-- The source of the problem ------------------------------------------
+
+The problem arises from the use of global variables by LIB RC_GRAPHIC,
+in particular these variables defining the current window and its
+properties:
+
+    ;;; the graphic widget
+    rc_window,
+
+    ;;; top left hand corner location
+    rc_window_x, rc_window_y,
+
+    ;;; width and height of the window
+    rc_window_xsize, rc_window_ysize,
+
+    ;;; The window's coordinate frame (origin and scale):
+    rc_xorigin, rc_yorigin;
+    rc_xscale, rc_yscale,
+
+    ;;; coordinates for "clipping" graphical output
+    rc_xmin, rc_ymin, rc_xmax, rc_ymax
+
+And the Turtle graphic state variables:
+
+    ;;; current "turtle" position
+    rc_xposition , rc_yposition,
+
+    ;;; The angle the turtle would have to rc_turn, in a clockwise direction,
+    ;;; to be facing along the x - axis, to the right. Altered by -rc_turn-
+    rc_heading
+
+The facilities described in TEACH RC_GRAPHIC and HELP RC_GRAPHIC are
+very convenient to use, especially by beginners, if you do everything in
+one window (as in the original turtle geometry package).
+
+-- The problem --------------------------------------------------------
+
+However, if you switch between windows it is important to make sure that
+the appropriate variables are set.
+
+If this is not done, drawing will be done in the wrong window, and
+the command
+
+    rc_start();
+
+will clear the wrong window.
+
+-- Two solutions: LIB RC_CONTEXT, and LIB RC_WINDOW_OBJECT ------------
+
+This was dealt with in an ad hoc manner by LIB RC_CONTEXT, described in
+HELP RC_GRAPHIC/RC_CONTEXT
+
+One problem with this was the difficult of extending it so that
+different state variables could have their values set.
+
+The RCLIB package provides a more general solution using the object
+oriented facilities of OBJECTCLASS. It introduces the class
+rc_window_object, and instances of this class may be made current by
+assigning to the active variable rc_current_window_object, which
+automatically sets up the global variables so that all the RC_GRAPHIC
+facilities can then be used, and pictures and text will go to the
+appropriate graphical window.
+
+For example, as illustrated in TEACH RC_LINEPIC, the following will
+create a new window object called win1, and make it the current window.
+
+    uses rclib
+    uses rc_window_object
+
+    vars win1 = rc_new_window_object(400, 40, 500, 400, true, 'win1');
+
+    win1 -> rc_current_window_object;
+
+The latter can be abbreviated to
+
+    SETWINDOW win1;
+
+It is then possible to have more than one window object, and to assign
+whichever is required to rc_current_window_object, to ensure that
+drawing goes to the right place.
+
+-- Making objects draw themselves in the right window -----------------
+
+RCLIB makes available a collection of picture objects some of which have
+an appearance which can change, e.g. sliders, text field panels, number
+field panels, buttons which can be on or off, and other items. These are
+used by the rc_control_panel facility to make control panels, pop-up
+menus, etc.
+
+When these facilities were first provided it was assumed that these
+entities did not need to make their window the current one because they
+would only be updated in a context which ensured that that was not
+necessary. This turned out difficult to achieve. So in October 1999 the
+picture objects used for control panels etc were changed so as to ensure
+that if they were updated by programs, they made the appropriate panel
+current while doing any drawing.
+
+The mechanism used is as follows. Picture objects holding information
+which can be accessed and/or updated are instances of the mixin
+rc_informant defined in LIB RC_INFORMANT. A new slot has been added to
+that mixin,
+    slot rc_informant_window == false;
+
+When an instance is created the corresponding window object is stored in
+that slot. So updating and drawing procedures can use that slot to find
+the window object within which they should draw. (This has not been done
+for the more basic class rc_linepic, and rc_linepic_movable, as it is
+assumed that the basic drawing procedures for instances will always be
+run in a context when the window object has been set up. It may prove
+desirable to change that and give all picture objects a slot for the
+window. This is already done for objects that are drawn in several
+windows, e.g. in LIB * RC_LINKED_PIC, described in HELP * RC_LINKED_PIC
+
+
+The mechanisms described so far solve the main problems though they
+could still leave problems if programs use multi-threading capabilities
+provided by the poplog process mechanism. (See REF PROCESS). This means
+that anyone doing that will have to use the dlocal mechanism to ensure
+that the drawing environment is always correct.
+
+-- A remaining problem: old teach files -------------------------------
+
+Although the new teach files provided with the RCLIB facilities explain
+the need to assign to rc_current_window_object a student may still look
+at some of the old teach files after the RCLIB or RCMENU facilities have
+been installed, and get some nasty surprises when the wrong window is
+cleared by rc_start, or a drawing command unexpectedly produces a
+picture on a control panel.
+
+Two things have been done to reduce the problem.
+
+(a) The procedures and methods that create and delete menus and control
+panels and which react to mouse events in graphical windows now attempt
+to ensure that the state of rc_current_window_object is left unchanged.
+In particular, rc_control_panel and its derivatives will now leave the
+current window unchanged, so that it is necessary to do an explicit
+assignment after invoking them if you wish to draw on such a panel.
+
+(b) The procedures rc_new_window and rc_start are re-defined in the
+rc_window_object library so as to use a special global variable
+rc_graphic_window_object, which should have either false as its value or
+a window object, e.g. created by rc_new_window or by rc_start. In
+addition the procedure rc_destroy, previously used to destroy the widget
+held in the variable rc_window is now changed.
+
+
+1. rc_new_window(width, height, xloc, yloc, setframe);
+
+    This creates a new window object, makes it current and assigns it to
+    two global variables
+
+        rc_current_window_object
+        rc_graphic_window_object
+
+    The second is used to remember the state of the last window created
+    by rc_new_window or rc_graphic, in accordance with rc_graphic
+    conventions.
+
+    The fifth argument, setframe, is a boolean as explained in
+    HELP RC_GRAPHIC :
+        if setframe is true, then rc_new_window puts the user
+        coordinate frame in the standard location (origin at middle of
+        window, y axis going up) and locates the turtle at the centre
+        facing right (rc_heading = 0)
+
+    In addition rc_new_window now saves the values of its first four
+    arguments in these globals, which are used by rc_start();
+
+        rc_default_window_xsize
+        rc_default_window_ysize
+        rc_default_window_x
+        rc_default_window_y
+
+For the most accurate up to date information about rc_new_window, use
+    ENTER showlib rc_window_object
+and search for rc_new_window
+
+
+2. The procedure rc_start() is also re-defined.
+
+    (a) If there is a current window object which is the value of
+    rc_current_window_object, and its graphical widget is the value
+    of rc_widget, and that widget is live, then rc_start will clear
+    the current window, using the procedure
+        rc_clear_window();
+
+    Any rc_graphic drawing commands will also affect the same window.
+
+    (b) Otherwise if there is a window object which is the value of
+    rc_graphic_window_object (i.e. one created by rc_new_window or
+    rc_start()) then that window object is made the current window
+    object, and its graphical widget is cleared using:
+
+        rc_clear_window();
+
+    After that rc_graphic drawing commands will affect the same window.
+
+    (c) If both conditions are false then rc_new_window is run as follows.
+        rc_new_window(
+            rc_default_window_xsize,
+            rc_default_window_ysize,
+            rc_default_window_x,
+            rc_default_window_y, true);
+
+        A new window is created using the same location and size as the
+        previous one, and assigned rc_graphic_window_object. It is also
+        made current so that rc_graphic drawing commands will affect it.
+
+    In order to make sure that rc_start() uses the last value of
+    rc_graphic_window_object, or creates a new one if there isn't one,
+    simply make rc_current_window_object false, which can be done using
+    the command
+
+        SETWINDOW false;
+
+-- Using LIB RC_SCRATCHPAD --------------------------------------------
+
+A similar effect to that described above can be produced using
+    LIB RC_SCRATCHPAD.
+See
+
+    TEACH * RCLIB_DEMO.P/rc_scratchpad
+
+-- Destroying the current rc_graphic window: rc_destroy ---------------
+
+This procedure
+    rc_destroy();
+
+will make rc_current_window_object false, and if the value of
+rc_graphic_window_object is a window it will be destroyed and false
+assigned instead.
+
+-- An alternative solution --------------------------------------------
+
+An alternative to the above solution would involve replacing every
+rc_graphic drawing procedure by one which requires an explicit window
+argument. It may be desirable in the long run for such a package to be
+produced. However, it would involve re-doing quite a lot of work.
+
+Comments welcome.
+
+
+--- $poplocal/local/rclib/help/rclib_compatibility
+--- Copyright University of Birmingham 1999. All rights reserved. ------

@@ -1,0 +1,171 @@
+TEACH SEEPICTURE                                  Aaron Sloman, Nov 1981
+
+-- INTRODUCTION TO THE SEEPICTURE PACKAGE -----------------------------
+
+Before working through this file, you should have done TEACH * TURTLE to
+find out how the turtle program works.  This is about making the pop11
+turtle 'draw' pictures and running programs which analyse the pictures.
+You should also be familiar with the POP-11 DATABASE. (TEACH * DATABASE).
+
+Try the following commands.  (Mark the range and then use CONTROL D to
+load it.  If you do not know how to do this see TEACH * LMR)
+
+    turtle();
+    newpicture(20,15);
+    draw(8);
+    turn(90);
+    draw(8);
+    display();
+
+The command 'TURTLE();' caused the computer to invoke the POP11 turtle,
+which crawls around an imaginary picture leaving a trail of asterisks. The
+command 'newpicture(20,15)' makes the picture a convenient size for the
+screen. The command DISPLAY causes the picture drawn by the other commands
+to be printed on the terminal. The computer cannot see what is on the
+terminal. However, if you type
+
+    lib seepicture;
+
+This will make available a collection of programs which can analyse the
+picture as it is stored in the computer, in the form of a two-dimensional
+array. The SEEPICTURE program will produce descriptions of the picture in
+the POP11 database. You should therefore have worked through TEACH
+DATABASE before going on.
+
+The SEEPICTURE procedure uses three procedures FINDLINES, FINDJUNCS and
+PAINTPICTURE. The first looks for lines in the turtle picture and puts a
+description in the database. The second finds where lines meet and where
+the ends are, and produces a description of junctions and ends in the
+database. The third alters the turtle picture to show what lines,
+junctions and ends have been found. NB These procedures work only on lines
+which are horizontal, vertical or diagonal (45 degrees). Very short lines
+will not be found, for reasons which will become clear later.
+
+-- findlines ----------------------------------------------------------
+
+We now have a look at what FINDLINES does. It is assumed that you have
+already made a picture, as above. The following commands cause the
+computer to examine the picture, store a description in the database, and
+print out the result:
+
+    findlines();
+    database ==>
+
+try that.
+
+The FINDLINES program distinguishes horizontal and vertical lines. Now
+clear the picture and start again, with a more complex picture:
+
+    turtle();
+    repeat 4 times
+        draw(10); turn(90);
+    endrepeat;
+    display();
+
+Now see what the computer can see in that:
+
+    findlines();
+    database ==>
+
+-- findjuncs ----------------------------------------------------------
+
+You can ask the computer to examine the line description and build up a
+description of the junctions, recording, for each junction, its type, its
+location, and the locations of the junctions connected to it:
+
+    findjuncs();
+    database ==>
+
+You can make the picture more complex, and have it re-examined:
+
+    jumpto(1,5);
+    drawto(15,5);
+    display();
+
+Now the computer should find more junctions, including a CROSS a TEE and a
+free END.  Try:
+
+    findlines();
+    findjuncs();
+    database ==>
+
+Notice that, for convenience, ENDS of lines are treated like junctions,
+i.e. there are entries in the database of the form
+
+    [junc end <location> <nextpoint>]
+
+Note that CRS means 'CROSS'.
+
+-- paintpicture -------------------------------------------------------
+There is also a program called paintpicture, which uses the information
+put in the database by findlines and findjuncs to re-draw the picture.
+Try this:
+
+    paintpicture();
+    display();
+
+The computer will mark the orientations of the lines, and the locations
+of the different types of junctions.
+
+-- seepicture ---------------------------------------------------------
+Instead of calling first the procedure FINDLINES, then the procedure
+FINDJUNCS, then PAINTPICTURE, you can use the single procedure SEEPICTURE,
+which does the lot. Try:
+
+    turtle();
+    draw(5);
+    turn(90);
+    draw(10);
+    turn(-90);
+    draw(5);
+    display();
+
+Now let SEEPICTURE do its work, showing us how it calls the other
+procedures:
+
+    trace findlines findjuncs paintpicture;
+    seepicture();
+    database ==>
+
+See how the picture has been repainted:
+
+    display();
+
+The turtle is best at drawing horizontal and vertical lines. Some lines
+will work at 45 degrees, but things can go wrong. You can, if you wish,
+now experiment with different pictures, using commands like:
+
+    turtle();   ;;; to clear the picture (it is 15 along and 10 up)
+    jump(5);    ;;; to jump 5 steps in the current direction
+    draw(8);    ;;; to draw 8 steps in the current direction
+    turn(90);   ;;; to turn the current direction 90 degrees
+                ;;; anti-clockwise
+    turn(-90)   ;;; ditto, but clockwise.
+    seepicture();   ;;; To analyse the picture
+    database ==>    ;;; To print out the database description.
+    display();      ;;; To print out the picture
+
+If you want to learn more about the turtle see TEACH * TURTLE;
+
+Having produced a database description of a picture, you can then use
+PRESENT, LOOKUP, ALLPRESENT and FOREACH in procedures which try to make
+use of the database information to interpret the picture, for instance,
+by recognising objects. For example, could you define a procedure which
+will recognise a square.
+
+For a summary of the facilities described here see
+HELP * SEEPICTURE
+
+For addition work on analysing pictures see the following TEACH files
+TEACH TURTLE
+TEACH SEEPICS       More detailed introduction
+TEACH PICTURES      Exercises on analysing straight line 'turtle' drawings
+TEACH REGIONS       Use of LIB regions for region finding in turtle pictures
+TEACH LABELLING     Introduction to line-labelling in a lamina world
+TEACH WALTZ         Introduction to Waltz-filtering
+
+-----<Copyright University of Sussex 1987.  All rights reserved.>-------
+
+
+--- $usepop/pop/teach/seepicture
+--- Copyright University of Birmingham 2009. All rights reserved.

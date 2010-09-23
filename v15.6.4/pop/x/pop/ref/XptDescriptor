@@ -1,0 +1,699 @@
+REF XptDescriptor                                       R.Evans Jan 1991
+                                          Revised Adrian Howard Jun 1993
+
+        COPYRIGHT University of Sussex 1990. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<        XptDescriptors       >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This ref  file  describes the  XptDescriptor  data type  used  by  the X
+Toolkit interface, the  notion of  preferred representation  for X  data
+structures, and the weak type-checking  mechanism used by the  interface
+procedures.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   Memory Management
+
+  3   'Weak' Type-Checking
+
+  4   Preferred Representations
+
+  5   XptDescriptors
+
+  6   Class Apply Of Descriptors
+
+  7   Destruction Of XptDescriptors
+
+  8   XptProcedures
+
+  9   Type-checking By X Toolkit Interface Routines
+
+ 10   Access To Preferred Representations
+
+ 11   System Management Of XptDescriptors
+
+ 12   Programming With Preferred Representations
+
+
+
+---------------
+1  Introduction
+---------------
+
+Note:
+    This REF  file  will  be  mostly  of  interest  to  library  writers
+    providing  higher  level  interfaces  to  the  X  Toolkit  routines.
+    Generally, speaking, ordinary  users should not  need to know  about
+    the internal details of descriptor representation and type-checking.
+
+Management of data structures is probably  one of the areas of  greatest
+difference  between  C  and  Poplog.   In  C,  the  user  assumes   full
+responsibility for allocating and  freeing global data structure  memory
+dynamically (and  for this  reason often  avoids global  dynamic  memory
+use), and  run-time  type-checking is  not  possible, all  the  checking
+taking place at compile-time. In  Poplog, memory allocation and  freeing
+is automatic, and almost all type checking (if any) occurs at  run-time,
+there being very little  compile-time checking possibilities (except  in
+PML). These differences  have important consequences  for the X  Toolkit
+interface (indeed for  any interface  between Poplog  and a  substantial
+'external' package). Poplog needs to  provide support for the  automatic
+management of  externally  created data  structures.  It also  needs  to
+provide support for run-time  type-checking of procedure arguments.  And
+it is desirable to do these things in a way that does not prejudice  the
+organisation of higher-level libraries.
+
+
+
+--------------------
+2  Memory Management
+--------------------
+
+If Poplog's  automatic  memory  management (in  particular  the  garbage
+collector) is to  deal properly  with data structures  created by  the C
+Toolkit routines then the following requirements have to be met:
+
+    #   there  should  be  a   SINGLE  Poplog  representation  for   the
+        externally created data  structure which  the garbage  collector
+        can take to  be the canonical  representative: when this  record
+        becomes garbage, the external data can be freed.
+
+    #   there should  be a  reliable  way of  mapping from  an  external
+        reference to  a  data structure  (ie  a 'raw'  pointer)  to  its
+        canonical  representative,  to  be   used,  for  example,   when
+        'importing' an external reference returned by a Toolkit routine.
+
+    #   suitable  deallocation  routines   must  be   available  to   be
+        registered as  destroy  actions (see  REF * PROPS) so  that  the
+        garbage collector can free externally created structures when it
+        decides they are no longer needed.
+
+    #   any dependencies among  externally created  data structures  (or
+        between an externally created  structure and an ordinary  Poplog
+        object) which the garbage collector needs to be aware of must be
+        paralleled by  ordinary  Poplog references  (which  the  garbage
+        collector   can   detect)   between   their   canonical   Poplog
+        representations.
+
+Together these points ensure  coherent management of externally  created
+data.  For  example,  the   external  Toolkit  routines  create   widget
+structures, which to Poplog are opaque handles, that is, they are simply
+pointers to data structures whose  internal contents are private to  the
+Toolkit. Poplog  associates canonical  representatives, (Poplog  records
+called XptDescriptors, see  below), with  widgets, and  it is  generally
+these that  the  user  manipulates. Such  widget  descriptors  have  the
+XtDestroyWidget procedure as  their destroy  action, so  if one  becomes
+garbage,  the  associated  external  structure  will  be   automatically
+destroyed be the  garbage collector.  In addition,  a widget  descriptor
+contains references to other XptDescriptors it depends on (for  example,
+its   parent   widget's   XptDescriptor,   and   its   widget    class's
+XptDescriptor), and  other Poplog  objects which  it depends  upon  (for
+example, Pop-11 procedures  registered as  'callback' procedures).  This
+ensures that as  long as  the widget descriptor  itself is  non-garbage,
+everything it depends on will be too.
+
+
+
+
+-----------------------
+3  'Weak' Type-Checking
+-----------------------
+
+Compiled C  procedures generally  perform no  run-time type-checking  of
+their arguments. Furthermore, passing data of incorrect type to them can
+often lead to disastrous  results. Therefore the  ability for Poplog  to
+perform  type-checking   on  X   Toolkit  procedure   arguments  is   of
+considerable importance.  Poplog's standard  type-checking is  based  on
+keys: different data  types are  implemented as  different classes  with
+different keys. However, this approach to type-checking has a number  of
+disadvantages for the X Toolkit interface:
+
+    #   it entails introducing a large  number of new keys into  Poplog,
+        including perhaps 10 or more into the core system. But in  fact,
+        aside from their use for type-checking, many of these keys would
+        be largely the same - basically just handles on opaque  external
+        data. (Types are very cheap in C, but less so in Poplog).
+
+    #   it forces users who want to take advantage of the  type-checking
+        facilities to  use the  specific  data classes  provided,  while
+        there are  actually  many  different ways  of  representing  the
+        required data, each with its own advantages and disadvantages.
+
+    #   it forces the design of the lowest level X Toolkit interface  to
+        'second guess' the requirements of  higher level support in  the
+        future, or commit  such facilities to  clumsy indirect access to
+        the Toolkit facilities.
+
+For example, suppose  we introduced  a widget  class with  its own  key.
+Clearly we would have to  decide what user-accessible fields that  class
+should have.  Obvious candidates  include a  field for  the parent,  the
+children, the widget  class. Less  obvious candidates  are the  resource
+names and types, the callback  list names, the actions, actual  resource
+values, callback  procedures  etc.. And  even  less obvious  are  fields
+required by some as yet unwritten higher-level package. It is  difficult
+to see  how  to  support  all  these  possibilities  in  a  general  and
+perspicuous fashion. But if we choose not to provide support for  fields
+some package requires, we commit that package to defining its own  class
+of widget records which have the  extra fields. This in turn may  entail
+providing its own versions of  all the Toolkit routines, versions  which
+map its  own  widget  records  onto  the  system  ones  to  exploit  the
+type-checking.
+
+To avoid these problems, the type-checking done by the Toolkit  routines
+is not based on keys. Instead it assumes that all data structures to  be
+type-checked (aside  from  a few  simple  cases: strings,  booleans  and
+numbers, as discussed  in REF * XTOOLKIT)  are 'external-class'  records
+(see REF * EXTERNAL_DATA) and uses their 'external_ptr_props' fields  to
+hold simple type-checking  information (typically just  a word, such  as
+"Widget"). XptDescriptors as created  by the system include  appropriate
+type information  to satisfy  the  checks (so  both widgets  and  widget
+classes, for  example,  are  represented  by  XptDescriptors,  but  with
+different type  information so  that checking  routines can  distinguish
+them).  In   addition,  library   packages  may   construct  their   own
+external-class data structures which also satisfy the tests, and so  can
+be used directly with the core Toolkit routines, without sacrificing the
+checks.
+
+This notion of  type-checking is weak  in the sense  that the type  of a
+data structure is in fact user-assignable (unlike its key!). However  in
+normal use the  types will  be assigned (typically  by libraries  rather
+than user code) and then not changed.
+
+See 'Programming  with Preferred  Representations', below,  for  further
+discussion of how these facilities are intended to be used.
+
+
+
+
+----------------------------
+4  Preferred Representations
+----------------------------
+
+Above we introduced XptDescriptors  as canonical Poplog  representatives
+for externally created data structures.  However we also suggested  that
+library packages  might  want  to use  their  own  representations,  for
+example including  any  private 'bookkeeping'  information  the  package
+might need. This creates  a potential problem: such  a package may  well
+wish to operate in its own 'structure space', that is, supply and expect
+returned its  own representations  for  data structures,  have  sensible
+destroy-action behaviour on its own representations etc.: essentially it
+wants to view its own representations as the canonical ones, rather than
+the XptDescriptors created by the system.
+
+One  way  to  achieve  this  would  be  for  the  notion  of   canonical
+representative to  be  user-assignable, so  that  a package  can  simply
+specify  its   own  representation   in  place   of  the   XptDescriptor
+representation. This  approach has  its disadvantages,  however:  such a
+package would  have to  be aware  of and  maintain all  the  information
+(references to dependents etc.) otherwise maintained by the system  code
+in the  XptDescriptor records.  In  addition it  would have  to  provide
+various hooks to allow the system to modify that information (eg a  hook
+for adding a  child to a  widget, a hook  for adding system  bookkeeping
+records when  a  callback  is registered,  another  for  accessing  such
+records).
+
+Basically, since the system itself needs to maintain a certain amount of
+structure in its canonical representations, any library that takes  them
+over has to duplicate that maintenance.  Furthermore if we allow (as  we
+would wish  to)  several such  packages  to be  in  use  simultaneously,
+coordination of this support would become cumbersome at the very least.
+
+The  approach   adopted   avoids   these  problems   by   always   using
+XptDescriptors  as  the  canonical  representatives,  with  the   system
+maintaining the integrity  of the descriptors  automatically. But  every
+XptDescriptor can have associated with it a 'preferred  representation',
+that is, an alternative Poplog representation of the same external  data
+structure which  the user  wishes  to manipulate  in preference  to  the
+XptDescriptor representation.  This  is achieved  with  the  XptRegister
+procedure (see below).  Such preferred  representations can  be used  in
+place of XptDescriptors as arguments, and  will be returned in place  of
+XptDescriptors as results of Toolkit interface procedures. This allows a
+library to operate  in its own  structure space by  registering its  own
+structures as  the  preferred representations  of  the  system-generated
+XptDescriptors. For further discussion of how this can be achieved,  see
+'Programming with Preferred Representations' below.
+
+
+
+
+-----------------
+5  XptDescriptors
+-----------------
+
+XptDescriptors  are  the  canonical  Poplog  representations  for   data
+structures (of many types)  created by the  external Toolkit code.  They
+contain the barest minimum of  information needed to support their  role
+as canonical  representations as  discussed in  the preceding  sections;
+packages requiring additional  bookkeeping information  are expected  to
+create their own  representations for that  purpose. Thus  XptDescriptor
+records contain:
+
+    # a pointer to the actual external data structure
+    # type information for the weak type-checking
+    # a user props facility
+    # references to dependent Poplog structures
+    # support for preferred representations
+
+XptDescriptors are external_ptr records, with external_ptr_props  fields
+(see REF * EXTERNAL_DATA). The external_ptr  field contains the  pointer
+to the  external structure,  so  that they  can  be passed  directly  to
+external  (eg  externally  loaded)  procedures  expecting  the  external
+structure as argument. The external_ptr_props field is used for the weak
+type-checking  and  user  props   facility,  as  discussed  below.   The
+references to dependent structures are also discussed below, and are not
+directly accessible.
+
+In addition, the system maintains a mapping from external references (ie
+raw addresses) to XptDescriptor records,  so that references to  already
+existing structures can be correctly resolved. The process of  turning a
+raw external reference into  a Poplog record  is called 'importing'  the
+reference, and is used whenever an external reference (of known type) is
+to be returned  as a  result, or  passed as  an argument  to a  callback
+procedure.  A  number   of  user  routines   for  importing   references
+(XptImportWidget, XptImportDisplayPtr etc.) are also provided.
+
+The precise procedure for importing references is as follows. First  the
+reference  is  looked  up  in  the  system  mapping.  If  there  is   an
+XptDescriptor associated with  the reference,  and it  has the  expected
+type for the reference, it is taken as the canonical representative.  If
+it has  a  preferred representation,  that  is returned,  otherwise  the
+descriptor itself is  returned. Otherwise, a  new XptDescriptor for  the
+reference is created and returned (and associated with the reference for
+future  use).  Creation  may  involve  linking  to  other  XptDescriptor
+records, importing other references (eg a widget will attempt to  import
+its parent, and its widget  class), adding destroy actions and  possibly
+other bookkeeping  activities.  Once  a  valid  XptDescriptor  has  been
+looked-up or created.
+
+Note:
+    if an XptDescriptor with a different type is found, it is taken to
+    be the spurious result of  re-use of externally managed memory,  and
+    so discarded.
+
+Thus XptDescriptors can be passed directly to all Toolkit routines (both
+checking and non-checking), and they, or their preferred  representation
+if any, will  be returned  by Toolkit  routines as  results or  callback
+arguments.
+
+
+XptDescriptor_key -> key                                      [constant]
+        This identifier holds  the value  of the  key for  XptDescriptor
+        records.
+
+
+consXptDescriptor(eptr, type) -> desc                        [procedure]
+        This procedure  creates and  returns  an XptDescriptor  from  an
+        external_ptr eptr, setting its type to type (an arbitrary Poplog
+        item, generally  a  word).  desc will  be  associated  with  the
+        external reference in eptr and have no preferred  representation
+        associated with it (NB:  overriding any previous descriptor  and
+        preferred representation for the reference).
+
+
+isXptDescriptor(arg) -> bool                                 [procedure]
+        This procedure  is a  recogniser for  XptDescriptors,  returning
+        true if arg is an XptDescriptor, false otherwise.
+
+
+XptDescriptors have a default class_print procedure which uses the  type
+and user props information to construct  the print form. If there is  no
+user props information, a descriptor will print as
+
+        <TYPE>
+
+If there is user props information it will print as
+
+        <TYPE PROPS>
+
+For this reason, TYPE is generally a simple word (eg "Widget").
+
+
+
+
+-----------------------------
+6  Class Apply Of Descriptors
+-----------------------------
+
+XptDescriptor_apply(desc)                                    [procedure]
+VALUE -> XptDescriptor_apply(desc)                           [procedure]
+        The class apply for  a descriptor (also  held in the  identifier
+        xptdescriptor_apply)  concatenates   the  XptDataType   of   the
+        descriptor with the  prefix "Xpt"  and the  suffix "Apply",  and
+        then calls  the procedure  (after autoloading  it if  necessary)
+        associated with the resulting word.
+
+        The apply action will mishap if there is no procedure associated
+        with the word and autoloading is unsuccessful.
+
+        In update mode,  the updater of  the apply procedure  associated
+        with the same identifier is called. A mishap is generated if the
+        update mode is used but there is no updater procedure.
+
+        For example, "Widget" descriptors  have a class apply  procedure
+        called "XptWidgetApply", which is defined in the  (autoloadable)
+        library LIB * XptWidgetApply.
+
+        See REF * XPT_CLASSAPPLY  for  details of  the  library-supplied
+        class apply procedures in Poplog.
+
+        Libraries  which  register  a  preferred  representation  with a
+        descriptor might choose to assign xptdescriptor_apply to be  the
+        class_apply of the new representation.
+
+
+
+
+--------------------------------
+7  Destruction Of XptDescriptors
+--------------------------------
+
+XptDescriptors can become invalid without becoming garbage. For  example
+if a  program  explicitly calls  XtDestroyWidget  on a  descriptor,  the
+external widget is destroyed and the descriptor's reference to it is  no
+longer valid, although  the descriptor itself  still exists. To  prevent
+this causing  problems,  a  descriptor is  'tidied'  when  its  external
+reference is destroy in this way  (note: only in cases where the  system
+knows that destruction is taking place). This tidying does the following
+things:
+
+    1)  sets the XptDescriptor's external_ptr field to NULL
+    2)  sets the preferred representation's external_ptr field to NULL
+    3)  clears  the  link  between  the  descriptor  and  its  preferred
+        representation (???)
+
+Such 'dead' descriptors print  as live ones  but with '(NULL)'  inserted
+before the TYPE (eg <(NULL) Widget foo>).
+
+
+
+
+----------------
+8  XptProcedures
+----------------
+
+One  class  of  XptDescriptors  which  need  special  consideration   is
+descriptors referring to external procedures. The new external interface
+facilities makes the distinction  between external procedures and  other
+kinds of external  value redundant.  So in principle  a Toolkit  routine
+expecting an external procedure (eg  XtAddCallback) could just be  given
+an XptDescriptor  just like  any other,  pointing to  the procedure  and
+appropriately typed.
+
+However, there is a  complication to this picture.  From V14, Poplog  is
+capable of servicing interrupts (CTRL C, timer, SIGIO etc.) which  arise
+while executing  external  Toolkit  code.  If  such  interrupt  routines
+attempt to  process the  Toolkit event  queue (perfectly  acceptable  if
+interrupted  while  in  normal  Poplog  processing),  the  effect   is a
+recursive invocation  of  Toolkit event  handlers.  Unfortunately  the X
+Toolkit is not  re-entrant in  this fashion  and the  queue of  incoming
+events can get corrupted. So this must not be allowed to happen.
+
+To prevent it, all the routines which process the event queue respect an
+internal flag which causes them to do  nothing if set. This flag is  set
+by all the Toolkit interface routines built into the system. But it also
+needs to be set by Toolkit routines externally loaded in libraries,  and
+any other external procedures which might  be called by the Toolkit  and
+might generate Poplog interrupt handling.  (To be safe, the best  advice
+is  that  it  should  be  set  by  ANY  external  routine  invoking,  or
+potentially invoked by a Toolkit routine).
+
+The setting of  this flag  is handled by  a special  import routine  for
+external  procedures.  Rather  than  returning  just  an   XptDescriptor
+'wrapper' for an  external procedure  pointer, XptImportProcedure  first
+augments the procedure  it is given  with a  piece of code  to set  this
+'disable-re-entrancy'  flag  (using  a  variant  of  the  exfunc_closure
+mechanism - see REF * EXTERNAL). So  the descriptors it returns will  be
+'safe' with respect to Toolkit re-entrancy.
+
+
+XptImportProcedure(eptr) -> desc                             [procedure]
+        This procedure takes an external_class record whose external_ptr
+        field should  reference an  executable external  procedure,  and
+        returns an XptDescriptor for it. The descriptor includes code to
+        set the disable-re-entrancy flag before the procedure is called.
+
+
+Notes:
+
+    (1) the  disable-re-entrancy  flag is  localised  to  the Poplog
+        procedures  which  apply  external  procedures,  so  the  global
+        context is  protected  from  assignments  made  by  XptProcedure
+        descriptors.
+
+    (2) this flag completely blocks  nested handling of Toolkit  events,
+        so programs which remains in  Poplog callbacks from the  Toolkit
+        for extended periods of time will be unable to service its  user
+        interface properly.  Programs should  therefore be  designed  to
+        remain in callback routines for only very short periods of time,
+        e.g. to set global flags.
+
+
+
+
+------------------------------------------------
+9  Type-checking By X Toolkit Interface Routines
+------------------------------------------------
+
+As mentioned  above, the  Toolkit's  weak type-checking  is  implemented
+using the external_ptr_props field of the data structures being checked.
+For a  data-structure  DATA to  be  of type  TYPE  it must  satisfy  the
+following criteria:
+
+    #   DATA must be  an external_ptr_props record  (ie an  external_ptr
+        record with the 'external_ptr_props' flag  set and thus a  props
+        field accessible by external_ptr_props).
+
+    #   The external_ptr_props field  of DATA  must be TYPE,  or a  pair
+        whose front is TYPE (this latter option is to retain the ability
+        for   arbitrary    user   props    to   be    stored   in    the
+        external_ptr_props).
+
+The  following  procedures  provide  the  supported  interface  to  this
+type-checking convention, and should be  used to protect user code  from
+any future alterations to the mechanism.
+
+
+XptDataType(eptr) -> type                                    [procedure]
+type -> XptDataType(eptr)
+fast_XptDataType(eptr) -> type                               [procedure]
+type -> fast_XptDataType(eptr)
+        These procedures  access/update the  weak  type of  eptr,  which
+        should be  an external_ptr_props  record. The  checking  version
+        mishap if  eptr  is  not external_ptr_props,  the  fast  version
+        performs no check.
+
+
+XptDataProps(eptr) -> props                                  [procedure]
+props -> XptDataProps(eptr)
+fast_XptDataProps(eptr) -> props                             [procedure]
+props -> fast_XptDataProps(eptr)
+        These procedures access/update  the props field  of eptr,  which
+        should be  an external_ptr_props  record. The  checking  version
+        mishap if  eptr  is  not external_ptr_props,  the  fast  version
+        performs no check. If props is non-false the  external_ptr_props
+        of  eptr   will   be  a   pair.   If  props   is   <false>   the
+        external_ptr_props will be simply the type.
+
+
+In principle, TYPE can  be any Poplog data  item except a pair.  However
+all the pre-defined types are  words, and constant identifiers for  them
+(which should be  used to  protect user  code from  future changes)  are
+defined in INCLUDE * XPT_CONSTANTS.PH.
+
+It might  seem at  first  sight that  the  constraint that  all  Toolkit
+arguments are  external-class objects  is over-restrictive.  However  it
+should be borne in mind  that, as discussed in REF * XTOOLKIT,  strings,
+numbers and booleans can  be used directly,  and descriptors created  by
+the Toolkit (widgets etc.) are  in any case external-class. Although  in
+some cases there are  straightforward non-external ways of  representing
+other kinds  of arguments,  the majority  are more  robustly handled  as
+external-class  (for  example,  many   require  'raw'  NULLs  for   list
+termination, others use embedded  structures etc.). The approach  taken,
+therefore, is  to  provide  support for  easy  creation  of  appropriate
+external-class    data     (primarily    LIB * SHADOWCLASS     -     see
+REF * SHADOWCLASS), and then to require its use. Programmers wishing  to
+avoid  the  overheads  of  this   approach  might  consider  using   the
+non-checking versions of the interface routines, which can be used  with
+any correctly structured data representation.
+
+
+
+
+---------------------------------------
+10  Access To Preferred Representations
+---------------------------------------
+
+XptRegister(eptr1) -> eptr2                                  [procedure]
+eptr2 -> XptRegister(eptr1)
+        This procedure  accesses  the  preferred  representation  of  an
+        external reference. eptr1 is an external-class record. eptr2  is
+        either <false>  or  and  external-class  record  with  the  same
+        external_ptr field AND type as eptr1. The base form returns  the
+        preferred representation for  (the external  reference of)  EPTR
+        (or <false> if there  isn't one). The  updater assigns eptr2  as
+        the preferred representation for (the external reference of) (or
+        clears the preferred representation if eptr2 is <false>)
+
+        Note that registering  a preferred representation  will fail  if
+        there  is  no   XptDescriptor  associated   with  the   external
+        reference. However, eptr1 does not have to be that  descriptor -
+        any external_ptr record  with the right  external reference  and
+        type will suffice (indeed eptr1 and eptr2 can be the same!).
+
+        Note also  that  registering  an XptDescriptor  as  a  preferred
+        representation is effectively equivalent to assigning <false>.
+
+
+XptDescriptor(eptr1, type) -> eptr2                          [procedure]
+        This procedure returns the  XptDescriptor associated with  eptr2
+        (ie with  the  same external  reference  and type)  if  any,  or
+        <false> otherwise.  Once  a preferred  representation  has  been
+        registered, the underlying descriptor will not normally be  seen
+        (or needed) by the user;  this procedure makes it accessible  if
+        needed.
+
+
+
+
+---------------------------------------
+11  System Management Of XptDescriptors
+---------------------------------------
+
+This section briefly  describes aspects  of the  system's management  of
+XptDescriptors which may  be of  significance to  the programmer.  These
+aspects fall  into three  main  areas: dependencies  maintained  between
+descriptors  (and  other  data  items),  destroy  actions  attached   to
+descriptors, and any  other 'unexpected' processing  done at  descriptor
+creation time.
+
+The following lists the XptDescriptor types created and managed by  core
+Poplog Toolkit routines. For each type,  the 'weak' type is given  (both
+the constant defined in  INCLUDE * XPT_CONSTANTS and its actual  value),
+plus the dependencies  (the other objects  it maintains references  to),
+the destroy action and any  additional creation processing. A few  other
+XptDescriptor types are  created by libraries,  for example the  library
+LIB * XptImportXEventPtr. These have  no dependents,  no destroy  action
+and no  additional creation  processing. Many  of the  common types  are
+defined in INCLUDE * XPT_CONSTANTS.
+
+All 'live'  XptDescriptors  maintain  a  reference  to  their  preferred
+representation (if any).
+
+ Action Hooks
+    Weak type:  XDT_ACTIONHOOKID = "ActionHookId"
+    Dependents: callback procedure and client data, application context
+    Destroy action: NONE (they are destroy automatically when there
+                    associated application context is destroyed.)
+
+ Application Contexts
+    Weak type:  XDT_APPCONTEXT = "AppContext"
+    Dependents: Attached displays, Input, TimeOut, Action and
+                ActionHook procedures (and client data).
+    Destroy action: fast_XtDestroyApplicationContext
+    Creation processing: Standard error handlers are registered. Default
+                values for XptGarbageFeedback and XptWMProtocol actions
+                are registered. An event handler for WM_PROTOCOL events
+                is registered.
+
+ Displays
+    Weak type:  XDT_DISPLAYPTR = "DisplayPtr"
+    Dependents: Associated application context
+    Destroy action: fast_XtCloseDisplay
+
+ Input Ids
+    Weak type:  XDT_INPUTID = "InputId"
+    Dependents: source device record, condition, callback procedure and
+                client data, application context
+    Destroy action: NONE (they are destroy automatically when there
+                    associated application context is destroyed.)
+
+ Interval Ids
+    Weak type:  XDT_INTERVALID = "IntervalId"
+    Dependents: callback procedure and client data, application context
+    Destroy action: NONE (they are destroy automatically when there
+                    associated application context is destroyed.)
+
+ Procedures
+    Weak type:  XDT_PROCEDURE = "Procedure"
+    Dependents: external procedure record
+    Creation processing: wrapped in an exfunc_closure structure to set
+                the disable-re-entrancy flag.
+
+ Widgets
+    Weak type:  XDT_WIDGET = "Widget"
+    Dependents: child widgets (both normal and pop-up), parent widget or
+                application context (for shell widgets), callback
+                procedures and data, widget class, event handlers
+    Destroy action: fast_XtDestroyWidget (for shell widgets only)
+    Creation processing: a destroy callback to tidy up Poplog
+                representation is added (note: XtDestroyWidget does not
+                itself 'kill' the Poplog representation, but it causes
+                this callback to be run soon afterwards). Shell widgets
+                register the WM_DELETE_ME WM_PROTOCOL when REALIZED.
+
+ Widget Classes
+    Weak type:  XDT_WIDGETCLASS = "WidgetClass"
+    Dependents: superclass
+
+Notes:
+
+(1) The dependencies between  descriptors are maintained  in order  that
+    garbage  collection   behaves  correctly,   rather  than   for   the
+    convenience of the user. For this reason this aspect of  descriptors
+    is not user-accessible. So for example although a widget  descriptor
+    retains a  reference  to its  widget  class's descriptor,  the  user
+    cannot obtain  the  latter directly  from  the former:  instead  the
+    procedure XtClass (in  LIB * XT_WIDGETINFO) should  be used.  (More
+    direct access  to some  of the  dependencies maintained  may  become
+    available in future releases.)
+
+(2) Destroy actions are attached to some of the descriptor records  when
+    they are created. However  this is only  done for descriptors  which
+    reference  data  actually  created   by  Poplog  Toolkit   interface
+    routines. References which are being  imported (and so were  created
+    outside of Poplog's direct control, eg created by external procedure
+    calls) do not  have destroy actions  attached to them  automatically
+    The assumption being that whatever package or utility created  them
+    will handle  their  destruction. So  for  example if  you  create a
+    scrollbar widget it  will probably create  two or three  sub-widgets
+    typically buttons  at  either  end and  the  slider  portion.  The
+    scrollbar itself,  being  created by  Poplog,  will have  a  destroy
+    action. The sub-widgets will initially have no Poplog representation
+    at all  (being  created externally  by  the (C)  scrollbar  creation
+    routine), but if you choose to import them (using XptImportWidget)
+    their descriptors will  not have destroy  actions attached.  However
+    all the destroy actions are  publicly accessible procedures, so  the
+    user may attach the destroy actions explicitly if desired.
+
+    NOTE FOR UNIX USERS:  All the destroy  actions are  process  specific
+    i.e, they  are stored  in sys_process_destroy_action.   They  will
+    only be called in the same process they were installed. This  allows
+    Poplog processes which use  X facilities to  be safely forked  using
+    sysfork.
+
+(3) References  above  to  callback  procedures  and  client   arguments
+    generally  refer  to   the  external-class   procedures  and   their
+    arguments. However when  Poplog procedures and  their arguments  are
+    coerced into their external form, the new client argument  maintains
+    references to the original procedure and client, so these will  also
+    be safely retained by the descriptors.
+
+
+
+
+----------------------------------------------
+12  Programming With Preferred Representations
+----------------------------------------------
+
+(This section is unfortunately not available for V14 Poplog, but will be
+present in V15)
+
+
+
+--- C.x/x/pop/ref/XptDescriptor
+--- Copyright University of Sussex 1992. All rights reserved.

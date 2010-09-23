@@ -1,0 +1,33 @@
+HELP FLOAT_BYTE                             David Young
+                                            June 1992
+
+LIB *FLOAT_BYTE provides a procedure to convert between packed arrays of
+bytes and packed arrays of single precision floats.
+
+    float_byte(IMAGEIN, IMAGEOUT, REGION, P0, P255) -> IMAGEOUT;
+
+IMAGEIN must be an array of bytes or an array of single precision floats
+(e.g. created using *NEWBYTEARRAY or *NEWSFLOATARRAY respectively).
+IMAGEOUT may be input as <false>, in which case a new array will be
+created, or it can be an array to receive the data. If IMAGEOUT is an
+array, it must be the appropiate type: bytes if IMAGEIN is floats, and
+vice versa. REGION may be <false>, in which case the whole of the input
+image is processed, or it may be a list specifying a region to be
+processed in boundslist-type format. If REGION is specified and IMAGOUT
+is <false>, then the array returned will have a boundlist equal to
+REGION.
+
+Values are scaled linearly. P0 and P255 must be numbers giving the
+values in the float array corresponding to 0 and 255 respectively in the
+byte array. The equations are:
+
+    Byte_array_value = (Float_array_value - P0) * 255 / (P255 - P0)
+    Float_array_value = Byte_array_value * (P255-P0) / 255 + P0
+
+Thus if P0 is 0 and P255 is 255, the values are left unchanged as far as
+possible. When storing data in a byte array, values are always rounded
+to the nearest integer; any value greater than 255 is stored as 255 and
+any value less than 0 is stored as 0.
+
+--- $popvision/help/float_byte
+--- Copyright University of Sussex 1992. All rights reserved. ----------

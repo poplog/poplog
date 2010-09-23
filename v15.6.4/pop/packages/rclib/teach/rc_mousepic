@@ -1,0 +1,236 @@
+TEACH RC_MOUSEPIC                             Aaron Sloman 30 march 1997
+
+The file TEACH * RC_LINEPIC demonstrates creation of windows and mouse
+sensitive picture objects, including objects that can be moved or
+activated using the mouse buttons.
+
+Some of these demonstrations make use of the default definitions of
+mouse event handlers in LIB * RC_MOUSEPC, while others include specific
+new handlers.
+
+Some additional information is provided here.
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Method definitions from LIB * RC_MOUSEPIC
+ -- Format of "modifiers" argument in event handlers
+ -- MORE DETAILED EXPLANATIONS
+ -- Making a graphic window or object "sensitive"
+
+-- Method definitions from LIB * RC_MOUSEPIC ----------------------------
+
+The following method definitions are extracted from LIB * RC_MOUSEPIC in
+the section headed 'User definable event handlers'. These may change
+later.
+
+
+define :method rc_button_1_down(pic:rc_selectable, x, y, modifiers);
+    ;;; Click on an object to make it the selected one, unless the
+    ;;; shift key is already down and an object has been selected
+
+    if modifiers = 's' and rc_mouse_selected(rc_active_window_object) then
+        rc_set_front(rc_mouse_selected(rc_active_window_object));
+        rc_move_to(rc_mouse_selected(rc_active_window_object), x, y, true)
+    else
+        pic -> rc_mouse_selected(rc_active_window_object);
+
+        ;;; Make sure it is now on "top" of all the others.
+        rc_set_front(pic);
+    endif;
+enddefine;
+
+define :method rc_button_1_down(pic:rc_window_object, x, y, modifiers);
+    ;;; Clicking in empty space de-selects, unless the shift key is down
+    ;;; in which case the selected object moves to the mouse location
+    if modifiers = 's' and rc_mouse_selected(rc_active_window_object) then
+            rc_set_front(rc_mouse_selected(rc_active_window_object));
+            rc_move_to(rc_mouse_selected(rc_active_window_object), x, y, true)
+    else
+        false -> rc_mouse_selected(rc_active_window_object);
+    endif;
+enddefine;
+
+
+;;; uncomment the print commands for testing
+
+define :method rc_button_2_down(pic:rc_selectable, x, y, modifiers);
+    ;;; [button 2 down ^x ^y ^modifiers] =>
+enddefine;
+
+define :method rc_button_3_down(pic:rc_selectable, x, y, modifiers);
+    ;;;[button 3 down ^x ^y ^pic] =>
+enddefine;
+
+define :method rc_button_1_up(pic:rc_selectable, x, y, modifiers);
+    ;;; [button 1 up ^x ^y ^pic] =>
+enddefine;
+
+define :method rc_button_2_up(pic:rc_selectable, x, y, modifiers);
+    ;;; [button 2 up ^x ^y ^pic] =>
+enddefine;
+
+define :method rc_button_3_up(pic:rc_selectable, x, y, modifiers);
+    ;;; [button 3 up ^x ^y ^pic] =>
+enddefine;
+
+define :method rc_button_1_drag(pic:rc_window_object, x, y, modifiers);
+    ;;; No object currently under mouse, i.e. event in window
+    if modifiers = 's' or modifiers = nullstring then
+        ;;; Shift key pressed
+        lvars current_selected = rc_mouse_selected(rc_active_window_object);
+
+        if current_selected then
+            ;;; drag the previously selected object to here
+            rc_set_front(current_selected);
+            rc_move_to(current_selected, x, y, true)
+        else
+            ;;; uncomment this for tracing and debugging
+            ;;; [button 1 drag (empty) ^x ^y modifiers ^modifiers]=>
+        endif
+    else
+        ;;; uncomment this for tracing and debugging
+        ;;; [button 1 drag (empty) ^x ^y modifiers ^modifiers ]=>
+    endif
+enddefine;
+
+
+define :method rc_button_1_drag(pic:rc_selectable, x, y, modifiers);
+
+    lvars current_selected = rc_mouse_selected(rc_active_window_object);
+
+    if modifiers = nullstring then
+        ;;; Make sure it is at the front of the list, otherwise there may
+        ;;; be unexpected results if it is dragged over another object.
+        if current_selected then
+            ;;; An object was already selected keep dragging that one
+            rc_set_front(current_selected);
+            rc_move_to(current_selected, x, y, true)
+        else
+            ;;; choose this object as the selected one
+            rc_set_front(pic);
+            rc_move_to(pic, x, y, true)
+        endif;
+    elseif modifiers = 's' then
+        ;;; Shift key pressed
+        if current_selected then
+            ;;; An object was already selected keep dragging that one
+            ;;; if there is a selected object, you can drag it
+            ;;; even in an empty space
+        else
+            ;;; otherwise select this object and start dragging it.
+            pic -> rc_mouse_selected(rc_active_window_object);
+        endif;
+        rc_set_front(current_selected);
+        rc_move_to(current_selected, x, y, true)
+    elseif modifiers = 'c' then
+        ;;; Drag an object without selecting it
+        rc_set_front(pic);
+        rc_move_to(pic, x, y, true)
+    else
+        ;;; [button 1 drag ^pic ^x ^y  modifiers ^modifiers] =>
+    endif;
+enddefine;
+
+define :method rc_button_2_drag(pic:rc_selectable, x, y, modifiers);
+        ;;; [button 2 drag ^x ^y ^pic ^modifiers] =>
+enddefine;
+
+define :method rc_button_2_drag(pic:rc_window_object, x, y, modifiers);
+    ;;; [button 2 drag nothing ^x ^y modifiers ^modifiers] =>
+enddefine;
+
+define :method rc_button_3_drag(pic:rc_selectable, x, y, modifiers);
+     ;;; [button 3 drag pic ^pic ^x ^y ^modifiers] =>
+enddefine;
+
+define :method rc_button_3_drag(pic:rc_window_object, x, y, modifiers);
+     ;;; [button 3 drag nothing ^x ^y modifiers ^modifiers] =>
+enddefine;
+
+
+define :method rc_move_mouse(pic:rc_selectable, x, y, modifiers);
+     ;;; [move mouse ^x ^y  modifiers ^modifiers] =>
+enddefine;
+
+define :method rc_mouse_enter(pic:rc_selectable, x, y, modifiers);
+    ;;; Warning. (a) locations may be inaccurate (b) modifiers may
+    ;;; be inaccurate;
+    ;;; [ENTERING ^pic ^x ^y  modifiers ^modifiers] =>
+enddefine;
+
+define :method rc_mouse_exit(pic:rc_selectable, x, y, modifiers);
+    ;;; Warning: locations may be inaccurate
+    ;;; [LEAVING ^pic ^x ^y  modifiers ^modifiers] =>
+enddefine;
+
+define :method rc_handle_keypress(pic:rc_selectable, x, y, modifiers, key);
+;;; [keypress ^x ^y ^modifiers key ^key ] =>
+enddefine;
+
+
+In the above method definitions default non-action cases have "commented
+out" print commands that can be uncommented, for testing purposes.
+
+You can try editing those method definitions to change the behaviour of
+selected or dragged objects. To restore the original behaviour you can
+do:
+
+    ENTER showlib rc_mousepic
+
+find the relevant methods, and recompile them.
+
+WARNING:
+
+The method definitions given above in this teach file may not correspond
+exactly to those in the library, so compiling them may slightly change
+the library's behaviour. To reset the defaults reload
+
+    lib rc_mousepic
+
+and start again with new pictures, e.g. using rc_new_window_object as
+above. The old ones will eventually be garbage collected if no
+variables point to them.
+
+Additional methods are shown in the library and described briefly
+in HELP * RC_LINEPIC
+
+-- Format of "modifiers" argument in event handlers -------------------
+
+The "modifiers" argument that will be handed to the event handler is a
+string, possibly empty, including some subset of these characters
+
+    c,s,m
+
+indicating whether the Control key, the Shift key or the Meta key is
+down. Try changing the keys held down while you drag.
+
+
+-- MORE DETAILED EXPLANATIONS -----------------------------------------
+
+-- Making a graphic window or object "sensitive" ----------------------
+
+Previously we showed how objects could be dragged by allowing mouse
+events to invoke drag methods.
+
+In order that a window accept mouse actions it has to be set up properly
+using the procedure rc_mousepic, as illustrated above with the command
+
+    rc_mousepic(<window object>);
+
+In order that an object be selectable by the mouse it has to be added to
+the list of objects associated with a window that has been made
+sensitive to mouse events, as illustrated above with the command
+
+    rc_add_pic_to_window(drag1, win1, true);
+
+A default set of mouse-action event handlers is provided, also
+illustrated above, but they can be redefined by the user.
+
+See TEACH * RC_LINEPIC for more examples
+
+See also LIB * RC_MOUSEPIC
+
+
+--- $poplocal/local/rclib/teach/rc_mousepic
+--- Copyright University of Birmingham 1997. All rights reserved. ------

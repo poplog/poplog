@@ -1,0 +1,112 @@
+#!/bin/tcsh
+## /bham/ums/common/pd/bin/findcites
+## 15 Feb 2004
+## Updated 8 Jan 2008 Added "citenp" to citewords.
+##      Added check_duplicates, keep_latex_comments
+##      Added Thesis to list of bib types
+##
+
+
+setenv BIBFILE $1
+
+setenv TEXFILE $2
+
+#echo "BIB $1 TEX $2"
+
+#source /bham/common/com/packages/poplog/Login/poplogin
+
+$popsys/basepop11 %noinit << \\\\
+
+;;; pop11_compile('~axs/temp/findcite.p');
+
+uses vedlatex
+loadlib('findcite.p');
+
+;;; Global variables needed for scanning the bibtex file analysing it
+;;; and printing out relevant sections.
+
+global vars
+
+    ;;; If true, duplicate entries with the same citation key are pruned.
+    ;;; only the first occurrence is used. A list of duplicates is printed
+    ;;; at the end of the file
+    check_duplicates = true,
+
+    ;;; Make this false to get comments starting with '%' removed
+    ;;; when saving all bibtex entries.
+    keep_latex_comments = true,
+
+    ;;; Make this false to prevent automatic indentation
+    indent_spaces = 3,
+    ;;; indent_spaces = false,
+
+    ;;; never force a word to be broken
+    poplinemax = 99999999,
+
+    ;;; insert newline and tab after this:
+    poplinewidth = 70,
+
+
+    ;;; Assume no line in bibtex file has more than 512 characters.
+    ;;; This could be a bug.
+
+    string_max = 512,
+
+    ;;; use this as a read buffer
+    buffer = inits(string_max),
+
+    ;
+
+;;; These will be indicators of bibtex citations
+;;; Added 'citenp' for APA style
+;;; Added citeauthor citeyear for AAAI style
+vars citewords =
+    [cite nocite citea citeA citenp citeNP citep citet citeauthor citeyear];
+
+;;; convert bibtex types to lower case to simplify matching
+vars bibtypes =
+    maplist([
+              Article
+              Book
+              Booklet
+              Conference
+              InBook
+              InCollection
+              InProceedings
+              Manual
+              MastersThesis
+              Misc
+              PhdThesis
+              Proceedings
+              String
+              TechReport
+              Thesis
+              Unpublished
+           ], uppertolower);
+
+vars
+    bibfile = sysfileok('$BIBFILE'),
+    texfile = sysfileok('$TEXFILE'),
+    cited;
+
+if isendstring('.bib', texfile) then
+    bibfile, texfile -> (texfile, bibfile)
+endif;
+
+if texfile == nullstring then
+
+    ;;; Print all the bib entries
+    "'#CiteAll#'" -> cited;
+
+else
+    process_file(citewords,  texfile) -> cited;
+
+endif;
+
+;;;cited ==>
+
+process_bib(cited, bibfile);
+
+sysexit();
+
+\\

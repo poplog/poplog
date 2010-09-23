@@ -1,0 +1,229 @@
+HELP STRAIGHT_HOUGH                             David Young
+                                                November 1992
+
+LIB *STRAIGHT_HOUGH provides a procedure to find straight lines in a
+region of an image using the Hough transform. The image must be
+pre-processed to contain positive values at features or edges, with
+zeroes everywhere else (see *CANNY for one way to do this). This library
+only uses positional information from the image, not gradient direction
+information. A procedure is provided to help plot out the results of
+line detection.
+
+There is an example in TEACH *STRAIGHT_HOUGH.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Algorithm
+ -- Main procedure - straight_hough
+ -- Accessing the accumulator array
+ -- Drawing the lines
+
+-- Algorithm ----------------------------------------------------------
+
+The algorithm uses an r-theta parameterisation of the line. That is, a
+line in the image with parameters r and theta has the equation:
+
+    y = -cot(theta) * (x - x0)  +  r/sin(theta)  +  y0
+or
+    x = -tan(theta) * (y - y0)  +  r/cos(theta)  +  x0
+
+where x and y are image coordinates, and (x0, y0) is the position of the
+origin of the r-theta coordinates. What this means geometrically is that
+r is the perpendicular distance from (x0, y0) to the line, whilst theta
+is the angle between the perpendicular and the x-axis. (Theta is
+measured anticlockwise from the x-axis to the perpendicular for
+right-handed coordinates.)
+
+For example:
+
+        ^                                \
+      Y |                                 \
+        |     r is length of               \ <--- line
+        |     dotted line from              \
+        |     * to *                         \
+        |                                     \
+        |                                      \
+        |                                      .*
+        |                perpendicular --> .     \
+        |                to line       .          \
+        |                          .               \
+        |                      .                    \
+        |                  .     \                   \
+        |              .    theta |                   \
+        |           *---------------                   \
+        |       (x0, y0)                                \
+        |                                                \
+        |                                                 \
+ -------+--------------------------------------------------\---->
+        |                                                   \  X
+        |                                                    \
+
+Solving the equation for r gives
+
+    r = (x - x0) * cos(theta) + (y - y0) * sin(theta)
+
+and this is the equation used to calculate the Hough transform.
+
+The algorithm first chooses x0 and y0 to be at the centre of the region
+to be processed. For each non-zero pixel in the region, the algorithm
+iterates over theta, and for each theta, calculates r and increments an
+accumulator array indexed by r and theta. See almost any computer vision
+book for more details. The increment to the accumulator for each (r,
+theta) is the value stored in the relevant pixel of the image. Thus if
+all features are equal the input should be a binary image, with (say)
+ones at all the feature positions; otherwise values reflecting the
+strength of evidence for the features can be stored. In the first case
+the accumulator collects "votes" for different lines, with each feature
+being equal; in the second case the votes are in effect weighted.
+
+The accumulator array is optionally smoothed, and then peaks as defined
+in *ARRAY_PEAKS are found. The correct boundary conditions are used
+(wrap-around on theta, reflection and shift on the r=0 boundary, and
+zeroes at the high r boundary). The peak positions are refined by local
+averaging, also as defined in *ARRAY_PEAKS.
+
+-- Main procedure - straight_hough ------------------------------------
+
+The main procedure has a lot of arguments, but most of them can be given
+as <false> for simple uses.
+
+straight_hough(IMAGE, REGION, NR, NTHETA, SIGMAR, SIGMAT, RLIM, TLIM,
+            THRESHOLD, HOUGHIN) -> (HOUGH, PEAKLIST, XC, YC)
+    IMAGE is a 2-D array containing data. Elements that are not features
+    must be exactly zero. The procedure is most efficient if IMAGE is a
+    packed array of single-precision floats, as created by
+    *NEWSFLOATARRAY. Non-zero values must be positive. The array bounds
+    do not have to start at 1, 0, or any other particular value.
+
+    REGION may be <false>, in which case the whole of IMAGE is used as
+    data, or a 4-element list specifying the region of the array to
+    analyse, in the same way as a boundslist (see *ARRAYS/boundslist)
+    specifies the bounds of an array.
+
+    NR is a positive integer giving the number of bins in the
+    accumulator array in the r direction.
+
+    NTHETA is an even positive integer giving the number of bins in the
+    accumulator array in the theta direction. Thus the accumulator array
+    contains NR * NTHETA elements.
+
+    SIGMAR is the sigma value for the Gaussian mask (see *GAUSSMASK)
+    used to smooth the accumulator array in the r direction. This can be
+    <false> for no smoothing.
+
+    SIGMAT is similarly the smoothing constant for the theta direction,
+    or <false>.
+
+    RLIM is the limit on the range of bins in the r direction to use in
+    refining the peak positions by averaging. See
+    *ARRAY_PEAKS/refine_peaks for how this is used. RLIM can be <false>
+    for no peak position refining, otherwise it must be a non-negative
+    integer.
+
+    TLIM is like RLIM but for the theta direction. If RLIM is not
+    <false>, then TLIM must be a non-negative integer.
+
+    THRESHOLD specifies a threshold for peaks in the accumulator.
+    THRESHOLD is multiplied by the mean value of the accumulator array,
+    and only accumulator cells which have accumulated a higher value
+    than this are counted. It is well worth setting THRESHOLD to
+    something bigger than 1 (try 2 or 3) to avoid getting very long peak
+    lists. In any case, THRESHOLD should be greater than zero. If
+    THRESHOLD is given as <false>, no search for peaks is carried out.
+
+    If HOUGHIN is <false>, a new accumulator array is created. If this
+    is going to make too much garbage. HOUGHIN can be an accumulator
+    array to fill.  The array must be a packed array of floats (see
+    *NEWSFLOATARRAY). The array bounds must include the region [0 NR-1 0
+    NTHETA-1] if THRESHOLD, SIGMAR and SIGMAT are all <false>. If
+    THRESHOLD is true, the array must be one element bigger all round;
+    if smoothing or peak refining are used then it must be bigger still
+    - see the library for details. At present, if smoothing is used,
+    some new arrays get created anyway. All the elements of HOUGHIN must
+    be zero on entry (unless you actually want to accumulate further
+    on top of existing votes).
+
+    HOUGH is the accumulator array. The region [0 NR-1 0 NTHETA-1]
+    contains the votes. The main purpose of returning this is so that it
+    can be displayed if required. If you want to process it further, see
+    "Accessing the accumulator array" below.
+
+    PEAKLIST is the main result. This is a list with one element for
+    each line found. The list is in order of evidence for each line,
+    most prominent lines first. Each element of the list is a vector,
+    say V, which contains the following information:
+        V(1) = amount of evidence for the line;
+        V(2) = r;
+        v(3) = theta.
+    r and theta are as defined by the equations above. The "amount of
+    evidence" is the size of the peak in the accumulator array, possibly
+    modified by local averaging if RLIM and TLIM were true. theta is in
+    radians or degrees depending on the setting of *POPRADIANS.
+
+    However, if THRESHOLD was <false>, PEAKLIST returns something
+    totally different - see below.
+
+    XC and YC are the origin of the coordinate system used for r and
+    theta.
+
+As a simple example, to find the lines in an array called IMAGE, looking
+at the whole of the array, using a 100x100 accumulator array, with no
+smoothing or peak refining, and thresholding at twice the average, you
+could do:
+
+    vars IMAGE, PEAKLIST, XC, YC;
+    straight_hough(IMAGE, false, 100, 100, false, false, false, false,
+        2, false) -> (, PEAKLIST, XC, YC)
+
+-- Accessing the accumulator array ------------------------------------
+
+If you want to process the accumulator array yourself rather than using
+the default peak-finding method, set the THRESHOLD argument to <false>,
+which inhibits the peak searching. You can still include smoothing of
+the accumulator array. In this case, the second result (PEAKLIST above),
+rather than returning an empty list, returns a procedure which
+translates from positions in the accumulator array to r and theta. This
+greatly simplifies further processing. Thus we have
+
+straight_hough(IMAGE, REGION, NR, NTHETA, SIGMAR, SIGMAT, false, false,
+            false, HOUGHIN) -> (HOUGH, RTHETA, XC, YC)
+
+where RTHETA is procedure:
+
+RTHETA(I, J) -> (R, THETA)
+
+such that HOUGH(I, J) corresponds to a line with parameters R, THETA.
+THETA will be in radians or degrees according to the setting of
+*POPRADIANS at the time -straight_hough- was called.
+
+-- Drawing the lines --------------------------------------------------
+
+A procedure is provided which makes it easy to draw the lines returned
+by -straight_hough-.
+
+hough_linepoints(PEAK, XC, YC, BOUNDS) -> (X0, Y0, X1, Y1)
+    PEAK should be one of the elements of PEAKLIST. XC and YC are as
+    returned by -straight_hough-.
+
+    BOUNDS may be a 2-D array or a 4-element list specifying a region,
+    as for REGION above. It will often be appropriate to use IMAGE as
+    this argument.
+
+    (X0, Y0) will be one point on the line, and (X1, Y1) will be another
+    point. Note that the order of these results is not like that in a
+    boundslist, because the four numbers represent two points and not a
+    rectangular region.
+
+To draw the line, use a graphics package to move to (X0, X1) and then to
+draw to (X1, Y1) on some suitable drawing surface, preferably with the
+image as background. If the line given by PEAK is at less than 45
+degrees to the X-axis, then Y0 and Y1 will correspond to the Y-values in
+the BOUNDS argument; otherwise X0 and X1 will correspond to the X-values
+in the BOUNDS argument. Thus the points returned lie on opposite sides
+of the region specified by BOUNDS, assuming you extend the sides if
+necessary. If you need to restrict the drawing of the line to the region
+given by BOUNDS, you will have to use clipping facilities from your
+graphics package.
+
+--- $popvision/help/straight_hough
+--- Copyright University of Sussex 1992. All rights reserved. ----------

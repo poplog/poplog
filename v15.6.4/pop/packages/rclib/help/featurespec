@@ -1,0 +1,291 @@
+HELP FEATURESPEC                                 Aaron Sloman April 1997
+                                                      Revised 7 Jul 1997
+
+CONTENTS
+
+ -- Introduction
+ -- Primitive and compound featurespecs
+ -- Example: an array of buttons
+ -- Why create new levels of list structure?
+ -- Featurespecs vs new sub-classes
+ -- Reusing featurespecs
+ -- The slot specifiers
+ -- Working examples
+
+-- Introduction -------------------------------------------------------
+
+A featurespec is an extendable structure that is used by the procedure
+interpret_specs to modify an objectclass instance which has been created
+with default slot values. The purpose of featurespecs is to allow
+instances of objectclasses to be created in contexts where the default
+slot values are to be varied, and where it would be tedious or
+inefficient to create special subclasses to handle all the special
+cases.
+
+Featurespecs are "extendable" in the sense that they can either be
+primitive or complex, and either type can be combined to form larger
+complex featurespecs. For example, in an instruction to construct a
+large collection of instances a primitive featurespec may specify a new
+default for the whole collection, and additional featurespecs may be
+added to that for lower level subsets. By the time each actual
+individual instance is created, the top level featurespec may have had
+several additional featurespecs combined with it at different levels in
+the subset hierarchy. Examples are given below.
+
+
+-- Primitive and compound featurespecs --------------------------------
+
+A primitive featurespec is an even length vector of slot/value items,
+where each slot is represented by its accessor procedure or the
+name of the accessor procedure (so that its valof is the procedure).
+
+The interpreter is given an object (usually a newly created object) and
+a featurespec and interprets the featurespec by overwriting the relevant
+slots in the instance with the corresponding values.
+
+Compare objectclass REF * SET_SLOTS
+
+A featurespec is extendable in that two or more primitive or compound
+featurespecs can be combined in a list to create a new compound
+featurespec. When a compound featurespec is interpreted, the interpreter
+walks through the tree from left to right, interpreting the primitive
+featurespecs in the order in which they occur in the list, and calling
+itself recursively when it finds compound featurespecs.
+
+    Featurespec (FS):      Primitive featurespec||Compound featurespec
+
+    Primitive featurespec: {Slot1 Val1 Slot2 Val2 .... Slotn Valn}
+
+    Compound featurespec:  [FS1 FS2 FS3 ....]
+
+For convenience we also allow a featurespec to be FALSE, meaning no
+change is required.
+
+
+-- Example: an array of buttons ---------------------------------------
+
+For example, suppose you have various classes of buttons for which
+defaults have been defined, e.g. default values for the font for the
+button label, the colour for the button label, the background colour,
+the colour of the border, the colour the border changes to temporarily
+when the button is selected ("pressed"), the height, the width, etc.
+
+Now suppose you are defining a procedure create_button_array, to create
+an array of such buttons and for these buttons you wish to allow some
+feature specifications that override some of the defaults (e.g.
+different font and font colour). The procedure therefore takes a list of
+button row descriptions and a featurespec indicating new defaults for
+the whole array.
+
+The featurespec will be handed down to the lower level procedures, e.g.
+a procedure create_button_row, for creating each row of buttons.
+
+Now suppose that for some of the rows you want additional features to be
+specified, e.g. a new border colour. A feature specification can be
+included as the first part of each row description.
+
+When create_button_array finds such a featurespec it can form a new
+compound featurespec containing the original featurespec it was given
+and the new featurespec.
+
+It then gives the combined featurespec to create_button_row. This
+procedure creates a row containing individual buttons from a list of
+button descriptions. It does this by calling a create button procedure
+for each description, handing on its current featurespec.
+
+However, some of these individual descriptions may also include
+featurespecs either adding new features or changing the defaults in
+previous featurespecs. So, before giving the button description to the
+button creation procedure, the row creation procedure first takes
+whatever featurespec it was given, appends the new one for the button
+and gives the new combined featurespec to the button creator.
+
+This takes the button description, creates the button, then uses the
+featurespec interpreter to interpret the featurespec (in this case a
+compound featurespec) to update some of the slots of the button
+instance, then draws the button on the screen.
+
+E.g. given
+
+1. Featurespec for the whole array:
+        {font '8x13' stringcolour 'yellow'}
+
+2. Featurespec for one of the rows
+        {border 6 bordercolour 'pink'}
+
+3. Featurespec for a certain button in that row:
+
+        {font '10x20' border 8 stringcolour 'ivory'}
+
+The first vector is given to create_button_array. When it finds the
+second vector at the beginning of a row description it combines the tow
+and gives create_button_row a featurespec in the form of a list
+containing two vectors:
+
+   [{font '8x13' stringcolour 'yellow'} {border 6 bordercolour 'pink'} ]
+
+When create_button_row finds that one of its button descriptions has the
+third primitive featurespec listed above, it creates a new compound
+featurespec to give to create_button, i.e. a two element list containing
+the above and the third primitive featurespec, i.e.:
+
+    [
+     [{font '8x13' stringcolour 'yellow'}
+            {border 6 bordercolour 'pink'} ]
+     {font '10x20' border 8 stringcolour 'ivory'} ]
+
+
+NOTE: The odd numbered elements of a primitive featurespec vector can
+be either the actual procedures or the words that name them. If you
+don't want to export the names, use the procedures themselves, by
+preceding the name with "^", e.g.
+
+     {^font '10x20' ^border 8 ^stringcolour 'ivory'}
+
+NB These are hypothetical slot names, and will not necessarily
+work with RCLIB libraries.
+
+
+-- Why create new levels of list structure? ---------------------------
+
+Why not just concatenate featurespecs by forming a longer list each
+time, adding new features on the right? The reason is simply that
+appending to the right of a list generally creates "garbage" since the
+list has to be copied first. By allowing a procedure to create lists
+that contain existing lists as elements without copying them the
+procedure that creates a new list can also return it to the store
+manager (using sys_grbg_list).
+
+Although the extra levels of nesting may make the compound featurespecs
+look more complex, the procedure interpret_specs is very simple.
+
+define interpret_specs(obj, specs);
+
+    returnunless(specs);    ;;; If false, do nothing
+
+    if isvector(specs) then
+        ;;; It is a bottom level featurespec, so interpret it directly
+        lvars list = specs.destvector.conslist;
+        set_spec_slots(obj, list);
+
+        ;;; reclaim free space
+        sys_grbg_list(list);
+        0 -> list;  ;;; for uncleared alpha registers...
+
+    elseif islist(specs) then
+        ;;; Interpret the featurespecs in the list in left to right order
+        lvars sub_specs;
+        for sub_specs in specs do
+            interpret_specs(obj, sub_specs)
+        endfor
+    else
+        mishap('Object specs should be list, vector or false', [^specs]);
+    endif
+enddefine;
+
+The procedure set_spec_slots is similar to the standard objectclass
+procedure set_slots for updating instances. See REF * OBJECTCLASS,
+except that (a) it is restricted to lists and (b) it allows slot
+names instead of the procedures to be used.
+
+
+-- Featurespecs vs new sub-classes ------------------------------------
+
+It would be possible to avoid the creation and use of featurespecs by
+defining new subclasses of buttons (or whatever) for each combination of
+slot values required and simply specify which class is to be
+instantiated. Since many different combinations may be needed in some
+application, and since each particular combinations may be used only
+once or twice, the overhead of defining new classes could be wasteful.
+
+The use of featurespecs provides a simple and effective alternative,
+and since they are reusable they are a bit like classes.
+
+It is also possible to use featurespecs to reuse instances! E.g. a
+collection of instances used for one purpose may have their style or
+other features changed by using the interpreter to change each of them
+in accordance with a featurespec. Thus a collection of buttons could
+first have one style of presentation then another, perhaps to indicate
+that the context has changed. If different subclasses were used, new
+instances would have to be created, since in Objectclass instances
+cannot change their class membership after creation.
+
+
+-- Reusing featurespecs -----------------------------------------------
+
+If certain features are to be used several times they can be put into a
+featurespec, and then that featurespec can later be combined with others
+to form different compound featurespecs. Some of the compound
+featurespecs may also be reused.
+
+This facility allows different reusable "styles" of presentation (or
+other kinds of style) to be defined and used in different contexts.
+Thus one style might be used for all panels containing "help" buttons,
+another for panels containing buttons for controlling the values of
+global variables, another style for panels containing action buttons,
+and so on.
+
+A problem with this approach is that you can easily have a reusable
+featurespec that refers to slots that are not appropriate for some of
+the classes whose instances can turn up when the featurespec is used.
+This is solved as follows.
+
+Slot-accessors in objectclass are simply methods, so we can define some
+"dummy" slot-updater methods for the top level class which do nothing
+when applied to instances of classes to which they are irrelevant. Then
+it is always safe to apply them to instances of any of the subclasses,
+even though they do nothing.
+
+For instance in LIB RC_BUTTONS, toggle buttons and counter buttons have
+no rc_button_pressedcolour field, which is used by action buttons to
+change their border colour when a button is "pressed". So the library
+has defined a dummy updater method for the top level category rc_button:
+
+define :method updaterof rc_button_pressedcolour(x, pic:rc_button);
+    ;;; do nothing
+enddefine;
+
+This means that attempting to update the pressedcolour slot of any
+instance of a class in the rc_button hierarchy that does not include
+this slot, will simply have no effect, and no error will be generated,
+as would otherwise occur when attempting to apply a featurespec
+{^rc_button_pressedcolour 'red'} to an instance of rc_toggle_button.
+
+Thus a row of buttons with this featurespec can safely include the
+toggle button along with action buttons, and interpret_specs will not
+complain.
+
+
+-- The slot specifiers ------------------------------------------------
+
+In the examples above the slots were represented in primitive
+featurespecs by words, e.g.
+
+    {font '8x13' stringcolour 'yellow'}
+
+However in a program the words would have to be actual names of
+procedures, which either are slot accessing procedures, or procedures
+which have updaters that do something sensible.
+
+In either case you have the choice of using either the procedure or its
+name (if suitably exported) as the slot specifier, i.e. both of these
+will work
+
+    {^rc_button_font '8x13' ^rc_button_stringcolour 'yellow'}
+    {rc_button_font '8x13' rc_button_stringcolour 'yellow'}
+
+This syntax can become quite cumbersome when long fieldnames are used
+(which is normally good style). If necessary, macros or new syntax words
+could be used to define a more compact notation.
+
+
+-- Working examples ---------------------------------------------------
+
+Working examples can be found in
+    HELP * RC_BUTTONS
+    LIB * RC_POLYPANEL (search for '{spec'
+
+See also HELP * RCLIB, TEACH * RC_LINEPC
+
+--- $poplocal/local/rclib/help/featurespec
+--- Copyright University of Birmingham 1997. All rights reserved. ------

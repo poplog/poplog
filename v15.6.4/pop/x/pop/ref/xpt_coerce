@@ -1,0 +1,305 @@
+REF XPT_COERCE                              Adrian Howard Sep 90, Jan 92
+                                             Updated: John Gibson Apr 93
+
+       COPYRIGHT University of Sussex 1993. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<   COERCION ROUTINES FOR X   >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<         DATA-TYPES          >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This REF file describes X Toolkit support routines for coercing  between
+various different data representations.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Overview
+
+  2   Coercion Between Poplog Types
+
+  3   Coercion From External Types to Poplog Types
+
+  4   Special Import Procedures
+
+
+
+-----------
+1  Overview
+-----------
+
+Four classes of routines exist, as follows:
+
+1)  The XptCoercesomething procedures. These are used to coerce  between
+    normal Poplog representations  for data arguments  and other,  still
+    Poplog representations more suitable for external use.
+
+2)  The  XptImportsomething   procedures.   These   take   an   external
+    data-structure with  no  Poplog  equivalent (generally  as  a  'raw'
+    external ptr  record)  and  coerce it  into  an  XptDescriptor  (see
+    REF * XptDescriptor).
+
+3)  The XptExaccsomething procedures. These map between Poplog data  and
+    the fields of external-class records.
+
+4)  The XptPopImportsomething  procedures.  These take  a  raw  external
+    pointer  and  use  it  to  make  a  special  Poplog  structure  that
+    represents it.
+
+Where possible, the  coerce and import  routines have updaters  allowing
+them to  be used  as  'conversion' procedures  in typespecs,  and  exacc
+procedures have updaters allowing them  to be used as 'implicit  access'
+procedures in typespecs (see REF * EXTERNAL_DATA).
+
+
+
+
+--------------------------------
+2  Coercion Between Poplog Types
+--------------------------------
+
+XptCoerceBoolean(int) -> bool                                [procedure]
+bool -> XptCoerceBoolean() -> int
+        Conversions between Poplog booleans and integers. The value true
+        maps to the integer 1, false  to zero. (NOTE: in actuality,  any
+        non-zero value will map onto Poplog true).
+
+
+XptCoerceString(string1) -> string2                          [procedure]
+string1 -> XptCoerceString() -> string2
+        The first procedure takes  a null-terminated string and  returns
+        the string without the trailing null character.
+
+        The updater takes the input string and returns a null terminated
+        version.  If  string1  is   null-terminated,  it  is   returned,
+        otherwise a fixed, null-terminated copy is returned.
+
+
+XptCoerceTmpString(string1) -> string2                       [procedure]
+string1 -> XptCoerceTmpString() -> string2
+        The first procedure takes  a null-terminated string and  returns
+        the string without the trailing null character.
+
+        The updater takes the input string and returns a null terminated
+        version. If string1 is null-terminated it is returned. Otherwise
+        if it can be null-terminated 'in situ' (ie if the following byte
+        is spare  and  writable),  this  is done  and  it  is  returned.
+        otherwise a fixed null-terminated copy  is returned. NB: if  the
+        'in situ' termination  occurs, no  garbage is  created, but  the
+        null termination may not survive a garbage collection. Use  with
+        care.
+
+
+XptCoerceVarargs(N)                                          [procedure]
+N -> XptCoerceVarargs()
+        Treats the  top N  arguments  on the  stack  as a  varargs  list
+        coerced by the updater of  XptCoerceVarargs. It erases the  zero
+        from  the   top  of   the  stack   and  removes   the   trailing
+        null-characters   from   the   end   of   the   strings   (using
+        XptCoerceString).
+
+        The updater  looks at  the  top N  arguments  on the  stack.  It
+        null-terminates   all    strings   (using    the   updater    of
+        XptCoerceString) and  coerces all  booleans to  ints (using  the
+        updater  of  XptCoerceBoolean).  It  also  null-terminates   the
+        varargs list by pushing a zero onto the top of the stack.
+
+
+XptCoerceXtPointer(item1) -> item2                           [procedure]
+item1 -> XptCoerceXtPointer() -> item2
+        The first  form acts  like XptCoerceString  if item1  is a  null
+        terminated string, otherwise item2 = item1.
+
+        For the updater, if item1 is  a boolean, the result is the  same
+        as passing it to the updater of XptCoerceBoolean. If item1  is a
+        string, the result is the same  as passing it to the updater  of
+        XptCoerceString. If  neither  of these  cases  applies,  item2 =
+        item1.
+
+
+
+
+-----------------------------------------------
+3  Coercion From External Types to Poplog Types
+-----------------------------------------------
+
+See also XptImportProcedure in REF * XptDescriptor.
+
+
+XptImportAny(exptrclass, type) -> desc                       [procedure]
+desc -> XptImportAny(type) -> desc
+        This procedure takes an external pointer class object exptrclass
+        and a descriptor type type  and creates an * XptDescriptor  with
+        an * XptDataType of type for the pointer.
+
+        It's updater returns desc unchanged,  mishaping if it is not  of
+        type type (allowing  closures of  XptImportAny to  be used  as a
+        conversion procedure  in type  specifications, for  details  see
+        REF * DEFSTRUCT)
+
+
+XptImportApplicationContext(exptrclass)                      [procedure]
+                -> appcontext or false
+appcontext or false -> XptImportApplicationContext() -> exptrclass
+        Takes an external pointer  class object exptrclass which  points
+        to an application context and  coerces it to an  * XptDescriptor
+        for an application context. If exptrclass is a null pointer then
+        appcontext is false.
+
+        The * XptDataType of appcontext should be * XDT_APPCONTEXT
+
+        The updater will return a null external pointer if appcontext is
+        false, otherwise it will return  appcontext, mishaping if it  is
+        not an application context (allowing XptImportApplicationContext
+        to be used as a conversion procedure, see * XptAppContext.)
+
+
+XptImportWidget(exptrclass) -> widget                        [procedure]
+widget -> XptImportWidget() -> widget
+        Takes an external pointer class object pointing to a widget  and
+        coerces it  to  an  * XptDescriptor  with  an  * XptDataType  of
+        * XDT_WIDGET.
+
+        The updater just returns its argument, mishaping if it is  not a
+        widget (allowing  XptImportWidget to  be  used as  a  conversion
+        procedure, see * XptWidget.)
+
+
+XptImportWidgetClass(exptrclass) -> widgetclass              [procedure]
+widgetclass -> XptImportWidgetClass() -> widgetclass
+        Takes an  external pointer  class object  pointing to  a  widget
+        class and coerces it to an * XptDescriptor with an * XptDataType
+        of * XDT_WIDGETCLASS.
+
+        The updater just returns its argument, mishaping if it is  not a
+        widget class  (allowing  XptImportWidgetClass to  be  used  as a
+        conversion procedure, see * XptWidgetClass.)
+
+
+XptImportWidgetClassPtr(exptrclass) -> widgetclass           [procedure]
+        As for * XptImportWidgetClass, but exptrclass is a pointer, to a
+        pointer, to a widget class.
+
+
+XptImportScreenPtr(exptrclass) -> screenptr or false         [procedure]
+screenptr or false -> XptImportScreenPtr() -> exptrclass
+        Takes an external pointer class  object pointing to an X  Screen
+        structure  and  coerces  it   to  an  * XptDescriptor  with   an
+        * XptDataType of * XDT_SCREENPTR  (or false if  the pointer  was
+        null.) The updater does the reverse (allowing XptImportScreenPtr
+        to be used as a conversion procedure, see * XptScreenPtr.)
+
+
+XptImportWindow(exptrclass) -> window or false               [procedure]
+window or false -> XptImportWindow() -> exptrclass
+        Takes an external pointer class object referring to an X  Window
+        structure  and  coerces  it   to  an  * XptDescriptor  with   an
+        * XptDataType of  * XDT_WINDOW  (or  false if  the  pointer  was
+        null.) The updater does the reverse (allowing XptImportWindow to
+        be used as a conversion procedure, see * XptWindow.)
+
+
+XptImportXEventPtr(exptrclass) -> eventptr or false          [procedure]
+eventptr or false -> XptImportXEventPtr() -> exptrclass
+        Takes an external pointer class  object pointing to an X  XEvent
+        structure and returns an  * XptDescriptor with an  * XptDataType
+        of * XDT_XEVENTPTR  (or  false if  the  pointer was  null.)  The
+        updater does the reverse (allowing XptImportXEventPtr to be used
+        as a conversion procedure, see * XptXEventPtr.)
+
+
+XptImportKeySymTable(exptrclass) -> keysymtable or false     [procedure]
+keysymtable or false -> XptImportKeySymTable() -> exptrclass
+        Takes an external  pointer pointer class  object pointing to  an
+        array of X KeySym structures (for details see REF * XT_KEYBOARD)
+        and  returns  an  * XptDescriptor   with  an  * XptDataType   of
+        * XDT_KEYSYMTABLE (or  false  if  the  pointer  was  null.)  The
+        updater does the  reverse (allowing  XptImportKeySymTable to  be
+        used as a conversion procedure, see * XptKeySymTable.)
+
+
+XptImportXrmDatabase(exptrclass) -> xrmdatabase or false     [procedure]
+xrmdatabase or false -> XptImportXrmDatabase() -> exptrclass
+        Takes  an  external  pointer  class  object  pointing  to   an X
+        XrmDatabase structure  (for details  see REF * XResourceDB)  and
+        returns   an   * XptDescriptor   with   an   * XptDataType    of
+        * XDT_DATABASE (or false if the  pointer was null.) The  updater
+        does the reverse (allowing XptImportXrmDatabase to be used  as a
+        conversion procedure, see * XptXrmDatabase.)
+
+
+
+
+----------------------------
+4  Special Import Procedures
+----------------------------
+
+XptPopImportProcedure(exptr, name, call_p, nargs) -> clos    [procedure]
+XptPopImportProcedure(exptr, clos, call_p, nargs)
+        This procedure is used by the XptPopLoadProcedures macro. Unlike
+        XptImportProcedure, it returns a Pop procedure clos (a  closure)
+        which will call the external function represented by exptr.
+
+        The external  function  is  first  imported  using  an  ordinary
+        XptImportProcedure, i.e.
+
+            XptImportProcedure(exptr) -> desc;
+
+        A closure  clos is  then created  which will  call the  imported
+        function using  call_p, where  call_p  is an  external  function
+        apply procedure as produced by * cons_access.
+
+        The clos procedure checks that nargs arguments are given to  the
+        call (nargs may be false  for a variadic function), and  returns
+        the result of call_p.
+
+        In the first form, name is a  word or string etc to be  assigned
+        to the pdprops of clos.
+
+        The second form is an  optimising version of the first:  instead
+        of supplying name,  the second argument  is a 3-element  closure
+        representing this  call  of XptPopImportProcedure  itself,  i.e.
+        produced thus:
+
+            XptPopImportProcedure(% 0, call_p, nargs %) -> clos;
+            clos -> frozval(1, clos);
+            name -> pdprops(clos);
+
+        clos is then reused  for the final  procedure, by assigning  the
+        imported desc and a suitable  pdpart procedure into it.  Because
+        the clos structure was supplied directly, it is not returned  as
+        a result.
+
+
+XptPopImportWidgetClassPtr(exptr, widgetclass)               [procedure]
+        This procedure  (and  widgetclass_key  below) are  used  by  the
+        XptLoadWidgetClass macro.
+
+        exptr  is  a  raw  external   pointer  to  a  widgetclass,   and
+        widgetclass  is   an  already-constructed   widgetclass   record
+        produced by class_cons(widgetclass_key).
+
+        exptr is imported using XptImportWidgetClassPtr, i.e.
+
+            XptImportWidgetClassPtr(exptr) -> wc_desc;
+
+        and wc_desc is assigned into  the pointer field of  widgetclass.
+        The widgetclass  record  is  also registered  as  the  preferred
+        representation of the pointer, i.e.
+
+            widgetclass -> XptRegister(wc_desc);
+
+        (meaning that any  subsequent calls  of XptImportWidgetClass  or
+        XptImportWidgetClassPtr on an exptr  with the same pointer  will
+        return widgetclass).
+
+
+widgetclass_key                                               [constant]
+        The key structure for widgetclass  records given as argument  to
+        XptPopImportWidgetClassPtr (usually by XptLoadWidgetClass).
+
+
+
+--- C.x/x/pop/ref/xpt_coerce
+--- Copyright University of Sussex 1993. All rights reserved.

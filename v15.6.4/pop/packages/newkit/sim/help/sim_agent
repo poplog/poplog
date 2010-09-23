@@ -1,0 +1,2461 @@
+HELP SIM_AGENT                                    Aaron Sloman June 1996
+                                                Last updated 22 Apr 2002
+
+http://www.cs.bham.ac.uk/research/poplog/sim/help/sim_agent
+
+Major upgrades:
+    Version 5.0 July 1999
+    Version 6.0 July-August 2000
+
+    See
+        HELP sim_agent_news
+        HELP prb_news
+
+
+LIB SIM_AGENT
+
+A toolkit for building simulated interactive agents (and objects) with
+various architectures. To make everything available, assuming it has
+been installed in your local poplog directory, do
+
+    uses newkit
+
+
+
+CONTENTS - (VED users, use ENTER g to access required sections)
+
+ -- Overview
+ -- Types of potential applications
+ -- Implementation overview
+ -- Warning to experienced AI users
+ -- Availability of Poplog and Sim_agent
+ -- Introductory documentation
+ -- -- The OBJECTCLASS library
+ -- -- The POPRULEBASE library
+ -- -- Ruleclusters (Rulesets and rulefamilies) and rulesystems
+ -- -- The scheduler, SIM_SCHEDULER
+ -- Agents with hybrid architectures
+ -- Two default classes: sim_object and sim_agent
+ -- -- The sim_agent subclass
+ -- -- Class sim_object
+ -- -- Class sim_agent
+ -- The top level object scheduler: sim_scheduler
+ -- sim_scheduler_objects: returns the final list of objects
+ -- Different sorts of objects (agents, instruments, reactors, etc.)
+ -- External and internal behaviour
+ -- The package is neutral regarding the ontology used
+ -- -- compound/non-compound objects
+ -- -- Non-compound objects may be internally complex
+ -- -- Objects may be active or passive
+ -- -- Choice of ontology
+ -- Choice of internal agent architecture
+ -- The representation of time
+ -- More on how sim_scheduler works
+ -- -- The internal behaviour of objects: sim_run_agent
+ -- -- The basic sim_run_agent method (for sim_object instances)
+ -- -- The sim_agent version of sim_run_agent
+ -- Extra Poprulebase actions
+ -- -- [STOPAGENT <message>]
+ -- -- [STOPAGENTIF ?<var> <message>]
+ -- Methods for tracing within sim_run_agent
+ -- Re-directing trace print output: veddiscout
+ -- Method for initialising objects: sim_setup
+ -- Procedure for adding or removing objects: sim_edit_object_list
+ -- Procedure run after each time-slice: sim_post_cycle_actions
+ -- Pseudocode summaries of the main methods
+ -- The external behaviour of objects
+ -- Types of complex agent architectures supported
+ -- Summary of key ideas
+ -- Warning: recompiling rulefamily definitions
+ -- Note on efficiency of POPRULEBASE
+ -- Notation: use of prefixes 'sim_', etc.
+ -- How to compile the package
+ -- Using the package.
+ -- Global variables
+ -- . sim_myself
+ -- . sim_objects
+ -- . sim_cycle_milliseconds
+ -- . sim_stop_this_agent
+ -- . sim_stopping_scheduler
+ -- . sim_cycle_number
+ -- . sim_dbsize
+ -- . sim_lock_heap
+ -- . sim_minmemlim_after_lock
+ -- . sim_noprint_keys
+ -- . sim_use_ruleset_names
+ -- . sim_unique_cluster_name
+ -- Typical rule-sets: some examples
+ -- Example formats for internal agent databases
+ -- -- New raw sensory data.
+ -- -- Message formats
+ -- -- Possible additional message formats
+ -- -- Current beliefs about the environment
+ -- -- Current motivators
+ -- -- Current plans
+ -- -- Current actions
+ -- -- Outgoing messages
+ -- Miscellaneous procedures
+ -- -- sim_present(pattern, object) -> false or item
+ -- -- sim_in_database(pattern, object) -> false or item
+ -- -- sim_flush(pattern, object)
+ -- -- sim_flush1(pattern, object)
+ -- -- sim_stop_agent();
+ -- -- sim_stop_scheduler();
+ -- -- sim_scheduler_finished(objects, cycle);
+ -- -- sim_data_precedes(item1, item2) -> boole
+ -- -- :method sim_syspr_db(agent:sim_object, keys);
+ -- -- sim_pr_db(agent, keys)
+ -- -- sim_pr_db(agent);
+ -- Other work
+ -- Index of classes, procedures and methods
+ -- About Poplog
+ -- -- Email list and net news group
+ -- -- Note for readers who are not Poplog users
+ -- How to get further information
+ -- -- on Objectclass
+ -- -- on POPRULEBASE
+ -- Acknowledgements
+ -- Further reading
+
+-- Overview -----------------------------------------------------------
+
+SIM_AGENT is an experimental toolkit designed to support exploration of
+design options for one or more objects interacting in simulated discrete
+time under the control of a "scheduler" which ensures that each object
+is "run" in each time-slice.
+
+The distinctive feature of this toolkit is the support it gives for
+exploring a wide variety of alternative architectures for agents,
+including agents with complex internal mechanisms, some symbolic and
+some neural, etc.
+
+The objects may exist totally within a single simulated "world" running
+in one process, or they may communicate with other software packages or
+with real machines, via sensors or motor control signals. The package is
+intended especially to support the design of architectures for agents of
+varying degrees and types of intelligence, including agents that
+incorporate AI techniques (both rule-based systems and such things as
+neural nets where appropriate).
+
+This makes the system suitable for a variety of applications, including
+adventure games involving a number of interacting characters, control
+mechanisms in which a number of different components concurrently
+monitor and send control signals to various parts of a complex machine
+or factory, and for exploring designs for more or less human-like
+agents, interacting with other agents and objects. It is being used at
+DERA Malvern, the University of Nottingham, The University of
+Birmingham, and possibly other places.
+
+The toolkit provides some "low level" but very general facilities, and
+it is intended that a variety of libraries will be built on top of it,
+supporting various kinds of agents and objects.
+
+The toolkit is implemented in Poplog Pop-11, and requires at least
+Poplog Version 15.
+
+
+Using Pop-11 via either the Poplog editor VED, or Emacs with Poplog
+access capabilities added, makes development and incremental testing
+very rapid. E.g. after changing a ruleset or method definition it takes
+a fraction of a second to recompile it and continue running tests.
+
+Sim_agent makes use of two recent additions to Pop-11, the Objectclass
+library and the Poprulebase library. To these, the package adds a fairly
+simple but general and tailorable scheduling mechanism for running
+simulations. There are also very flexible graphical interface
+based on the Poplog RC_GRAPHIC and RCLIB packages. In particular
+LIB sim_harness and LIB sim_picagent, provide graphical interface
+tools built on Sim_agent and Rclib.
+
+
+-- Types of potential applications ------------------------------------
+
+The package is intended to be very general, in order to support
+open-ended exploration of designs for interacting agents. Thus, it
+should be equally useful in all the following cases:
+
+o Situations where the application is a total simulation, e.g. including
+  agents and the environment in which they act
+
+o Cases where part of the simulation is another program
+    (In this case a mechanism will be needed that enables the two
+    programs to communicate. This may best be done by representing the
+    other program as a complex object (or several complex objects) in
+    the world, and allowing the communication between the two processes
+    to be handled as an "internal" process in the surrogate object.)
+
+o Cases where the application is connected to a real environment, e.g.
+  sensors and effectors in a chemical plant or robot.
+    (Again the external devices may be represented by objects or agents
+    in the control package, and the communication with the real
+    environment handled through "internal" processes in the
+    surrogates, e.g. reading from or writing to external interfaces.)
+
+o Cases where the simulation (or control system) is split across
+    different computers or different Unix processes on one computer
+    (e.g. a multi-processor machine). However in this case parallel
+    implementation will not be automated. The designer will have to
+    arrange the split. Pipes or sockets can be used to ensure
+    communication and (where desirable) synchronisation of the different
+    concurrently executing parts of the system.
+
+
+-- Implementation overview --------------------------------------------
+
+The toolkit is written in Pop-11 within the Poplog system. It needs
+Poplog Version 15.5 or later. Poplog provides incremental compilers for
+POP-11, Prolog, Common Lisp and Standard ML, as well as a wide variety
+of facilities for interacting with external routines, asynchronous event
+handlers, the X window system, graphical libraries, etc. all of which
+are accessible from within the toolkit. Further information about Poplog
+is provided near the end of this file.
+
+SIM_AGENT is composed of a collection of separate modules all written in
+Pop-11 and built on top of:
+
+o The Pop-11 Objectclass library,
+    (See HELP * OBJECTCLASS_EXAMPLE and TEACH * OOP)
+
+o The Pop-11 pattern matcher
+    (See HELP * MATCHES, TEACH * MATCHES)
+
+o The Poprulebase system for defining and running condition-action
+  rules,
+    (See TEACH * RULEBASE, HELP * POPRULEBASE)
+
+o The Rulesystem extension to Poprulebase, which permits construction of
+  a collection of interacting rulesets and rulefamilies communicating
+  via an agent's database,
+    (See HELP * RULESYSTEMS or
+         ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/prb/help/rulesystems )
+
+o The FILTER and MAP extensions to Poprulebase supporting communication
+  between rules and neural nets or other "sub-symbolic" mechanisms in a
+  principled fashion
+    (See HELP * PRB_FILTER)
+
+o The Pop-11 rc_graphic library for interactive graphics, and some
+  extensions to the library developed at Birmingham (still in progress)
+    (See TEACH * RC_GRAPHIC, HELP * RC_GRAPHIC, HELP * RCLIB)
+
+and other mechanisms.
+
+The SIM_AGENT library adds a simple but general mechanism built on these
+tools for implementing a collection of interacting agents or objects.
+
+Essentially a list of objects and agents is given to the procedure
+sim_scheduler, which then repeatedly allows each item to sense its
+environment, perform some internal processing, and then act on the
+environment, including sending messages, to be received during the next
+cycle.
+
+Because the implementation uses Object Oriented Programming, with most
+facilities defined as methods, users can define new sub-classes of
+objects, or agents, and tailor the methods to suit their sub-classes,
+without altering any code in the library.
+
+A very simple demonstration, is available in the TEACH * SIM_DEMO file,
+showing in outline how to construct two "teams" of interacting agents.
+
+A more complex introductory example showing how to use a graphical
+control panel and pictures displaying `emotions' of simulated agents can
+be found in TEACH SIM_FEELINGS. There is a simulated sheepdog which
+heards sheep in TEACH SIM_SHEEPDOG.P
+
+If you are not a Poplog user you may find it helpful to see the note
+below on Poplog's online documentation. See the section headed
+    Note for readers who are not Poplog users
+
+
+-- Warning to experienced AI users ------------------------------------
+
+WARNING: if you have had experience of other rule-based systems please
+do not assume, without checking, anything from previous systems
+generalises to poprulebase.
+
+This system is very general and flexible, and the defaults are probably
+not what you expect, though you can probably make it do what you want,
+e.g. emulate another system!
+
+If in doubt email A.Sloman@cs.bham.ac.uk
+
+For general queries about Pop-11 and Objectclass either email
+    pop-forum@cs.bham.ac.uk
+
+or post to the comp.lang.pop net news group (each is gatewayed to the
+other).
+
+-- Availability of Poplog and Sim_agent -------------------------------
+
+The sim_agent toolkit requires Poplog version 15.5 or later. This is
+available at the Free Poplog Web Site:
+
+    http://www.cs.bham.ac.uk/research/poplog/freepoplog.html
+
+It runs on a variety of Unix/Linux platforms and is available without
+graphics on Windows/NT on a PC. However a more up to date and more
+general version include graphics is available for Unix/Linux systems.
+
+The toolkit including Sim_agent, Poplrulebase and Rclib is available via
+that web page.
+
+A more general introductory overvew of the toolkit is available at
+
+    http://www.cs.bham.ac.uk/~axs/cog_affect/sim_agent.html
+
+See also
+
+    Aaron Sloman and Brian Logan,
+       Building cognitively rich agents using the Sim_agent toolkit,
+        Communications of the Association of Computing Machinery,
+        vol 42, 3, pp. 71--77, March, 1999,
+
+
+-- Introductory documentation -----------------------------------------
+
+A tutorial overview is provided in TEACH SIM_AGENT, and executable
+demonstrations are in TEACH SIM_DEMO, TEACH SIM_FEELINGS.
+
+Readers who are already familiar with Objectclass and Poprulebase may
+find it helpful to start with those two files, and then read the rest of
+this file for more detailed information.
+
+Others are advised first to explore these:
+
+    Objectclass (see TEACH OBJECTCLASS_EXAMPLE, TEACH OOP)
+        Provides an introduction to object-oriented programming.
+
+and
+    Poprulebase (see TEACH RULEBASE).
+        Provides an introduction to rule-based programming.
+
+The Pop-11 primer
+    TEACH PRIMER
+or
+        http://www.cs.bham.ac.uk/research/poplog/primer/
+
+gives an overview of the core Pop-11 language
+
+
+-- -- The OBJECTCLASS library
+
+This was designed and implemented mainly by Steve Knight Leach while he
+was at Hewlett Packard research laboratories, and distributed with
+Poplog version 14.5, adding sophisticated Object Oriented Programming
+techniques to Pop-11.
+
+The use of Objectclass, allows the Sim_agent package to define various
+generic methods for manipulating objects and agents, whose behaviour can
+be overridden automatically by more specific methods defined by users
+for the user-defined sub-classes.
+
+This permits great flexibility in the use of the SIM_AGENT package: the
+general object structures and methods are designed to cover the minimal
+default requirements, but they can be selectively modified by users for
+particular sorts of objects, without any of the original source code
+being modified.
+
+By default, Objectclass methods are used mainly for the "external"
+behaviour of objects, i.e. the behaviour that involves sensing and
+interacting with other objects. The internal (information processing)
+behaviour is implemented using Poprulebase. However Objectclass methods
+can be invoked by Poprulebase rules (see below) for "internal"
+processing, where appropriate, as can other facilities in Poplog, e.g.
+the Prolog subsystem, external interfaces, etc.
+
+-- -- The POPRULEBASE library
+
+This was developed at the University of Birmingham. It provides a
+sophisticated and flexible forward chaining production system
+interpreter for "rule-based" programming, such as is often used in
+expert systems.
+
+The key idea is very simple: a database of information is operated on by
+sets of condition-action rules, whose conditions (are mainly) matched
+against the contents of the database, and whose actions (mainly) make
+changes to the database, by adding and removing items. Poprulebase
+allows multiple databases and multiple sets of rules, so it can be used
+to implement a collection of interacting rule-based systems. Facilities
+designed by Riccardo Poli and described in HELP * PRB_FILTER allow
+condition action rules to interface smoothly with neural nets or other
+non-symbolic mechanisms.
+
+In the sim_agent toolkit, the interaction with "the rest of the world"
+is implemented via "sensor" and "effector" methods associated with each
+agent, which transfer information from outside outside agent into its
+internal database, at the beginning of each simulated time slice, and
+from inside the database to "motor" procedures at the end of each time
+slice.
+
+Different classes of agents can have different sorts of sensors and
+different sorts of action capabilities.
+
+The user is not forced to use sensor methods. An agent could be an
+abstract virtual machine interacting only with a user via the terminal.
+In that case its list of sensors will be empty.
+
+There are similar mechanisms which enable agents to transmit messages to
+one another, though there is no obligation to use those mechanisms.
+
+The use of sets of condition-action rules often allows great flexibility
+in specifying behaviour in situations where it is hard to predict the
+order in which various sub-abilities will need to be invoked. By
+allowing conditions which become satisfied to trigger actions, we can
+avoid the problems of over-commitment associated with flow-chart style
+of programming or even functional programming. (Of course, this can also
+make it more difficult to understand and control such a system. To help
+with this task, very flexible debugging and tracing tools are provided,
+which can be turned on and off selectively for individual rulesets or
+individual agents.)
+
+When a rule-based system is used in an expert system it is often useful
+to have a "conflict-resolution" mechanism to choose between rules whose
+conditions are satisfied. In the SIM_AGENT library we assume that within
+an agent different rules may perform different, and possibly
+independent, tasks, so we allow different rules whose conditions are
+satisfied to run in each time-slice, simulating a parallel
+implementation, unlike the sort of expert system that allows only one
+rule to run on each cycle.
+
+However, it is possible to impose different control strategies on
+different rulesets, using the [DLOCAL ...] mechanism described in the
+file HELP * RULESYSTEMS, added to Poprulebase in May 1996, generalising
+the Pop-11 dlocal (dynamic local expression) mechanisms.
+
+Thus some rulesets, simulating low level "reactive" mechanisms, may
+allow ALL rules with satisfied conditions to run, whereas others, in
+"deliberative" mechanisms, will require a choice to be made among
+runnable rules, using appropriate selection mechanisms. An agent may
+include rulesets of both types, corresponding to different parts of the
+architecture. Some agents may be purely reactive, while others have both
+reactive and deliberative components in their architecture.
+
+By repeatedly switching between rulesets within each agent the toolkit
+simulates concurrently running modules within an agent's architecture.
+
+By designing some rulesets to leave records of their behaviour in the
+local database within an agent, which will then be examined by other
+rulesets, we can provide support not only for communication between
+modules but also for self-monitoring programs, which concurrently
+monitor the behaviour of other programs and themselves, and perhaps
+change some of the rules.
+
+To implement these ideas, the SIM_AGENT package uses Poprulebase by
+default for the "internal" behaviour of objects. E.g. within an
+intelligent agent different sets of rules and databases may be used for
+purposes such as perceptual processing, decision making, learning,
+reasoning, planning, interpreting incoming messages, composing messages
+to other agents, and so on.
+
+The scheduler is given a list of objects and applies the sim_run_agent
+method to each object. By default the method finds the object's
+rulesystem, composed of many rulesets and rulefamilies and runs them
+all, possibly more than once in each time-slice if it is an agent whose
+internal processes are meant to go faster (in simulated time) than
+others.
+
+This default implementation strategy can be overridden for particular
+agent classes, which might be implemented in other ways. For such
+classes the sim_run_agent method will need to be redefined. E.g. for
+some agents the sole internal mechanism might be a neural net. For
+others a combination of mechanisms is possible.
+
+Readers outside Birmingham can get information about Poprulebase from
+    http://www.cs.bham.ac.uk/research/poplog/prb/help/poprulebase
+    http://www.cs.bham.ac.uk/research/poplog/prb/help/rulesystems
+
+-- -- Ruleclusters (Rulesets and rulefamilies) and rulesystems
+
+A particular sub-module in an agent's architecture can be implemented as
+a ruleset or a rulefamily (collection of cooperating rulesets) operating
+either on a general database in the agent or on a collection of
+specialised databases within the agent. Several such rulefamilies may be
+combined into a rulesystem, used for the internal processing of an
+agent. The syntax for such definitions is given in HELP * RULESYSTEMS
+
+During execution an agent can change its own rulesets or switch between
+databases (for instance when switching problem-spaces as in SOAR).
+
+Different classes of objects can be associated with different
+rulesystems, so that different internal agent architectures can coexist
+in the same total system. Two rulesystems may share some rulefamilies or
+rulesets.
+
+-- -- The scheduler, SIM_SCHEDULER
+
+This procedure is given a list of objects, and a number of simulated
+time-slices for which it is to run.
+
+It repeatedly cycles through the list. Before running the each agent it
+checks whether its sim_setup_done slot is false, and if so applies
+sim_setup to it. This enabls new agents to be added at run time.
+
+With each object it runs the sensor actions, if there are any, and
+transfers sensor data into the internal database. If there are incoming
+messages it transfers them into the internal database. It then runs the
+internal actions associated with the objects (i.e. its rulesystem). At
+the end of the time-slice, after all agents have had their internal
+actions run, the pending messages are transferred and any pending
+external actions actions are run.
+
+Each cycle is taken to represent one "time-slice" within which a limited
+amount of processing can occur. (For some applications this can be the
+same as real time.)
+
+The toolkit supports mechanisms for varying the amount of processing of
+different types that occurs within each time-slice. This supports
+exploration of agent architectures in which there are different resource
+limits.
+
+Exactly what each agent does in each time-slice depends on the classes
+to which it belongs. The classes determine which methods are associated
+with the object, including methods for sensory input and methods for
+acting on the environment (other objects).
+
+The class also determines which default rulesystem (a collection of
+rulesets and rulefamilies) the object uses for its internal processing,
+and possibly also what sorts of database items the object contains to
+start with.
+
+The behaviour of an individual agent also depends on the contents of its
+databases, and in some cases also on how its history has changed its
+rulesets.
+
+-- Agents with hybrid architectures -----------------------------------
+
+For objects or agents whose internal processing requires something other
+than a set of condition-action rules, it is easy to have rules that
+invoke other specialised mechanisms, e.g. neural nets, parsers, theorem
+provers, planners a prolog program, a C program. Moreover, POPRULEBASE
+incorporates some suggestions from Riccardo Poli for implementing hybrid
+systems in which symbolic rules interact with "sub-symbolic" mechanisms
+such as a trainable neural net.
+
+For example, instead of a rule directly selecting actions when all of
+its conditions are satisfied, it can collect information about which
+conditions are satisfied, and how they are satisfied, and then hand that
+information to a (possibly trainable) "filter" program, which learns
+which combinations of actions to select for various combinations of
+satisfied conditions.
+
+(See Poli and Brayshaw 1994, and HELP * PRB_FILTER. This mechanism is
+likely to be extended and generalised).
+
+
+-- Two default classes: sim_object and sim_agent ----------------------
+
+Some very general properties of interacting objects are implemented in
+the basic library.
+
+The top level class, sim_object, is used to define a default type of
+behaving object, whose external behaviour is specified via methods, and
+whose internal behaviour is assumed to be controlled by Poprulebase
+rulesets or rulefamilies (sets of rulesets). The scheduler uses the
+sim_run_agent method to run each instance in each time-slice.
+
+This accesses the sim_rulesystem slot of the object to find out which
+sets of condition-action rules are to be used for its internal
+processing. The contents of the slot will be a set of simple or complex
+rulefamilies. A simple rulefamily is just a ruleset, such as is supported
+by Poprulebase. A rulefamily is a combination of rulesets any one of
+which can be active at a time. The list of rulefamilies forming a
+rulesystem can be created using the syntax form
+
+    define :rulesystem
+
+explained in
+
+    HELP * RULESYSTEMS
+    HELP * NEWKIT
+
+and illustrated in TEACH * SIM_DEMO
+
+The rules need to act on a database. Each object has its own local
+database stored in the sim_data slot, not (normally) directly accessible
+by other objects. (Items intended to be accessible "from outside" the
+object will generally be in slots that can be accessed by the sensor
+methods of other objects, e.g. to find the location of the object, or
+whether it is alive or dead, healthy or ill.)
+
+The type of database used in the sim_agent library is not the standard
+Pop-11 database (described in HELP * DATABASE), but the form of database
+used by Poprulebase, in which items in the database are indexed more
+efficiently. This means that the ordinary Pop-11 procedures for
+accessing the standard database do not work, and instead there are new
+procedures described in HELP * POPRULEBASE.
+
+The form of indexing used is not the most sophisticated form of indexing
+possible, but for many experiments will allow far greater efficiency
+than the standard Pop-11 database which stores everything in a single
+list. A more sophisticated form of index might require undesirable
+restrictions on the types of conditions and actions.
+
+-- -- The sim_agent subclass
+
+A subclass of the sim_object class, name sim_agent, adds the ability to
+receive and send messages. A more specialised version of the
+sim_run_agent method handles the extra actions required for reading in
+messages at the beginning of each time-slice and for preparing them for
+transmission at the end. In between it invokes the main sim_run_agent
+method.
+
+Users can then define various specialised categories of objects and
+agents derived from these classes. The derived classes will inherit
+properties and methods from their superclasses, but may have additional
+features and behaviours defined by more specialised methods and
+rulesets.
+
+The definitions of these classes, in LIB * SIM_AGENT are as follows
+
+-- -- Class sim_object
+
+define :class sim_object;
+    ;;; The top level simulation agent class
+    slot sim_name = gensym("object");
+
+    ;;; The object is given a word based on its name, to be used as the
+    ;;; argument for gensym in sim_setup
+    slot sim_component_root == false;
+
+    ;;; A table for mapping words to rulesets, etc.
+    slot sim_valof = newproperty([], 17, false, "tmparg");
+
+    ;;; If an agent has speed N, then it runs N times in every cycle
+    ;;; of the scheduler.
+    slot sim_speed == 1;
+
+    ;;; Default third argument for prb_run, for each ruleset.
+    ;;; Determines default number of cycles per ruleset, per time slice.
+    ;;; overridden by "with_limit" in rulesystem definitions.
+    slot sim_cycle_limit == 1;
+
+    ;;; Interval at which this object will run. Default - every cycle
+    slot sim_interval == 1;
+
+    slot sim_status == undef;   ;;; could be "alive" "dead", "ill", etc.
+
+    ;;; Each object has a database of local information
+    ;;;     held in a property table
+    ;;; and a default collection of rulesets set up on each cycle
+    ;;; by sim_run_agent. NB must be "=", not "==".
+    slot sim_data = prb_newdatabase(sim_dbsize,[]);
+
+    ;;; make this non-false if the agent is to have a shared database
+    slot sim_shared_data == false;
+
+    ;;; Initial list of rulesets, etc. defining the processing architecture
+    ;;; for this agent. Replaced by database entries in sim_setup
+    slot sim_rulesystem == [];    ;;; A list of rulesets and rulefamilies
+
+    ;;; Save original rulesystem here in sim_setup
+    slot sim_original_rulesystem == false;
+
+    ;;; A list of sensors that will be run in each time-slice to get new
+    ;;; sensory data. Each item in the list could be of the form
+    ;;; {procedure range} The procedure is applied to every object
+    ;;; within the range from this object. Default uses sim_sense_agent
+    ;;; and a very large range
+    slot sim_sensors = [{sim_sense_agent %1.0e33%}];
+
+    ;;; Slot for sensory input in formats defined by application,
+    ;;; e.g. [new_sense_data ?object ?range ....]
+    ;;; New data inserted after running sensor methods. Then transferred
+    ;;; to internal database.
+    slot sim_sensor_data == [];
+
+    ;;; Slots for actions to be done in the world
+    ;;; Action specifications transferred here from internal database, then
+    ;;; run at end of each time-slice.
+    slot sim_actions == [];
+
+    ;;; Made true by the sim_setup method
+    slot sim_setup_done = false;
+enddefine;
+
+
+(Note: the sim_rulesystem slot replaces the sim_rulesets slot which
+existed in earlier versions.)
+
+Other slots may be added later. However, most requirements, e.g. slots
+for graphical information, can be met via mixins.
+
+E.g. TEACH SIM_FEELINGS shows how to use graphical mixins.
+
+-- -- Class sim_agent
+
+define :class sim_agent; is sim_object;
+    ;;; The top level simulation agent class
+
+    slot sim_name = gensym("agent");
+
+    ;;; slots for incoming and outgoing messages, and actions to be done
+    ;;; in the world. (Not in class sim_object)
+    slot sim_in_messages == [];
+    slot sim_out_messages == [];
+enddefine;
+
+NB: the precise definition of the above two classes may change. The most
+recent definitions can be found in LIB SIM_AGENT.
+
+-- The top level object scheduler: sim_scheduler ----------------------
+
+We turn now to a more detailed specification of the scheduler.
+
+The scheduler is the "top level" procedure in the package and is run by
+a command of the form
+
+    sim_scheduler(<objects>, <lim>);
+
+where <objects> is a list of all the objects (including active agents)
+involved in the interaction, and <lim> is an integer specifying the
+number of time-slices for which the process should run, or false if the
+process should run forever.
+
+The objects should all be instances of either or both of the two object
+classes sim_agent and sim_object (described below), so that methods
+appropriate to the class can be applied to them to make them run, or to
+perform some of their actions.
+
+Before running an object sim_scheduler applies the method sim_setup to
+it if it has not already been done. This modifies the contents of the
+sim_rulesystem slot, and transfers the contents of the rulesystem to the
+database, as described in HELP NEWKIT.
+
+While running, sim_scheduler assigns the list <objects> to the global
+variable sim_objects so that methods that need to be able to access the
+list of all objects in the simulation can do so. It repeatedly ensures
+that every object on the list gets a chance to run in each time-slice.
+What running actually means depends on the classes to which the object
+belongs. The default is described briefly below.
+
+Users can define sub-classes of objects or agents for which more
+specific versions of the methods are defined, and these will
+automatically over-ride the generic methods (though they can invoke the
+generic methods if necessary).
+
+-- sim_scheduler_objects: returns the final list of objects
+
+This procedure is available which is like sim_scheduler, but returns
+the current list of objects when it terminates. This is useful in cases
+where the simulating adds and removes objects while it runs.
+
+define sim_scheduler_objects(objects, lim) -> objects;
+    ;;; run sim_scheduler and return the final set of objects
+
+    sim_scheduler(objects, lim);
+
+    final_objects -> objects;
+
+enddefine;
+
+The variable final_objects is lexically scoped in the library and cannot
+be accessed by users, though while the simulation is running the global
+variable sim_objects has as its value a list of the objects.
+(In a proposed extension this will be a vector of lists.)
+
+-- Different sorts of objects (agents, instruments, reactors, etc.) ---
+
+Some of the objects are described as "agents" because they initiate
+their own behaviour, while others are passive. Passive objects may be
+perceived by agents, may be acted on by agents and may have causal
+influences on agents or other objects. I.e. the package can support
+general simulations of physical processes, such as planets in a solar
+system, or current oscillations in an electric circuit, though it may
+not be the most efficient or the most convenient system to use for
+certain specific applications.
+
+Agents and passive objects may interact with one another in a variety of
+ways, including causal interactions (e.g. pushing) and in the case of
+more intelligent agents communication via an explicit communication
+language. (In general there will also be a need for one or more internal
+languages used for recording and manipulating information rather than
+for external communication.)
+
+Although communication can be seen as simply a specific form of action
+on another object, the package allows communications (message transfers)
+to be treated a distinct type of action, as this may be helpful for
+tracing and debugging, and it may be useful to standardise on particular
+forms of communication for agents developed independently.
+
+-- External and internal behaviour ------------------------------------
+
+Each object or agent may have two kinds of behaviour, and sensors:
+
+o External behaviour, is detectable by or which affects other objects or
+  agents, and involves changing externally detectable state, such as
+  location or velocity. The two general categories of external behaviour
+  are sending messages (in the case of sim_agent instances) and
+  performing actions (all sim_object instances).
+
+o Internal behaviour involves some sort of internal state and mechanisms
+  for changing that state, usually collections of condition-action
+  rules.
+
+o An object's sensors give it information about other objects. Different
+  classes of objects will have different numbers and types of sensors.
+
+-- The package is neutral regarding the ontology used -----------------
+
+Apart from the requirement for discrete time-slices and clearly
+separable objects (unlike parts of a fast flowing river, perhaps) the
+package is not prescriptive: in itself it does not enforce an ontology,
+nor does it specify an architecture for agents, nor any specific type of
+behaviour. It may prove useful to think about different sorts of objects
+in accordance with the following general categories, though the toolkit
+does not enforce this.
+
+-- -- compound/non-compound objects
+
+We have already indicated that an object may have a complex internal
+architecture consisting of interacting rulesets and databases. It is
+also possible to define some sorts of objects as *compound* objects,
+which are composed of other objects in the same simulation (some of
+which may also be compound). In that case the different components of
+the compound object will be run separately by the scheduler on each
+cycle.
+
+Examples of compound objects might be a forest (composed of paths,
+trees, etc.), a town (composed of roads, houses, parks, people,
+vehicles, etc.) a house (composed of rooms, doors, etc.) a family
+(composed of various people), an army platoon, an animal composed of
+separately mobile body parts, and so on.
+
+Whether an object (e.g. a house) needs to be composed of parts that are
+themselves objects in the global list will depend on the kinds of
+interactions that are desired. It is up to the user to design an
+ontology that is adequate to the task.
+
+If the object is non-compound, then on each cycle the scheduler runs
+the object once using the method sim_run_agent, and it is up to that
+method to ensure that any internal components change as required.
+
+If the object is compound, the various parts will be instances of
+sim_agent or sim_object, and represented separately on the list of
+objects. So the sim_run_agent method will be applied to each of them on
+each cycle of the scheduler.
+
+-- -- Non-compound objects may be internally complex
+
+An object which is non-compound may nevertheless be complex, insofar as
+it has a complicated internal architecture, with several databases and
+rulesets, and possibly other internal mechanisms.
+
+In many cases the internal architecture of an agent will include several
+instantiations of Poprulebase.
+
+Which sorts of objects are best represented as compound and which not,
+is a matter for further study.
+
+-- -- Objects may be active or passive
+
+Some of the objects are purely passive and merely provide obstacles,
+dangers, tools, etc. for other objects (e.g. walls, ditches, ladders,
+roads). These are objects that do not initiate any spontaneous changes
+of state. Usually they will have no internal behaviour (at least within
+the simulation.)
+
+Active objects change their state spontaneously, i.e. without the
+intervention of other objects. Examples are volcanoes, people, traffic
+lights.
+
+Some of the active objects merely obey physical laws, whereas others,
+which we call agents, take in and manipulate information and vary their
+behaviour as a result of processing information, including attempting to
+achieve goals. The division between agents and non-agents is not very
+sharp.
+
+Many active objects are not agents. A battery whose charge runs down, a
+volcano that erupts from time to time or a tree that grows would be
+examples of active objects, though they are not agents.
+
+Some passive objects become active under the control of agents, e.g.
+cars, spears, drills, screwdrivers, and we can refer to these as
+`instruments'.
+
+Other passive objects may produce behaviour by reacting to impact or
+pressure (e.g. a wall pushes away something that collides with it).
+These might be called `reactors'.
+
+Agents that generate their own goals or motivators. are `autonomous'.
+Agents that merely attempt to achieve goals provided by other agents or
+human users are not autonomous.
+
+There is no simple agreed definition of `intelligent' but in general
+intelligent agents will at least include internal states that represent
+other objects and processes and possibly the agent itself. It may or may
+not also be autonomous.
+
+These distinctions are all provisional and ``fuzzy''.
+
+(See Sloman and Poli 1995)
+
+-- -- Choice of ontology
+
+Whether something is treated as a single object with a complex and
+changing internal state, or treated as a collection of objects
+explicitly handled separately by the main scheduler, is entirely up to
+the user. Similarly if the application involves a lot of objects moving
+around a region of the world, it is up to the user to decide whether to
+represent only the objects and their mutual relationships or whether
+there should also be a "physical world" object that records all
+locations including those occupied by other objects (e.g. it might
+include a 2-D array of locations).
+
+Similarly, whether the changes of location in the world are represented
+by varying values of slots in individual objects or simply by altering
+the locations of the objects within the object that represents the world
+(e.g. a 2-D grid) will depend on the application.
+
+Another issue that will be application-specific is whether objects can
+come into and out of existence (e.g. new individuals being born, or
+dying) and if so how this is managed. For instance do all the possible
+objects have to be created in advance and managed by the scheduler
+throughout, with some indication as to whether they do not yet exist, do
+exist or no longer exist, or should they be created only when required,
+and removed from the set of managed objects when they are destroyed?
+
+There can be no general answer to this, as it will depend on the
+application, including, for instance, whether users need to be able to
+interrogate the system without knowing which objects no longer exist.
+
+Which sort of decomposition into objects is best will be a matter of
+what the objectives of the simulation are, and to some extent merely a
+matter of convenience. There is much written about this in books on
+object oriented design (some of which are referred to in TEACH OOP).
+
+Sometimes it will be hard to decide between alternative ontologies
+without actually trying them out in order to explore their implications.
+Sometimes there will be no best way to do it: each option may have its
+own costs and benefits and analysing these tradeoffs could be a valuable
+research exercise, typical of the study of the relationships between
+nich space (the space of sets of requirements) and design space.
+
+-- Choice of internal agent architecture ------------------------------
+
+For similar reasons, the package is also not intended to prescribe the
+internal architecture of the objects or agents: though it is intended to
+support the experimental study of alternative architectures. It may not
+be totally general (the simulation of analog circuitry may be best done
+some other way), but it does cover a wide range of possible
+architectures.
+
+In some applications the architectures used may be very simple and
+largely the same for all agents (e.g. simulating a collection of moving
+marbles, or a colony of microbes). In other applications, agents may
+have a very complex architecture, which may be different for different
+agents. Moreover, for some agents the architecture may change over time
+as the agent develops.
+
+The package does not in itself include specifications for behaviour of
+particular types of agents or of objects. Rather it provides a
+formalism and mechanisms that allow various kinds of interacting
+entities to be specified and to be run in a simulated world that can be
+based on a succession of time-slices in which there are discrete
+changes.
+
+In particular, it was designed to support exploration of the
+implications of resource limits in intelligent agents. So it allows the
+amount of internal processing in each time-slice that is given to
+particular agents, or to particular sub-modules within an agent, to be
+varied, though it cannot easily be varied continuously where the
+internal processes are inherently discrete.
+
+One way of allowing a particular agent or class of agents to do more
+processing in each time-slice is to give its sim_speed slot a value
+other than 1: if the value is N then the agent is "run" N times in each
+time-slice. By varying N it may be possible to explore the effect of
+changing the "internal" resources of some agents relative to others. (In
+order to allow more continuous variation, it would be possible to treat
+N as an average rather than the actual number of runs in each
+time-slice. But this has not been implemented.)
+
+Similarly, in order to allow the internal processing rates to be varied
+relative to the speed of external (physical) processes it may be useful
+to have the amount of physical change produced in each cycle by each
+physical action (e.g. turning, moving, etc.) depend on some global
+variable which can be gradually changed. This is not implemented in the
+global system, but by redefining some of the methods (e.g. the methods
+for transmitting communications or for performing actions that change
+the world) the user can make them sensitive to such a global variable.
+This is the sort of reason why the package uses the OOP paradigm with
+inheritance of methods that can be overridden.
+
+Changing the relative speeds of components WITHIN an agent is achieved
+by the cycle_limit, with_limit and with_interval specifications
+which can be included in a rulesystem definition.
+    These are described in HELP * RULESYSTEMS, HELP * NEWKIT
+
+Using with_interval in a rulesystem specification allows the execution
+of a whole agent, or a ruleset or rulecluster within an agent to occur
+only on every Nth time-slides. Alternatively it can run on every
+time-slice with a given probability.
+
+
+-- The representation of time -----------------------------------------
+
+The scheduler gives each object a chance to "run" in each time-slice.
+What it means for an object to run is defined via methods. Some of the
+methods perform the internal actions for the object, some perform the
+external actions.
+
+It is up to the user to specify for each kind of agent or object what it
+should do within each time-slice. The package does not use real time or
+even cpu time as a basis for interrupting processing, so the software
+should ensure that no agent or object takes control and keeps it
+forever. This allows users the facility to simulate the speeding up of
+processing in a particular subset of agents by allowing them to do more
+in each time-slice. Similarly faster physical motion would be represented
+by larger physical changes in each time-slice.
+
+Specifying relative speeds then, whether of internal processing in an
+agent or of external or physical changes, is entirely up to the user of
+the system.
+
+The package will not be suitable for simulations involving continuous
+change, unless this can be represented to an adequate degree of
+approximation by a succession of small discrete changes. For some
+applications, where very fine-grained timeslicing is required, using
+this package might be far too expensive in time as it has been designed
+to support flexible design and exploratory development through rapid
+prototyping, rather than optimal speed or space efficiency.
+
+
+NOTE: time-slicing is not based on cpu-time because the cpu time measure
+is meaningless relative to the aims of typical simulations. Thus users
+will have to ensure that on each run the rules actually terminate.
+
+The file HELP * RULESYSTEMS gives more information on the allocation of
+cpu resources between different sub-mechanisms within an agent. It also
+explains how, if processors are fast enough, this can also be used for
+real-time simulations or applications.
+
+See HELP * NEWKIT for information on activation intervals.
+
+-- More on how sim_scheduler works ------------------------------------
+
+The objects are assumed to be instances of one of the top level classes
+sim_agent and sim_object, though some of them may also be instances of
+more specific lower level classes defined in terms of this. Thus generic
+methods defined within the sim_agent package may be specialised for
+particular sub-classes of agents with special capabilities. As stated
+above, some of the methods are concerned with internal actions and some
+with external actions.
+
+In each time-slice the scheduler has two runs through the list of
+objects.
+
+o In the first run it allows each objects to sense the state of the
+  world and, if appropriate, receive communications from other agents,
+  and to do as much internal processing as it is entitled to. This
+  processing may include preparing individual actions and communications
+  for some agents.
+
+o On the second run, the scheduler transfers the messages from source to
+  target, and runs the external action routines corresponding to each
+  object that has actions pending.
+
+During both processes various user-definable tracing procedures are
+applied, which may either be used for testing or debugging, or may be
+used to drive a graphical interface. Since these tracing procedures are
+all defined as methods, the user can redefine them differently for
+particular classes of objects.
+
+When an object is being processed it is assigned to the global variable
+sim_myself to facilitate "self-reference" in rules and methods.
+
+
+-- -- The internal behaviour of objects: sim_run_agent
+
+The internal behaviour is produced on each time-slice for each object by
+the method sim_run_agent, which is applied to the object and the list of
+objects:
+
+    sim_run_agent(object, sim_objects);
+
+The exact behaviour depends on whether the object is an instance of
+sim_agent (or one of its subclasses) or only an instance of sim_object
+(or one of its subclasses). The method can be further specialised by
+users for different types of objects or agents. Anyone wishing to do
+this is advised to look a the code for the two definitions of the method
+in LIB * SIM_AGENT.
+
+-- -- The basic sim_run_agent method (for sim_object instances)
+
+The basic method, which is common to both sim_object and sim_agent
+instances, gets the rulesystem stored in the object's sim_rulesystem
+slot, and the database stored in the object's sim_data slot, and for
+each rulefamily within the rulesystem runs it in turn with the database,
+using the poprulebase procedure prb_run (or its lower level routine:
+prb_run_with_matchvars).
+
+This is repeated sim_speed(object) times for the object, allowing some
+objects to do more internal processing than others.
+
+The cycle limit argument for prb_run (its third argument) is obtained
+from the sim_cycle_limit slot of the object. However this can be
+overridden if a different limit is associated with the rulesystem, in
+one of the ways described in HELP * RULESYSTEMS. (For examples see
+TEACH * SIM_DEMO). By allocating different cycle limits to different
+rulefamilies, and to different rulesets within a rulefamily, it is
+possible to vary the resource allocation between sub-mechanisms within
+an object or agent.
+
+To allow the simulation of fairly fine-grained parallelism, it is
+necessary to encode object capabilities so that the default amount
+of processing done in each run is not very large. This can be controlled
+by keeping sim_speed(object) relatively small, and also the numbers that
+control the cycle limits for rulesets.
+
+The method sim_run_agent itself does a little pre-processing before the
+internal actions are performed. In particular it ensures that the
+object's sensor methods are applied in order to get information about
+relevant portions of the rest of the world into the object's internal
+database.
+
+After running the agent's internal actions (in its rulefamilies), does
+some post-processing. It it examines the database to extract an external
+actions, and prepares them for execution, but does not run them. That is
+because running them before all objects have run their internal actions
+in the current time-slice could produce inconsistent states of the
+world.
+
+-- -- The sim_agent version of sim_run_agent
+
+The method for sim_agent instances, uses the basic method described
+above, but does some additional pre-processing and post-processing, on
+the assume that these instances may also communicate with other agents.
+
+The extra pre-processing involves completing the "delivery" of messages
+from other agents from the last time-slice, by transferring them from
+the sim_in_messages slot into the agent's internal database. It then
+uses call_next_method to perform the actions described above, including
+running the internal actions of the the agent. Finally it prepares
+outgoing messages by extracting them from the internal database and
+storing them in the sim_out_messages slot.
+
+-- Extra Poprulebase actions ------------------------------------------
+
+The following two action forms are added to those already available as
+part of POPRULEBASE. (See HELP * POPRULEBASE)
+
+-- -- [STOPAGENT <message>]
+
+Print out the (optional) message, and then abort the current rule and
+exit to the sim_run_agent method, ending execution of the current
+agent's rulesystem in the current time slice. Any pending actions and
+outgoing messages will still be dealt with as normal at the end of the
+current time slice.
+
+-- -- [STOPAGENTIF ?<var> <message>]
+
+This is similar to a STOPAGENT action except that it is controlled by
+the value of the variable. If the variable has any non-false value then
+it behaves like STOPAGENT. Otherwise it does nothing.
+
+(Compare STOP, STOPIF, QUIT, QUITIF actions.)
+
+-- Methods for tracing within sim_run_agent ---------------------------
+
+Several methods (which users can re-define) are provided for tracing the
+behaviour of objects and agents. The method
+
+sim_agent_running_trace(object:sim_object);
+
+    is run just before the main loop in the main sim_run_agent method.
+
+sim_agent_messages_out_trace(agent:sim_agent);
+    This is run only in the sim_agent version of the sim_run_agent
+    method, just before it finishes, to show outgoing messages
+    I.e. this is not defined for the top level class: sim_object
+
+sim_agent_messages_in_trace(agent:sim_agent);
+    This is run only in the sim_agent version of the sim_run_agent
+    method, when it starts, to show incoming messages
+
+sim_agent_actions_out_trace(object:sim_object);
+    Called just after the actions have been transferred from the
+    internal database to the sim_actions slot.
+
+sim_agent_action_trace(object:sim_object);
+    Called just inside the sim_do_actions method, during the second pass
+    of the scheduler, when the external actions are finally run.
+
+sim_agent_ruleset_trace(object:sim_object, rulefamily);
+    Run just before the call of prb_run in the inner loop.
+    Note: rulefamily may be the name of the rulefamily, a rulefamily, a
+    ruleset, the name of a ruleset. I.e. it can be any item that is in
+    the list sim_rulesystem(object). (See HELP * RULESYSTEMS)
+
+sim_agent_endrun_trace(object:sim_object);
+    Run with each object, just after the main loop in which internal
+    actions are run, and just before the actions of the object are
+    transferred from the internal database to the sim_actions slot.
+    This is run after input sensory buffers have been cleared, but
+    before actions and messages are moved to output buffers. I.e.
+    agent's internal database after processing is unchanged.
+
+sim_agent_terminated_trace(object:sim_object, number_run, runs, max_cycles);
+    After each rulesystem is run, this procedure is given the object, the
+    number of actions run other than STOP, STOPIF or STOPAGENT actions,
+    (held in the global variable prb_actions_run, incremented by the
+    rule interpreter), the number of times the rulesystem has been run,
+    the maximum possible number (sim_speed). In the default version, if
+    number_run == 0 then
+        true -> sim_stop_this_agent;
+    so this agent does nothing more in the current time-slice.
+
+    Redefine this method if you want agents to go on trying even if all
+    their rules have found found non-runnable (e.g. if an agent's
+    database can be asynchronously updated "from outside", it may be
+    worth its while to continue running)
+
+no_objects_runnable_trace(sim_objects, sim_cycle_number)
+    Invoked if during a run of sim_scheduler through all the agents
+    not one of them had an action to be performed, other than STOP or
+    STOPIF or STOPAGENT actions.
+
+sim_scheduler_pausing_trace(sim_objects, sim_cycle_number);
+    Invoked by sim_scheduler at the end of each time slice, before
+    sim_edit_object_list and allows arbitrary tracing or pausing
+    mechanisms defined by the user to run, e.g. to interrogate the
+    internal databases of selected objects.
+
+For default values of these methods see LIB * SIM_AGENT
+
+For examples of redefinitions see TEACH * SIM_DEMO
+
+Additional user-definable tracing procedures are defined in
+LIB POPRULEBASE, and summarised in HELP POPRULEBASE
+
+E.g.
+
+prb_checking_conditions_trace(agent, ruleset, rule);
+    ;;; invoked when about to check conditions, before call of prb_forevery
+
+prb_checking_one_condition_trace(agent, condition, rule);
+    ;;; invoked in prb_forevery_sub just before the condition is processed
+
+prb_all_conditions_satisfied_trace(agent, ruleset, rule, matchedvars);
+    ;;; invoked if all conditions satisified.
+    ;;; matchedvars is the list of variables bound
+
+prb_condition_satisfied_trace(agent, condition, item, rule, matchedvars);
+    ;;; invoked when one condition is satisified.
+    ;;;; matchedvars is the list of variables bound at the time
+    ;;; if the condition is a simple pattern, then item will be the item in the
+    ;;; database that matched it. Otherwise item may be undef, e.g. for
+    ;;; an [OR ...] or [NOT ...] or other complex condition.
+
+prb_doing_actions_trace(agent, ruleset, rule_instance);
+    ;;; invoked when about to run actions of rule after conditions checked
+
+prb_do_action_trace(agent, action, rule_instance;
+    ;;; invoked in prb_do_action with each individual action
+    ;;; just before it is performed.
+
+prb_adding_trace(agent, item);
+    ;;; invoked when adding item to the current database
+
+prb_deleting_trace(agent, item);
+    ;;; deleting one item from the current database
+
+prb_deleting_pattern_trace(agent, deleted, pattern);
+    ;;; Deleting everything that matches the pattern, e.g. prb_flush
+    ;;; deleted is a list of the items deleted. May not be available if
+    ;;; the global variable prb_recording is false (the default)
+
+prb_modify_trace(agent, item, action, rule_instance);
+    ;;; action is a list of form [MODIFY <item> <key> <value> <key> <value> ...]
+    ;;; where <item> should refer to item, though it may be a number
+    ;;; it may be necessary to apply prb_instance to the action to find
+    ;;; the actual values.
+
+prb_condition_failed_trace(agent, condition, rule);
+    ;;; invoked in many places where a condition has not succeeded.
+    ;;; It is difficult to ensure that all of them are captured.
+
+prb_pattern_matched_trace(agent, pattern, item);
+    ;;; not yet used, in case prb_condition_satisfied_trace
+    ;;; suffices. There are many additional places where the
+    ;;; matcher is invoked, and it is not clear whether they should
+    ;;; all be monitored.
+
+These can be redefined as methods, since the first argument will always
+be the value of sim_myself, which is set in sim_run_agent.
+
+
+-- Re-directing trace print output: veddiscout ------------------------
+
+The library procedure veddiscout takes a filename and returns a
+character consumer. If the consumer is assigned to cucharout then all
+printing by the normal Pop-11 print procedures, including those invoked
+in sim_agent and poprulebase trace routines goes a VED buffer
+corresponding to the file named.
+
+For more on this mechanism see HELP * CUCHAROUT, REF * PRINT
+
+veddiscout works in a fashion that is similar to discout, except
+that instead of characters being sent direct to the disk file they go
+into a VED buffer. The buffer contents may nor may not be sent to disk
+later on.
+
+-- Method for initialising objects: sim_setup -------------------------
+
+sim_setup(object:sim_object);
+
+This is run, if necessary, by sim_scheduler, for each object, each time
+round the scheduler loop. It does nothing if the sim_setup_done slot has
+a non-false value.
+
+Otherwise the default version initialises the object's sim_rulesystem
+list and transfers the contents to the objects databases, copying
+rulefamilies so that they are not shared between agents.
+    (See HELP * RULESYSTEMS, HELP * NEWKIT).
+
+This copying is required because a rulefamily record includes a
+specification of the current ruleset, and a stack of rulesets. These
+have to be different for different agents.
+
+Users can extend sim_setup to do other kinds of initialisation.
+
+See also SIM_HARNESS, which can be used to set up graphical interfaces.
+
+-- Procedure for adding or removing objects: sim_edit_object_list -----
+
+sim_edit_object_list(sim_objects, sim_cycle_number) -> sim_objects;
+
+    This is invoked near the end of each time slice, just after
+    sim_scheduler_pausing_trace. It enables any "dead" objects to be
+    removed or new ones added to the list of objects.
+    The default version of sim_edit_object_list(objects, cycle) makes
+    use of two global variables which are initialised to empty lists at
+    the end of each time-slice
+        sim_object_delete_list, sim_object_add_list
+    All objects in the first list are removed from the list of agents,
+    and all in the second are appended to the list.
+
+-- Procedure run after each time-slice: sim_post_cycle_actions --------
+
+sim_post_cycle_actions(sim_objects, sim_cycle_number);
+    This can be used for updating a connected simulation, etc.
+
+-- Pseudocode summaries of the main methods ---------------------------
+
+Abbreviated versions of the definitions of sim_run_agent methods are as
+follows (for the actual method definitions see LIB * SIM_AGENT)
+
+define :method sim_run_agent(object:sim_object, agents);
+    ;;; Base level method for running objects in SIM_AGENT toolkit
+    ;;; More specialised versions of this method may be defined for
+    ;;; sub-classes of sim_object
+
+    < setup sensory input buffers by running sensor methods>
+
+    < get default <cycle limit> for the object >
+
+    repeat sim_speed(object) times
+
+        < get the rulesystem associated with the object
+          where rulesystems are as defined in HELP * RULESYSTEMS >
+
+        < work out default <cycle limit> for the rulesystem list >
+
+        for rulefamily in rulesystem do
+
+            <work out <cycle limit> for this rulefamily>
+            <work out the <matcher environment> for this rulefamily>
+
+            prb_run_with_matchvars(
+                rulefamily,
+                sim_data(object),
+                <cycle limit> )
+        endfor;
+
+    endrepeat;
+
+    < clear sensory input buffers >
+
+    < prepare output actions, and remove them from the internal database>
+
+    < run user-definable tracing procedures >
+
+enddefine;
+
+define :method sim_run_agent(agent:sim_agent, agents);
+    ;;; This performs message handling processes
+    ;;; but relies on the sim_object method for everything else
+    ;;; More specialised versions of this method may be defined for
+    ;;; sub-classes of sim_agent
+
+    < add message input buffers to the internal database>
+
+    < run the above generic method for objects >
+    call_next_method(agent, agents);
+
+    <clear input message buffer and reset sensory buffers  >
+
+    <  prepare output actions and messages out
+       and restore the remaining data >
+
+    < run user-definable message tracing facilities >
+
+enddefine;
+
+The handling of cycle limits for rulesets is described in a lot more
+detail in HELP * RULESYSTEMS.
+
+
+
+-- The external behaviour of objects ----------------------------------
+
+The external behaviour for each object may be selected by internal
+processes but the actions are not directly performed when the object's
+internal processes run, nor immediately after. This is because at the
+time a particular object is run by the scheduler some of the other
+objects may already have been run in the current time-slice and others
+not. If those that have run are allowed to change their external
+properties and relations immediately then subsequent objects checking
+relationships will find some objects at the state of the previous
+time-slice and some at the current time-slice. This can lead to
+inconsistencies.
+
+One way to avoid this is to postpone updating all externally visible
+properties and relationships until all agents have had a chance to react
+to their environment in the current time-slice. Then each object's
+sensory processes will detect the state of other objects at the end of
+the previous time-slice. A corollary of this should be that the total
+effect is independent of the order in which objects are processed in the
+list of objects.
+
+An alternative might be to run the actions immediately and then to run
+through all the external sensors of all the objects at the beginning of
+the next cycle before any other processing occurs. Either way two passes
+through the complete list of objects are required.
+
+In the current implementation, the scheduler does a first pass for the
+internal processing and a second pass through the list of objects doing
+approximately the following:
+
+        for object in sim_objects do;
+            <run user definable trace procedure sim_agent_action_trace>
+
+            <Transmit messages from the object to the message input
+            buffers of their intended targets if sim_agent or sub-class>
+
+            <Perform pending actions in the object's action output
+            buffer>
+
+            <clear the object's output message lists (if instance of
+             sim_agent or a subclass) and action lists>
+        endfor;
+
+It might be preferable to subsume message sending under the general
+category of external actions and message interpretation under the
+general category of interpretation of sensory input.
+
+
+-- Types of complex agent architectures supported ---------------------
+
+There is no explicit commitment to any particular architecture for
+agents, apart from the assumption that minimally the package should
+support architectures for agents that are autonomous.
+
+One potential application which guided the development of the package
+and for which it is intended to be suitable, is the simulation of one or
+more intelligent agents with a very rich architecture composed of
+collection of diverse, coexisting, interacting modules.
+described below. . For example a complex agent may include:
+
+o Modules that run automatically (i.e. when their conditions are
+  satisfied they simply do what they have to do), like innate or trained
+  reflexes (external or internal).
+
+o Reflective modules that consider alternative possibilities and select
+  among them, or even create new possibilities, e.g. by planning.
+
+More precisely, although not every agent needs to have all the following
+features, the package should be able to support them, either in a
+simulated environment or in a real one:
+
+o   Sensors of some kind that take in information about the environment
+    (possibly including communications from other agents)
+
+o   Effectors that can change some local part of the environment,
+    including aspects of the agent's own location in the world and
+    relationship to other agents.
+
+o   Mechanisms for interpreting sensory input and in some cases working
+    out their implications.
+
+o   Mechanisms for sending and interpreting messages in some agreed
+    notation.
+
+o   Mechanisms for controlling effectors, either by executing plans or
+    by means of lower level reflex actions (e.g. low level sensor-motor
+    control loops).
+
+o   Mechanism for generating new goals, which need not come from
+    explicit external commands or requests.
+
+o   Mechanisms for deciding whether to adopt goals or not (whether to
+    make them intentions or not)
+
+o   Mechanisms for working out how to achieve goals, when to achieve
+    them, the implications of achieving them, etc.
+
+o   Mechanisms for carrying out plans (whether full or partial)
+
+o   Mechanisms for managing some subset of the above processes when
+    there are conflicts, e.g. due to insufficient resources.
+
+o   Mechanisms for learning new internal or external reflexes
+
+o   Mechanisms for other sorts of learning: concept learning, rule
+    learning, modifying action mechanisms, modifying neural nets,
+    modifying planning strategies, modifying internal management or
+    meta-management processes.
+
+o   Mechanisms for monitoring internal behaviour and internal states
+    (some of which might be interpreted as pleasant others unpleasant,
+    e.g. in order to drive a learning process.)
+
+
+-- Summary of key ideas -----------------------------------------------
+
+1.  The world is a collection of interacting objects of various kinds,
+    and of various degrees of complexity of internal architecture and
+    internal and external behaviour. A geographical region, for example,
+    can be thought of as a complex object containing other objects, some
+    of them static, some capable of changing location or other
+    properties. Some of them may be autonomous agents.
+
+2.  Each object can be represented as an objectclass instance,
+    containing a collection of "externally visible" data held in object
+    slots, and a set of internal data held in one or more databases
+    operated on by condition-action rules.
+
+    These databases form "working" memories for the condition-action
+    rules. A subset of the data will be transferred between the local
+    databases and externally visible slots, or vice versa, from time
+    to time, e.g. when perception occurs, messages come in, messages
+    are sent out, actions occur, etc.
+
+3.  Each agent type has a collection of rulefamilies, defined using the
+    formalism of LIB POPRULEBASE. The rulefamilies may change over time,
+    as may the individual rules within a ruleset.
+
+    If more sophisticated reasoning or logical deduction procedures
+    are required it is possible to invoke prolog, or some sort of
+    theorem prover. (A prolog process could be associated with each
+    agent by using the CONSPROC facility. See REF * PROCESS)
+
+    If other sub-symbolic mechanisms are required, they can be invoked
+    by appropriate rules, including rules with FILTER conditions.
+
+4.  Each rulefamily corresponds to a "context" in the processing of an
+    agent that uses the rulefamily. E.g. a context may be analysing
+    incoming messages, or it may be analysing sensory data, or deciding
+    which goals to adopt, or planning, or executing goals, or
+    constructing messages to transmit. A rulefamily may be divided up
+    into several rulesets, corresponding to sub-contexts, as described
+    in HELP * RULESYSTEMS
+
+    The facility in poprulebase to switch between rulesets or between
+    databases will permit decomposition of agents into these contexts
+    or sub-contexts, with rapid switching between them.
+
+5.  Where required, parallelism between rulefamilies within an agent can
+    be implemented by limiting the number of cycles allocated to each
+    rulefamily, and repeatedly running all the rulefamilies This can be
+    achieved by associating different cycle limits with different
+    rulefamilies and rulesets using the methods described in
+    HELP * RULESYSTEMS
+
+    Alternatively internal parallelism can be achieved by breaking an
+    object into a collection of sub-objects all handled directly by the
+    scheduler.
+
+6.  Agents can be given different relative speeds of execution by giving
+    them different values for their "sim_speed" slot. This determines
+    the number of times their internal rulefamilies are all run in each
+    time-slice.
+
+-- Warning: recompiling rulefamily definitions ------------------------
+
+If a rulesystem includes a rulefamily, then if you edit a rulefamily in
+the middle of a run you will have to rebuild the rulesystem for any
+agent using that rulefamily (by reassigning its sim_rulesystem, making
+its sim_setup_done slot false, and then running sim_setup -- later this
+may be packaged in a more convenient way).
+
+However if pop_debugging is true then all rulesets are represented by
+their names in rulefamilies and rulesystems, so that if you simply
+redefine a ruleset then the new ruleset will automatically be accessed
+without rebuilding rulefamilies, rulesets or agents.
+
+However, if some of the patterns use global lvars introduced via
+[LVARS ...], e.g. global lexicals whose value is set in sim_run_agent,
+then the whole file will have to be recompiled.
+
+As with all methods, users can extend the sim_setup method to do other
+kinds of initialisation for their own sub-classses. You might want to
+specify a separate kind of ?_setup_done slot for each such extension.
+
+
+
+-- Note on efficiency of POPRULEBASE ----------------------------------
+
+Some rule-based systems, e.g. SOAR, OPS-5, use sophisticated indexing
+schemes to reduce the processing involved in deciding which conditions
+are satisfied after each change to the database. These mechanisms (e.g.
+the RETE algorithm) can be very complex, and may require a lot of space
+to be consumed. The POPRULEBASE package instead provides facilities to
+enable rapid switching between databases and rulesets. By ensuring that
+the current database and the current ruleset are always kept fairly
+small the overhead of checking which rules are executable can be kept
+small. However it may prove necessary later on to add more sophisticated
+indexing mechanisms for large applications.
+
+-- Notation: use of prefixes 'sim_', etc. -----------------------------
+
+We use prefix 'sim_' for all the main identifiers,
+
+  (a) to reduce the risk of conflicts (though sections could also do that)
+
+  (b) to make it easier to remember which identifiers serve which purposes
+
+It is desirable to use an extended prefix for specialised applications,
+e.g. asim_, bsim_, or whatever.
+
+
+-- How to compile the package -----------------------------------------
+
+Assuming the package is installed in $poplocal/local/sim/, with links
+set up from other $poplocal/local/ sub-directories, you can compile the
+package using the command:
+
+    uses sim_agent;
+
+This will compile objectclass and poprulebase as well as the sim_agent
+library.
+
+Some of the facilities will be autoloaded on demand, from
+
+    $poplocal/local/sim/auto/*.p
+
+At Birmingham, a facility is proved to create a saved image which can
+then be run with the command
+
+    pop11 +sim
+
+This will start up far more quickly, as objectclass, poprulebase and
+sim_agent will all have been precompiled. If it does not work, ask your
+system administrator to run the shell script
+
+    $poplocal/local/sim/mksim
+
+If you merely wish to browse the help files and library files without
+compiling them, do:
+
+    uses simlib;
+
+This will extend the relevant searchlists.
+
+-- Using the package. -------------------------------------------------
+
+Once you have compiled the package or run the saved image you can do the
+following:
+
+a. Define the classes of objects and agents required, making all of them
+    subclasses of sim_object or sim_agent.
+
+b. Define the sim_send_message and sim_do_action methods for the classes.
+    This requires deciding on the formats for different kinds of
+    messages and the protocols for sending and receiving them. (E.g.
+    some may require an acknowledgement some not, some may be requests,
+    some orders, some answers to questions, some questions, and so on.)
+    (See books on "speech-act" theory.)
+
+    If necessary the sim_do_actions method can be redefined for the new
+    class. For its role, see the definition of the method in
+        LIB * SIM_AGENT
+
+c. Define the (poprulebase) rulefamilies for the different classes of
+    agents, and the rules for each ruleset in each rulefamily.
+
+d. Specify the initial databases for each type of agent.
+
+e. Specify which collection of rulefamilies and rulesets should be used
+    by each type of agent, and in what order, and the cycle limits
+    associated with each rulefamily or ruleset (see HELP * RULESYSTEMS)
+
+f. Create all the required initial instances of the agent classes and
+    put them into a list to be given to prb_scheduler.
+
+g. Create any other data-structures required, and corresponding
+    procedures to access and update them (e.g. a map of the world).
+
+h. Define any required object-specific tracing methods, e.g. graphical
+    tracing methods. (A list of user-definable methods will be provided
+    below.)
+
+Then give the list of agents, and a maximum number of cycles (or false)
+to sim_scheduler.
+
+-- Global variables ---------------------------------------------------
+
+Note that when the default scheduler runs it may set some global
+variables that can be accessed by the rules of an agent. Additional
+global variables might be set by the specialised sim_run_agent
+methods for particular classes of agents.
+
+-- . sim_myself
+    A global variable set by sim_scheduler, to point to the current
+    object or agent.
+
+-- . sim_objects
+    A global variable that points to all the agents currently being
+    processed. The first argument of sim_scheduler is assigned to this.
+
+-- . sim_cycle_milliseconds
+    Variable specifying number of milliseconds of simulated time
+    per scheduler cycle. Used in the procedure sim_interval_test.
+    If it is false (default value) it is ignored.
+    See HELP NEWKIT/sim_cycle_milliseconds
+
+-- . sim_stop_this_agent
+    This variable is given the value false whenever sim_run_agent starts
+    up. If it is made true by any of the actions in an agent, then when
+    control returns to sim_run_agent it will not perform another cycle
+    through the agent's rulesystem, even if the number of cycles in the
+    current time slice is less than the value of the agent's sim_speed
+    slot. The default value of the sim_agent_terminated_trace method
+    makes this variable false if no actions have been run in the last
+    pass through the rulesystem, apart from STOP-type actions.
+
+-- . sim_stopping_scheduler
+    If this is made true, then sim_stop_scheduler() is invoked at the
+    end of the current time slice. This is sometimes cleaner than
+    directly invoking sim_stop_scheduler.
+
+-- . sim_cycle_number
+    This variable is set = 0 when sim_scheduler starts, and is
+    incremented by 1 at the beginning of each time slice. Thus it
+    holds the current time slice.
+
+-- . sim_dbsize
+    This is a number (default value 23, set in LIB sim_agent). It
+    specifies the size of the sim_data property used by each
+    object/agent for its internal database. See declaration of
+    The number should reflects the likely number of distinct keywords
+    for database items for each database. Thus if a program uses a large
+    number different formats for database entries, starting with many
+    different keywords, then this number should be increased to improve
+    efficiency of database access. (Efficiency should degrade gracefully
+    if the number is too small. See HELP PROPERTIES, REF PROPS).
+
+-- . sim_lock_heap
+    Default is true. This is checked by the default version of the
+    user definable procedure sim_setup_scheduler, called at the
+    beginning of every scheduler cycle.
+    If sim_lock_heap is true then the heap is unlocked, garbage
+    collected then locked again, and sim_lock_heap is then made
+    false. If anything makes it true the same will be done again
+    later. This could be done, for instance if new agents are
+    created at run time, or large permanent structures are created.
+    However, if the toolkit is used with graphic facilities, then this
+    should not be done, since locking and unlocking the heap after
+    graphic windows have been created leads to unwanted memory
+    expansion.
+    See also  sim_minmemlim_after_lock
+
+-- . sim_minmemlim_after_lock
+    This is false by default. If it is a number then if sim_lock_heap
+    is true, the number is assigned to popminmemlim after the heap is
+    locked.
+
+-- . sim_noprint_keys
+    A list to be assigned to prb_noprint_keys while sim_scheduler is
+    running. These are the keys used by the mechanisms described in
+    HELP NEWKIT to store rulesystems and ruleclusters in an agent's
+    database. The default is this list
+    [RULE_SYSTEM RULE_CLUSTER RULE_SYSTEM_STARTUP]
+    If sections are being used (i.e. prb_use_sections is made true
+    before compilation of the libraries) then the word
+    "RULE_SYSTEM_SECTION" is included in the list.
+
+    The list is also used by the sim_syspr_db and sim_pr_db
+
+-- . sim_use_ruleset_names
+    Make this true to replace all rulesets by their names
+    or make it false to replace none of them by their names
+    or make it a list of names to selectively replace some by
+    their names. Default value is true. This means that when
+    agents run they access rulesets indirectly via their names.
+    So recompiling a ruleset makes the new version available
+    thereafter to all agents that use it. Useful for debugging, etc.
+
+-- . sim_unique_cluster_name
+    If this is true (the default) then sim_setup will make unique names
+    for rulefamilies and rulesets. Make it false to leave names
+    unchanged. In that case, if rulesets/rulefamilies are copied,
+    because sim_use_ruleset_names has been made false, the current
+    rulecluster will not be the valof the name.
+
+Note:
+There are several more global variables associated with LIB * POPRULEBASE
+See HELP * POPRULEBASE
+
+-- Typical rule-sets: some examples -----------------------------------
+
+A typical (autonomous) agent class will have the following rule-sets,
+to be run on each cycle of the scheduler:
+
+sim_perception_rules
+    Used to analyse sensory data. This requires a format to be defined
+    for the sensors to return information for processing.
+
+sim_message_in_rules
+    Used to analyse messages received. This requires a format for
+    messages to be defined.
+
+sim_motive_generators
+    Rules to react to both incoming data and internal states by
+    generating new motives (new goals).
+
+sim_deliberation_rules
+    Used to decide which goals to select and which to reject, and
+    possibly also for deciding what to do when, etc.
+    (This could probably be better sub-divided into different rulesets
+    for different sub-purposes.)
+
+sim_planning_rules
+    Used to define how to achieve particular goals.
+
+sim_action_rules
+    Set up the actions following deliberation. Where there is already a
+    current plan, some of the sim_action_rules may be used to set up the
+    next "physical" action in accordance with the current plan.
+
+sim_message_out_rules
+    Set up outgoing messages
+
+Specialised agent classes may have additional rulefamilies.
+
+NOTE:
+This package does not make any commitment to a particular format for
+sensory data, for messages, or for action specifications. It is left to
+the user to decide whether, for example, to adopt the conventions for
+agent communication being developed in the KQML project, described in
+
+    http://www.cs.umbc.edu/kqml/
+
+This WEB page also contains pointers to information on other languages,
+protocols, and agent frameworks, including AKL, Agent0, toolTalk, CORBA,
+etc.
+
+
+-- Example formats for internal agent databases -----------------------
+
+Here are some sample formats for agent database items for use with
+POPRULEBASE rules. These are not requirements of the package, merely
+suggestions to illustrate what is possible.
+
+-- -- New raw sensory data.
+
+The toolkit does not dictate the format for sensory data, though a
+default format is supported.
+
+Sensory data available to an agent at the begining of a time-slice might
+take the form of a collection of lists of data items
+
+    [new_sense_data ..]
+    [new_sense_data ..]
+    [new_sense_data ..]
+
+For example, if the sensor methods insert information in this form, then
+the rules for processing sensory data might remove these items from the
+database, interpret them, and replace them with higher level assertions
+about the environment.
+
+The default version of the following method defined in LIB SIM_AGENT
+
+    sim_sense_agent(a1:sim_object, a2:sim_object, dist);
+
+produces data in that format. Both this method, and the one which
+invokes it:
+
+    sim_run_sensors(agent:sim_object, agents) -> sensor_data;
+
+can easily be re-defined for new sub-classes, or for all agents. An
+example where the latter is re-defined to be much simpler can be found
+in
+
+    TEACH SIM_FEELINGS/sim_run_sensors
+
+-- -- Message formats
+
+The toolkit does not specify required formats for communication between
+agents. However, some default formats are supported by the methods
+provided in the SIM_AGENT library for handling messages.
+
+This method
+
+    sim_run_agent(agent:sim_agent, agents);
+
+is defined by default on the assumption that messages to be transmitted
+to other agents (at the end of a time-slice) are stored in the
+sender's dathase in the format
+
+    [message_out ?target ...]
+
+They are then removed from the sender's database and after being
+transformed to the format
+
+    [message_in ?sender ... ]
+
+are later inserted into the recipient's database. The target may be
+either a single agent or a list of agents. In the latter case each one
+gets the message.
+
+The transformation from one format to the other is achieved by this
+method:
+
+    sim_send_message(sender:sim_agent, message);
+
+Both methods can be re-defined to use different formats if preferred.
+
+E.g. by redefining the methods, the user could send messages starting
+    [tell ?target ...]
+
+and they could be received in the format
+
+    [read ?sender ...]
+
+-- -- Possible additional message formats
+
+Each message might have further information specifying, for example:
+
+    whether it is broadcast or private
+
+    whether acknowledgement is required
+
+    an identifier to be used in acknowledging or replying to the
+        method.
+
+    what kind of message it is (assertion, question, request, order,
+        plea, answer to question, answer to request, request for
+        explanation, explanation, an offer, acceptance of offer,
+        contract (e.g. promise), etc.
+
+    the content of the message
+
+    possibly other information to aid interpretation of the message.
+
+
+-- -- Current beliefs about the environment
+
+Different formats could be used for different applications, e.g. in the
+case of a simulated battle between two armies with tanks:
+
+    [bel dead tank5]
+    [bel enemy tank5]
+    [bel bigger tank5 me]
+    [bel location <object> <direction> <distance>
+
+and so on.
+
+In general there will be a need not only for specific facts about
+particular objects but also general facts that the agent may need to
+know, e.g. that unsupported objects fall and facts needed for planning,
+such as facts about which actions are likely to have which side-effects.
+
+-- -- Current motivators
+
+Luc Beaudoin's PhD thesis and other papers produced by the Cognition and
+Affect project at Birmingha have begun to identify some of the complex
+information structures required for motivators in intelligent agents.
+See the papers available through WWW or FTP at:
+
+    http://www.cs.bham.ac.uk/~axs/cogaff.html
+    ftp://ftp.cs.bham.ac.uk/pub/groups/cog_affect
+
+In simple cases it may suffice for an agent to have motives of the form:
+
+    [goal <goalid> achieve <proposition> ]
+    [goal <goalid> maintain <proposition> ]
+    [goal <goalid> prevent <proposition> ]
+
+etc. e.g.
+
+
+    [goal G33 achieve myself at x y]
+    [goal G45 achieve dead red_tank77]
+    [goal G74 prevent dead blue_tank66]
+
+In general a lot more information will need to be recorded about each
+goal, e.g. where it came from, what has been achieved so far, how
+important it is, how urgent it is, whether a plan has been adopted,
+whether execution of the plan has begun, and more besides. Whether all
+this information should be stored in one assertion for each goal, or
+whether different database assertions should be used for different
+facets of the same goal is a question to be settled on the basis of the
+requirements for the application.
+
+
+-- -- Current plans
+
+Again there are many complex possibilities relating to information
+required for current plans, for stored generic plans, and so on.
+
+In the simplest case it might suffice to use something like the
+following format for each active plan.
+
+    [active_plan <goallist> <plan id> <plan specification>]
+        Where <goallist> specifies the goals the plan is intended to
+        achieve. In many cases there will be only one goal, though some
+        plans are designed to "kill two birds with one stone".
+
+    [active_plan status <plan id> <plan status information>]
+
+    [active_plan post_actions <plan id> <actions to be performed when done>]
+
+
+-- -- Current actions
+
+The process of executing a plan or triggering a reflex will cause
+certain actions to be executed. The internal processes might add them to
+the database in a format that will be recognised by the methods involved
+by sim_scheduler in its second pass through the object list. For example
+the following formats might be used.
+
+    [do <action method> <action id> <arg1> <arg2> ...]
+
+Where the performance of the action is done by invoking the method thus
+
+    <action method> (agent, id, arg1, arg2, ....)
+
+The precise mechanism is given a default definition in the method
+sim_do_action, defined in LIB * SIM_AGENT. However it is very likely
+that no application will find the default definition satisfactory.
+
+(*** Should the default be changed to something more sensible? ***)
+
+
+-- -- Outgoing messages
+
+These will have to have a format that provides enough information for
+the mechanisms in sim_scheduler to decide which agents should receive
+the messages and the format in which to install them in the
+sim_in_messages database of the recipients, so that they can be
+processed by the message interpretation mechanisms on the next cycle.
+
+Example formats might be
+
+    [message_out <target> <message id> <message content ...> ]
+
+    [message_out <target list> <message id> ...]
+
+Where the <message id> is false that could be interpreted as implying
+that no acknowledgement is required. Alternatively some other device
+could be used to distinguish messages not requiring acknowledgement.
+
+(Not everything can be acknowledged otherwise infinite loops will build
+up every time a message is sent.)
+
+
+-- Miscellaneous procedures -------------------------------------------
+
+-- -- sim_present(pattern, object) -> false or item
+-- -- sim_in_database(pattern, object) -> false or item
+-- -- sim_flush(pattern, object)
+-- -- sim_flush1(pattern, object)
+
+These four procedures are defined by analogy with prb_present,
+prb_in_database, prb_flush and prb_flush1, described in
+HELP POPRULEBASE.
+
+They all temporarily make the object's database the value of
+prb_database.
+
+They may, as a side effect, alter the value of prb_found
+
+The last three of these locally set popmatchvars to [].
+
+-- -- sim_stop_agent();
+    This exits to sim_run_agent. I.e. it terminates the current call
+    of prb_run. Similar to [STOPAGENT ...] actions
+
+-- -- sim_stop_scheduler();
+    This exits to sim_scheduler, just after the main loop, just before
+    the call of sim_scheduler_finished.
+    See also the variable sim_stopping_scheduler
+
+-- -- sim_scheduler_finished(objects, cycle);
+    The default version merely prints out that the program has
+    finished, showing the final cycle number.
+
+-- -- sim_data_precedes(item1, item2) -> boole
+    This user-definable procedure defines an ordering over all objects
+    which can be used to provide a predictable sorting predicate for
+    syssort, and for similar purposes. If item1 and item2 are both
+    numbers then <= is used. If they are words or strings then
+    alphabefore is used. Otherwse the results of syshash are used
+    with <=
+
+-- -- :method sim_syspr_db(agent:sim_object, keys);
+    Prints out the contents of the agent's database which start with the
+    items in the list keys, unless they are in sim_nopr_keys. This
+    method can be re-defined for different classes of objects or agents.
+    Used in sim_pr_db
+
+-- -- sim_pr_db(agent, keys)
+-- -- sim_pr_db(agent);
+    Uses sim_syspr_db to print the contents of the agent's database
+    starting with items in the list keys, unless they are in
+    sim_nopr_keys. It first orders the keys according to
+    sim_data_precedes.
+
+
+
+-- Other work ---------------------------------------------------------
+
+There is a considerable literature on multi-agent systems and
+distributed AI describing mechanisms and formalisms that are being
+developed for similar purposes to ours. Most of them seem to involve a
+commitment to a particular ontology or a particular architecture, or a
+particular communication formalism, whereas the toolkit described in
+this document is intended as a more open-ended package allowing
+different ideas to be explored.
+
+This means that the SIM_AGENT package cannot provide as much support for
+a particular architecture as some of the others. However, it is hoped
+that users will develop re-usable libraries that will increasingly
+support more specialised architectures.
+
+It may prove useful to provide translation packages, e.g. for
+translating sets of rules or databases provided for other systems, e.g.
+KQML.
+
+For some pointers to other work see
+
+    http://www.cs.bham.ac.uk/~axs/misc/links.html
+
+
+-- Index of classes, procedures and methods ---------------------------
+
+[This index produced in VED with "<ENTER> indexify define"]
+
+The following are the procedures, classes and methods defined in
+LIB * SIM_AGENT as of  27 May 1996
+
+ define vars procedure sim_interval_test(interval, cycle_number) -> boole;
+ define lconstant procedure sim_stack_check(object, len, name, cycle);
+ define global vars syntax ^ with_nargs 1;
+ define updaterof ^ with_nargs 2;
+ define global vars syntax >^ with_nargs 2;
+ define global vars syntax *^ with_nargs 1;
+ define global vars syntax >*^ with_nargs 1;
+ define :class sim_object;
+ define :class sim_agent; is sim_object;
+ define sim_delete_data( pattern, prb_database );
+ define sim_flush_data(pattern, prb_database);
+ define sim_add_data( /*item, dbtable*/) with_nargs 2;
+ define sim_add_list_to_db( /* list, dbtable */ ) with_nargs 2;
+ define sim_clear_database(dbtable);
+ define :method sim_countdatabase(obj:sim_object, key) -> count;
+ define :method sim_agent_running_trace(object:sim_object);
+ define :method sim_agent_messages_out_trace(agent:sim_agent);
+ define :method sim_agent_messages_in_trace(agent:sim_agent);
+ define :method sim_agent_actions_out_trace(object:sim_object);
+ define :method sim_agent_action_trace(object:sim_object);
+ define :method sim_agent_rulefamily_trace(object:sim_object, rulefamily);
+ define :method sim_agent_endrun_trace(object:sim_object);
+ define vars procedure sim_scheduler_pausing_trace(objects, cycle);
+ define vars procedure sim_scheduler_finished(objects, cycle);
+ define :method sim_agent_terminated_trace(object:sim_object, number_run, runs, max_cycles);
+ define vars procedure no_objects_runnable_trace(objects, cycle);
+ define global vars procedure sim_setup_scheduler(objects, number);
+    Run at the beginning of every scheduler cycle.
+    Default version controlled by sim_lock_heap
+ define vars procedure sim_post_cycle_actions(objects, cycle);
+ define vars procedure sim_edit_object_list(objects, cycle) -> objects;
+ define :method print_instance(item:sim_object);
+ define :method sim_distance(a1:sim_object, a2:sim_object) -> dist;
+ define :method sim_sense_agent(a1:sim_object, a2:sim_object, dist);
+ define :method sim_run_sensors(agent:sim_object, agents) -> sensor_data;
+ define lconstant restore_dlocal(dlocal_vars, dlocal_vals);
+ define :method sim_run_agent(object:sim_object, objects);
+ define :method sim_run_agent(agent:sim_agent, agents);
+ define lconstant prb_STOPAGENT(rule_instance, action);
+ define lconstant prb_STOPAGENTIF(rule_instance, action);
+ define :method sim_post_process(object:sim_object, list, procedure action);
+ define :method sim_send_message(sender:sim_agent, message);
+ define :method sim_do_action(agent:sim_object, action);
+ define :method sim_do_actions(object:sim_object, objects, cycle);
+ define :method sim_do_actions(object:sim_agent, objects, cycle);
+ define new_component_name(object) -> name;
+ define :method sim_setup(object:sim_object);
+ define sim_scheduler(objects, lim);
+ define procedure sim_stop_agent();
+ define procedure sim_stop_scheduler();
+
+
+-- About Poplog -------------------------------------------------------
+
+"Poplog" is a trade mark of the University of Sussex.
+
+Poplog runs on a variety of Unix/Linux servers and workstations, and DEC
+VAX and Alpha VMS systems.
+
+For more information see
+    http://www.cs.bham.ac.uk/research/poplog/poplog.info.html
+
+Since mid 1999 Poplog has been available free of charge from
+
+    http://www.cs.bham.ac.uk/research/poplog/freepoplog.html
+
+There is a version without graphics available for PCs running
+Windows or WindowsNT.
+
+Other online information is available:
+    http://www.cogs.susx.ac.uk/users/adrianh/poplog.html
+        Information on Poplog
+
+    http://www.cogs.susx.ac.uk/users/adrianh/pop11.html
+        Information on Pop-11
+
+
+    http://www.cs.bham.ac.uk/research/poplog/
+    ftp://ftp.cs.bham.ac.uk/pub/dist/poplog
+        The Birmingham Poplog repository, including compressed tar
+        files for poprulebase, sim_agent, rc_graphic extensions, and
+        other locally developed libraries and teach files.
+
+
+-- -- Email list and net news group
+
+For general queries about Pop-11 and Objectclass programming you can
+either email
+
+    pop-forum@cs.bham.ac.uk
+
+or post to the comp.lang.pop net news group (each is gatewayed to the
+other).
+
+-- -- Note for readers who are not Poplog users
+
+This file contains many pointers into the Poplog online documentation
+system, which consists of:
+    TEACH files giving tutorial information,
+    HELP files, summarising major facilities,
+    REF files giving concise system documentation for experienced users,
+    LIB files giving source code.
+
+A Pop-11 package such as poprulebase, or sim_agent, will typically have
+its own directory tree with files of all these types. The main SIM_AGENT
+documentation is divided between the Poprulebase directory tree and the
+SIM_AGENT directory tree, which provides extensions using Poprulebase.
+As of May 1996 Sim_agent and Poprulebase do not have any REF files,
+though the library source files can be examined freely.
+
+Poplog includes an integrated editor, VED, which can follow up cross
+references to various kinds of documentation. There is a package for
+Emacs users which partially implements this facility, available at the
+Poplog ftp repository in Birmingham
+
+    http://www.cs.bham.ac.uk/research/poplog/emacs
+    ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/emacs
+        There is also a compressed tar file emacs.tar.gz
+        in the same poplog/ directory
+
+-- How to get further information -------------------------------------
+-- -- on Objectclass
+
+LIB OBJECTCLASS is used
+    - to define classes of objects with inheritance
+    - to allow methods to be defined associated with classes of objects
+
+There are several Pop-11 teach files, help files and ref files
+describing Objectclass facilities, including the following (some
+available from the Birmingham Poplog ftp directory).
+
+    TEACH * OOP
+        This gives an introduction to the concepts of object oriented
+        programming, including the use of inheritance and methods.
+
+    TEACH * OBJECTCLASS_EXAMPLE
+        Explains some of the main ideas of Objectclass through examples
+
+    TEACH * INHERITANCE
+    TEACH * METHODS
+        These two give more tutorial introduction
+
+    HELP * OBJECTCLASS
+        A more complete and compact introduction
+
+    REF * OBJECTCLASS and other ref files
+        Give more detailed and technical information.
+
+-- -- on POPRULEBASE
+
+Currently Poprulebase is available only from Birmingham.
+
+LIB POPRULEBASE is used
+    - to allow agents to behave in accordance with rules interpreted
+      by a forward chaining production system mechanism, or other
+      mechanisms invoked via rules or controlling rules.
+
+For more information on Poprulebase see:
+
+    TEACH * POPRULEBASE
+        An introductory overview
+    HELP  * POPRULEBASE
+        A more complete summary
+
+    HELP  * RULESYSTEMS
+        A detailed description of mechanisms available for creating
+        rulefamilies composed of interacting rulesets, and combining
+        them into rulefamilies, suitable for
+        use in the sim_rulesystem slot of objects or agents.
+    HELP  * PRB_FILTER
+        Explains the interface to "lower level" filtering and mapping
+        procedures in hybrid systems.
+
+For implementation details see
+
+    LIB * POPRULEBASE, LIB * RULEFAMILY,
+    LIB * PRB_MAP_ACTION LIB * PRB_SELECT_ACTION
+
+and other files in the Poprulebase "lib" and "auto" directories.
+
+These files are all available in the local library at Birmingham and in
+the Birmingham Poplog directory
+
+
+    http://www.cs.bham.ac.uk/research/poplog/freepoplog.html
+
+-- Acknowledgements ---------------------------------------------------
+
+Many of the ideas expressed here were developed in collaboration with
+colleagues involved in the Cognition and Affect project at the
+University of Birmingham (part of which is funded by the UK Joint
+Council Initiative, Grant SPG9200393 (August 1992 - July 1995, part
+by a studentship from the Renaissance Trust, part by a contract from
+DRA Malvern).
+
+Some of the details of the current implementation were based on
+discussions with Riccardo Poli at the University of Birmingham and with
+Richard Hepplewhite and Jeremy Baxter and colleagues at DRA Malvern.
+Darryl Davis did a lot if testing, and provided suggestions for
+extending the facilities and improving the documentation. He also helped
+with some of the implementation of the database facilities. Brian Logan,
+Ian Wright and others at Birmingham have tested the system by using it
+in earnest, and made many useful suggestions for improvement.
+
+-- Further reading ----------------------------------------------------
+
+Note: some of the following online documents are available only at
+Birmingham. Those produced locally can be accessed via our web site
+in teach and help subdirectories of
+
+    http://www.cs.bham.ac.uk/research/poplog/
+    ftp://ftp.cs.bham.ac.uk/pub/dist/poplog
+
+    TEACH * OOP
+    TEACH * OBJECTCLASS_EXAMPLE
+    TEACH * INHERITANCE
+    TEACH * METHODS
+    HELP  * OBJECTCLASS
+    REF   * OBJECTCLASS
+
+    TEACH * POPRULEBASE
+    HELP  * POPRULEBASE
+    HELP  * RULESYSTEMS
+    HELP  * PRB_FILTER
+    HELP  * PRB_EXTRA
+
+    HELP * RCLIB
+
+R.Poli and M.C.Brayshaw
+    A hybrid trainable rule-based system.
+    Technical Report CSRP-95-4, School of Computer Science,
+    The University of Birmingham, March 1995.
+
+A.Sloman and R.Poli
+    SIM_AGENT: A toolkit for exploring agent designs
+    Proceedings ATAL95 (Workshop on Agent Theories Architectures
+    and Languages, Montreal August 1995).
+    Technical Report CSRP-95-3, School of Computer Science,
+    The University of Birmingham, March 1995.
+
+There are several papers on the Cognition and Affect Project, whose
+requirements led to the design of this package, available from the
+following:
+
+    http://www.cs.bham.ac.uk/~axs/cogaff.html
+    http://www.cs.bham.ac.uk/research/cogaff/
+
+In particular, see
+
+Aaron Sloman and Monica Croucher, Why robots will have emotions,
+in proceedings, IJCAI 1981
+
+Ian Wright, A Summary of the Attention and Affect Project. Internal
+report, Dec 1993.
+
+Aaron Sloman et al., Computational Modelling Of Motive-Management
+Processes,  Poster for the Conference of the International Society for
+    Research in Emotions, Cambridge July 1994. To appear in Proceedings,
+    edited by N.Frijda, Amsterdam.
+
+Luc Beaudoin & Aaron Sloman, A study of motive processing and attention,
+in A.Sloman, D.Hogg, G.Humphreys, D. Partridge, A. Ramsay (eds)
+Prospects for Artificial Intelligence, IOS Press, pp 229-238
+
+Luc Beaudoin, Goal processing in autonomous agents, PhD thesis, The
+University of Birmingham, 1994
+
+Aaron Sloman, Explorations in Design Space, in Proceedings ECAI, August
+1994.
+
+Aaron Sloman, On designing a visual system: Towards a Gibsonian
+computational model of vision. In Journal of Experimental and
+Theoretical AI 1,4, 289-337 1989
+
+Aaron Sloman, The Mind as a Control System, in Philosophy and the
+Cognitive Sciences, (eds) C. Hookway and D. Peterson, Cambridge
+University Press, pp 69-110 1993
+
+Aaron Sloman, Exploring design space and niche space
+    Invited talk for 5th Scandinavian Conference on AI, Trondheim,
+    May 1995. Proceedings SCAI95 published by IOS Press, Amsterdam.
+    Technical Report CSRP-95-?, School of Computer Science,
+
+SEE ALSO
+
+Joseph Bates, Bryan Loyall, W.Scott Reilly, Broad agents. Paper
+presented at the AAAI spring symposium on integrated intelligent
+architectures. Stanford, CA: (Available in SIGART BULLETIN, 2(4), Aug.
+1991, pp 38-40.).
+    The Oz project at Carnegie Mellon University is developing
+    technology for dramatic virtual worlds.
+
+Minsky, M.L. (1987) The Society of Mind, London: William Heinemann Ltd.
+
+The KQML project is described in:  http://www.cs.umbc.edu/kqml/
+This WEB page also contains pointers to information on other languages,
+protocols, and agent frameworks, including AKL, Agent0, toolTalk, CORBA,
+etc.
+
+There is lots more relevant stuff.
+
+This file is maintained by
+Aaron Sloman, ( http://www.cs.bham.ac.uk/~axs )
+School of Computer Science, The University of Birmingham, B15 2TT, England
+EMAIL   A.Sloman  AT cs.bham.ac.uk
+Phone: +44-121-414-4775       Fax:   +44-121-414-4281
+
+
+--- $poplocal/local/newkit/sim/help/sim_agent
+--- Copyright University of Birmingham 2002. All rights reserved. ------

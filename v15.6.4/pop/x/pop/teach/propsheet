@@ -1,0 +1,1034 @@
+TEACH PROPSHEET                                 Jonathan Meyer, Jun 1991
+                                        Revised: Adrian Howard, Jun 1993
+
+
+LIB * PROPSHEET is a high-level, general purpose tool for building
+dialog boxes. It is designed to simplify the creation and management of
+'Property Sheets' (pop-up windows containing settings.) However,
+LIB * PROPSHEET is very flexible, and can be used to generate almost any
+kind of dialog box with a mixture of labels and controls.
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Overview
+  2   Building Sheets and Fields
+      2.1   Creating New Property Sheets
+      2.2   Hiding and Displaying Property Sheets
+      2.3   Destroying Sheets
+  3   Managing Fields
+      3.1   Adding Fields
+      3.2   Converters
+      3.3   Accepters
+      3.4   Formatters
+      3.5   Field Defaults
+      3.6   Field Sensitivity
+  4   Linking Sheets To Variables
+      4.1   Refreshing Fields From Variables
+      4.2   Automated Refresh
+      4.3   Refreshing on sysPOP
+      4.4   Active Refresh
+      4.5   Timer Refresh
+  5   Advanced Programming Information
+      5.1   Referring to Propsheet Objects
+      5.2   Format Patterns
+      5.3   Attribute List Summary
+      5.4   Identifier Classes
+      5.5   More About Property Boxes
+      5.6   Managing Multiple Property Sheets
+  6   Further Reading
+
+
+
+-----------------------------------------------------------------------
+1  Overview
+-----------------------------------------------------------------------
+
+A "Property Sheet" is a window that is used to display and edit
+variables, which are displayed in "fields".
+
+Each field has a field name and one or more user interface components
+that are used to specify the value of the field. These user interface
+components are things like sliders, text entry fields, option lists,
+radio lists etc.
+
+Each field has a notion of its value, a default value, and an indicator
+of whether the field is sensitive to input or not. Additionally, fields
+can have verification procedures so that they can check values when they
+are entered, and conversion procedures that can do things like scale or
+filter the field value. Current field values can be saved at any point,
+and the last saved values can be restored.
+
+Property sheets can be used anywhere where you wish to display or
+control Pop-11 variables through a control panel. They are useful for
+database entry forms, variable display and access, and general purpose
+dialog boxes.
+
+Because property sheets are widgets, it is possible to use all of the
+standard X toolkit functions on the property sheets.
+
+
+
+-----------------------------------------------------------------------
+2  Building Sheets and Fields
+-----------------------------------------------------------------------
+
+This section introduces:
+
+    Procedure(s)                    Description
+    ------------                    -----------
+    propsheet_init                  Initialising LIB * PROPSHEET
+    propsheet_new_box               Creating a new top level box
+    propsheet_new                   Creating a new property sheet
+    propsheet_hide, propsheet_show  Making a property sheet (in)visible
+
+
+
+2.1  Creating New Property Sheets
+---------------------------------
+
+The first stage of using LIB * PROPSHEET is to load the library and
+initialise it. Calling propsheet_init will initialise the library and
+start up a connection to the X server.
+
+    uses propsheet;
+    propsheet_init();
+
+Next, we want a new 'top-level' property sheet container, called a
+property box. The procedure propsheet_new_box will return such a
+container. It takes several arguments, all of which can be false if the
+user just wants to specify a default value.
+
+So doing:
+
+    vars mybox=propsheet_new_box('Properties', false, false, false);
+
+will create a new top level property box, and assign it to mybox. Note
+that this will not cause the property box to be displayed (see below.)
+
+Each property box can contain multiple property sheets (or propsheets.)
+Each property sheet can be given a title. Property sheets are tiled
+vertically, and each sheet has a black rectangle drawn around it.
+
+To create a property sheet, use:
+
+    vars mysheet = propsheet_new('Basic Settings', mybox, false);
+
+
+
+2.2  Hiding and Displaying Property Sheets
+------------------------------------------
+
+Before a newly created property box or sheet can be seen, it must be
+"shown".
+
+Two procedures, propsheet_hide and propsheet_show, are used to hide and
+show property sheets and boxes (and fields.) All property sheets and
+boxes start off in the "hidden" state, and so to display the sheet we
+created above, we must do:
+
+    propsheet_show(mysheet);
+    propsheet_show(mybox);
+
+Note that both propsheet_hide and propsheet_show can take lists, so it
+might have been easier to do:
+
+    propsheet_show([% mysheet, mybox %]);
+
+
+
+2.3  Destroying Sheets
+----------------------
+
+The procedure propsheet_destroy can be used to destroy a property sheet,
+box, or field. When you have finished this tutorial, do:
+
+    propsheet_destroy(mybox);
+
+
+
+-----------------------------------------------------------------------
+3  Managing Fields
+-----------------------------------------------------------------------
+
+This section will introduce you to:
+
+    Procedure                   Description
+    ---------                   -----------
+    propsheet_field             Creates fields
+    propsheet_field_value       Accesses & updates fields
+    propsheet_field_default     Accesses & updates field default values
+    propsheet_field_converter   Used in automatic field data conversion
+    propsheet_field_accepter    Field verification hooks
+    propsheet_sensitive         Setting whether fields accept input
+
+
+
+3.1  Adding Fields
+------------------
+
+At this stage, a blank property sheet should be visible your screen. If
+the property sheet has a pushpin, it would be sensible to click the
+pushpin in now.
+
+To add fields to the property sheet, use propsheet_field. This takes a
+property sheet and a special "format" argument. The format argument is
+of the form:
+
+    [ fieldname pattern (attribute, attribute...) ]
+
+The fieldname is a word or string. The pattern describes what type of
+field is to be used. The attributes are used to control other aspects of
+the field, such as linked variables and default values.
+
+To create a simple text entry field, just do:
+
+    propsheet_field(mysheet, [Filename '']);
+
+We can access and update the current value of the new field using the
+propsheet_field_value procedure:
+
+    propsheet_field_value(mysheet, "Filename") =>
+    ** ''
+
+This is the same as using the * class_apply for the property sheet, so
+we can more simply write:
+
+    mysheet("Filename") =>
+
+Each field can also be accessed using a number, where the number is the
+index position of the field on the sheet. So:
+
+    mysheet(1) == mysheet("Filename") =>
+    ** <true>
+
+You can find out the index of a field by using propsheet_field_number
+like this:
+
+    propsheet_field_number(mysheet, "Filename")=>
+    ** 1
+
+We can also assign to fields:
+
+    'hello' -> mysheet("Filename");
+
+Note that typing into the field on the display, (and pressing return or
+tab to accept the field) will cause its value to be updated.
+
+To add more fields, call propsheet_field with other field names. Note
+that propsheet_field can take a list of formats at once, allowing you to
+create more than one field at a time.
+
+The following will create an example of several of the available field
+types:
+
+    propsheet_hide(mysheet);        ;;; hide sheet while we change it
+    propsheet_field(mysheet, [
+        [String 'a']                ;;; a text field
+        [Number 3 kilobytes]        ;;; a number field
+        [Range 1-64 (default=3)]    ;;; a slider with a range 1-64
+        [Switch true ]              ;;; a toggle switch
+        [List  oneof [cat dog rat] (default=2)] ;;; a radio list
+        [Options menuof [yes no unset] ]        ;;; a menu
+        [Flags someof {bold italic}]            ;;; an option list
+    ]);
+    propsheet_show(mysheet);
+
+Note that if you use the same fieldname twice, the property sheet will
+destroy the current field with that name and create a new field with the
+specified attributes and pattern. If you specify an empty pattern for a
+field, the field will be destroyed altogether.
+
+Each of the fields has a value that reflects its type --- so a boolean
+field is either true or false. An options field is the list of options
+(words or strings) that are set. A radio field will have the value the
+the field that is selected (as a word or string), and so forth.
+
+We can print out all of the current values by doing:
+
+    vars i;
+    [%for i from 1 to propsheet_length(mysheet) do
+        mysheet(i)
+    endfor;%] =>
+    ** [hello a 3 3 <true> dog yes []]
+
+
+
+3.2  Converters
+---------------
+
+Converters are procedures that are fired every time a program accesses
+or updates a property sheet field. Converter procedures are of the form:
+
+    convert_p(setting_value) -> value
+    -> convert_p(value) -> setting_value
+
+It is often useful to provide a converter for a field --- this will
+convert between the value of the field as it is displayed and some other
+Pop-11 value. For example, we could have a radio list with the two
+options "On" and "Off", with a converter that turns "On" and "Off" into
+the Pop-11 booleans true and false:
+
+    ;;; sheet value -> pop11 value
+    define onoff_convert(val);
+         val == "On"
+    enddefine;
+    ;;;
+    ;;; pop11 value -> sheet value
+    define updaterof onoff_convert(val);
+         if val then "On" else "Off" endif;
+    enddefine;
+
+    propsheet_field(mysheet, [
+        Toggle [On Off]
+        (converter = onoff_convert)
+    ]);
+
+    mysheet("Toggle") =>
+    ** <true>
+
+    false -> mysheet("Toggle")
+
+
+To change the converter of an existing field, use the procedure
+propsheet_field_converter:
+
+    propsheet_field_converter(mysheet, "Toggle") =>
+    ** <procedure onoff_convert>
+
+    false -> propsheet_field_converter(mysheet, "Toggle");
+    mysheet("Toggle") =>
+    ** Off
+
+
+
+3.3  Accepters
+--------------
+
+Accepters work at a lower level than converters --- an accepter is a
+procedure which is fired whenever a value of a field is changed.
+Accepters can be used to for example convert a string entry for a date
+into a standard form, or to refuse illegal field values.
+
+Accepters take the form:
+
+    accept_p(propsheet, name, value) -> value_or_undef
+
+An accepter is passed a property sheet (propsheet), a field name (name),
+and the new value (value) for that field (in internal form, before
+passing through any converter for that field.) The accepter should
+return either:
+
+    #  value, if it is acceptable
+    #  any other valid value for that field
+    #  the special item propsheet_undef to restore the previous value
+
+Accepters are called from within a piece of callback code, and should
+therefore return a valid result.
+
+For example, the following accepter will refuse any changes:
+
+    define refuse(sheet, field, value) -> value;
+        propsheet_undef -> value;
+    enddefine;
+
+Set this for all of the fields by doing:
+
+    vars i;
+    for i from 1 to propsheet_length(mysheet) do
+        refuse -> propsheet_field_accepter(mysheet, i)
+    endfor;
+
+Now try changing some field... you can't! To restore the fields, use:
+
+    for i from 1 to propsheet_length(mysheet) do
+        false -> propsheet_field_accepter(mysheet, i)
+    endfor;
+
+One additional factor to consider when writing accepters is the
+(protected) propsheet_acceptreason variable. This variable is always one
+of the following words:
+
+    "activate"
+        the field is being activated (eg. by the user pressing return or
+        selecting it with the mouse.)
+
+    "lose_focus"
+        The value of the field was changed, and the field has lost
+        the input focus.
+
+    "slider_moved"
+        A numeric range is being changed by the user manipulating the
+        slider.
+
+    "increment"
+    "decrement"
+        A numeric field is being changed by the user activating the
+        up or down arrow buttons.
+
+The "increment" and "decrement" reasons are especially useful if you
+wish to make the arrows next to a numeric field cause the number in the
+field to change by more than one. The following accepter changes the
+number in 10's (don't forget to take into account the fact that the
+default action for the increment and decrement buttons will change the
+number by 1):
+
+    define jump_accepter(sheet, name, value) -> value;
+        lvars sheet, name, value;
+        if propsheet_acceptreason == "increment" then
+            value + 9
+        elseif propsheet_acceptreason == "decrement" then
+            value - 9
+        else
+            value
+        endif -> value;
+    enddefine;
+
+    jump_accepter -> propsheet_field_accepter(mysheet, "Number");
+
+
+
+3.4  Formatters
+---------------
+
+Each numeric range, number or string type field can define a
+"formatter". The formatter acts as the coercion between the raw text
+string and the Poplog string or number (and visa-versa.) The formatter
+takes the form:
+
+    format_p(text_string) -> value
+    -> format_p(value) -> text_string
+
+Formatters are used when you want to modify things such as pop_pr_places
+and pop_pr_radix to control how a number is printed in a numeric field
+or range. It can also be used if you wish to specify some other
+procedure than strnumber to perform conversion between strings and
+numbers.
+
+The formatter is called whenever the value of a text-field widget's
+string is set, or when it is retrieved. This is generally just before
+and just after the accepter hook is called for the field:
+
+    format_p(value) -> value;
+    accepter_p(propsheet, name, value) -> value;
+    value -> format_p() -> value;
+
+The default formatter is called after the user supplied formatter
+(allowing you to write a formatter procedure that does nothing.) On
+numeric fields, the default formatter does:
+
+    define formatter(value) -> value;
+        unless value.isnumber then strnumber(value) -> value endunless;
+    enddefine;
+    ;;;
+    define updaterof formatter(value) -> value;
+        unless value.isstring then value sys_>< '' -> value endunless;
+    enddefine;
+
+For example, to make the "Number" field display the number in hex, you
+can use:
+
+    define hex_formatter(value) -> value;
+        strnumber('16:' >< value) -> value;
+    enddefine;
+
+    define updaterof hex_formatter(value) -> value;
+        lvars value;
+        dlocal pop_pr_radix = 16;
+        sprintf(value, '%p') -> value;
+    enddefine;
+
+    hex_formatter -> propsheet_field_formatter(mysheet, "Number");
+
+    12 -> mysheet("Number")
+
+
+
+3.5  Field Defaults
+-------------------
+
+Each field, when it is created, is given a default value. Clicking on
+the "Set Defaults" button, or calling propsheet_set_defaults will
+restore all of the fields to their default values. The default value is
+the value the field displays when it is first created. Field format
+patterns are often used to specify the default:
+
+    Pattern         Class Default
+    -------         -------------
+    Strings         The value of the string is the default
+
+    Numbers         The number is the default value
+
+    Lists           The first element of the list is the default
+
+    Numeric Ranges  The first number in the range is the default, though
+                    ranges can be specified using a low-default-high
+                    pattern, eg. 1-10-100
+
+
+Additionally, programs can change the default value registered with any
+field. The procedure propsheet_field_default lets you do this.
+
+    propsheet_field_default(mysheet, "Range") =>
+    ** 3
+
+    'asdasd' -> propsheet_field_default(mysheet, "String");
+
+Try pressing the "Set Defaults" button.
+
+A field can be given a unique undef record as a special 'no default'
+value. If the field default is propsheet_undef, clicking on "Set
+Defaults" will have no effect --- the propsheet_set_defaults procedure
+will simply skip the field.
+
+For fields that do have a default value, it is possible to set the field
+to the default value by assigning propsheet_undef to that field:
+
+    propsheet_undef -> mysheet("String");
+
+
+
+3.6  Field Sensitivity
+----------------------
+
+The procedure propsheet_sensitive is used to access or update whether a
+field (or an option in a field) can receive input. A whole field can be
+set to read only by doing:
+
+    false -> propsheet_sensitive(mysheet, 1);
+
+and restored using:
+
+    true -> propsheet_sensitive(mysheet, 1);
+
+Also, individual items of any fields containing a list of buttons or
+options can be disabled. For example, the second item on the "Options"
+menu can be disabled by doing:
+
+    false -> propsheet_sensitive(mysheet, "Options", 2);
+
+
+
+-----------------------------------------------------------------------
+4  Linking Sheets To Variables
+-----------------------------------------------------------------------
+
+An important facility provided by LIB * PROPSHEET is the ability to link
+fields in a property sheet with Pop-11 variables.
+
+NOTE: Some of the following examples refer to variables using their name
+(as a word) and not their * IDENT. These examples will therefore not
+work with * SECTIONS, or for any other variable type than global vars.
+In all cases where such names are used, idents (as returned by identof
+or sys_current_ident) could have been used instead, but for simplicity
+such examples have been omitted.
+
+For example, based on the property sheet we built above:
+
+    vars string, range, flags;
+    ident string -> propsheet_field_ident(mysheet, "String");
+    ident range  -> propsheet_field_ident(mysheet, "Range");
+    ident flags  -> propsheet_field_ident(mysheet, "Flags");
+
+Once the fields are linked, then property sheet "Apply" button on the
+bottom of the property box comes into effect. The "Apply" button calls
+the procedure propsheet_apply, which flushes all of the current values
+of the property sheet fields (via any specified converter procedures)
+into linked variables.
+
+Enter some values in the fields, select the "Apply" button, and then do:
+
+    [% string, range, flags %] =>
+
+You should get a list like:
+
+    ** [hello 1 [bold]]
+
+What about the "Reset" button? The "Reset" button by default calls
+propsheet_reset, which sets the displays of all of the fields to the
+values they had when propsheet_save was last called for those fields.
+Since by default selecting "Apply" will call propsheet_save after the
+apply, "Reset" will normally restore fields to the value they had on the
+last "Apply."
+
+
+
+4.1  Refreshing Fields From Variables
+-------------------------------------
+
+Changes can go in the other direction as well --- ie. changes to
+variables can be flushed out to the property sheet, updating the fields
+in the sheet. There are several different ways that this can be
+achieved. The easiest method is the "manual" one --- every time you want
+the value of a variable to be flushed out to the property sheet, call
+propsheet_refresh:
+
+    'hello' -> string; propsheet_refresh(ident string);
+
+Note that propsheet_refresh can take a variety of other arguments:
+
+    ;;; refresh a field
+    propsheet_refresh(mysheet, "Range");
+
+    ;;; refresh a whole sheet
+    propsheet_refresh(mysheet);
+
+    ;;; refresh a whole property box
+    propsheet_refresh(mybox);
+
+    ;;; refresh list of things
+    propsheet_refresh([^mysheet ^mybox]);
+
+Each call to propsheet_refresh resets the indicated fields to show the
+current value of a linked variable, or the default value if there is no
+linked variable.
+
+
+
+4.2  Automated Refresh
+----------------------
+
+As well as the manual refresh described above, there are also three
+forms of automated refresh:
+
+    sysPOP  Code is planted by sysPOP to refresh fields
+    active  Fields are refreshed from updater calls on active variables
+    timer   Fields are refreshed from variables once a second
+
+Each of these is accessed by first setting the "ident class" of a
+variable, using propsheet_ident_class. Setting the ident class of a
+variable can be done at compile time, before any propsheets have been
+built.
+
+
+
+4.3  Refreshing on sysPOP
+-------------------------
+
+    "sysPOP" -> propsheet_ident_class(wident);
+
+The automatic "sysPOP" refresh class will modify the VM sysPOP
+instruction so that it plants additional code to refresh any fields
+associated with variables that have assignments to them. This is an
+effective way of monitoring every change to a variable. The drawback is
+that the monitoring will only take place for code that is compiled after
+the assignment to the ident class of the variable, so it is not an
+effective way of keeping track of a variable if you already have
+compiled code that assigns things to the variable.
+
+For example, do:
+
+    "sysPOP" -> propsheet_ident_class(ident string);
+
+Now, every time a sysPOP encounters an assignment to the variable string
+it will plant code to update the field associated with string. So the
+following will automatically set string:
+
+    'ab' -> string;
+
+
+
+4.4  Active Refresh
+-------------------
+
+    "active" -> propsheet_ident_class(wident);
+
+The automatic "active" refresh class works by building a closure out of
+an active variable's update procedure that first calls the update
+procedure and then refreshes the field associated with the variable. So
+the following example will define an active variable switch, which is
+tied to the "Switch" field in our property sheet.
+
+    lvars current_val = false;
+    define active switch;
+        current_val;
+    enddefine;
+    ;;;
+    define updaterof active switch(val);
+        val -> current_val;
+    enddefine;
+
+    "active" -> propsheet_ident_class(ident switch);
+    "switch" -> propsheet_field_ident(mysheet, "Switch");
+
+    false -> switch;
+    true -> switch;
+
+
+
+4.5  Timer Refresh
+------------------
+
+    "timer" -> propsheet_ident_class(wident);
+
+As a last resort, the automatic timer refresh class is used to perform
+automatic updating of variables that are not active and already have
+code compiled that assigns to them (for example, system variables.) The
+timer refresh works by scanning a list of identifiers once a second and
+refreshing all of the identifiers that have changed since the last scan.
+
+For example, the following will start monitoring the popgcratio variable
+in the "Range" field that we created.
+
+    "timer" -> propsheet_ident_class("popgcratio");
+    "popgcratio" -> propsheet_field_ident(mysheet, "Range");
+
+    ;;; get initial value
+    propsheet_refresh("popgcratio");
+
+    10 -> popgcratio;
+    30 -> popgcratio;
+
+    "manual" -> propsheet_ident_class("popgcratio");
+
+The following example shows how to track memory usage in a numeric
+field:
+
+    "timer" -> propsheet_ident_class("popmemused");
+    "popmemused" -> propsheet_field_ident(mysheet, "Number");
+    propsheet_refresh("popmemused");    ;;; to get initial value
+
+
+
+-----------------------------------------------------------------------
+5  Advanced Programming Information
+-----------------------------------------------------------------------
+
+
+
+5.1  Referring to Propsheet Objects
+-----------------------------------
+
+Most of the procedures provided by LIB * PROPSHEET can take several
+kinds of arguments:
+
+    Argument    Description
+    --------    -----------
+    propsheet   A property sheet
+    propbox     A box of property sheets
+    propfield   A property sheet field
+    propitem    A single element of a field (eg a menu button)
+
+For procedures that take a propfield, this field can either be referred
+to by passing its propsheet and its name (as a word or string), or by
+passing its propsheet and a numeric index (the location of the field on
+the sheet.)
+
+Similarly, a propitem is either the name of a button or option on a
+list, or the index number of the item.
+
+
+
+5.2  Format Patterns
+--------------------
+
+The format part of the pattern specifies how the field is to be
+displayed.
+
+    'string'
+            A Text field. The string's value specifies the default.
+
+    10
+    10 Units
+            A numeric field. The value specifies the default. Can
+            contain reals. Displayed with an increment and a decrement
+            button.
+
+    true
+    false
+            A check-box. The value specifies which boolean is the
+            default
+
+    1 - 10
+    1 - 5 - 10
+    1 - 10 Units
+    1 - 5 - 10 Units
+            A numeric Range. The first value is the default, or the
+            middle value if three numbers are specified.
+
+    [a b c]
+    [a b c] [d e f]
+    oneof [a b c]
+    oneof {a b c}
+            An exclusive list of possible values, the first is the
+            default. Exactly one the the items "a", "b" or "c" is
+            selected. The items "a", "b", and "c" can be words or
+            strings. The allowNone attribute can be specified to allow
+            zero elements to be selected. The value returned by this
+            field when zero elements are selected is false. Multiple
+            rows can be specified by passing several lists one after the
+            other. If the "oneof" specifier is used, you can pass either
+            lists or vectors. Lists have the default specifier or
+            "oneof".
+
+
+    menuof [a b c]
+    menuof [a b c] [d e f]
+    menuof {a b c}
+            A menu list. As with the exclusives, but only a single item
+            is displayed at one time, next to a menu-button which allows
+            the user to choose the other items. "a", "b", and "c" are
+            either words or strings. The value of the field is the
+            current item that is displayed next to the menu button.
+            Multiple rows can be specified by passing several lists one
+            after the other. Lists or vectors can be used.
+
+
+    {a b c}
+    {a b c} {d e f}
+    someof {a b c}
+    someof [a b c]
+            An options list. Each of the items is like a "bit" which can
+            be toggled on and off. "a", "b", and "c" are either words or
+            strings. The value of the field is the list of options which
+            are set on (or nil if none are set.) You can specify
+            multiple rows by using several vectors one after the other.
+            You can use lists or vectors if you use the "someof"
+            specifier. Vectors have the default specifier of "someof".
+
+
+
+5.3  Attribute List Summary
+---------------------------
+
+The following is the full list of attributes that can be specified to a
+property sheet field:
+
+    Attributes
+    ----------
+    allowNone
+    nodefault
+    noinput
+    converter = val or # val
+    accepter = val
+    default = val
+    ident = val or ident = val :class
+
+
+
+5.4  Identifier Classes
+-----------------------
+
+The macro propsheet_id can be used to get the current identifier
+associated with a word:
+
+    propsheet_id string =>
+    <ident ''>
+
+Additionally, propsheet_id can be used to specify the ident class of a
+variable at the same time as getting its ident:
+
+    (propsheet_id string:sysPOP) =>
+    <ident ''>
+
+This is especially useful when you want to specify identifiers to be
+linked to fields in field attribute lists --- since the ^ command in a
+list expands macros at compile time, you can do things like:
+
+    define setfields();
+        propsheet_field(
+            mysheet,
+            [Bang true (ident= ^propsheet_id string:sysPOP)]
+        );
+    enddefine;
+
+This says:
+
+    Set the variable of the field "Bang" to be the current
+    identifier associate with string, and make the class of that
+    identifier "sysPOP".
+
+This will set the propsheet_ident_class of the variable string to
+"sysPOP" when the procedure is compiled. It will also correctly deal
+with sections, and also allow type 3 lvars variables to be linked to
+fields.
+
+
+
+5.5  More About Property Boxes
+------------------------------
+
+Property Boxes are the containers of property sheets. When you create a
+property box, you can specify its title, a parent or "owner" widget, a
+list of button labels (as strings or words) that the box should have,
+and a procedure to call when one of the buttons gets clicked on:
+
+    propsheet_new_box(title, parent, button_callback, buttons)
+
+Passing false for any of these fields will pick up its default as
+follows:
+
+    Field       Default
+    -----       -------
+    title       nullstring
+    parent      A new xtApplicationShellWidget
+    callback    (see below)
+    buttons     [Apply Reset 'Set Defaults' Dismiss]
+
+The default button callback routine matches the buttons to procedures as
+follows:
+
+    Button          Procedure
+    ------          ---------
+    Apply           propsheet_apply
+    Reset           propsheet_reset
+    Set Defaults    propsheet_set_defaults
+    Dismiss         propsheet_hide
+
+You can specify your own button callback routine. It should be a
+procedure of the form:
+
+    button_callback(propbox, button) -> accept
+
+Where button is the string or word label of the button. accept should be
+a boolean. If it is true then (if the window is unpinned) the window
+will be dismissed after the button callback. Return false if there is
+some error in the form that should be corrected, and so the form should
+not be dismissed.
+
+You can also take an existing widget and "import" it, ie. convert it
+into a new valid property box. A property box can be any composite
+widget --- each property sheet is made a direct child of the property
+box.
+
+For imported property boxes, propsheet_show does * XtManageChild and
+propsheet_hide does * XtUnmanageChild.
+
+For example, under OLIT we can create a xolControlAreaWidget and then
+convert it into a property box like this:
+
+    ;;; Load appropriate libraries
+    uses popxlib;
+    uses propsheet;
+    uses xt_widget;
+    uses xtApplicationShellWidget;
+    uses Xol;
+    uses xolControlAreaWidget;
+
+    ;;; Initialise X & LIB * PROPSHEET
+    XptDefaultSetup();
+    propsheet_init();
+
+    ;;; Create an application shell
+    vars shell = XtAppCreateShell(
+        'test', 'Test', xtApplicationShellWidget, XptDefaultDisplay, []
+    );
+
+    ;;; Create a composite widget
+    vars box_widget = XtCreateManagedWidget(
+        'box', xolControlAreaWidget, shell, []
+    );
+
+    ;;; Import the widget as a propbox
+    vars box = propsheet_import_box(box_widget);
+
+    ;;; Create a shell
+    vars sheet = propsheet_new('Test Sheet', box, [ [Value ''] ]);
+
+    ;;; Show the box and sheet
+    propsheet_show([%sheet, box%]);
+
+    ;;; Realize the shell on screen.
+    XtRealizeWidget(shell);
+
+In a similar way, under Motif you could import a xmPanedWindowWidget
+like this:
+
+    ;;; Load appropriate libraries
+    uses popxlib;
+    uses propsheet;
+    uses xt_widget;
+    uses xtApplicationShellWidget;
+    uses Xm;
+    uses xmPanedWindowWidget;
+
+    ;;; Initialise X & LIB * PROPSHEET
+    XptDefaultSetup();
+    propsheet_init();
+
+    ;;; Create an application shell
+    vars shell = XtAppCreateShell(
+        'test', 'Test', xtApplicationShellWidget, XptDefaultDisplay, []
+    );
+
+    ;;; Create a paned-window widget
+    vars box_widget = XtCreateManagedWidget(
+        'box', xmPanedWindowWidget, shell, []
+    );
+
+    ;;; Import the widget as a propbox
+    vars box = propsheet_import_box(box_widget);
+
+    ;;; Create a shell
+    vars sheet = propsheet_new('Test Sheet', box, [ [Value ''] ]);
+
+    ;;; Show the box and sheet
+    propsheet_show([%sheet, box%]);
+
+    ;;; Realize the shell on screen.
+    XtRealizeWidget(shell);
+
+
+
+5.6  Managing Multiple Property Sheets
+--------------------------------------
+
+It is often useful to be able to display more than one property sheet in
+a property box --- either sequentially, so that the box is used to
+present a sequence of forms, or in a tiled fashion, so that one window
+contains several categories of controls. The "hide" and "show"
+procedures let you do this.
+
+One convenient way to manage multiple property sheets is with the menu
+list control. The following example uses the menu list, in conjunction
+with an accepter procedure, to display multiple property sheets:
+
+    vars basic_sheet, advanced_sheet;
+    define select_sheets(ps, button, val) -> val;
+        lvars ps, button, val;
+        if val == "Basic" then
+            propsheet_show(basic_sheet);
+            propsheet_hide(advanced_sheet);
+        else
+            propsheet_hide(basic_sheet);
+            propsheet_show(advanced_sheet);
+        endif;
+    enddefine;
+
+    vars exbox =
+        propsheet_new_box('Calc', false, false, [Apply Dismiss]);
+
+    vars select_sheet = propsheet_new(
+        false, exbox,
+        [   [Settings [[Basic] Advanced]
+            (nodefault, accepter= ^select_sheets)]
+        ]
+    );
+
+    vars basic_sheet = propsheet_new(
+        'Basic Options', exbox,
+        [ [Value ''] [Result '' (noinput)] [Action [Add Subtract]] ]
+    );
+
+    vars advanced_sheet = propsheet_new(
+        'Advanced Options', exbox,
+        [ [Memory [on off]] [Gang [- a b c]] [Writeable true]]
+    );
+
+    propsheet_show([%select_sheet, basic_sheet, exbox%]);
+
+
+
+-----------------------------------------------------------------------
+6  Further Reading
+-----------------------------------------------------------------------
+
+    HELP  * X               - An overview of POPLOG X facilities
+    TEACH * RC_GRAPHIC      - A high-level graphics library
+    TEACH * RC_GRAPHPLOT    - A graph drawing package
+    REF * PROPSHEET         - Reference manual for LIB * PROPSHEET
+
+
+
+--- C.x/x/pop/teach/propsheet
+--- Copyright University of Sussex 1990. All rights reserved.

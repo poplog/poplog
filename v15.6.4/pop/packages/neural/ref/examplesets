@@ -1,0 +1,653 @@
+REF EXAMPLESETS                                  Julian Clinton Aug 1992
+
+        Copyright Integral Solutions Ltd. All Rights Reserved
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<    EXAMPLE SET ACCESSOR     >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<         PROCEDURES          >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<  (PART OF LIB NETGENERICS)  >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Input/Output Flags
+ -- Bit Flags
+ -- Creating New Example Sets
+ -- Generating Example Set Data
+ -- . Generating From Files
+ -- . Generating From A Procedure
+ -- . Generating From An Example Set
+ -- . Generating From A Literal
+ -- Applying Example Sets To Networks
+ -- Apply Destinations
+ -- . File Destination
+ -- . Procedure Destination
+ -- . Example Set Destination
+ -- . Literal Destination
+ -- Example Set Record Slot Accessors
+ -- Modifying Flags In An Example Set
+ -- Predicates
+ -- Accessor Functions
+ -- Template Accessor Functions
+ -- Modifying Default Flags
+ -- Saving And Loading
+ -- Deleting Example Sets
+
+-- Input/Output Flags -------------------------------------------------
+
+The following flags specify  what source the example  set should use  to
+obtain the training examples from  and where the actual output  examples
+are to be sent  i.e. the destination. See  also the 'Bit Flags'  section
+which describes the  restrictions on source  and destination when  flags
+other than the defaults are used.
+
+
+EG_FILE                                                       [constant]
+        As source, this specifies that examples are read from a file. As
+        destination, specifies that examples are sent to a file.
+
+
+EG_PROC                                                       [constant]
+        As source, this specifies that examples are obtained by  calling
+        a procedure of no arguments or rather, any arguments are  either
+        built in using a closure are have been left on the stack in some
+        way. As destination,  this specifies  that a  procedure will  be
+        called with a  single argument  which is the  list of  converted
+        output from the network.
+
+
+EG_EGS                                                        [constant]
+        As source,  this  specifies that  the  raw output  from  another
+        example set  is  to  be  used  as the  input  to  this  one.  As
+        destination, it means that the raw output from this example  set
+        is to be passed to another example set.
+
+
+EG_LITERAL                                                    [constant]
+        As source, this  specifies that the  examples are supplied  when
+        the example  set is  made. As  destination, the  output is  held
+        within the example set.
+
+
+-- Bit Flags ----------------------------------------------------------
+
+The flags described  below are used  to set  and unset the  bits in  the
+example set which define some of  the behaviour of the example set  when
+generating examples and returning results.
+
+
+EG_RAWDATA_IN                                                 [constant]
+        When set, this flag specifies that the source data is in a  form
+        ready to be  presented to the  network. Therefore no  conversion
+        takes place.  If  the  data  source  is  a  procedure  then  the
+        procedure has to supply two results - the input array and target
+        array. If the data source is  from an example set then only  the
+        input array is  assigned (but  not copied) and  no training  can
+        take place. Default value in -eg_default_flags- is <false>.
+
+        The value  of this  flag can  be altered  in an  example set  by
+        assigning the required value  to -eg_rawdata_in- applied to  the
+        example set. The value of this flag in -eg_default_flags- can be
+        altered    by     assigning     the    required     value     to
+        -eg_default_rawdata_in-.
+
+
+EG_RAWDATA_OUT                                                [constant]
+        When set, this flag specifies that the destination data is  in a
+        form  ready  to  be  presented  to  the  network.  Therefore  no
+        conversion takes place. If the  data destination is a  procedure
+        then the procedure is called with the output array as its single
+        argument. If the data destination is to an example set then  the
+        output array is assigned (not copied) to the destination example
+        set.  Any   other  value   is  an   error.  Default   value   in
+        -eg_default_flags- is <false>.
+
+        The value  of this  flag can  be altered  in an  example set  by
+        assigning the required value to -eg_rawdata_out- applied to  the
+        example set. The value of this flag in -eg_default_flags- can be
+        altered    by     assigning     the    required     value     to
+        -eg_default_rawdata_out-.
+
+
+EG_KEEP_EXAMPLES                                              [constant]
+        When this flag is set,  generating examples from a procedure  or
+        file will cause a copy of the non-parsed data to be held in  the
+        -eg_in_examples- and  -eg_targ_examples-  slots of  the  example
+        sets. If unset then after  generating the data, these two  slots
+        will  have   <false>  assigned   to  them.   Default  value   in
+        -eg_default_flags- is <true>.
+
+        The value  of this  flag can  be altered  in an  example set  by
+        assigning the  required value  to -eg_keep_egs-  applied to  the
+        example set. The value of this flag in -eg_default_flags- can be
+        altered    by     assigning     the    required     value     to
+        -eg_default_keep_egs-.
+
+
+EG_GEN_OUTPUT                                                 [constant]
+        When this flag is  set, generating examples  in the example  set
+        with -nn_generate_egs- causes all output fields to be parsed and
+        generated in  the same  way as  input fields.  The examples  are
+        assigned to the -eg_targ_examples- while the resulting converted
+        data are held in an array in -eg_targ_data-. If this flag is not
+        set then  output  fields are  ignored  and only  used  when  the
+        example set  is  applied  to a  network  with  -nn_apply_egs-. A
+        simple heuristic is that the flag  should be set if the  example
+        set is being  used for  training a  network and  unset when  the
+        example set is being  used to store  input values only.  Default
+        value in -eg_default_flags- is <true>.
+
+        The value  of this  flag can  be altered  in an  example set  by
+        assigning the required value  to -eg_gen_output- applied to  the
+        example set. The value of this flag in -eg_default_flags- can be
+        altered    by     assigning     the    required     value     to
+        -eg_default_gen_output-.
+
+
+eg_default_flags                                       [active variable]
+        This active variable provides a convenient way of passing  flags
+        to -nn_make_egs-. The  defaults are as  described for the  flags
+        above. If a non-default set of  flags are required, this can  be
+        done either  by  modifying  the default  flags  (see  'Modifying
+        Default  Flags'  below),  creating  the  example  set  and  then
+        modifying the  flags  afterwards  (see 'Modifying  Flags  In  An
+        Example Set'  below) or  performing  logical arithmetic  on  the
+        default flags e.g. the expression:
+
+            eg_default_flags &&~~ EG_KEEP_EXAMPLES
+
+        when passed as the last  argument to -nn_make_egs- will  prevent
+        examples from being kept within the example set while:
+
+            eg_default_flags || EG_RAWDATA_OUT
+
+        will prevent the  output  array being converted into  high-level
+        data. See HELP *BITWISE for more on setting and unsetting bits.
+
+
+-- Creating New Example Sets ------------------------------------------
+
+nn_make_egs(NAME, TEMPLATE, DATA_SOURCE)                     [procedure]
+nn_make_egs(NAME, TEMPLATE, SOURCE_FLAG, SOURCE_INFO,
+            DEST_FLAG, DEST_INFO, FLAGS)
+
+        In the first (simplest) form, this takes a training set name (as
+        a word), a template  of the data format  and a data source.  The
+        data source may be a list  of lists containing the example  data
+        or a procedure of  no arguments which returns  a list of  lists.
+        For example, to create a simple exclusive-OR example set  called
+        "xor_set"  two  input  and  one  output  fields,  (all   boolean
+        datatypes), the declaration would be:
+
+        nn_make_egs("xor_set",
+                [[in boolean in1] [in boolean in2] [out boolean out]],
+                [[false false false] [true false true]
+                 [false true true] [true true false]]);
+
+
+        In the second form, NAME and TEMPLATE are the same as  described
+        previously.
+
+        SOURCE_FLAG and DESTINATION_FLAG  are one of  the valid  example
+        set input/output flags (see the section 'Input/Output Flags').
+
+        The value of SOURCE_INFO depends on the value of SOURCE_FLAG:
+
+            SOURCE_FLAG     SOURCE_INFO
+            -----------     -----------------------------------
+            EG_FILE         a list of filename strings
+            EG_PROC         the generator procedure
+            EG_EGS          source example set name (a word)
+            EG_LITERAL      a datastructure containing the examples
+
+        The value of DEST_INFO depends on the value of DEST_FLAG:
+
+            DEST_FLAG       DEST_INFO
+            -----------     -----------------------------------
+            EG_FILE         a list of filename strings
+            EG_PROC         the destination procedure
+            EG_EGS          destination example set name (a word)
+            EG_LITERAL      any value (ignored)
+
+        If the source or destination flags are EG_FILE then the number
+        of filename  strings supplied  in the list must  correspond to
+        the number of file datatypes in the TEMPLATE list.
+
+        FLAGS is a  set of flags  which defines other  behaviour of  the
+        example set. The usual value is to pass -eg_default_flags-.  See
+        the section 'Bit Flags'.
+
+An example using  some of these  flags is shown  below. The example  set
+reads a number of character patterns (which are textfiles containing 0's
+and 1's) and the associated digit from another file:
+
+    nn_make_egs("bitmap_egs", [[in bitmap_file 'Bitmap']
+                               [out number_file 'Number']],
+                EG_FILE, ['d*.bit' 'numbers.data'],
+                EG_LITERAL, false, eg_default_flags);
+
+
+The template consists  of two  file types:  one which  reads each  digit
+pattern example from separate files  called 'd0.bit', 'd1.bit' etc.  and
+one which reads each actual number a line at a time from a single  file,
+'numbers.data'). This means that the source  flag is set to EG_FILE  and
+the source information is a list of two file templates - the first  is a
+pattern which will match  against each example file  in turn, while  the
+second is simply a file name to be read a line at a time. Note that  the
+number of lines in this second file should be the same as the number  of
+files which can  be matched  using the  template AND  hold the  relevant
+example in the same order that the patterns will be matched against.
+
+The output is to be held within the example set so the destination  flag
+is  set  to  EG_LITERAL  and  a  dummy  parameter  is  provided  as  the
+destination information.
+
+Finally the default example set bit flags are used.
+
+
+-- Generating Example Set Data ----------------------------------------
+
+
+nn_generate_egs(EGS_NAME)                                    [procedure]
+nn_generate_egs(EGS_NAME, ARRAY_CONSTRUCTOR)                 [procedure]
+nn_generate_egs_input(EGS_NAME)                              [procedure]
+nn_generate_egs_input(EGS_NAME, ARRAY_CONSTRUCTOR)           [procedure]
+
+        These procedures evaluates the data  source in the training  set
+        and parses  the result  into the  appropriate input  and  output
+        vectors. -nn_generate_egs- must  be called  before the  training
+        set can be used on a network.  The example set name must be  the
+        last or second to last argument in the call to -nn_generate_egs-
+        or -nn_generate_egs_input- so if the generator function requires
+        additional arguments, these must be the first arguments.
+
+        ARRAY_CONSTRUCTOR is an optional procedure which can be used if
+        the network to be used with this example set requires something
+        other than a Fortran single float array.
+
+        The      difference      between      -nn_generate_egs-      and
+        -nn_generate_egs_input-  is  that  -nn_generate_egs-  uses  both
+        input and output data and will therefore generate both input and
+        target  data.  -nn_generate_egs_input-  will  only  read  fields
+        defined as input or  both. If a file  source has been  specified
+        and filenames for both  input and output  data have been  given,
+        calling -nn_generate_egs_input-  is  likely  to  give  an  error
+        (since the number of files being read does not match the  number
+        of filenames supplied).
+
+        Note  that   you   can   get  the   same   effect   as   calling
+        -nn_generate_egs_input- by  setting  the EG_GEN_OUTPUT  flag  to
+        false in the example set.
+
+
+-- . Generating From Files --------------------------------------------
+
+When you  specify a  pathname, you  can include  any special  characters
+allowed by the operating system (such as "$" for specifying  environment
+variables in UNIX). You can also  include wildcards e.g. "*" and "?"  on
+UNIX or "*"  and "%"  on VMS.  These are  matched using  *SYS_FILE_MATCH
+against any file in the specified directory (or current directory if the
+file name did not include a directory component). Files will be read  in
+the order they were  matched against. This may  cause some confusion  to
+begin with e.g. if you have files called:
+
+    file1.ex, file2.ex, ..., file9.ex, file10.ex, file11.ex, ...,
+    file20.ex,... etc.
+
+the order they will be matched in is:
+
+    file1.ex, file10.ex, file11.ex, ..., file2.ex, file20.ex, ... etc.
+
+The list  of  files can  be  changed by  assigning  a new  list  to  the
+-eg_gendata- slot of the example set record.
+
+
+-- . Generating From A Procedure --------------------------------------
+
+Results are obtained  by calling  the procedure supplied  as the  source
+information. If the example  set does not  have EG_RAWDATA_IN flag  set,
+this should return a  structure which can be  parsed using the  template
+supplied when the example set was created. If the EG_RAWDATA_IN flag  is
+not  set,  the  procedure  should   return  two  results  suitable   for
+presentation to the network e.g.
+
+    define gen_raw_data() -> input_array -> target_array;
+        ...
+    enddefine;
+
+The input_array must always  be an array. However,  if the network  does
+not have  a  defined  target  result (such  as  a  competitive  learning
+network), then the second result should be <false>. The procedure can be
+changed by assigning a new value to the -eg_gendata- slot of the example
+set record.
+
+
+-- . Generating From An Example Set -----------------------------------
+
+The raw data  input for  the example set  is obtained  by assigning  the
+contents of  the -eg_out_data-  slot of  the named  example set  to  the
+-eg_in_data- slot of the current example  set. In order for training  to
+be done using such an example  set, the target results must be  assigned
+to the -eg_targ_data- slot by the  user. The name of the source  example
+set can be changed by assigning a new value to the -eg_gendata- slot  of
+the example set record.
+
+
+-- . Generating From A Literal ----------------------------------------
+
+The structure supplied when the example set was declared is parsed.  The
+structure is  should be  a list  of  lists or  vector of  vectors.  This
+structure can  be altered  by  accessing the  -eg_gendata- slot  in  the
+example set record.
+
+
+-- Applying Example Sets To Networks ----------------------------------
+
+nn_apply_example(EXAMPLE, INTEMPLATE, OUTTEMPLATE,           [procedure]
+                 INVEC, OUTVEC, NETWORK) -> RESULT
+
+        Users may find this function useful  as a basis for closures  to
+        create 'packaged' networks. -nn_apply_example- takes an example,
+        an input  template,  an output  template,  an input  vector,  an
+        output vector and a neural network record structure. The example
+        is converted using INTEMPLATE to  a vector of real numbers  held
+        in INVEC. This vector is passed to the network and the resulting
+        network output is  returned in outvec.  This is converted  using
+        OUTTEMPLATE to a list  of values and returned  as the result  of
+        the application.
+
+
+nn_apply_egs(EXAMPLE_SET, NETWORK)                           [procedure]
+        -nn_apply_egs- takes a training set  and a network and  presents
+        each example in the training set to the network. The raw data is
+        then converted using  the template specifier  and passed to  the
+        specified destination (file, procedure,  another example set  or
+        held as a  structure within  the example set).  See the  section
+        'Apply Destinations' below.
+
+
+nn_apply_egs_item(ITEM, EXAMPLE_SET, NETWORK) -> RESULT      [procedure]
+        -nn_apply_egs_item- takes an item, a training set and a  network
+        and returns a  list containing the  unparsed results taken  from
+        the network. ITEM is an integer index into the example set list.
+
+
+nn_test_egs(EXAMPLE_SET, NETWORK, SHOW_TARG) -> RESULTS_LIST [procedure]
+        -nn_test_egs- takes a training set  and a network and  returns a
+        list of  lists of  all  the results  when  each example  in  the
+        training set is presented to the network. It also takes a  third
+        argument which, if true, returns a list where the actual results
+        are the head of the list and the target results are the tail.
+
+
+nn_test_egs_item(ITEM, EXAMPLE_SET, NETWORK, SHOW_TARG)      [procedure]
+                                                -> RESULT
+        -nn_test_egs_item- takes an item, a  training set and a  network
+        and returns a  list containing the  unparsed results taken  from
+        the network. ITEM is an integer index into the example set list.
+        If SHOW_TARG is true than the  actual result is the head of  the
+        list and the tail is the target result.
+
+
+-- Apply Destinations -------------------------------------------------
+
+-- . File Destination -------------------------------------------------
+
+For destination filenames, only "*" has a special wildcard meaning. Each
+time a file is to  be written, the "*" is  replaced by the index of  the
+result being written and this produces the output filename. The raw data
+is converted from the raw data  arrays to the appropriate datatypes  and
+passed to the destination files.
+
+The list  of  files can  be  changed by  altering  the contents  of  the
+-eg_apply_params- slot in the example set record.
+
+
+-- . Procedure Destination --------------------------------------------
+
+When the destination is a  procedure, the procedure specified is  called
+with the converted output examples as its single argument. The procedure
+can be changed by altering the contents of the -eg_apply_params- slot in
+the example set record.
+
+
+-- . Example Set Destination ------------------------------------------
+
+When an example  set is  the destination,  the contents  of the  current
+examples set's  -eg_out_data- slot  is assigned  to the  target  example
+set's -eg_in_data-.  This  means that  the  EG_RAWDATA_OUT flag  of  the
+current example set  and EG_RAWDATA_IN flag  of the destination  example
+set are both true.
+
+-- . Literal Destination ----------------------------------------------
+
+When the  destination  is  a  literal,  the  results  are  held  in  the
+-eg_out_examples- slot of the example set.
+
+
+-- Example Set Record Slot Accessors ----------------------------------
+
+The following procedures can  be used to access  the example set  record
+returned when a valid  example set name  is passed to  -nn_example_sets-
+property as a key.
+
+eg_template(EXAMPLE_SET) -> TEMPLATE                         [procedure]
+        Returns the template used to  map input data onto datatypes  and
+        input/output units.
+
+
+eg_in_template(EXAMPLE_SET) -> TYPE_LIST                     [procedure]
+        Returns the list of data types of input examples.
+
+
+eg_out_template(EXAMPLE_SET) -> TYPE_LIST                    [procedure]
+        Returns the list of data types of output examples or <false>  if
+        none were defined.
+
+
+eg_in_names(EXAMPLE_SET) -> NAMES_LIST                       [procedure]
+        Returns the list of names of input examples.
+
+
+eg_out_names(EXAMPLE_SET) -> NAMES_LIST                      [procedure]
+        Returns the list of names of output examples or <false> if  none
+        were defined.
+
+
+eg_in_vector(EXAMPLE_SET) -> VECTOR                          [procedure]
+        Returns the  dummy  vector  used when  individual  examples  are
+        parsed and presented to the network.
+
+
+eg_out_vector(EXAMPLE_SET) -> VECTOR or <false>              [procedure]
+        Returns  the  dummy  vector  used  as  the  output  vector  when
+        individual examples are parsed and  presented to the network  or
+        <false> if the number of output units is unknown.
+
+
+eg_in_units(EXAMPLE_SET) -> INTEGER                          [procedure]
+        Returns the minimum number of input units a network must have to
+        allow  the  types  specified  in  the  input  type  list  to  be
+        presented.
+
+
+eg_out_units(EXAMPLE_SET) -> INTEGER or <false>              [procedure]
+        Returns the minimum number of  output units a network must  have
+        to allow  the types  specified in  the output  type list  to  be
+        extracted. If  no  output units  were  defined then  <false>  is
+        returned.
+
+
+eg_gen_params(EXAMPLE_SET) -> ITEM                           [procedure]
+        Returns the items used when generating the example set. For file
+        source, ITEM is a list of filenames. For procedure source,  ITEM
+        is a procedure. For example set source, ITEM is the name of  the
+        source example set. For literal, ITEM is the data structure.
+
+
+eg_gendata(EXAMPLE_SET) -> LIST                              [procedure]
+        Returns  the  examples  produced   by  evaluating  the   example
+        generator function.
+
+
+eg_in_examples(EXAMPLE_SET) -> LIST_OF_LISTS                 [procedure]
+        Returns a list of lists  containing information to be  converted
+        to raw data (real numbers) for presentation to the input units.
+
+
+eg_in_data(EXAMPLE_SET) -> ARRAY                             [procedure]
+        Returns the array containing the raw data to be presented to the
+        input units.
+
+
+eg_targ_examples(EXAMPLE_SET) -> LIST_OF_LISTS               [procedure]
+        Returns a list of  the desired results  after conversion by  the
+        output converter functions. If  the training set  is to be  used
+        with a  competitive  learning  network (which  does  not  need a
+        target array) then this will contain an empty list.
+
+
+eg_targ_data(EXAMPLE_SET) -> ARRAY                           [procedure]
+        Returns the array containing the raw data to be presented to the
+        output  units.  If  the  training  set  is  to  be  used  with a
+        competitive learning  network  (which  does not  need  a  target
+        array) then this will  contain an array the  same length as  the
+        number of examples in -eg_gendata-.
+
+
+eg_out_examples(EXAMPLE_SET) -> LIST_OF_LISTS                [procedure]
+        Returns a list  of the  actual results after  conversion by  the
+        output converter functions. If  the training set  is to be  used
+        with a  competitive  learning  network (which  does  not  need a
+        target array) then this will contain an empty list.
+
+
+eg_out_data(EXAMPLE_SET) -> ARRAY                            [procedure]
+        Returns the array containing the raw data returned by the output
+        units after the input data  has been presented. If the  training
+        set is to  be used  with a competitive  learning network  (which
+        does not need a  target array) then this  will contain an  array
+        the same length as the number of examples in -eg_gendata-.
+
+
+eg_apply_params(ITEM) -> ITEM                                [procedure]
+        Returns the items used when applying the example set and passing
+        the results to the destination item. For file destination,  ITEM
+        is a list  of filenames.  For procedure  destination, ITEM  is a
+        procedure. For example set destination, ITEM is the name of  the
+        destination example set. For literal, ITEM is undefined.
+
+
+eg_examples(EXAMPLE_SET) -> INTEGER                          [procedure]
+        Returns the number of examples held in the example set. If  data
+        has not yet been generated, this number will be 0.
+
+
+eg_name(EXAMPLE_SET) -> WORD                                 [procedure]
+        Returns the name of the training set. This name can be used with
+        -nn_example_sets- to obtain the associated training set record.
+
+
+-- Modifying Flags In An Example Set ----------------------------------
+
+eg_rawdata_in(EXAMPLE_SET) -> BOOLEAN                        [procedure]
+BOOLEAN -> eg_rawdata_in(EXAMPLE_SET)                        [procedure]
+eg_rawdata_out(EXAMPLE_SET) -> BOOLEAN                       [procedure]
+BOOLEAN -> eg_rawdata_out(EXAMPLE_SET)                       [procedure]
+eg_keep_egs(EXAMPLE_SET) -> BOOLEAN                          [procedure]
+BOOLEAN -> eg_keep_egs(EXAMPLE_SET)                          [procedure]
+eg_gen_output(EXAMPLE_SET) -> BOOLEAN                        [procedure]
+BOOLEAN -> eg_gen_output(EXAMPLE_SET)                        [procedure]
+        These procedures and their updaters return or are used to set or
+        unset the bit flags within an example set given by  EXAMPLE_SET.
+        See the  section 'Bit  Flags'  above for  a description  of  the
+        flags.
+
+
+-- Predicates ---------------------------------------------------------
+
+isexampleset(NAME) -> BOOLEAN                                [procedure]
+        Returns <true> if NAME is an example set or <false> otherwise.
+
+
+-- Accessor Functions -------------------------------------------------
+
+nn_example_sets(EGS_NAME) -> EGS_STRUCT                 [property table]
+        A  property  table containing the example set record  structures
+        accessed using the example set name (a word).
+
+
+-- Template Accessor Functions ----------------------------------------
+
+nn_template_io(TEMPLATE) -> IN_OR_OUT                        [procedure]
+WORD -> nn_template_io(TEMPLATE)                             [procedure]
+        Returns  or  sets  the  words  "in",  "out",  "both"  or  "none"
+        according to the specifier in TEMPLATE.
+
+
+nn_template_type(TEMPLATE) -> TYPE                           [procedure]
+TYPE -> nn_template_type(TEMPLATE)                           [procedure]
+        Returns or sets the type specifier of a template as a word.
+
+
+nn_template_name(TEMPLATE) -> NAME                           [procedure]
+NAME -> nn_template_name(TEMPLATE)                           [procedure]
+        Returns or sets  the name  of the template  field as  a word  or
+        "unnamed" of no name is specified.
+
+
+-- Modifying Default Flags --------------------------------------------
+
+eg_default_rawdata_in                                  [active variable]
+        This variable  defines  whether  the EG_RAWDATA_IN  bit  is  set
+        (<true>) or unset  (<false>) in -eg_default_flags-.  Assigning a
+        boolean to this variable sets/unsets the flag appropriately.
+
+
+eg_default_rawdata_out                                 [active variable]
+        This variable  defines whether  the  EG_RAWDATA_OUT bit  is  set
+        (<true>) or unset  (<false>) in -eg_default_flags-.  Assigning a
+        boolean to this variable sets/unsets the flag appropriately.
+
+
+eg_default_keep_egs                                    [active variable]
+        This variable defines  whether the EG_KEEP_EXAMPLES  bit is  set
+        (<true>) or unset  (<false>) in -eg_default_flags-.  Assigning a
+        boolean to this variable sets/unsets the flag appropriately.
+
+
+eg_default_gen_output                                  [active variable]
+        This variable  defines  whether  the EG_GEN_OUTPUT  bit  is  set
+        (<true>) or unset  (<false>) in -eg_default_flags-.  Assigning a
+        boolean to this variable sets/unsets the flag appropriately.
+
+
+-- Saving And Loading -------------------------------------------------
+
+nn_load_egs(EGSNAME, FILE) -> LOADED                         [procedure]
+        -nn_load_egs- takes the name  of a example set  as a word  and a
+        filename as a string and attempts to load the example set stored
+        in the  file  and stores  it  in -nn_example_sets-  accessed  by
+        EGSNAME. The function returns true or false according to whether
+        the example set was successfully loaded or not.
+
+
+nn_save_egs(EGSNAME, FILE) - SAVED                           [procedure]
+        -nn_save_egs- takes the name  of an example set  name as a  word
+        and a filename as a string and attempts to save the example  set
+        in FILE. The function returns the filesize or false according to
+        whether the example set was successfully saved or not.
+
+
+-- Deleting Example Sets ----------------------------------------------
+
+nn_delete_egs(NAME)                                          [procedure]
+        Removes example set called NAME from -nn_example_sets-. If  NAME
+        is  the   value   of   -nn_current_egs-  then   the   value   of
+        -nn_current_egs- will become false.
+
+
+--- $popneural/ref/examplesets
+--- Copyright Integral Solutions Ltd. 1992. All rights reserved. ---

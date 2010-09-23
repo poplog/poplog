@@ -1,0 +1,114 @@
+HELP SUNRASTERFILE                              David Young
+                                                February 1990
+                                                revised October 2001
+
+
+Sunrasterfile reads and writes standard Sun rasterfiles (see
+MAN * RASTERFILE for more information). If the imconv utility from SDSC
+is available (see MAN * IMCONV), or the ImageMagick convert utility (see
+MAN * CONVERT), is available, then image files in many other formats may
+also be read or written; the data are piped through one of them to
+convert them to or from standard Sun rasterfiles. If the gzip utility is
+available (see MAN * GZIP) then files may be compressed on writing and
+uncompressed on reading using it. The selection of file type and
+compression is done on the basis of the file name extension.
+
+
+sunrasterfile(filename) -> arr
+sunrasterfile(filename, get_cmap) -> (arr, cmap)
+sunrasterfile(filename, tag) -> arr
+sunrasterfile(filename, tag, get_cmap) -> (arr, cmap)
+    The file whose name is given in the string filename is read and the
+    image data returned as an array arr.  This will have 1-bit, 8-bit or
+    24-bit elements according to the depth of the rasterfile.
+
+        If filename has one of the extensions '.gz', '-gz', '.z', '_z',
+        or '.Z' then the file is assumed to have been compressed and is
+        piped through gunzip (see MAN * GZIP) as it is read. This
+        extensions must be the last part of the filename.
+
+        If filename has an extension '.ras', '.sun', '.sr', or '.scr'
+        then the file is assumed to be a Sun rasterfile and is read
+        directly. The extension may be at the end of filename or it may
+        precede a gzip extension (e.g. image.ras.gz).
+
+        If filename does not have a Sun rasterfile extension, or if the
+        file is an RLE-encoded Sun rasterfile, then the file is piped
+        through either imconv or convert if available. See
+        sunrasterfile_converter below.
+
+        Files that cannot be read will cause a mishap.
+
+    The optional get_cmap argument should be a boolean; if <true> the
+    colour map is also returned as a vector of vectors with the format
+        {{r1 r2 ... rN} {g1 g2 ... gN} {b1 b2 ... bN}}
+    where rx, gx, bx are the x'th red, green and blue entries in the
+    colour map, and there are N entries altogether, N <= 256.
+
+        Note: The procedure interprets "raw" colour maps the same as
+        equal-rgb ones, which may be incorrect but seems to be what
+        other software does.
+
+    The optional tag argument allows recycling of arrays to reduce
+    garbage collections. If tag is not <false>, then arr may share
+    storage with an array returned from a previous call to sunrasterfile
+    with an identical tag. This argument may be any object other than a
+    string, but a word or integer would be the most usual. See *oldarray
+    for details of how tag is used.
+
+
+arr -> sunrasterfile(filename)
+(arr, cmap) -> sunrasterfile(filename)
+    The image data stored in array arr is written to a file named
+    filename.  arr must be an integer array with 1, 8 or 24 bits per
+    element. (1-bit arrays can be made using *BITVECTORS together with
+    *newanyarray; 8-bit arrays can be made using *newbytearray.)
+
+        The filename argument can take the same forms as for the reading
+        procedure above (e.g. image.ras, image.ras.gz, image.gif,
+        image.gif.gz) and the data will be piped through a converter
+        program and gzip (if available) as necessary. Unrecognised
+        extensions will cause a mishap.
+
+    The optional second argument, if present, must be a colour map
+    consisting of a vector of 3 vectors for the red, green and blue
+    values, as described above.
+
+    If the second argument is omitted and the array has 8 bits per
+    pixel, a grey-level ramp with 256 values is written as the colour
+    map.  To omit the colour map for an 8-bit image, use {{}{}{}} as the
+    second argument.
+
+
+sunrasterfile_converter
+    This variable may be set to "imconv", "convert" or <false>. If it is
+    a word, an attempt will be made to use the corresponding program to
+    convert to and from formats other than standard Sun rasterfiles on
+    writing and reading. If it is <false>, no such attempt is made. The
+    default is "imconv", but this can be overriden at any point. The
+    variable can be declared and given a value before the library is
+    loaded.
+
+    If imconv is used, the filename is checked for an extension
+    recognised by imconv (see MAN * IMCONV or LIB * SUNRASTERFILE). This
+    may precede a gzip extension. The file is then piped through imconv
+    (preceded by gunzip if necessary) to convert it to Sun rasterfile
+    format before being read, or to convert it to the required format on
+    being written.
+
+    If convert is used, no checks on the filename extension are carried
+    out - convert is simply asked to read or write the filename as
+    given. Convert reads and writes files compressed with gzip or
+    compress without further action.
+
+    Convert will read and write jpeg-encoded files, whereas imconv will
+    not.
+
+
+The program will deal with byte-reversed rasterfiles obtained by porting
+between little-endian and big-endian machines. However, the results of
+reading 24-bit rasterfiles so ported may still be incorrect.
+
+
+--- $popvision/help/sunrasterfile
+--- Copyright University of Sussex 1993. All rights reserved.

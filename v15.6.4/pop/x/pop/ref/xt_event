@@ -1,0 +1,991 @@
+REF XT_EVENT                                        Adrian Howard Apr 92
+
+       COPYRIGHT University of Sussex 1990. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<      EVENT MANAGEMENT       >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+Poplog provides  facilities  that allow  Toolkit  events to  be  handled
+asynchronously. This REF file details these facilities and why they  are
+needed
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   Format Of Procedures
+      2.1   EventHandler Procedures
+      2.2   Input Procedures
+      2.3   TimeOut Procedures
+
+  3   External Callback
+
+  4   The Pop-11 Interface To Event Management
+      4.1   LIB XT_EVENT
+      4.2   LIB FAST_XT_EVENT
+
+  5   Deferred Procedure Application
+
+
+
+---------------
+1  Introduction
+---------------
+
+Toolkit applications  are  event  driven.  A  typical  application  will
+consist of some setup  code, followed by an  event loop which reads  and
+processes events.
+
+The  Toolkit  allows  applications  to  handle  events  by   registering
+procedures, known as EventHandler procedures, which will be called  when
+a particular  events  occur. Most  applications  will not  need  to  use
+EventHandlers explicitly  -  the  higher  level  translation  management
+mechanism (see  REF * XT_TRANS and  * XT_ACTION), or  a widget  supplied
+callback list (see REF * XT_CALLBACK)  is usually more appropriate.  See
+REF * XPT_XEVENT for more details of X event structures.
+
+Non-X input sources can be  integrated with the Toolkit event  mechanism
+by the  use  of  Input  procedures which  allow  Pop-11  devices  to  be
+registered with an application. These are then called by alternate input
+events.
+
+See  REF * XT_GRAB  for  more   information  on  redirecting  input   to
+individual widgets.
+
+TimeOut procedures can be registered with an application. These will  be
+executed when a specified period of time has elapsed by the action  of a
+timer pseudo-event.
+
+Poplog provides  facilities  that allow  Toolkit  events to  be  handled
+asynchronously.
+
+For more information on these mechanisms see chapter 7 of:
+
+               X Toolkit Intrinsics - C Language Interface
+                             X Window System
+                         X Version 11, Release 4
+
+        Copyright (C)  1985,  1986,  1987,  1988,  Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+
+
+-----------------------
+2  Format Of Procedures
+-----------------------
+
+2.1  EventHandler Procedures
+----------------------------
+An EventHandler procedure is  executed when a  specified class of  event
+occurs. It  should either  be an  appropriate external  procedure,  or a
+Pop-11    procedure     that    has     been    coerced     with     the
+XptExportEventHandler(Cached) procedures.
+
+External procedures should be external function closures (for detail see
+REF * EXTERNAL), or of  the type XptProcedure.  The external  procedures
+should expect  to  be called  in  the  same format  as  the  following C
+function prototype:
+
+        typedef void(*XtEventHandler)
+            (   Widget widget,
+                XtPointer client_data,
+               XEvent * xevent,
+               Boolean * continue
+           );
+
+A Pop-11 EventHandler procedure P should expect to be called as follows:
+
+        P(WIDGET, CLIENT_DATA, XEVENT) -> CONTINUE
+
+WIDGET is the widget for which EventHandler is handling events.
+
+CLIENT_DATA will  be  an arbitrary  data  object that  the  EventHandler
+procedure was registered with. NOTE: Pop-11 EventHandler procedures  are
+passed the data item itself, external procedures are passed a pointer to
+the item.
+
+XEVENT is an XptXEventPtr descriptor pointing to the event which  caused
+the EventHandler  to  be called.  See  REF * XPT_XEVENT for  details  of
+XEvent structures.
+
+CONTINUE specifies whether any other  event handlers registered for  the
+current event type should  be called. The other  event handlers are  not
+called if  CONTINUE is  set to  <false>. NOTE:  external procedures  are
+passed a pointer to a boolean value  which is, by default, true. If  the
+external procedure  wishes to  stop  the processing  of the  event  they
+should alter this value to false.
+
+If a Pop-11 event handler procedure does not return a result, a value of
+<true> for CONTINUE is assumed.
+
+IMPORTANT NOTE: The  circumstances under  which the  Intrinsics may  add
+event handlers to a widget is currently implementation dependent.  Thus,
+setting CONTINUE to <false> may lead to portability problems.
+
+It is an  error for external  EventHandlers to return  any items on  the
+stack. It is an error for Pop-11 EventHandler procedures to return  more
+than one item on the stack.
+
+Care must be taken when using Pop-11 EventHandler procedures. It must be
+remembered that the Pop-11 procedure is NOT what is registered with  the
+intrinsics, the  COERCED  procedure  is.  If  you  are  coercing  Pop-11
+procedures yourself, you must ensure that the COERCED procedure does not
+become garbage during the lifetime  of the EventHandler procedure.  This
+can be done by explicitly keeping track of the external function closure
+returned by the coercion procedures XptExportEventHandler(Cached) or  by
+supplying a <true> HOLD argument to them.
+
+
+
+2.2  Input Procedures
+---------------------
+An Input procedure is  used to register a  new input (or output)  source
+with an  application.  It  should  either  be  an  appropriate  external
+procedure, or  a  Pop-11  procedure  that  has  been  coerced  with  the
+XptExportInput(Cached)  procedures.  Input  procedures  are  added  with
+XtAppAddInput and removed with XtRemoveInput.
+
+External procedures should be external function closures (for detail see
+REF * EXTERNAL), or of  the type XptProcedure.  The external  procedures
+should expect  to  be called  in  the  same format  as  the  following C
+function prototype:
+
+        typedef void(*XtInputCallbackProc)
+           (XtPointer client_data, int * source, XtInputId * inputid);
+
+A Pop-11 Input procedure P should expect to be called as follows:
+
+        P(CLIENT_DATA, DEV, INPUTID)
+
+CLIENT_DATA will be an  arbitrary data object  that the Input  procedure
+was registered with (see  XtAppAddInput). NOTE: Pop-11 Input  procedures
+are passed  the  data  item itself,  external  procedures  are  passed a
+pointer to the item.
+
+DEV is the Pop-11 device that  is being used for input/output  (external
+procedures are  passed a  pointer  to a  C-type file  descriptor,  not a
+Pop-11 device).
+
+INPUTID is a unique InputId  descriptor (returned when the procedure  is
+registered) for this Input procedure. NOTE: Pop-11 procedures are passed
+the actual descriptor, while external procedures are passed a pointer to
+the descriptor.
+
+It is an error for an Input procedure to return items on the stack.
+
+Care must  be taken  when  using Pop-11  Input  procedures. It  must  be
+remembered that the Pop-11 procedure is NOT what is registered with  the
+intrinsics, the  COERCED  procedure  is.  If  you  are  coercing  Pop-11
+procedures yourself, you must ensure that the COERCED procedure does not
+become garbage during the lifetime of  the Input procedure. This can  be
+done by  explicitly  keeping  track of  the  external  function  closure
+returned  by  the  coercion  procedures  XptExportInput(Cached)  or   by
+supplying a <true> HOLD argument to them.
+
+
+
+2.3  TimeOut Procedures
+-----------------------
+A TimeOut procedure is executed after a given time interval has elapsed.
+It should  either be  an  appropriate external  procedure, or  a  Pop-11
+procedure  that  has  been  coerced  with  the  XptExportTimeOut(Cached)
+procedures.  TimeOut  procedures  are  added  with  XtAppAddTimeOut  and
+removed with XtRemoveTimeOut.
+
+External procedures should be external function closures (for detail see
+REF * EXTERNAL), or of  the type XptProcedure.  The external  procedures
+should expect  to  be called  in  the  same format  as  the  following C
+function prototype:
+
+        typedef void(*XtTimerCallbackProc)
+            (XtPointer client_data, XtIntervalId * intervalid);
+
+A Pop-11 TimeOut procedure P should expect to be called as follows:
+
+        P(CLIENT_DATA, INTERVALID)
+
+CLIENT_DATA will be an arbitrary data object that the TimeOut  procedure
+was  registered  with  (see   XtAppAddTimeOut).  NOTE:  Pop-11   TimeOut
+procedures are  passed the  data item  itself, external  procedures  are
+passed a pointer to the item.
+
+INTERVALID  is  a  unique  IntervalId  descriptor  (returned  when   the
+procedure is  registered)  for  this  TimeOut  procedure.  NOTE:  Pop-11
+procedures are passed the  actual descriptor, while external  procedures
+are passed a pointer to the descriptor.
+
+It is an error for a TimeOut procedure to return items on the stack.
+
+Care must be  taken when  using Pop-11  TimeOut procedures.  It must  be
+remembered that the Pop-11 procedure is NOT what is registered with  the
+intrinsics, the  COERCED  procedure  is.  If  you  are  coercing  Pop-11
+procedures yourself, you must ensure that the COERCED procedure does not
+become garbage during the lifetime of the TimeOut procedure. This can be
+done by  explicitly  keeping  track of  the  external  function  closure
+returned by  the  coercion  procedures  XptExportTimeOut(Cached)  or  by
+supplying a <true> HOLD argument to them.
+
+
+
+
+--------------------
+3  External Callback
+--------------------
+
+Since Pop-11 Input, TimeOut, and EventHandler procedures are called from
+outside Poplog they use a special "external callback" mechanism. This is
+explained in REF * XT_CALLBACK. You  should read the following  sections
+from REF * XT_CALLBACK if you have not done so already:
+
+     #  Overview - External Callbacks
+     #  Generic External Callbacks Under The Poplog X Interface
+     #  Possible Problems With Default External Callback Coercion
+
+
+
+
+-------------------------------------------
+4  The Pop-11 Interface To Event Management
+-------------------------------------------
+
+The library LIB * XT_EVENT provides the Pop-11 interface to the  various
+Intrinsics related to event management. The library  LIB * FAST_XT_EVENT
+(loaded by LIB * XT_EVENT)  provides non-checking versions  of the  same
+procedures in addition to supporting  the coercion of Pop-11  procedures
+into structures  that can  be  passed as  external Input,  TimeOut,  and
+EventHandler procedures.
+
+The structure of arguments and  results for the following procedures  is
+discussed in REF * XPT_TYPES.
+
+
+4.1  LIB XT_EVENT
+-----------------
+
+XtBuildEventMask(widget) -> event_mask                       [procedure]
+        Retrieves the  event  mask  event_mask  of  the  widget  widget.
+        event_mask specifies the event  types which widget can  receive.
+        Possible values for event_mask are given in INCLUDE * XPT_XEVENT
+        (see REF * XPT_XEVENT).
+
+
+XtSetSensitive(widget, bool)                                 [procedure]
+        Sets the sensitivity state of the widget widget to bool.
+
+        A  widgets  sensitivity   is  controlled  by   the  two   fields
+        "sensitive" and  "ancestor_sensitive"  in the  XptCorePart  of a
+        widget  (see  REF * XPT_WIDGETTYPES).  The  "ancestor_sensitive"
+        field is <false> if the "sensitive" field of the widgets  parent
+        is <false>. These  fields are accessible  by the boolean  widget
+        resources "XtN sensitive" and "XtN ancestorSensitive" (NOTE: the
+        latter resource should only be queried, not altered).
+
+        A widget  is  considered to  be  insensitive if  either  of  the
+        following conditions hold:
+
+          # The widgets parent is insensitive.
+            (the widgets "ancestor_sensitive" field is <false>)
+
+          # The widget is not sensitive.
+            (the widgets "sensitive" field is <false>)
+
+        When a  widget  is insensitive  it  does not  receive  KeyPress,
+        KeyRelease,    ButtonPress,     ButtonRelease,     MotionNotify,
+        EnterNotify, LeaveNotify,  FocusIn,  and FocusOut  events.  Many
+        widgets assume a different appearance when they are  insensitive
+        (for example, they might become grey or stippled).
+
+        When XtSensitive is called it sets the "XtN sensitive" field  of
+        widget to bool. If  widget is a composite  widget, it then  sets
+        the "ancestor_sensitive" fields of any children of widget to the
+        appropriate value, depending  on the "ancestor_sensitive"  field
+        of widget. This change propagates down the widget tree  ensuring
+        that   if   a    parent   has   a    <false>   "sensitive"    or
+        "ancestor_sensitive"   field,    its   children    have    their
+        "ancestor_sensitive" fields set to <false>.
+
+        NOTE: The procedure  XtSetSensitive uses  XtSetValues to  change
+        the "sensitive"  and "ancestor_sensitive"  fields of  widgets. A
+        widgets "set_values" method should take care of whatever display
+        actions are needed.
+
+
+XtIsSensitive(widget) -> bool                                [procedure]
+        Reports whether the widget  widget can receive keyboard,  focus,
+        and  pointer  events.  It  returns  <true>  if  both  the   "XtN
+        sensitive" and "XtN ancestorSensitive"  resources of the  widget
+        widget  are   <true>,  otherwise   <false>  is   returned.   See
+        XtSetSensitive for details.
+
+
+XtAddEventHandler(widget, event_mask, nonmaskable,           [procedure]
+            widentproc, client_data)
+        Registers the EventHandler procedure  referred to by  widentproc
+        on the widget  widget, altering  widget so it  will receive  the
+        specified events.
+
+        event_mask  specifies   the   events  which   will   cause   the
+        EventHandler to be  called. Possible values  for event_mask  are
+        given in INCLUDE * XPT_XEVENT (see REF * XPT_XEVENT).
+
+        If nonmaskable is <false> then  the EventHandler referred to  by
+        widentproc will  NOT be  called when  non-maskable events  occur
+        (ie, GraphicsExpose, NoExpose, SelectionClear, SelectionRequest,
+        SelectionNotify, ClientMessage,  and  MappingNotify).  Otherwise
+        the EventHandler procedure will also be called when these events
+        occur.
+
+        client_data can be any Pop-11 object.  It will be passed to  the
+        EventHandler referred to by widentproc when it is executed.
+
+        If widentproc refers to a  Pop-11 procedure it is  automatically
+        coerced into an  external form, along  with client_data, by  the
+        procedure  XptExportEventHandlerCached.  A   reference  to   the
+        (possible coerced) EventHandler is kept  by widget so it  cannot
+        become garbage during widget's lifetime.
+
+        If the procedure referred to by widentproc is already registered
+        with  the  same  client_data   then  the  events  specified   by
+        event_mask and nonmaskable are selected for in ADDITION to those
+        selected when the procedure was registered previously.
+
+        If more  than  one event  handler  is  added to  a  widget  with
+        XtAddEventHandler,  their  execution  order  is   implementation
+        specific.
+
+
+XtAddRawEventHandler(widget, event_mask, nonmaskable,        [procedure]
+            widentproc, client_data)
+        As for  XtAddEventHandler,  but  the specified  events  are  not
+        selected for in widget (unless they are selected already).
+
+
+XtInsertEventHandler(widget, event_mask, nonmaskable,        [procedure]
+            widentproc, client_data, listposition)
+        As for  XtAddEventHandler,  but  allows  the  execution  of  the
+        EventHandler to  be  specified  in relation  to  any  previously
+        registered event  handlers. The  listposition position  argument
+        can take one of two values specified in  INCLUDE * XT_CONSTANTS.
+        If its value is XtListHead then the Eventhandler referred to  by
+        widentproc will  be executed  before all  previously  registered
+        EventHandlers. If  its  value  is XtListTail  then  it  will  be
+        executed after all previously registered EventHandlers.
+
+
+XtInsertRawEventHandler(widget, event_mask, nonmaskable,     [procedure]
+            widentproc, client_data, listposition)
+        As for XtInsertEventHandler,  but the specified  events are  not
+        selected for in widget (unless they are selected already).
+
+
+XtRemoveEventHandler(widget, event_mask, nonmaskable,        [procedure]
+            widentproc, client_data)
+        Stops  the   (previously  registered)   EventHandler   procedure
+        specified by widget,  widentproc and  client_data receiving  the
+        events specified by event_mask and nonmaskable, altering  widget
+        so it will no longer receive the specified events if necessary.
+
+        The arguments are as for XtAddEventHandler. If widentproc refers
+        to a  Pop-11  procedure  it is  automatically  coerced  into  an
+        external  form,   along   with  its   associated   client   data
+        client_data, by the procedure XptExportEventHandlerCached.
+
+        Any references  to the  EventHandler in  the widget  widget  are
+        dropped if the procedure cannot receive events after the call to
+        XtRemoveEventHandler,  enabling  the  procedure  to  be  garbage
+        collected if it is not referenced elsewhere.
+
+        If  the  specified  EventHandler  cannot  be  located  then  the
+        procedure does nothing.
+
+
+XtRemoveRawEventHandler(widget, event_mask, nonmaskable,     [procedure]
+            widentproc, client_data)
+        As for  XtRemoveEventHandler, but  the  widget widget  is  never
+        stopped from receiving the specified events.
+
+
+XtAppAddInput(appcontext, dev, mask, widentproc,             [procedure]
+                client_data) -> inputid
+        Registers the Pop-11 device dev as  a source of events with  the
+        application context appcontext. When the conditions specified by
+        mask occur on dev then an alternate input event is placed on the
+        event queue of appcontext which  will cause the Input  procedure
+        referred to by widentproc to be called.
+
+        mask is a integer bitmask specifying the conditions under  which
+        dev will  generate  an event.  The  legal values  for  mask  are
+        operating system dependent. Legal values for Unix systems are:
+
+          # XtInputExceptMask : An input exception.
+          # XtInputReadMask : A pending read condition.
+          # XtInputWriteMask : A pending write condition.
+
+        The   values   of    these   constants   can    be   found    in
+        INCLUDE * XT_CONSTANTS (see REF * XT_CONSTANTS).
+
+        Under VMS Poplog, mask must  be XtInputReadMask and dev must  be
+        either a terminal or a mailbox.
+
+        widentproc refers to  an Input  procedure which  will be  called
+        with the client  data client_data  when the  event specified  by
+        mask occurs on the device dev. If widentproc refers to a  Pop-11
+        procedure  it,  and  client_data,   will  be  coerced  into   an
+        appropriate external form with the XptExportInput procedure.
+
+        inputid is  a unique  InputId descriptor  identifying the  event
+        source that was added by XtAppAddInput. Unless inputid is  going
+        to be  used  with  XtRemoveInput it  can  be  discarded  since a
+        reference to it is kept in the application context appcontext.
+
+        A reference to the  (possible coerced) Input procedure  referred
+        to by widentproc is also kept by inputid to prevent it  becoming
+        garbage collected during the lifetime of the Input procedure.
+
+
+XtRemoveInput(inputid)                                       [procedure]
+        Removes the Input procedure referred  to by inputid as a  source
+        of events.  This  procedure is  the  default destroy  action  of
+        InputId records.
+
+        The reference to inputid  in its associated application  context
+        is removed by calling this procedure, as is the reference to the
+        (possibly coerced)  Input  procedure  in  inputid.  This  allows
+        inputid and its associated Input procedure to become garbage  if
+        they  are  not  referenced  elsewhere.  See  XtAppAddInput   for
+        details.
+
+
+XptInputIdToDevice(inputid) -> dev                           [procedure]
+        Returns the  Pop-11  device  dev  associated  with  the  InputId
+        descriptor inputid (as returned by XtAppAddInput).
+
+
+XtAppAddTimeOut(appcontext, int, widentproc, client_data)    [procedure]
+                -> intervalid
+        This procedure  causes  the  TimeOut procedure  referred  to  by
+        widentproc to  be added  to the  application context  appcontext
+        with client data client_data. When int milliseconds have elapsed
+        a timer pseudo-event is placed on the event queue of  appcontext
+        which will case the Timer procedure referred to by widentproc to
+        be called, and then removed.
+
+        If  widentproc  refers  to  a  Pop-11  procedure  it,  and   its
+        associated client_data,  will  be coerced  into  an  appropriate
+        external form with the XptExportTimeOut procedure.
+
+        intervalid is  a unique  IntervalId descriptor  identifying  the
+        TimeOut procedure added by XtAppAddTimeOut. Unless intervalid is
+        going to be used with XtRemoveTimeOut it can be discarded  since
+        a reference to it is kept in the application context appcontext.
+
+        A reference to the (possible coerced) TimeOut procedure referred
+        to by  widentproc  is also  kept  in intervalid  to  prevent  it
+        becoming garbage collected before it is executed.
+
+
+XtRemoveTimeOut(intervalid)                                  [procedure]
+        Removes the  TimeOut  callback identified  by  intervalid.  This
+        procedure  is   the  default   destroy  action   of   IntervalId
+        descriptors. NOTE: the procedure is automatically called after a
+        TimeOut procedures has been triggered.
+
+        The  reference  to  intervalid  in  its  associated  application
+        context  is  removed  by  calling  this  procedure,  as  is  the
+        reference  to  the  (possibly  coerced)  TimeOut  procedure   in
+        intervalid. This allows  intervalid and  its associated  TimeOut
+        procedure  to  become  garbage   if  they  are  not   referenced
+        elsewhere. See XtAppAddTimeOut for details.
+
+
+XtAppPending(appcontext) -> inputmask                        [procedure]
+        Returns an integer inputmask  indicating any pending events  for
+        the application  context appcontext.  If  their are  no  pending
+        events then inputmask will return  zero, and the output  buffers
+        of all the displays registered with appcontext are flushed.
+
+        If there  are  pending  events inputmask  will  be  the  logical
+        inclusive OR of:
+
+          XtIMXEvent
+              If there is a pending X event.
+
+          XtIMTimer
+              If there is a TimeOut procedure waiting to be executed
+              because its time interval has expired.
+
+          XtIMAlternateInput
+              If there is an Input procedure waiting to be executed.
+
+        The values of XtIMEvent,  XtIMTimer, and XtIMAlternateInput  are
+        defined in  INCLUDE * XT_CONSTANTS.PH  (see  REF * XT_CONSTANTS)
+        along  with  the  constant  XtIMAll  which  corresponds  to  the
+        inclusive OR of the above three constants.
+
+
+XtAppPeekEvent(appcontext, xeventptr) -> bool                [procedure]
+        Looks at the next event in the event queue of appcontext without
+        removing that event from the queue.
+
+        If their are no events in  the queue then the procedure  flushes
+        all  the  output  buffers   of  the  displays  registered   with
+        appcontext and  waits for  an X  event to  appear on  the  input
+        queue. Any TimeOut callbacks that  occur during this period  are
+        executed immediately.
+
+        If the next event on the queue is a normal X event, it is copied
+        into  the  XEvent  structure  pointed  to  by  the  XptXEventPtr
+        descriptor xeventptr and <true> is returned.
+
+        If the next  event on  the queue is  due to  an alternate  input
+        source (ie,  something  to be  handled  by an  Input  procedure)
+        XtAppPeekEvent returns <false>.
+
+
+XtAppNextEvent(appcontext, xeventptr)                        [procedure]
+        Returns the next event from  the event queue of the  application
+        context appcontext.  The event  is removed  from the  queue  and
+        copied into the XEvent structure pointed to by the  XptXEventPtr
+        descriptor xeventptr.
+
+        If their are no events in  the queue then the procedure  flushes
+        all  the  output  buffers   of  the  displays  registered   with
+        appcontext and  waits for  an X  event to  appear on  the  input
+        queue. This event  is then  removed and copied  into the  XEvent
+        structure pointed  to  by  xeventptr, as  described  above.  Any
+        TimeOut or Input callbacks that occur during the waiting  period
+        are executed immediately.
+
+        The  events  returned  in  xeventptr  can  be  dispatched   with
+        XtDispatchEvent.
+
+        Most programs  do not  need  this much  control over  the  event
+        dispatching  mechanism  and  will   use  XtAppMainLoop  or   the
+        asynchronous     application     context     mechanism      (see
+        XptAsyncAppContext).
+
+
+XtDispatchEvent(xeventptr) -> bool                           [procedure]
+        Executes any EventHandler procedures  registered for the  XEvent
+        pointed to by  the XptXEventPtr descriptor  xeventptr. A  <true>
+        value  is  returned  if  any  EventHandler(s)  were  executed. A
+        <false> value is returned if no EventHandler was registered  for
+        the specified event.
+
+        This procedure  is  usually  called  with  event  structures  as
+        returned by XtAppNextEvent, but it can also be used to  dispatch
+        user-constructed events.
+
+        NOTE: since the entire translation manager is implemented as  an
+        EventHandler procedure,  a  call to  XtDispatchEvent  may  cause
+        Action procedures  to be  called if  a translation  matches  the
+        event being dispatched.  See REF * XT_TRANS and  REF * XT_ACTION
+        for details of the translation manager.
+
+        See REF * XT_GRAB for details on how the delivery of events  can
+        be   affected    by   modal    widget   cascades.    Also    see
+        XtLastTimestampProcessed in REF * XT_GRAB.
+
+
+XtAppProcessEvent(appcontext, inputmask)                     [procedure]
+        Process a SINGLE event  of the type  specified by inputmask  for
+        the application context appcontext. If an event of the specified
+        type is not  present, the  procedure blocks until  there is.  If
+        more than one of the specified event type(s) is available, it is
+        undefined which one will be processed.
+
+        inputmask will be the logical inclusive OR of:
+
+          XtIMEvent
+              If an X Event should be processed by XtDispatchEvent.
+
+          XtIMTimer
+              If a timer pseudo-event should be processed by its
+              associated TimeOut procedure (see XtAppAddTimeOut).
+
+          XtIMAlternateInput
+              If an alternate-input event should be processed by its
+              associated Input procedure (see XtAppAddInput).
+
+        The values of XtIMEvent,  XtIMTimer, and XtIMAlternateInput  are
+        defined in  INCLUDE * XT_CONSTANTS.PH  (see  REF * XT_CONSTANTS)
+        along  with  the  constant  XtIMAll  which  corresponds  to  the
+        inclusive OR of the above three constants.
+
+
+XptAppTryEvents(appcontext)                                  [procedure]
+XptAppTryEvents(appcontext, false)
+XptAppTryEvents(appcontext, true) -> event_processed
+        Process  any   pending  events   in  the   application   context
+        appcontext, returning when  there are no  more events ready  for
+        processing.
+
+        This procedure takes an optional boolean second argument,  which
+        when true  causes the  event_processed  result to  be  returned;
+        event_processed is true if any events were processed, and  false
+        otherwise.
+
+
+XptSyncDisplay(displayptr)                                   [procedure]
+        Tries  to  ensure  that  the  display  given  by  displayptr  is
+        quiescent.
+
+        Repeatedly calls XSync on the display and XptAppTryEvents on its
+        application context,  quitting only  when  the latter  fails  to
+        process any further events.
+
+
+XtAppMainLoop(appcontext)                                    [procedure]
+        Repeatedly process the events arising in the application context
+        appcontext.  This   procedure   can  only   be   terminated   by
+        interruption   or   abnormal   exit   from   a   callback    (eg
+        "exitfrom(fast_XtAppMainLoop)"). This procedure  is roughly  the
+        equivalent of  repeatedly  calling  XtAppNextEvent  followed  by
+        XtAppProcessEvent. You may  wish to use  the asynchronous  event
+        handling capability given by XptAsyncAppContext instead of using
+        this procedure.
+
+
+XptAsyncAppContext(appcontext) -> bool_or_trap_p             [procedure]
+bool_or_trap_p -> XptAsyncAppContext(appcontext)
+        Controls asynchronous  processing  of  toolkit  events  for  the
+        application context appcontext.
+
+        If bool is <false> then asynchronous processing is disabled.
+
+        If trap_p  is  supplied,  asynchronous  processing  is  enabled.
+        trap_p should be a Pop-11  procedure which will be run  whenever
+        there  are  events  pending   for  appcontext.  trap_p  is   run
+        asynchronously, i.e. the  inside whatever  other procedures  the
+        system is currently  executing. Detection of  pending events  is
+        achieved either by waiting on appcontext with  XtAppProcessEvent
+        during Poplog  wait  states,  or continuously  polling  it  with
+        XtAppPending when Poplog is executing  program code. A value  of
+        <true> for bool is equivalent to the procedure
+
+            fast_XptAppTryEvents(%appcontext%)
+
+        which is the  normal way of  processing events (although  <true>
+        enables the  system to  optimise  performance and  is  therefore
+        always preferable to the above).
+
+        Note that XptDefaultSetup enables asynchronous processing  (with
+        <true>)  on   XptDefaultAppContext.   See  Event   Handling   in
+        REF * XTOOLKIT for a discussion of asynchronous event handling.
+
+
+
+4.2  LIB FAST_XT_EVENT
+----------------------
+
+fast_XtBuildEventMask(widget) -> event_mask                  [procedure]
+fast_XtSetSensitive(widget, bool)                            [procedure]
+fast_XtIsSensitive(widget) -> bool                           [procedure]
+fast_XtAddEventHandler(widget, event_mask, nonmaskable,      [procedure]
+                            widentproc, client_data)
+fast_XtAddRawEventHandler(widget, event_mask, nonmaskable,   [procedure]
+                            widentproc, client_data)
+fast_XtInsertEventHandler(widget, event_mask, nonmaskable,   [procedure]
+                    widentproc, client_data, listposition)
+fast_XtInsertRawEventHandler(widget, event_mask, nonmaskable,[procedure]
+                    widentproc, client_data, listposition)
+fast_XtRemoveEventHandler(widget, event_mask, nonmaskable,   [procedure]
+                            widentproc, client_data)
+fast_XtRemoveRawEventHandler(widget, event_mask, nonmaskable,[procedure]
+                            widentproc, client_data)
+fast_XtAppAddInput(appcontext, dev, mask, widentproc,        [procedure]
+                                client_data) -> inputid
+fast_XtRemoveInput(inputid)                                  [procedure]
+fast_XtAppAddTimeOut(appcontext, int, widentproc,            [procedure]
+                                client_data) -> intervalid
+fast_XtRemoveTimeOut(intervalid)                             [procedure]
+fast_XtAppPending(appcontext) -> inputmask                   [procedure]
+fast_XtAppPeekEvent(appcontext, xeventptr) -> bool           [procedure]
+fast_XtAppNextEvent(appcontext, xeventptr)                   [procedure]
+fast_XtDispatchEvent(xeventptr) -> bool                      [procedure]
+fast_XtAppProcessEvent(appcontext, inputmask)                [procedure]
+fast_XptAppTryEvents(appcontext)                             [procedure]
+fast_XptAppTryEvents(appcontext, false)
+fast_XptAppTryEvents(appcontext, true) -> event_processed
+fast_XtAppMainLoop(appcontext)                               [procedure]
+        Non-checking versions of the procedures in LIB * XT_EVENT. There
+        operation is the same except that:
+
+            # There is no checking for valid arguments.
+            # NO coercion of Pop-11 procedures is performed.
+
+        These procedures should only be used in fully debugged programs.
+        See REF * XTOOLKIT  for  full details  of  the Poplog  X  naming
+        conventions for non-checking and checking procedures.
+
+
+XptImportInputId(exptrclass) -> inputid_or_false             [procedure]
+inputid_or_false -> XptImportInputId() -> exptrclass
+        Given an external pointer class  record pointing to an  external
+        XtInputId structure, this procedure  returns the Pop-11  inputid
+        record for it (creating a  new one if necessary). If  exptrclass
+        is a null pointer then <false> is returned.
+
+        If the updater is given <false> it coerces it to a null external
+        pointer. If it is given a inputid it returns an external pointer
+        class record that refers to that XtInputId. NOTE: Since  inputid
+        is such an external pointer class record, the updater acts  like
+        identfn when given a non-false value.
+
+        This routine can  be used as  a conversion procedure  in a  type
+        specification (see REF * DEFCLASS).
+
+
+XptImportIntervalId(exptrclass) -> intervalid_or_false       [procedure]
+intervalid_or_false -> XptImportIntervalId() -> exptrclass
+        As for XptImportInputId, but  converts between external  pointer
+        class records  and Pop-11  intervalid  records (as  returned  by
+        XtAppAddTimeOut).
+
+
+XptExportEventHandler(widentproc, client_data, hold)         [procedure]
+                                        -> (efc, item)
+        This  procedure  coerces   the  Pop-11  EventHandler   procedure
+        referred to  by  widentproc,  and  an  arbitrary  Pop-11  object
+        client_data, into an external function closure efc and a  Pop-11
+        item  item,  that  are  suitable  to  be  passed  as  a  toolkit
+        EventHandler-procedure/client-data pair.
+
+        IMPORTANT  NOTE:  If  the  procedure  is  called  on   different
+        occasions with  the same  widentproc  and client_data,  it  will
+        return DIFFERENT external  function closures  which perform  the
+        same operation.
+
+        If the boolean argument hold is  <true> then a reference to  efc
+        is added to the  fixed hold list to  prevent it getting  garbage
+        collected. To remove the efc from the list, use free_fixed_hold.
+        See REF * EXTERNAL_DATA for more details.
+
+        It should  be  noted  that  widget  records  attempt  to  keep a
+        reference    to    their     EventHandler    procedures     (see
+        REF * XptDescriptor) so  the user  does not  have to  have  hold
+        <true>, or keep a reference to the efc, when the efc is added as
+        a toolkit EventHandler procedure.
+
+        The procedure operates by creating an external function  closure
+        of the  procedure XptEventHandlerWrapper.  The value  of efc  is
+        given by:
+
+            exfunc_export(
+                XptEventHandlerWrapper(%widentproc, client_data%),
+                XptCallbackFlags,
+                hold
+            );
+
+        Since the client_data  is passed  to widentproc by  the call  to
+        XptEventHandlerWrapper the EventHandler client data item has  no
+        effect in  the toolkit  EventHandlers calls.  item is  therefore
+        always returned containing a value of <false>.
+
+
+XptExportInput(widentproc, client_data, hold)                [procedure]
+                                        -> (efc, item)
+        This procedure coerces the Pop-11 Input procedure referred to by
+        widentproc, and an arbitrary Pop-11 object client_data, into  an
+        external function closure efc and  a Pop-11 item item, that  are
+        suitable  to  be   passed  to   the  Intrinsics   as  an   Input
+        procedure/client-data  pair.  Its  operation  is  the  same   as
+        XptExportEventHandler,     except     that     the     procedure
+        XptInputWrapper, instead of  XptEventHandlerWrapper, is used  to
+        create efc.
+
+
+XptExportTimeOut(widentproc, client_data, hold)              [procedure]
+                                        -> (efc, item)
+        This procedure coerces the Pop-11 TimeOut procedure referred  to
+        by widentproc, and an arbitrary Pop-11 object client_data,  into
+        an external function closure  efc and a  Pop-11 item item,  that
+        are suitable  to  be  passed  to the  Intrinsics  as  a  TimeOut
+        procedure/client-data  pair.  Its  operation  is  the  same   as
+        XptExportEventHandler,     except     that     the     procedure
+        XptTimeOutWrapper, instead of XptEventHandlerWrapper, is used to
+        create efc.
+
+
+XptExportEventHandlerCached(widentproc, client_data, hold)   [procedure]
+                                        -> (efc, item)
+        This  procedure  coerces   the  Pop-11  EventHandler   procedure
+        referred to  by  widentproc,  and  an  arbitrary  Pop-11  object
+        client_data, into an external function closure efc and a  Pop-11
+        item item, that  are suitable  to be passed  as an  EventHandler
+        procedure/client-data pair to the Intrinsics.
+
+        The   arguments   and   results   are   as   for   a   call   to
+        XptExportEventHandler, the difference  being that the  resultant
+        external  function  closure  efc  is  cached.  This  means  that
+        different calls to  XptExportEventHandlerCached WILL return  the
+        same external function closure efc;  if the same widentproc  and
+        client_data are used  (the cache considers  the arguments to  be
+        the same if -sys_=- returns <true> when applied to them).
+
+        The entry in the cache for efc becomes garbage when efc  becomes
+        garbage.
+
+        XptExportEventHandlerCached is the  default procedure used  when
+        coercing Pop-11 EventHandler procedures. It should be noted that
+        widget records attempt to keep a reference to their EventHandler
+        procedures (REF * XptDescriptor for  details) so  the user  does
+        not have to have  hold <true>, or keep  a reference to the  efc,
+        when the efc is added as a toolkit EventHandler procedure.
+
+
+XptExportInputCached(widentproc, client_data, hold)          [procedure]
+                                        -> (efc, item)
+        As  for  XptExportEventHandlerCached,  except  that  it  coerces
+        between Pop-11 Input procedures and external function closures.
+
+
+XptExportTimeOutCached(widentproc, client_data, hold)        [procedure]
+                                        -> (efc, item)
+        As  for  XptExportEventHandlerCached,  except  that  it  coerces
+        between  Pop-11   TimeOut  procedures   and  external   function
+        closures.
+
+
+XptEventHandlerWrapper(exptrclass, widentproc, client_data)  [procedure]
+        Closures of the procedure XptEventHandlerWrapper are used by the
+        XptExportEventHandler(Cached)  procedures  to  create   external
+        function closures  that  can  be used  as  toolkit  EventHandler
+        procedures. For more details  of external function closures  see
+        REF * EXTERNAL.
+
+        exptrclass should be an  external pointer class record  pointing
+        to an instance of the following structure:
+
+            l_typespec extdata {
+                widget      :XptWidget,
+                client_data :XptPointer,
+                event       :XptXEventPtr,
+                contin      :exptr.:XptBoolean,
+            };
+
+        The "widget"  field  of  the above  structure,  the  client_data
+        passed to XptEventHandlerWrapper, and  the "event" field of  the
+        above structure are then  pushed onto the  stack, ready for  the
+        call of the  procedure referred to  by widentproc.  client_data,
+        which can  be any  Pop-11 object,  replaces whatever  is in  the
+        "client_data" field of the structure referred to by exptrclass.
+
+        The procedure  referred  to  by widentproc,  which  should  be a
+        Pop-11 EventHandler procedure,  is then  executed by  a call  to
+        XptCallbackHandler with a TYPE of "event".
+
+        If the procedure referred to by widentproc returns a result,  it
+        is placed in the "contin" field  of the structure pointed to  by
+        exptrclass before XptEventHandlerWrapper exits.
+
+
+XptInputWrapper(exptrclass, widentproc, client_data)         [procedure]
+        Closures of  the  procedure  XptInputWrapper  are  used  by  the
+        XptExportInput(Cached) procedures  to create  external  function
+        closures that can be used as toolkit Input procedures. For  more
+        details of external function closures see REF * EXTERNAL.
+
+        exptrclass should be an  external pointer class record  pointing
+        to an instance of the following structure:
+
+            l_typespec extdata {
+                client_data :XptPointer,
+                file        :exptr.:int,
+                inputid     :exptr.:XptInputId,
+            };
+
+        The following items are  then place on the  stack ready for  the
+        call of the procedure referred to by widentproc:
+
+          # The client_data passed to XptInputWrapper.
+
+          # The Pop-11 device associated with the InputId descriptor in
+            the "inputid" field of the structure referred to by
+            exptrclass.
+
+          # The contents of the "inputid" field (ie, an InputId
+            descriptor).
+
+        client_data, which can be  any Pop-11 object, replaces  whatever
+        is in  the "client_data"  field.  In a  similar way  the  Pop-11
+        device associated with the  InputId descriptor in the  "inputid"
+        field replaces the external file descriptor in the "file" field.
+
+        The procedure  referred  to  by widentproc,  which  should  be a
+        Pop-11  Input  procedure,  is  then   executed  by  a  call   to
+        XptCallbackHandler with a TYPE of "input".
+
+
+XptTimeOutWrapper(exptrclass, widentproc, client_data)       [procedure]
+        Closures of  the procedure  XptTimeOutWrapper  are used  by  the
+        XptExportTimeOut(Cached) procedures to create external  function
+        closures that can  be used  as toolkit  TimeOut procedures.  For
+        more details of external function closures see REF * EXTERNAL.
+
+        exptrclass should be an  external pointer class record  pointing
+        to an instance of the following structure:
+
+            l_typespec extdata {
+                client_data :XptPointer,
+                intervalid  :exptr.:XptIntervalId,
+            };
+
+        The following items are  then place on the  stack ready for  the
+        call of the procedure referred to by widentproc:
+
+          # The client_data passed to XptTimeOutWrapper.
+          # The contents of the "intervalid" field.
+
+        client_data, which can be  any Pop-11 object, replaces  whatever
+        is in the  "client_data" field  of the structure  pointed to  by
+        exptrclass.
+
+        The procedure  referred  to  by widentproc,  which  should  be a
+        Pop-11  TimeOut  procedure,  is  then  executed  by  a  call  to
+        XptCallbackHandler with a TYPE of "timeout".
+
+
+
+
+---------------------------------
+5  Deferred Procedure Application
+---------------------------------
+
+When Poplog is in a wait state (e.g. waiting for input, or hibernating),
+it passes  control  over the  the  Toolkit event  handlers.  All  Poplog
+activity in this state occurs  via previously registered procedures  and
+control only returns to 'top-level' Poplog  if there is an interrupt  or
+an input on a relevant device. See Event Handling in REF * XTOOLKIT  for
+a more detailed discussion of event handling.
+
+However, what you should actually do in a callback is fairly  restricted
+-- Toolkit event handling is not permitted (because the Toolkit handlers
+are not  re-entrant), and  doing  any significant  amount of  work  in a
+callback   is    deprecated.    To    avoid    this,    the    procedure
+* external_defer_apply  (described  in  REF * EXTERNAL)  allows  you  to
+specify actions in  a callback which  should be executed  only when  the
+callback has "returned" to top-level Poplog.
+
+The procedure XptSetXtWakeup may also be useful on occasions (note  that
+this is run automatically  by external_defer_apply when called  inside a
+Toolkit callback):
+
+XptSetXtWakeup()                                             [procedure]
+        This  procedure  is  intended   to  be  called  within   Toolkit
+        callbacks. When Poplog is in  a wait state, waiting for  Toolkit
+        events, calling XptSetXtWakeup causes  control to return to  the
+        Poplog top-level at  the next convenient  point (i.e, after  all
+        the callbacks  etc associated  with  the event  currently  being
+        processed have been run).
+
+
+
+
+--- C.x/x/pop/ref/xt_event
+--- Copyright University of Sussex 1990. All rights reserved.

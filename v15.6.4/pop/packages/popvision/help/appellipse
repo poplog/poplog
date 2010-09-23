@@ -1,0 +1,129 @@
+HELP APPELLIPSE                                 David Young
+                                                December 1992
+                                                revised June 2000
+
+LIB * APPELLIPSE allows a procedure to be applied to every element of an
+elliptical region of an array.
+
+-----------------------------------------------------------------------
+1  The procedure appellipse
+-----------------------------------------------------------------------
+
+appellipse(x0, y0, a, b, alpha, proc)
+appellipse(x0, y0, a, b, alpha, bounds, proc)
+appellipse(x0, y0, a, b, alpha, region, bounds, proc)
+        The first 5 arguments specify an ellipse with its centre at (x0,
+        y0), major semi-axis a, minor semi-axis b, and major axis at an
+        angle alpha to the X-axis measured anticlockwise from the axis
+        in right-handed coordinates. alpha should be in radians or
+        degrees depending on whether *popradians is <true> or not.
+        (Actually b can be greater than a, but alpha always specifies
+        the angle to the axis with radius a.)
+
+        The last argument is a procedure
+
+                proc(x, y)
+
+        of two arguments, which is called for every pair of integers
+        which represent a position inside the ellipse. Whether X or Y
+        changes fastest on successive calls to PROC depends on the
+        orientation of the ellipse.
+
+        If given, bounds should be a 4-element list specifying a region
+        in the way a boundslist does (see *ARRAYS), or a 2-D array. If
+        it is an array, its *boundslist is used. proc will then only be
+        called for arguments which fall inside the region specified.
+        (This is done more efficiently than is possible by testing
+        within proc.) If an element of bounds is <false> rather than a
+        number, this is equivalent to plus or minus infinity as
+        appropriate - i.e. no checking is done on that boundary.
+
+        The optional region argument allows a linear mapping from the
+        coordinate system in which x0, y0, a, b and alpha are given to
+        the coordinate system of x and y when proc is called. (Note that
+        this is not a trivial transformation of the arguments.) If
+        region is given, then bounds must also be given and must have no
+        elements that are <false>. region should be a 4-element list
+        with the structure of a *boundslist, specifying a rectangular
+        region of the space in which the input arguments are given. The
+        transform will map this onto the region specified by bounds,
+        which is a region in the space in which x and y are specified.
+
+        The elements of bounds should be integers (or <false>). The
+        elements of region need not be integers.
+
+-----------------------------------------------------------------------
+2  The procedure appellipse_rim
+-----------------------------------------------------------------------
+
+appellipse_rim(x0, y0, a, b, alpha, proc)
+appellipse_rim(x0, y0, a, b, alpha, bounds, proc)
+appellipse_rim(x0, y0, a, b, alpha, region, bounds, proc)
+        The arguments have the same meanings as for appellipse. The
+        difference is that proc is only called for elements lying on the
+        boundary of the ellipse.
+
+        The points for which proc is called form a 4-connected chain,
+        exept where it is broken by the bounding box given by bounds.
+        For most ellipses, proc is called only once for each pixel, but
+        for very narrow ellipses it may be called twice for some pixels,
+        as opposite parts of the curve may round to the same pixels, and
+        the routine performs a complete circuit of the ellipse.
+
+-----------------------------------------------------------------------
+3  Examples
+-----------------------------------------------------------------------
+
+This assumes that you are using X and the * RC_GRAPHIC package is
+available. The example uses standard image coordinates - that is with
+the origin at the top left, x left to right and y top to bottom (i.e.
+left-handed coords).
+
+Set up window and scales:
+
+    uses popvision
+    uses appellipse
+    uses rci_show
+    uses pop_radians
+    1 -> rci_show_scale;
+    rci_show([0 200 0 200], false, true) -> rc_window; ;;; origin top-left
+    false -> pop_radians;                          ;;; will use degrees
+
+Fill in fat ellipse at 40 degrees to horizontal and thin ellipse at 100
+degrees to horizontal, the latter clipped below y = 160:
+
+    appellipse(100, 100, 80, 30, 40, rc_drawpoint);
+    appellipse(50, 100, 80, 10, 100, [0 199 0 160], rc_drawpoint);
+
+Now just the rims:
+
+    rc_clear_window();
+    appellipse_rim(100, 100, 80, 30, 40, rc_drawpoint);
+    appellipse_rim(50, 100, 80, 10, 100, [0 199 0 160], rc_drawpoint);
+
+Now an ellipse that fills part of the region -10 < x < 10, -10 < y < 10.
+We use the region argument to plot it to fill most of the window.
+
+    rc_clear_window();
+    appellipse(0,0,10,5,-20, [-10 10 -10 10], [0 200 0 200], rc_drawpoint);
+
+Note what happens if, instead, we try to do this by changing the
+rc_graphic scales (there is no region argument to appellipse below, but
+the bounds argument has been changed to reflect the new coordinates):
+
+    rc_clear_window();
+    100 ->> rc_xorigin -> rc_yorigin;       ;;; origin in middle
+    10 -> rc_xscale; 10 -> rc_yscale;      ;;; scale up
+    appellipse(0,0,10,5,-20, [-10 10 -10 10], rc_drawpoint);
+
+The sparse set of dots is because rc_drawpoint is only being called for
+integer positions. To reset the rc_graphic coordinates to those used for
+displaying the previous ellipses do
+
+    rci_show_setcoords([0 200 0 200]);
+
+To get rid of the graphics window, just click anywhere on it.
+
+
+--- $popvision/help/appellipse
+--- Copyright University of Sussex 2000. All rights reserved.

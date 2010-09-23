@@ -1,0 +1,387 @@
+EVANS                                             JL Cunningham, February 1983
+
+
+          CONTENTS - (Use <ENTER> g to access sections)
+
+ -- WHAT THIS UNIT IS ABOUT
+ -- EVANS ANALOGY PROGRAM
+ -- EXERCISE 1
+ -- EXERCISE 2
+ -- DIGRESSION
+ -- EXERCISE 3
+ -- EXERCISE 4 (optional)
+ -- WINSTON'S ARCHES
+ -- EXERCISE 5
+ -- READING
+
+
+-- WHAT THIS UNIT IS ABOUT --------------------------------------------
+
+This unit is intended to show you several things, including:
+ a) The importance of how information is represented in  an  intelligent
+system.
+ b) Two more examples of famous AI programs.
+ c) A more general notion of matching, and the importance of matching as
+a mechanism for producing intelligent behaviour.
+ d) How  generalising  from  particular  instances  can  be  done  by  a
+computer.
+ e) Some computational models of Learning
+
+The important concepts to be learnt are, firstly:
+
+that the same entity, for example a "turtle" picture, can be represented
+in  the computer in different ways, in particular at different levels of
+abstraction. For example, a turtle picture could  be  represented  as  a
+database describing what lines are in the picture. Some tasks that would
+be hard to do directly on a turtle  picture  represented  as  a  lot  of
+asterisks  ("*")  and  spaces  (" ")  are  relatively  easy  with such a
+database description. The task this unit looks at would be hard even  at
+the  database-of-lines  level of description, so it will be necessary to
+go to an even higher level of abstraction, throwing  away  some  of  the
+positional information that is irrelevant to the problem considered.
+
+Incidentally,  people  don't  find  lists  of  database   assertions   a
+particularly convenient representation, and so theorists often visualise
+such a database as a graphical network of nodes and relations.  E.g.  we
+can represent the following database:
+
+        [[fido isa dog][fido likes beer]
+         [felix isa cat][felix likes fish]
+         [felix hates fido]]
+                -> database;
+
+by the following network:
+
+                likes           hates             isa
+        fish <--------- felix ----------> fido ----------> dog
+                          |                |
+                          |isa             |likes
+                          |                |
+                          V                V
+                         cat              beer
+
+Such networks  can  be  regarded  as  a  convenient  representation  for
+databases.   (Some network terminology: the arrows are called "arcs" and
+the things the arrows join are called "nodes". You'll need  to  remember
+these terms to understand some of exercise 1.)
+
+The second thing to be learnt is that  analogy  problems,  and  learning
+from  example  sequences,  requires the comparison of descriptions, i.e.
+when we are representing descriptions as assertions in a database, these
+problems  can  be  looked at as requiring the comparing of networks like
+the one above.
+
+
+-- EVANS ANALOGY PROGRAM ----------------------------------------------
+
+This section is a brief summary of the stuff  based  on  Evans'  Analogy
+program  that  you  should  read  about  in  the references given in the
+section headed "READING".
+
+Basically, Evans' Analogy is a program designed to do a certain class of
+IQ test questions. These questions are phrased in the form:
+
+        A is to B as C is to which of D1, D2 or D3?
+
+where A, B, C, D1, D2 and D3 are simple pictures involving a few  simple
+geometric shapes. Examples are given in all the references, although you
+are probably familiar with the type of question.
+
+There are several possible ways (all basically similar) of tackling this
+problem  on  the computer, Bundy describes one way, Winston another. The
+method Winston describes consists of three steps:
+ 1) comparing the descriptions of the pictures A and  B  (i.e.  matching
+the networks representing A and B) to find the differences
+ 2) comparing C with each of the possibilities for D, in the same way as
+at step (1)
+ 3) finding out which set of differences from step (2) is most like  the
+differences from step (1): the corresponding D picture is the answer.
+
+The crucial thing to realise, at this point, is that the description  of
+the  differences between two nets can itself be represented as a list of
+database assertions (and can be viewed as  a  net),  so  step  (3)  just
+involves  matching networks as in steps (1) and (2), except that now the
+networks are representing descriptions of differences between pictures.
+
+
+-- EXERCISE 1 ---------------------------------------------------------
+
+A simplified program working  in  the  way  described  in  the  previous
+section  is  in  LIB  ANALOGY.  For  fun, this program works from turtle
+pictures, rather than from low-level descriptions of a picture; although
+there is the option of using low-level picture descriptions to save some
+time.
+
+To run it, do
+
+    lib analogy
+
+This will compile the library program, which may take some time. There
+may be a saved image available that you can get running far more
+quickly, by doing
+
+on VMS - give the DCL command:
+        $ pop11/analogy
+
+on UNIX - give the SHELL command:
+        % pop11 - analogy
+
+If you get a message saying 'SAVED IMAGE NOT FOUND' then you have to
+use the LIB ANALOGY command to load the program.
+
+When that is done, you can make available some sample pictures, thus:
+
+        lib evpics
+
+Then run the program by typing, to pop-11
+        evans();
+
+The program will then prompt you for the name of picture A.
+
+At this point, the program is expecting the name of a procedure to  draw
+a simple turtle picture.  It calls this procedure  to draw the  picture.
+However,  a  turtle  picture  is   not  a  useable  representation   for
+geometrical analogy problems,  so the  program next  uses FINDLINES  and
+some procedures using ALLPRESENT to  find simple shapes in the  picture.
+The only  shapes it  can  recognise are  triangles, squares  and  "dots"
+(composed of  a little  block of  four marks).  Single dots,  and  other
+shapes will either  confuse it or  it will ignore  them. There are  some
+procedures in LIB EVPICS  that work for this  purpose, (when the library
+is loaded, it tells you the names of the procedures it defines); you can
+use  them  in  answer  to  the   request  for  the  names  of   pictures
+A,B,C,D1,D2,D3. (For details: SHOWLIB EVPICS)
+
+The result of FINDLINES and shapefinding is a low-level  description  of
+the scene depicted in the picture. To save time later, you are given the
+option of storing this low-level description, so that the  name  of  the
+picture  is  now the name of a list rather then the name of a procedure.
+Variables whose values are such lists may be used instead of  procedures
+to draw pictures.
+
+The next stage of processing is to make a  network  description  of  the
+picture.   Because  a more general network matcher turned out to be very
+slow when matching two networks which both contain more than a few arcs,
+there  are  some  conventions adopted by this matcher, which you need to
+know about.
+
+    1) The network matcher distinguishes two kinds of arc, and two kinds
+    of node (representing things and classes). It won't match dissimilar
+    kinds of arc or dissimilar kinds of node.
+    2) The first kind of arc is between the two kinds  of  node.  It  is
+    represented  by  a  three  element list. The first element is of the
+    first kind of node (a thing),  the  third  of  the  second  kind  (a
+    class). Here is an example:
+            [FIDO ISA DOG]
+    3) The second kind of arc is between two nodes  of  the  first  kind
+    (things).  It  is  represented  by  a  four element list. Here is an
+    example:
+            [EMOTES FELIX HATES FIDO]
+    The second and fourth elements are nodes  of  the  first  kind,  the
+    first  and third elements together make up the name of the relation,
+    but are matched separately.
+    4) The matcher can match arcs of the second kind where the order  of
+    the  nodes  is reversed, but obviously the order of the nodes cannot
+    meaningfully be reversed for arcs of the first kind.
+
+Now you  are ready  to give  the  program its  second picture.  It  goes
+through the same performance as  before, to build a network  description
+of the second  picture. Then  it compares  the descriptions  of the  two
+pictures. The simpler and more similar  the two pictures are the  faster
+the comparison is.  Good example  pictures are  PIC1 and  PIC2 from  LIB
+EVPICS.
+
+Now give it the third picture. After this, you will be asked if you want
+it  to predict the answer. Unless you are getting good response from the
+machine, it is best to answer "no".
+
+Carry on until it has "seen" all the pictures. Incidentally, because the
+matcher is not very smart, there is no guarantee that it will always get
+the "right" answer, but in any case it is not clear that there always is
+a unique right answer.
+
+
+-- EXERCISE 2 ---------------------------------------------------------
+
+To get some feel for what is going  on, try to find a match between  the
+following two networks, but do it "by hand", i.e. not with the computer.
+
+Here are the two networks (in the format used  by  the  analogy  program
+above,  but with all names replaced by meaningless symbols, so you don't
+get any additional clues):
+
+        GRAPH1
+
+        [1 isa a][2 isa a][3 isa b][p 1 z 2]
+        [q 2 w 1][q 2 w 3][p 3 x 2][p 3 x 1]
+
+        GRAPH2
+
+        [4 isa b][5 isa a][6 isa b][p 5 x 4]
+        [p 5 x 6][q 5 w 6][p 6 z 4][q 4 w 6]
+
+Before trying  to  match these  networks,  and before  reading  on,  try
+drawing them on some paper.
+
+Below are my attempts to draw the corresponding graphs:
+
+        GRAPH1
+
+          [a]           [a]           [b]
+           |      w      |      x      |
+           | <---------- | <---------- |
+        ->(1)     z     (2)     w     (3)-
+       |     ---------->   ---------->    |
+       |                 x                |
+        ----------------------------------
+
+        GRAPH2
+
+          [a]           [b]           [b]
+           |      x      |      w      |
+           | ----------> | <---------- |
+        --(5)     w     (6)     z     (4)<-
+       |     ---------->   ---------->     |
+       |                 x                 |
+        -----------------------------------
+
+The procedure which is used by the analogy program to  match  graphs  is
+called  COMPGRAPH.  It  takes  two arguments, each a list of arcs in any
+order. It expects the values of variables N1 and N2 to be the  names  of
+the  graphs.  It  returns  no  result,  but  after it is called DATABASE
+contains a description of the comparison. If you want  to  compare  your
+answer  with  that  produced  by  COMPGRAPH you should be warned that it
+takes rather a long time on this example.
+
+Your description of the comparison between the two graphs can be in  any
+format,  but  the  format  produced by COMPGRAPH (if you want to compare
+your comparisons) is (obviously) the same format as you see when running
+EVANS().
+
+
+-- DIGRESSION ---------------------------------------------------------
+
+Another type of "A is to B as C is ..." question commonly encountered in
+IQ tests and puzzles uses words rather than pictures. For example,
+
+        MAN is to BOY as WOMAN is to what?
+
+As in the picture problems, there may be a list of possible Ds which you
+must choose from.
+
+Obviously, to do this sort of question requires knowing what  the  words
+mean - most of us couldn't do the equivalent Icelandic problem without a
+dictionary.    (Question:  what  sort  of  pre-knowledge,  if  any,   is
+necessary to do picture analogy questions?)
+
+The ANALOGY demonstration program defines a variable called  DICTIONARY.
+If you print out DICTIONARY, you will see that it contains a database of
+"definitions" of some words. Each definition is itself  a  database,  of
+the form used by the ANALOGY matcher. For example "girl" is defined as
+        [[female sex person] [young age person]]
+
+The program has been modified so that if you  give  as  the  name  of  a
+picture a word which is not a POP11 variable, it will use the dictionary
+to find a database for that word, and it will use this database  as  the
+description  of the "picture". Otherwise the program works as for turtle
+pictures. The matching is now fast enough that it is reasonable  to  use
+the "predict" option.
+
+Try giving the program the question '"man" is to "boy" as "woman" is  to
+"girl",  "boy"  or "horse"?'. You do this by typing the word as the name
+of a "picture" when you run the program.
+
+You can try extending the dictionary with your own definitions. Remember
+the format described above!
+
+
+-- EXERCISE 3 ---------------------------------------------------------
+
+If you use the "predict" option in the analogy  program,  you  will  see
+that  it  does not convert the predicted database back into a word using
+the dictionary.
+
+1) How might this be done? (It is not necessary to write  a  program,  a
+written answer is sufficient.)
+
+2) Is the analogy dictionary a good representation  of  the  information
+needed to do this problem?
+
+
+-- EXERCISE 4 (optional) ----------------------------------------------
+
+An earlier version of  the  ANALOGY  library  program  worked  by  using
+"semantic  features"  for  dictionary  definitions. By this, I mean that
+instead of a "semantic net" description, the  "meaning"  of  an  English
+word  was  just  a  POP  list  of other words, meant to be the "semantic
+features" of the English word. For example, the  meaning  of  "children"
+might be represented by the list
+        [person young plural].
+Comparing lists of features is simpler than comparing networks.
+
+Using this "semantic  features" representation, have  a go at  writing a
+word-analogy program that  will give an  answer as for  the LIB  ANALOGY
+predict option.  Convert semantic  features back  into words  as far  as
+possible. You  won't need  to use  any LIBs.  Before you  start, try  to
+answer the following questions:
+
+        a) How do you think the prediction process works? Try out a  few
+examples  using the demo program, for inspiration, if you can't think of
+a way.
+        b) What is the best way to  represent  the  dictionary  to  make
+converting words into features and back again as easy as possible?
+        c) What is the best representation for a list of features?
+
+
+-- WINSTON'S ARCHES ---------------------------------------------------
+
+Re-read the section in Winston on  Winston's  program  (second  part  of
+chapter two.)
+
+
+-- EXERCISE 5 ---------------------------------------------------------
+
+If you have time, you might like  to  think  some  more  about  matching
+graphs.
+
+For example, the description of the  comparison  produced  by  the  demo
+Analogy  program is very impoverished. Is it too impoverished to be used
+as a basis for a mini-Winston demo program?
+
+Think of some problems that  cannot  be  solved  in  terms  of  matching
+graphs: are there any?
+
+Write a SHORT essay on graph-matching, either  considering  one  of  the
+above  questions,  or  another  equally  exciting  question  of your own
+invention.
+
+
+-- READING ------------------------------------------------------------
+
+The file TEACH * PICDEM may give you some relevant ideas.
+
+The original thesis work by Evans is reported in the collection:
+
+M.Minsky (ed) Semantic Information Processing, MIT Press 1968
+It is not easy to read.
+
+You should read the whole  of  chapter  2  in  P  Winston's
+book: Artificial Intelligence.
+
+There is a  useful  discussion  of  Analogy  in  M  Boden's  "Artificial
+Intelligence and Natural Man" (Look up "Analogy" in the subject index)
+
+The very first section  (section  1.1,  about  6  pages)  in  A  Bundy's
+"Artificial  Intelligence:  An Introductory Course" is an explanation of
+another very simple approach to analogy, based upon  Evans'  idea.  This
+approach  is slightly different to the approach in the exercises, so you
+may find it helpful to compare it with the approach here.
+
+There is also a very condensed account, by M Minsky, of  Evans'  program
+in the Scientific American book: "Information".
+
+TEACH * SCHEMATA
+HELP * ANALOGY
+
+
+--- C.all/teach/evans --------------------------------------------------
+--- Copyright University of Sussex 1988. All rights reserved. ----------

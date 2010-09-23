@@ -1,0 +1,367 @@
+HELP RC_GRAPHPLOT                           David Young, December 1990
+
+RC_GRAPHPLOT is a Pop-11 library for drawing graphs of functions and
+data, with axes and annotations. This file provides a summary of it. See
+TEACH *RC_GRAPHPLOT for an introduction to the package with examples.
+
+Load LIB *POPXLIB, then load LIB *RC_GRAPHPLOT (for most uses) or
+LIB *RC_GRAPHPLOT2 (if combined x-y data are to be plotted - see below)
+or both.
+
+There is a simpler routine available as LIB *RC_DRAWGRAPH (see
+TEACH *RC_GRAPHIC) which is smaller and faster to compile. However, it
+lacks most of the functionality of this package - for instance, it will
+not do automatic scaling or axis annotations.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Data input formats
+ -- Procedures
+ --      rc_graphplot(xmin, xinc, xmax, xlabel,  yvalues, ylabel) -> region;
+ --      rc_graphplot(xvalues, xlabel,  ymin, yinc, ymax, ylabel) -> region;
+ --      rc_graphplot(xdata, xlabel, ydata, ylabel) -> region;
+ --      rc_graphplot(tmin, tinc, tmax,  xvalues, xlabel,  yvalues, ylabel) -> region;
+ --      rc_graphplot(tfunc, xvalues, xlabel, yvalues, ylabel) -> region;
+ --      rc_graphplot2(xydata, xlabel, ylabel) -> region;
+ --      rc_graphplot2(tmin, tinc, tmax, xyfunc, xlabel, ylabel) -> region;
+ --      rc_graphplot2(tfunc, xyfunc, xlabel, ylabel) -> region;
+ --      Other procedures
+ -- Global variables
+ --      The coordinate frame
+ --      rcg_win_reg [0.1]
+ --      rcg_usr_reg [<undef>]
+ --      rcg_ax_space [0.2]
+ --      rcg_newgraph [<true>]
+ --      rcg_pt_type ["line"]
+ --      rcg_pt_cs [rcg_char_width]
+ --      rcg_ax_type ["axes"]
+ --      rcg_mk_no [5]
+ --      rcg_tk_no [10]
+ --      rcg_mk_len [0.02]
+ --      rcg_tk_len [0.01]
+ --      rcg_pt_lw [0] etc.
+ --      rcg_pt_ls [LineSolid] etc.
+ --      rcg_pt_lf [GXcopy] etc.
+ --      rcg_char_width [7]
+ --      rcg_char_height [12]
+ -- Limitations and bugs
+
+
+-- Data input formats -------------------------------------------------
+
+"1-D data" means any 1-D data structure that can be indexed: normally a
+vector, a list or an array. Elements that are not real numbers (where
+reals include integers and ratios) are skipped. A value of <termin>
+causes anything after it to be ignored. The structure is indexed using
+its fast subscriptor, unless it is a list, in which case it is accessed
+using fast front and back.  Arrays are replaced by the occupied part of
+their arrayvector.
+
+"1-D procedure" means a procedure that takes one argument and returns
+one result. Non-real results will be skipped, except <termin>, which may
+be returned to signal the end of valid results. See the section in TEACH
+*RC_GRAPHPLOT on functions with side effects (basically, side effects
+are allowed).
+
+"Repeater" means a procedure of no arguments that returns one result,
+and <termin> when it has finished.
+
+"2-D data" means a list, vector, array or other indexable structure. If
+the first element is itself a pair, vector, record or array then every
+element is assumed to contain two values, x and y, which will be
+obtained by applying *EXPLODE to each element in turn. If the first
+element is simple (e.g. a number, or undef) then the structure is
+assumed to contain alternating x and y values.  See TEACH *RC_GRAPHPLOT
+for examples. 2-D arrays are thus acceptable if the first index refers
+to x or y - i.e. if they have a boundlist of the form [1 2 1 ^N], and
+POPARRAY_BY_ROW is true.
+
+"2-D procedure" means a procedure of one argument and two results - x
+and y. Comments about 1-D procedures above apply.
+
+
+-- Procedures ---------------------------------------------------------
+
+There is a variety of ways of calling the basic procedure, and one
+variant of the procedure for the case of combined x and y data.
+
+
+--      rc_graphplot(xmin, xinc, xmax, xlabel,  yvalues, ylabel) -> region;
+
+xmin, xinc, xmax - real numbers (integers or ratios recommended),
+    giving respectively the starting point, increment and end point
+    for the independent variable, which will be plotted horizontally.
+
+xlabel - a string to print beside the horizontal axis. NULLSTRING
+    gives no label; FALSE stops the axis being drawn altogether.
+
+yvalues - 1-D data or 1-D procedure, giving values to be plotted
+    vertically. If a procedure, will be called with each successive x
+    value as the argument. If data, each value will be plotted - x is
+    not used as an index.
+
+ylabel - string to print beside the vertical axis.  Other values
+    as for xlabel.
+
+region - a list giving the region of user space occupied by the graph -
+    or equivalently the extreme values of the axes - in the order
+    [XMIN XMAX YMIN YMAX].
+
+
+--      rc_graphplot(xvalues, xlabel,  ymin, yinc, ymax, ylabel) -> region;
+
+    Basically as above, but with the data or function xvalues plotted
+    horizontally and the vertical axis showing the independent variable.
+
+
+--      rc_graphplot(xdata, xlabel, ydata, ylabel) -> region;
+
+xdata - 1-D data giving values for the horizontal direction.
+
+xlabel - as above.
+
+ydata - 1-D data giving values for the vertical direction.
+    ydata(i) will be plotted against xdata(i), for i from 1 to the
+    length of the shortest data set.
+
+ylabel - as above.
+
+region - as above.
+
+
+--      rc_graphplot(tmin, tinc, tmax,  xvalues, xlabel,  yvalues, ylabel) -> region;
+
+Note: either xvalues or yvalues, or both, must be a procedure in this
+form of the call.
+
+tmin, tinc, tmax - real numbers giving the starting point,
+    increment and end point for the parameter which will be used
+    as an argument to the x and/or y procedure(s).
+
+xvalues - 1-D data or 1-D procedure for values to be plotted
+    horizontally. If a procedure, will be called with successive values
+    of t determined from tmin, tinc and tmax.
+
+xlabel - as above.
+
+yvalues - 1-D data or 1-D procedure for values to be plotted
+    vertically. If a procedure, called with successive values of t
+    determined from tmin, tinc and tmax.
+
+ylabel - as above.
+
+region - as above.
+
+
+--      rc_graphplot(tfunc, xvalues, xlabel, yvalues, ylabel) -> region;
+
+tfunc - repeater giving successive values of parameter t.
+
+Other arguments - as immediately above.
+
+
+--      rc_graphplot2(xydata, xlabel, ylabel) -> region;
+
+xydata - 2-D data giving x and y values in pairs.
+
+xlabel, ylabel - as above.
+
+region - as above.
+
+
+--      rc_graphplot2(tmin, tinc, tmax, xyfunc, xlabel, ylabel) -> region;
+
+tmin, inc, tmax - real numbers specifying parameter values as above.
+
+xyfunc - 2-D function giving both x and y values as results.
+
+xlabel, ylabel - as above.
+
+region - as above.
+
+
+--      rc_graphplot2(tfunc, xyfunc, xlabel, ylabel) -> region;
+
+tfunc - repeater giving successive values of parameter t.
+
+Other arguments - as immediately above.
+
+
+--      Other procedures
+
+There are many other procedures, for example for coercing the data into
+a standard format, and for drawing axes, which are left available to the
+user, to support this main procedure. They are all prefixed with RCG_.
+See the libraries mentioned above and LIB *RCG_UTILS for details.
+
+-- Global variables ---------------------------------------------------
+
+The globals control both RC_GRAPHPLOT and RC_GRAPHPLOT2. Initial values
+are in square brackets.
+
+The "graph area" means the area occupied by the box bounding the axes.
+Labels and annotations may be printed outside the graph area.
+
+--      The coordinate frame
+
+When a graph is displayed on the screen it alters the coordinate frame
+of the window to match that of the graph. This allows you to overlay
+graphics using LIB *RC_GRAPHIC using the same coordinate system as the
+graph.
+
+When a graph is displayed the following global variables will be
+affected:
+
+    -rc_xmax-
+    -rc_xmin-
+    -rc_xorigin-
+    -rc_xscale-
+    -rc_ymax-
+    -rc_ymin-
+    -rc_yorigin-
+    -rc_yscale-
+
+For details see HELP *RC_GRAPHIC. If you wish to store the old
+coordinate frame, you can use LIB *RC_CONTEXT, see HELP *RC_GRAPHIC.
+
+--      rcg_win_reg [0.1]
+
+Defines the region of the window to use for the graph area. If this is a
+number or a list, the user coordinate transformation may be changed on a
+call to the graph plotting procedures.
+
+list of form [XMIN XMAX YMIN YMAX] - Plot the graph in the region
+    specified. XMIN etc. are measured in pixels, with x from left to
+    right, y from top to bottom, and the origin at the top left corner
+    of the window.
+
+list of form [SCALE XMIN XMAX YMIN YMAX] - As above, except SCALE can be
+    one of the permissible first arguments to *RC_SET_SCALE ("inches"
+    etc.) to give the units for XMIN etc.
+
+real number R - use the centre of the window, leaving a border equal
+    to rcg_win_reg times the size of the window (in each dimension)
+    round the graph area. Equivalent to [frame ^R ^(1-R) ^(1-R) ^R].
+
+anything else, e.g. <false> or <undef> - plot the graph wherever the
+    axes fall in the current user coordinate frame.
+
+--      rcg_usr_reg [<undef>]
+
+Defines the graph area in user coordinate space - i.e. defines the
+values at the ends of the axes. Also controls clipping.
+
+list of form [XMIN XMAX YMIN YMAX] - Use these values for the ends of
+    the x and y axes respectively. If any of the 4 is <undef>, determine
+    the corresponding value from the input data on the call to the graph
+    plotting routine. (See below under RCG_AX_SPACE.)
+
+<undef> - equivalent to [undef undef undef undef].
+
+--      rcg_ax_space [0.2]
+
+real number R, R > 0, R < 0.5 - when determining an axis limit from
+    data, the maximum and minimum values of dependent variables are
+    found. The maximum values is then increased and the minimum number
+    decreased so that the ends of the axis fall just outside roundish
+    values. The amount by which the axis is lengthened is roughly R *
+    (MAX - MIN). This makes the graph look much tidier.
+
+<false> - make the ends of the axes fall exactly at the maximum and
+    minimum values of the data.
+
+--      rcg_newgraph [<true>]
+
+<true> - call RC_START to clear the window before drawing a graph.
+
+<false> - do not do so.
+
+--      rcg_pt_type ["line"]
+
+Controls how the data are plotted.
+
+"line" - join data points with a straight line. Leave a gap for any
+    values that are not real numbers (real includes integers and
+    ratios).
+
+word W - plot each point using a procedure called rcg_plt_<W>. Currently
+    possible values for W are "square", "cross", "plus" and "circle",
+    which plot the obvious symbols. See below for how to set the size of
+    these.
+
+procedure - call the procedure with arguments (x,y) for each point to be
+    plotted.
+
+<false> - do not plot the data
+
+--      rcg_pt_cs [rcg_char_width]
+
+integer I, I > 0 - specifies the size, in pixels, of the symbols drawn
+    by the rcg_plt_... routines.
+
+--      rcg_ax_type ["axes"]
+
+"axes" - draw a pair of axes, each at the 0 coordinate of the other axis
+   if possible, otherwise at the left or bottom of the graph area.
+
+"box" - draw a box of axes round the graph area, with the left and
+    bottom ones annotated.
+
+<false> - draw no axes
+
+--      rcg_mk_no [5]
+
+real number - specifies roughly how many major (annotated) axis marks to
+    draw on each axis. The actual number will usually be less than this,
+    because the interval between marks is rounded to 1, 2 or 5 times a
+    power of ten.
+
+<false> - draw no annotated axis marks.
+
+--      rcg_tk_no [10]
+
+real number - specifies how many minor tick marks to make between each
+    major axis mark.
+
+<false> - draw no minor tick marks
+
+--      rcg_mk_len [0.02]
+--      rcg_tk_len [0.01]
+
+real numbers - specify the lengths of the major axis marks (which
+    are annotated with numbers) and the minor axis ticks (which are
+    not), respectively. The values are given as fractions of the x and y
+    sizes of the graph area, as appropriate.
+
+--      rcg_pt_lw [0] etc.
+--      rcg_pt_ls [LineSolid] etc.
+--      rcg_pt_lf [GXcopy] etc.
+
+These control the line width, line style and line function of the
+plotted curve or symbols. See TEACH *RC_GRAPHIC for suitable values to
+use. Note that as a curve is plotted as a lot of short straight lines,
+trying to get a dashed curve to appear is not always very successful.
+
+rcg_ax_{lw, ls, lf} are the equivalents for the main line of the axis.
+rcg_mk_{lw, ls, lf} are the equivalents for the main axis marks.
+rcg_tk_{lw, ls, lf} are the equivalents for the tick marks.
+
+--      rcg_char_width [7]
+--      rcg_char_height [12]
+
+These should be set to the average width and the height of a character,
+in screen pixels, respectively. At present the user sets them, though
+ideally they would be automatically set when a new font is loaded.
+
+-- Limitations and bugs -----------------------------------------------
+
+The package is unlikely to work properly if RC_TRANSXYOUT is redefined.
+
+Logarithmic axes are not yet supported.
+
+Different colours for different graph components are not supported.
+
+Users have to do their own smoothing, curve fitting, etc.
+
+--- C.x/x/pop/help/rc_graphplot
+--- Copyright University of Sussex 1991. All rights reserved. ----------

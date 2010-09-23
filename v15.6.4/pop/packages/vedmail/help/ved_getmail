@@ -1,0 +1,758 @@
+HELP VED_GETMAIL                                   Aaron Sloman Nov 1991
+                                                        Updated Oct 1998
+
+ENTER getmail
+    Moves your system mail input file into your private mail directory,
+    then reads the file into VED. It may merge the new mail file with
+    your previous mail file, or start a new file, depending on the value
+    of the variable vedmailmax. After reading in the mail the ENTER mdir
+    command is used to provide an index of mail messages in the current
+    file.
+
+getmail
+    A syntax word that runs ved_getmail from pop11.
+
+ENTER getmail -
+getmail -
+
+    The use of the optional flag "-" prevents the call of "mdir", so
+    that the index of new messages is not created.
+
+Various additional commands for manipulating mail files in VED are
+provided, as described below.
+
+Use of these facilities requires
+
+    uses vedmail
+    (E.g. in your $poplib/vedinit.p file)
+
+
+NOTE: at Birmingham there is a "menu-driven" version of these commands,
+which can be invoked by the command
+    ENTER menu mail
+
+For a simpler introduction to the facilities described here, see
+    TEACH * EMAIL
+
+
+         CONTENTS - (Use ENTER g to access required sections)
+
+ -- Introduction
+ -- How to set up LIB VED_GETMAIL
+ -- -- (1) The system file used for incoming unix mail
+ -- -- -- Setting vedmailbox in your vedinit.p file
+ -- -- (2) The form of filenames to which mail should be copied
+ -- -- -- Setting vedmailfile
+ -- How to run VED_GETMAIL
+ -- ENTER getmail (Read in latest incoming mail)
+ -- The variable vedmailmax
+ -- Utility procedures for manipulating messages within a mail file
+ -- -- ENTER vm <number>
+ -- -- ENTER mdir (Create a directory of messages)
+ -- -- -- ENTER gm (Go to Message from directory file)
+ -- -- -- ENTER dmess (from directory file, delete message)
+ -- -- ENTER mcm (Mark Current Message)
+ -- -- ENTER nm (Go to next message)
+ -- -- ENTER lm (Go to last message)
+ -- -- ENTER tmh (Tidy mail header)
+ -- -- ENTER tah (Tidy all headers in file)
+ -- -- ENTER forward <name>
+ -- Replying to messages received
+ -- -- ENTER reply (Prepare a reply - to sender only)
+ -- -- ENTER Reply (Prepare a reply, to all recipients)
+ -- -- ENTER respond
+ -- -- ENTER Respond
+ -- -- ENTER respond <string>
+ -- -- ENTER Respond <string>
+ -- ENTER sendmr or ENTER sendmr <names> (Send marked range)
+ -- ENTER send or ENTER send <names>
+ -- Deleting or moving messages to another file.
+ -- -- ENTER ccm (Clear Current Message)
+ -- -- ENTER mmo (Move Message Out to another file)
+ -- -- ENTER mmo <file>
+ -- -- ENTER mmi (Move Message In from another file)
+ -- -- ENTER wappcm <file> (Write, append, and delete current message)
+ -- Some additional commands
+ -- -- ENTER prevmail   (Go to previous mail file)
+ -- -- ENTER prevmail q
+ -- -- ENTER nextmail   (Go to next mail file)
+ -- -- ENTER nextmail q
+ -- -- ENTER lastmail   (Go to last message in the latest mail file)
+ -- -- ENTER lastmail q
+ -- -- ENTER mergemail (Merge current mail file with previous one)
+ -- -- ENTER mergemail <integer>
+ -- -- ENTER mergemail <integer>
+ -- ENTER purgemail
+ -- How to tell Unix mail were to put your mail.
+ -- See Also
+
+-- Introduction -------------------------------------------------------
+
+This package provides a VED-based interface to reading mail on Unix
+systems.
+(It is different from the program described in HELP * VED_MAIL, which
+is out of date).
+
+When you use the VED command
+    ENTER getmail
+
+or the Pop-11 command
+
+    getmail
+
+your incoming mail file (if it is not empty) is copied to a private file
+in a directory that you specify, and read into VED so that you can read
+messages, reply to them, delete them, store them in separate files, and
+so on.
+
+Different mail files have a common file name except for the number at
+the end, e.g. mail1, mail2, mail3, ....
+
+You can combine mail files if you wish, using the ENTER mergemail
+command, or leave them separate.
+
+-- How to set up LIB VED_GETMAIL --------------------------------------
+
+In order that ved_getmail can know where your standard mail file for
+incoming mail is kept, and where you want each new file to be stored
+you have to set up some information in your .login and in your vedinit.p
+file. So: you have to specify the following:
+
+   (1) The file used by the Unix mail system for your incoming mail
+
+   (2) The form of filenames to which your mail should be copied
+        E.g. if you specify the pathname
+
+            $HOME/Mail/mail
+
+        then your first mail file will be copied to $HOME/Mail/mail1
+        the second to $HOME/Mail/mail2, and so on.
+
+The next two sections give details on how to specify (1) and (2). If you
+don't do anything, then the ENTER getmail command will use sensible
+defaults. It may be that the setting up has already been done for you in
+your .login file and your vedinit.p file, by your local Poplog
+administrator. In that case you can skip to the section below, headed
+
+    How to run LIB VED_GETMAIL
+
+
+-- -- (1) The system file used for incoming unix mail
+
+(The steps in this section are optional. Most users should not need to
+do this, as the system defaults will usually work.)
+
+You can assign the name of your standard system mail file to the Unix
+environment variable $MAIL in your .login file, or else assign it to the
+Pop11 variable vedmailbox.
+
+For example, in your .login file set the environment variable $MAIL.
+E.g. if you use the standard Unix mail delivery mechanism, then on
+a Sun Solaris system you can do:
+
+    setenv MAIL /var/mail/$USER
+
+If you are using a Berkely version of Unix, e.g. SunOS 4.1.3 then do,
+instead
+
+    setenv MAIL /var/spool/mail/$USER
+
+If you use sh or ksh as your shell, and your login script is called
+.profile, then you can instead do something like this on Solaris:
+
+    export MAIL=/var/mail/$USER
+
+Alternatively you may have arranged for your new mail to come into
+your subdirectory called mail in a file called mailbox, in which case
+you could do this in your .login file
+
+    setenv MAIL $HOME/Mail/mailbox
+
+or this in your .profile file
+
+    export MAIL=$HOME/Mail/mailbox
+
+-- -- -- Setting vedmailbox in your vedinit.p file
+
+(Note: the instructions in this sub-section are not necessary for most
+users as the system defaults should work.)
+
+Every user should have a file called vedinit.p in your $poplib
+directory. This instructs VED concerning your preferences whenever VED
+starts up.
+
+If you do not wish to set the $MAIL variable in your .login or .profile
+file, you can do something like the following in your vedinit.p file:
+
+vars vedmailbox = '/var/mail/<name>';
+
+or
+
+vars vedmailbox = '$HOME/Mail/mailbox';
+
+(where <name> is replaced by your login name).
+
+NB: if you change where your incoming mail goes you must remember to
+change this assignment, otherwise ved_getmail will stop working.
+
+You can alter which file your incoming mail goes to using your .forward
+file, and the mechanisms described in the unix manual file "man mhook".
+(Examples are given at the end of this file.)
+
+If you don't specify where incoming mail goes, ved_getmail will try
+the standard Unix mail directory.
+
+-- -- (2) The form of filenames to which mail should be copied
+
+-- -- -- Setting vedmailfile
+
+Each time you run ved_getmail, if you have anything in your incoming
+system mail file it will be copied to a new file. You can specify how
+names for the new file should be generated.
+
+The Pop-11 variable vedmailfile is used for this purpose. It should hold
+a string, and each time a different number is appended to the string to
+give a new mail file name.
+
+NOTE: for users at Birmingham whose .login file includes the two
+commands
+
+    setup Poplog
+    setup PoplogMail
+
+and who has the standard vedinit.p startup file, a default has been set
+up which means you do not need to set up the vedmailfile variable.
+
+E.g. if you wish your first mail file to be moved to the file
+$HOME/Mail/mail1 the second to $HOME/Mail/mail2, and so on, then
+in your vedinit.p file you should do:
+
+vars vedmailfile = '$HOME/Mail/mail';
+
+That is the default for new users at Birmingham in the School of
+Computer Science.
+
+It is not essential to specify this variable. If you don't assign to
+vedmailfile, then it will default to '$HOME/mail' and so ved_getmail
+will copy all mail into files in your login directory, the first file
+being called mail1, the second mail2, etc.
+
+It is usually wiser to use a sub-directory which is not readable by
+anyone else. E.g. various mail readers assume you want new mail to be
+stored in the directory $HOME/Mail or  $HOME/mail which is normally
+protected so that only you can read it.
+
+You can then leave your top level directory readable, so that you can
+put files there that you want other people to be able to read. (Note
+that if your standard mail file is protected against reading by others,
+the copies made by ved_getmail will also be.)
+
+NB: The variable vedmailfile is used by other commands, including
+nextmail, prevmail and mergmail.
+
+-- How to run VED_GETMAIL ---------------------------------------------
+
+After you have set up the information described above (or left them to
+be dealt with as defaults) then all you have to do is give the getmail
+command. This can be done within VED, thus
+
+-- ENTER getmail (Read in latest incoming mail)
+
+Or as a direct command to Pop-11
+
+    getmail
+
+The library file is autoloadable, so you do not need to load it
+explicitly. (See HELP * AUTOLOAD).
+
+If there is no new mail you will get a message on the command line
+saying there is no new mail and telling you to use
+    ENTER lastmail
+to ready your previous mail (if there was any).
+
+If there is new mail waiting to be read, the getmail command will copy
+your incoming mail to a mail file with the next appropriate number.
+
+E.g. if you already have mail files with suffixes 1, 2, 3, ... 34, then
+the next one will be given the suffix 35, e.g. it might be called
+'mail35', depending on how you have set up the variable vedmailfile.
+
+You can also cause new small mail files to be appended to previous mail
+files to prevent the number of mail files growing too large. The next
+but one section explains how.
+
+When you read in a new mail file an "index" file is created giving you a
+list of all the new messages. This index is created automatically by
+running the "ENTER mdir" command, as described below. You can then use
+the "ENTER gm" (GoMessage) comand to go to a selected message, and the
+"ENTER dmess" command to delete a message without reading it.
+
+
+-- The variable vedmailmax --------------------------------------------
+
+This Pop-11 variable can be used to control the merging of mail files,
+so that instead of large numbers of small mail files you have a few
+bigger ones.
+
+If you give the variable vedmailmax a value which is an integer greater
+than 0, e.g. by putting into your vedinit.p file
+
+    vars vedmailmax = 80000;
+
+then when ved_getmail gets a new incoming mail file, it will try to
+merge the new mail file with the previous one, provided that their
+combined size in characters (bytes) is no bigger than vedmailmax.
+
+Thus, to prevent any merging set the value to 0.
+
+A value of 30000 corresponds to a file size of about 500 lines if the
+average line length is 60 characters. By making it a larger number, you
+can allow your mail files to grow to a very large size, e.g.
+
+    vars vedmailmax = 1000000;
+
+The rest of this file describes other commands available once you have
+read in a mail file.
+
+-- Utility procedures for manipulating messages within a mail file
+
+-- -- ENTER vm <number>
+
+If you normally store your mail in a directory called Mail in your top
+level directory, then this is equivalent to
+
+    ENTER ved ~/Mail/mail<number>
+
+E.g.
+    ENTER vm 35
+
+Will get you mail message number 35, i.e.
+
+    ~/Mail/mail35
+
+-- -- ENTER mdir (Create a directory of messages)
+
+If this command is given while you are editing one of your mail files,
+it creates a temporary VED file containing a directory of messages in
+the mail file. Use ENTER gm to go to a specific message in the
+directory. The format of the mail directory is something like this,
+where the user is Xavier Zigphatt, with login name xyz:
+
+   /home/staff/xyz/Mail/mail35 Sun Oct 18 01:11:51 BST 1998
+   1: 1 From J.Bloggs@cs.bham.ac.uk Sun Jun 14 09:39 BST 1998
+   To: Xavier Zigphatt <X.Zigphatt@cs.bham.ac.uk>
+   Subject: meeting tomorrow
+   2: 22 From support@cs.bham.ac.uk Sun Jun 14 09:39 BST 1998
+   To: A.Sloman@cs.bham.ac.uk,X.Zigphatt@cs.bham.ac.uk
+   Subject: Support Request #430 Re: problem of missing files
+   3: 50 From X.Zigphatt@cs.bham.ac.uk Sun Jun 14 16:46 BST 1998
+   To: c.chopwood@bham.ac.uk
+   Subject: Carpentry teaching
+
+    Etc.
+
+Each entry has three lines giving the sender, the recipient, and the
+subject. The first line for each entry gives
+
+    (a) the message number in the file
+    (b) the line number at which that message starts
+    (c) the "From" line at the top of the message header
+
+Note that the line number can become inaccurate if you edit the file
+without re-running the mdir command. Normally an inaccurate line number
+will not affect the commands described below.
+
+(For more details see HELP * VED_MDIR )
+
+-- -- -- ENTER gm (Go to Message from directory file)
+
+If the current file is a directory file produced by ENTER mdir, then
+you can go to a required file either by typing
+
+    ENTER gm <message number>
+
+or putting the cursor on the first line of the appropriate entry in
+the message directory file and just typing
+
+    ENTER gm
+
+ENTER mdir  and ENTER gm can both be used independently of VED_GETMAIL,
+since they will work on any file in the standard Unix mailer format.
+
+-- -- -- ENTER dmess (from directory file, delete message)
+
+If the current file is a directory file produced by ENTER mdir, then
+you can delete a message without reading it if you put the VED cursor
+on the first line of the directory entry for that message and giving
+the command
+    ENTER dmess
+
+Alternatively you can delete the message by giving its message number.
+E.g. to delete message number 25 do
+
+    ENTER dmess 25
+
+
+-- -- ENTER mcm (Mark Current Message)
+
+NB: this command and the following commands work when the Ved cursor is
+in the mail file itself, not in mail directory file created by the
+ENTER mdir command.
+
+ENTER mcm
+
+Mark Current Message. This causes VED to "mark" the current message from
+the "From" line at the top of the message to the end of the message. The
+effect is just the same as if you used the normail method to mark a
+range in a VED file, as described in TEACH * MARK
+
+The message can then be copied, deleted, moved to another file, etc.
+See HELP * MARK
+
+Since this command assumes that all unix mail messages start with a
+line containing 'From ' at the beginning of the line, it can get
+confused if a mail message includes 'From ' at the beginning of a line.
+Normally this is dealt with by Unix mail inserting '>' before 'From'
+in the middle of a message.
+
+Commands based on mcm are defined below, e.g. mmi, mmo, ccm, wappcm
+
+
+-- -- ENTER nm (Go to next message)
+    This command takes you to the beginning of the next message in the
+    current file.
+    (You may find it useful to use vedsetkey or vedset to map this onto
+    a key sequence or function key.)
+
+-- -- ENTER lm (Go to last message)
+    This command takes you to the beginning of the current message.
+    If the VED cursor is already at the beginning of a message, then it
+    goes to the beginning of the previous message.
+    (You may find it useful to use vedsetkey or vedset to map this onto
+    a key sequence or function key.)
+
+-- -- ENTER tmh (Tidy mail header)
+-- -- ENTER tah (Tidy all headers in file)
+
+    These two commands, for getting rid of unwanted junk in email
+    headers, are described in a separate help file:
+        HELP * VED_TMH
+
+-- -- ENTER forward <name>
+    This will forward the current message to the address <name>.
+
+    The whole message is marked and then sent, including the header.
+
+The command
+    ENTER forward xyz
+
+is equivalent to these two commands
+
+    ENTER mcm
+    ENTER sendmr xyz
+
+(It is very easy for the user to define new VED commands combining old
+VED commands.)
+
+
+-- Replying to messages received --------------------------------------
+
+The commands reply, Reply, respond, Respond, described below can be used
+to prepare messages to be sent in response to messages received. Once
+the message has been prepared, it can be posted using the ENTER sendmr
+command, described below.
+
+-- -- ENTER reply (Prepare a reply - to sender only)
+
+This starts a heading for a reply to current message
+    See HELP *VED_REPLY for details
+
+    (See also respond, below)
+
+
+-- -- ENTER Reply (Prepare a reply, to all recipients)
+
+Like 'reply' but makes the reply go to all recipients of original. It
+uses the names in the To: list and the Cc: list.
+
+    (See also Respond, below)
+
+-- -- ENTER respond
+-- -- ENTER Respond
+    These two commands are like "ENTER reply" and "ENTER Reply" as
+    described in HELP * VED_REPLY, except that they also copy the
+    original message into the draft reply and indent it using '> '.
+    This makes it easier to prepare a reply with bits of the original
+    message quoted.
+
+-- -- ENTER respond <string>
+-- -- ENTER Respond <string>
+    As above, but the string (followed by a space) is used instead of
+    '> ' to indent the original message.
+
+    For example, to send a response to all recipients of the original
+    message, with all quoted lines from the original prefixed with '$$$'
+    do
+        ENTER Respond $$$
+
+
+-- ENTER sendmr or ENTER sendmr <names> (Send marked range)
+
+Send the marked range. If the command line does not include name(s) of
+recipient(s) the program looks at the beginning of the marked range, for
+a line starting 'To: ' or 'to: '.
+
+If no argument is given, and the To: line is found, then -ved_sendmr-
+puts a 'From ' line at the top of the message to preserve the Unix mail
+format, and enables you to keep a short log file with names, dates and
+subject lines of all messsages you send. This can be disabled.
+
+See HELP * SEND for details.
+
+-- ENTER send or ENTER send <names> -------------------------------
+
+Like SENDMR, but sends the whole file. See HELP *SEND for details
+
+
+-- Deleting or moving messages to another file.
+
+
+-- -- ENTER ccm (Clear Current Message)
+
+Clear Current Message. Uses ved_mcm to mark the message then ved_d to
+delete it. Retrieve the deleted message with
+
+    ENTER y
+
+(To Yank back the deleted marked range.)
+
+
+
+-- -- ENTER mmo (Move Message Out to another file)
+-- -- ENTER mmo <file>
+    "Move Message Out"
+    Move the current mail message (i.e. the one the VED cursor is in)
+    into the last file edited, or into <file> if a name is given.
+    It is appended to the file.
+
+    The file into which it is moved need not be a mail file created by
+    ved_getmail. This enables you to store individual messages in
+    arbitrary files.
+
+-- -- ENTER mmi (Move Message In from another file)
+    "Move Message In"
+
+    If you are looking at a mail message, then move to another file,
+    then the command ENTER mmi can be used to move the message you were
+    looking at into the new file. Like the mmo command this not append
+    the message to the END of the new file. It will not insert it where
+    the VED cursor is.  To achieve that use ENTER mcm to mark the
+    current message, then ENTER mo, or ENTER mi
+
+Note: to check that the message will come from the correct mail file
+make sure you first put that mail file into the VED buffer and then go
+to the file in which you wish to give the ENTER mmi command, without
+moving to another file inbetween. (Use the "ESC x" sequence to switch
+back and forth between the current file and the previous file to ensure
+that you are dealing with the intended files.)
+
+
+-- -- ENTER wappcm <file> (Write, append, and delete current message)
+
+    Write and Append Current Message to the specified file on disk.
+
+    This is very much faster than ENTER mmo, and is used when you
+    want to append a message to a file without first reading that file
+    into VED, as ENTER mmo <file> would require.
+
+    ved_wappcm uses the ved_wappr mechanism described in REF * VED_WAPPR.
+    It marks the current message, using ved_mcm, then appends the marked
+    range to the named file on disc using ved_wappr, then it deletes
+    the message from the current file, using ved_d. If the file on disk
+    does not yet exist, it creates it.
+
+WARNING:
+    Note that if you have the <file> in VED already you should NOT
+    use this command, as it will change the copy of the file on disk
+    but not the version in VED. You can guard against this by using
+    LIB VED_LOCKFILE, described in HELP VED_LOCKFILE
+    (Not available at all sites)
+
+The append mechanism uses -discappend- rather than ved_mmo. So it is
+very fast, and doesn't produce VED backup files - it just sticks the
+message on the end of the disc file.
+
+You can use ved_wappcm to define a command to append the current
+message to a named file in your mail directory. E.g. if your mail is
+stored in a sub-directory called mymail, and you want the command for
+storing individual messages to be something like
+
+    ENTER storemail <filename>
+
+Then define a procedure ved_storemail, thus
+
+    define ved_storemail;
+        ;;; Write current message to named file in mymail directory
+
+        dlocal vedargument = '$HOME/mymail/' dir_>< vedargument;
+        ved_wappcm();
+    enddefine;
+
+Of course, the directory mymail must already exist.
+
+
+-- Some additional commands -------------------------------------------
+
+The following additional commands are relevant mainly to mail files
+created using ved_getmail.
+
+-- -- ENTER prevmail   (Go to previous mail file)
+-- -- ENTER prevmail q
+    Read in the previous mail file in the sequence. E.g. if the current
+    mail file is mail5, this command will get mail4.
+
+    If the "q" option is given, the current file is abandoned first
+
+-- -- ENTER nextmail   (Go to next mail file)
+-- -- ENTER nextmail q
+    Read in the next mail file in the sequence. E.g. if the current
+    mail file is mail5, this command will get mail6, if it exists.
+
+    If the "q" option is given, the current file is abandoned first
+
+-- -- ENTER lastmail   (Go to last message in the latest mail file)
+-- -- ENTER lastmail q
+    Read in the last existing mail file in the sequence. Takes you to
+    the beginning of the last message in the file.
+
+    If the "q" option is given, the current file is abandoned first
+
+    There is a Pop-11 syntax word which can be used when typing to
+    Pop-11. It has the same effect.
+
+        : lastmail
+
+After the mail file is read into VED the "mdir" command is used
+automatically to create an index of messages in the file. You can
+prevent this by using the "-" flag. E.g. in VED
+    ENTER lastmail -
+
+or direct to Pop-11:
+
+    lastmail -
+
+
+-- -- ENTER mergemail (Merge current mail file with previous one)
+-- -- ENTER mergemail <integer>
+
+    This command appends the current mail file to the previous mail
+    file, which is got using ved_prevmail. After appending it deletes
+    the original file from VED and from the disc.
+
+    E.g. if you are looking at the file mail6 then the command
+        ENTER mergemail
+    will cause the file to be appended to mail5, and the mail6 file
+    will be deleted from VED and the disc.
+
+    To prevent attempts to merge files that are not mail files, this
+    command checks that the file in which it is invoked is a mail file
+    produced by ved_getmail, by checking that its path name starts with
+    the string vedmailfile.
+
+-- -- ENTER mergemail <integer>
+    This version of the command is equivalent to calling ENTER mergemail
+    <integer> times. Thus "ENTER mergemail 3" will merge the last three
+    mail files with the preceding one.
+
+-- ENTER purgemail
+
+    This deletes backup versions of your mail files, i.e. all those
+    backup files created by VED whose names end in "-"
+
+
+-- How to tell Unix mail were to put your mail.
+
+This section is for Unix EXPERTS only.
+
+(This facility may not exist at all sites)
+
+By default Unix mail on old Suns running SunOS 4.1 or similar versions,
+goes into the file whose name has the form
+
+        /var/spool/mail/<user>
+
+On Solaris machines (running SunOS version 5.2 or later) the mail
+messages go into the file
+
+        /var/mail/<user>
+
+On some other Unix machines it goes to
+        /usr/mail/<user>
+
+You may wish to have incoming mail automatically stored in a
+subdirectory of your home directory, i.e. before you read the messages
+in VED.
+
+The facilities described in "man mhook" describe how you can do this.
+Suppose for example you have a subdirectory called mail, and you want
+your new mail to into the file mail/mailbox. Then you can do the
+following in files in your login directory:
+
+1. In your .forward file put the line:
+
+    | /bham/pd/lib/mh/slocal -user <user>
+
+replacing <user> with your login name (NB not your email name, if that
+is different.)
+
+2. In your .maildelivery file put a line of the form:
+
+  * - > ? "/home/staff/<user>/Mail/mailbox"
+
+where <user> is your user name, as before. Check that this pathname
+is right. E.g. your directory may be on /home/students/ug/<user> instead
+of /home/staff/<user>
+
+3. In your .login file set the $MAIL environment variable, e.g.
+
+    setenv MAIL $HOME/Mail/mailbox
+
+Note that $HOME will automatically be interpreted correctly in this
+context. If you change your .maildirectory file, you will have to change
+the setting for MAIL in your .login.
+
+For more information see MAN * SLOCAL
+
+As explained above, you will then probably also want to ensure that VED
+copies mail messages into the same directory. You can ensure this by
+assigning a string with an appropriate path name to the VED variable
+vedmailfile, in your init.p e.g.
+
+    vars vedmailfile = '$HOME/Mail/mail';
+
+If, on top of all that, you used the C shell or tcsh and want to be
+informed every 60 seconds when you have new mail, when giving Shell
+commands, put something like the following into your .cshrc file
+
+    set mail = (60 <directory>/Mail/mailbox)
+
+where <directory> is the full path name of your login directory.
+
+
+-- See Also -----------------------------------------------------------
+
+HELP * VED_TMH   - Tidy Mail Header
+HELP * SEND      - sending mail in VED, using ved_send, ved_sendmr
+HELP * VED_REPLY - begin a reply to a message in a Unix mail file
+LIB  * VED_RESPOND
+                 - Similar, with original message copied and indented
+HELP * VED_MDIR  - getting a index to a Unix mail file in VED
+HELP * POPHOST   - information about current computer
+LIB  * VED_MCM   - mark current message
+LIB  * VED_CCM   - clear current message (retrieve with ved_y)
+LIB  * VED_GM    - Go to message - from VED_MDIR index file
+LIB  * VED_WAPPCM - Write and append current message.
+HELP * MAIL      - Some general information about mail readers
+
+--- $poplocal/local/help/ved_getmail
+--- Copyright University of Birmingham 1998. All rights reserved. ------

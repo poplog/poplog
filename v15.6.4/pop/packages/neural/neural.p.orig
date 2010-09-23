@@ -1,0 +1,65 @@
+/* --- copyright University of Birmingham 1997. All rights reserved. ------
+ > File:            $poplocal/local/neural/neural.p
+ > Linked to:       $poplocal/local/lib/neural.p
+ > Purpose:			Make "Popneural" libraries and documentation available
+ > Author:          Aaron Sloman,  22 Jan 1999
+ > Documentation:	HELP * POPNEURAL, TEACH * POPNEURAL
+ > Related Files:	$poplocalbin/neural.psv
+ */
+
+/*
+
+Compile this file to make neural available.
+
+*/
+
+global constant neural;
+
+section;
+
+unless isundef(neural) then [endsection;] -> proglist endunless;
+
+;;; Use pop-11 global variable if it exists. Default is THIS directory
+global vars popneuraldir = sys_fname_path(popfilename);
+
+;;; or use environment variable if it exists
+lconstant NEURAL_VAR = systranslate('popneural');
+
+lconstant
+	neural_dir =
+		if isstring(popneuraldir) then
+			popneuraldir ->> systranslate('popneural');
+		elseif isstring(NEURAL_VAR) then NEURAL_VAR
+		else
+			;;; Default is THIS directory
+			sys_fname_path(popfilename)->> systranslate('popneural');
+			;;; '$poplocal/local/neural/'
+		endif;
+
+lconstant neural_auto =    neural_dir dir_>< 'auto/';
+lconstant neural_lib =     neural_dir dir_>< 'lib/';
+;;; lconstant neural_include = neural_dir dir_>< 'include/';
+
+;;; Load and show from neural_ directory
+extend_searchlist(neural_auto, popautolist) -> popautolist;
+extend_searchlist(neural_lib, popuseslist) -> popuseslist;
+;;; extend_searchlist(neural_include, popincludelist) -> popincludelist;
+
+;;; And extend ved's teach and help and ref lists
+lconstant
+	neural_teach = [% neural_dir dir_>< 'teach/' % teach],
+	neural_help = [% neural_dir dir_>< 'help/' % help],
+	neural_ref = [% neural_dir dir_>< 'ref/' % help],
+	neural_teachlist = [^neural_teach],
+	neural_helplist = [^neural_help],
+	neural_reflist = [^neural_ref],
+;
+extend_searchlist(neural_helplist, vedhelplist) -> vedhelplist;
+extend_searchlist(neural_reflist, vedhelplist, true) -> vedreflist;
+extend_searchlist(neural_teachlist, vedteachlist) -> vedteachlist;
+extend_searchlist(neural_helplist, vedteachlist,true) -> vedteachlist;
+extend_searchlist(neural_reflist, vedreflist) -> vedreflist;
+extend_searchlist(neural_helplist, vedreflist, true) -> vedreflist;
+
+global constant neural = true;
+endsection;

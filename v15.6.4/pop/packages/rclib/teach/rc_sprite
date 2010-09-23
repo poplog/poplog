@@ -1,0 +1,240 @@
+TEACH RC_SPRITE                                   Aaron Sloman, Dec 2000
+
+LIB rc_sprite
+
+A DRAFT teach file showing how to use the DRAFT library,
+
+The rc_sprite library allows you to make simple triangular coloured
+"sprites", i.e. moving objects which have a current location and a
+current heading, and optionally a label which is shown as the object
+moves and rotates.
+
+The sprites can be moved by means of the mouse, and either moved or
+rotated by means of pop-11 programs.
+
+The library and the teach file together provide a demonstration of some
+of the basic facilities of the rclib package, introduced in
+
+    TEACH rclib_demo.p
+
+and summarised in
+
+    HELP RCLIB
+
+
+To make the rc_sprite package available, first load the relevant
+libraries (e.g. use ESC d):
+
+uses rclib
+uses rc_sprite
+
+;;; Create a window in which to draw sprites, in the top right corner
+;;; of the screen
+
+vars win1 =rc_new_window_object("right", "top", 500, 500, true, 'WIN1');
+
+;;; The procedure rc_make_sprite takes five arguments and returns a
+;;; sprite. the format is:
+;;; rc_make_sprite(x, y, base, height, axis, colour, name) -> sprite;
+
+
+;;; create a sprite called s1, at location -100, 100,
+;;; with triangle of base 20, height 30,
+;;; orientation 0, i.e. facing east (to the right)
+;;; coloured blue, and without a label (hence the false).
+
+vars s1 = rc_make_sprite(-100, 100, 20, 30, 0, 'blue', false);
+
+;;; You should be able to move it using the mouse, by dragging with
+;;; mouse button 1. Try that, leaving it somewhere near the centre.
+
+;;; The sprite can be moved or rotated using the procedures illustrated
+;;; in TEACH rc_linepic, and defined in HELP rc_linepic
+
+;;; Move the sprite to the centre of the window
+rc_move_to(s1, 0, 0, true);
+
+;;; repeatedly move it up and to the right by 5 steps
+repeat 5 times rc_move_by(s1, 5, 5, true); endrepeat;
+
+;;; repeatedly move it down and to the left by 5 steps
+repeat 10 times rc_move_by(s1, -5, -8, true); endrepeat;
+
+;;; When the orientation is 0, the sprite's heading is "east",
+;;; i.e. to the right. Try altering it:
+
+rc_set_axis(s1, 90, true);
+rc_set_axis(s1, 45, true);
+rc_set_axis(s1, 0, true);
+rc_set_axis(s1, -45, true);
+rc_set_axis(s1, -135, true);
+
+;;; rc_turn_by can be used to alter the orientation by a specified
+;;; number of degrees. A positive number turns the sprite counter-
+;;; clockwise. Syssleep can be used to slow down the rotation
+repeat 60 times rc_turn_by(s1, 2, true); syssleep(5); endrepeat;
+
+;;; A negative number turns it clockwise
+repeat 60 times rc_turn_by(s1, -3, true); syssleep(1); endrepeat;
+
+
+;;; The sprite can be made to move in the direction of its current
+;;; heading, using the procedure rc_move_sprite, which has
+;;; the following format.
+
+;;;     rc_move_sprite(s, steplen, turnang, delay, num, trail);
+
+;;; Move the sprite s num times, with a delay after each move.
+;;; Each step moves it forward a distance steplen, and turns it by
+;;; an angle. The last argument is a boolean determining whether it
+;;; should leave a trail or not
+
+;;; to keep it moving in a straight line, without a trail, in steps
+;;; of length 2, with a delay of 1 hundredth of a second, and 20 steps
+
+rc_move_sprite(s1, 1, 0, 1, 40, false);
+
+;;; it can also move backward
+rc_move_sprite(s1, -2, 0, 1, 40, false);
+
+;;; prepare it to move up the screen
+rc_set_axis(s1, 90, true);
+
+;;; now move it
+rc_move_sprite(s1, 1, 0, 1, 60, false);
+
+;;; prepare it to move left
+rc_turn_by(s1, 90, true);
+
+;;; now move it another 40 steps of size 1
+rc_move_sprite(s1, 1, 0, 1, 80, false);
+
+;;; Now replace the turn angle 0, by 5, to make it turn in steps
+;;; of 5 degrees, moving forward 2 pixels each time, 120 times.
+rc_move_sprite(s1, 2, 5, 1, 120, false);
+
+;;; redo the above a few times
+
+;;; try with delay = 0
+rc_move_sprite(s1, 2, 5, 0, 120, false);
+
+;;; Change the turn angle from 5 to 2 degrees
+rc_move_sprite(s1, 2, 2, 1, 120, false);
+
+;;; or 1 degree
+rc_move_sprite(s1, 2, 1, 1, 120, false);
+
+;;; 2 degrees but a steplength of 3 instead of 1
+rc_move_sprite(s1, 3, 2, 1, 120, false);
+
+What happens to the shape as steplength gets larger?
+What happens to the shape as turn angle gets larger?
+
+;;; more steps and delay = 0
+rc_move_sprite(s1, 3, 2, 0, 720, false);
+
+;;; do the same leaving a trail
+rc_move_sprite(s1, 3, 5, 1, 60, true);
+
+;;; move it without a trail
+rc_move_sprite(s1, 3, 5, 1, 60, false);
+
+;;; make a new sprite with a red triangle and label, 's2'
+vars s2 = rc_make_sprite(10, -100, 30, 30, 0, 'red', 's2');
+
+
+;;; Try moving it in various ways, with or without a trail
+rc_move_sprite(s2, 3, 5, 1, 60, true);
+rc_move_sprite(s2, 3, 2, 1, 60, false);
+rc_move_sprite(s2, 3, 2, 1, 60, true);
+rc_move_sprite(s2, 3, -2, 1, 60, true);
+
+;;; bring it back to the middle
+rc_move_to(s2, 0, 0, true);
+rc_move_sprite(s2, 5, 2, 1, 60, true);
+
+
+;;; We can also give a sprite a succession of moves, using the method:
+;;; rc_move_sprite_on_path(s, path, delay,  trail);
+
+;;; where s is a sprite, path species parameters for a sequence of
+;;; commands for rc_move_sprite, delay is an integer specifying the
+;;; delay between steps in hundredths of a second. trail is a boolean
+;;; specifying whether to leave a trail or not.
+
+;;; Path is a list of three element lists or vectors, each containing
+;;; three numbers, to be combined with the variables delay and trail,
+;;; to provide inputs for rc_move_sprite.
+
+;;; E.g. put s1 near the bottom left pointing up right
+
+rc_move_to(s1, -200, -200, true);
+rc_set_axis(s1, 45, true);
+
+;;; suppose we give three commands using rc_move_sprite.
+;;; See what they do
+rc_move_sprite(s1, 3, 1, 1, 60, true);
+rc_move_sprite(s1, 3, -2, 1, 120, true);
+rc_move_sprite(s1, 2, 4, 1, 60, true);
+
+;;; can use rc_move_sprite_on_path to combine the above three
+;;; commands. First re-set the position at bottom left, and orientation
+
+rc_move_to(s1, -200, -200, true);
+rc_set_axis(s1, 45, true);
+
+;;; watch how this compound movement takes it over the same path as
+;;; before
+rc_move_sprite_on_path(s1, [[3 1 60] [3 -2 120] [2 4 60]], 1, false);
+
+;;; Start it a little higher up and give the same command with the final
+;;; argument true, to draw a trail.
+
+rc_move_to(s1, -200, -150, true);
+rc_set_axis(s1, 45, true);
+
+rc_move_sprite_on_path(s1, [[3 1 60] [3 -2 120] [2 4 60]], 1, true);
+
+;;; Now try s2
+rc_move_to(s2, -200, -100, true);
+rc_set_axis(s2, 45, true);
+
+rc_move_sprite_on_path(s2, [[3 1 60] [3 -2 120] [2 4 60]], 1, true);
+
+;;; try again, making the step lengths all negative
+
+rc_move_sprite_on_path(s2, [[-3 1 60] [-3 -2 120] [-2 4 60]], 1, true);
+
+
+Exercises:
+
+1. Make one of the sprites draw an equilateral triangle.
+
+2. Make one of the sprites draw a square with a circle at each
+corner.
+
+3. Try making a sprite weave a path between obstacles:
+
+First clear the window
+
+    rc_redraw_window_object(win1);
+
+Then put sprite1 at bottom right facing up left
+
+    rc_move_to(s1, 220, -200, true);
+    rc_set_axis(s1, 135, true);
+
+Now draw some pink blobs to form obstacles.
+
+    rc_draw_blob(-100, 100, 50, 'pink');
+    rc_draw_blob(0, 0, 30, 'pink');
+    rc_draw_blob(100, -100, 60, 'pink');
+
+Now try using rc_move_sprite_on_path so that it moves s1 to the top left
+corner, first going round to the left of a pink blob, then round to the
+right of the next one then round to the left of the next one, like a
+slalom skier going past flags.
+
+
+--- $poplocal/local/rclib/teach/rc_sprite
+--- Copyright University of Birmingham 2000. All rights reserved. ------

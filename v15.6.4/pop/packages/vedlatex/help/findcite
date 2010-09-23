@@ -1,0 +1,213 @@
+HELP FINDCITE                                     Aaron Sloman July 2004
+Updated: 8 Jan 2008
+Added citenp to citewords
+
+LIB FINDCITE
+Supports the manipulation of bibtex files, inspired by a request from
+Mark Ryan.
+
+CONTENTS
+
+ -- Overview
+ -- Use with a shell script
+ -- Procedures provided
+ -- Global variables
+ -- Shell script
+
+-- Overview -----------------------------------------------------------
+LIB FINDCITE provides a utility that
+    Takes a .tex (Latex) and a .bib (bibtex) file, and produces the
+    subset of the .bib file containing the entries which are referred to
+    in the .tex file.
+
+    (Useful so you don't have to send your huge bib file to coauthors)
+
+-- Use with a shell script --------------------------------------------
+
+It can be most conveniently used with a shell script 'findcites'
+included at the end of this file, and invoked in one of two formats:
+
+
+     findcites  bibtexfile.bib latexfile.tex > newfile.bib
+        newfile.bib includes the subset of bibtexfile.bib that is
+        used in latexfile.tex
+
+or
+
+     findcites bibtexfile.bib > newfile.bib
+        (If no .tex file is given it prints the whole bib file, neatly).
+
+ It prints the output, so you can redirect it to a file
+
+
+-- Procedures provided ------------------------------------------------
+
+ The shell script findcites compiles LIB FINDCITE which defines two
+ procedures:
+
+ process_file(citewords, texfile) -> cited;
+     Given a list of citation words e.g. [cite nocite citea citenp citep citet]
+     and a file name e.g. 'foo.tex' returns an alphabetically
+     ordered list of the citation keys found, e.g.
+     [simon67 minsky86 sloman71 ...]
+
+ process_bib(cited, bibfile);
+     Given a list of citation keys of the sort produced by process_file
+     and a bibtex file, print out all the entries in bibfile that
+     are referenced by the keys.
+
+     If cited is the word "'#CiteAll#'" then print all the entries in the
+     file. This may be used to tidy the file.
+
+ Some formatting may be changed. To prevent any changes of indentation
+    assign false to indent_spaces (default is 3).
+
+ Long lines are broken at a space or tab after column 70 and indented by
+    one tab.
+    To prevent this assign a very large number to poplinewidth (default 70).
+
+
+-- Global variables ---------------------------------------------------
+
+citewords
+    defaults to [cite nocite citea citenp citep citet]
+
+bibtypes
+    A list of bibtex entry headers. See example in the shell script
+    below.
+
+Both lists can be changed.
+
+
+-- Shell script -------------------------------------------------------
+
+Below is a shell script which runs pop11 and compiles and runs the
+procedures in LIB FINDCITE
+
+It takes a .tex (optional) and a .bib file, and produces the subset of
+the .bib file containing the entries which are referred to in the .tex
+file. (Useful so that you don't have to send your huge bib file to
+coauthors.) If you do not specify a .tex file it outputs everything in
+the .bib file, but in a uniform format. It checks for duplicate entries
+in the bib file and removes the duplicate entries (telling you what it
+has done).
+
+To use it give one of these commands
+
+    findcites myfile.bib myfile.tex >newfile.bib
+
+    findcites myfile.bib >newfile.bib
+
+There are several options controlled by global variables in the shell
+script, including list of citation commands recognized, list of document
+types, etc.
+
+To vary the behaviour (e.g. formatting, checking for and removing
+duplicates etc.) copy the findcites script, edit it and use your
+version.
+
+Shell script follows:
+
+#!/bin/tcsh
+## /bham/ums/common/pd/bin/findcites
+
+
+setenv BIBFILE $1
+
+setenv TEXFILE $2
+
+#source /bham/common/com/packages/poplog/Login/poplogin
+
+$popsys/basepop11 %noinit << \\\\
+
+;;; pop11_compile('~axs/temp/findcite.p');
+
+loadlib('findcite.p');
+
+;;; Global variables needed for scanning the bibtex file analysing it
+;;; and printing out relevant sections.
+
+global vars
+
+    ;;; If true, duplicate entries with the same citation key are pruned.
+    ;;; only the first occurrence is used. A list of duplicates is printed
+    ;;; at the end of the file
+    check_duplicates = true,
+
+    ;;; Make this false to get comments starting with '%' removed
+    ;;; when saving all bibtex entries.
+    keep_latex_comments = true,
+
+    ;;; Make this false to prevent automatic indentation
+    indent_spaces = 3,
+    ;;; indent_spaces = false,
+
+    ;;; never force a word to be broken
+    poplinemax = 99999999,
+
+    ;;; insert newline and tab after this:
+    poplinewidth = 70,
+
+
+    ;;; Assume no line in bibtex file has more than 512 characters.
+    ;;; This could be a bug.
+
+    string_max = 512,
+
+    ;;; use this as a read buffer
+    buffer = inits(string_max),
+
+    ;
+
+;;; These will be indicators of bibtex citations
+vars citewords = [cite nocite citea citenp citep citet];
+
+;;; convert bibtex types to lower case to simplify matching
+vars bibtypes =
+    maplist([
+              Article
+              Book
+              Booklet
+              Conference
+              InBook
+              InCollection
+              InProceedings
+              Manual
+              MastersThesis
+              Misc
+              PhdThesis
+              Proceedings
+              String
+              TechReport
+              Thesis
+              Unpublished
+           ], uppertolower);
+
+vars
+    bibfile = sysfileok('$BIBFILE'),
+    texfile = sysfileok('$TEXFILE'),
+    cited;
+
+if isendstring('.bib', texfile) then
+    bibfile, texfile -> (texfile, bibfile)
+endif;
+
+if texfile == nullstring then
+
+    ;;; Print all the bib entries
+    "'#CiteAll#'" -> cited;
+
+else
+    process_file(citewords,  texfile) -> cited;
+
+endif;
+
+process_bib(cited, bibfile);
+
+sysexit();
+
+\\
+
+
+--- $poplocal/local/help/findcite
+--- Copyright University of Birmingham 2008. All rights reserved.

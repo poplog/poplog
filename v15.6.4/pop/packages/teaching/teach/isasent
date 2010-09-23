@@ -1,0 +1,386 @@
+TEACH ISASENT                                 Steven Hardy, November 1982
+
+This handout describes a simple way of writing programs to recognize English
+sentences. Much use is made of the matcher. See HELP MATCHES for full details
+on what the matcher is capable of. The ideas described here would not be used
+in any serious AI program - they would be too inefficient for practical use.
+Nevertheless, they illustrate important and general ideas relevant to the
+design of intelligent systems.
+
+TEACH WHYSYNTAX and TEACH MATCHES are good preparatory reading for this TEACH
+file. The POPNOTES document summarises some of the main points, in the
+section on matching.
+TEACH GRAMMAR shows you how to play with a library program which already does
+some of the things illustrated below.
+-- RESTRICTION PROCEDURES ------------------------------------------------
+
+One little used facility offered by the matcher is that it can use
+'restriction procedures' to make a pattern more restrictive. Consider the
+pattern:
+
+    [john hates ??x]
+
+This will match all of the following:
+
+    [john hates steve]                      x will be set to [steve]
+    [john hates the university]             x will be set to [the university]
+    [john hates to wash dishes]             x will be set to [to wash dishes]
+    [john hates xxx yyy zzz]                x will be set to [xxx yyy zzz]
+
+If we are using the matcher to write a simple NL (natural language) program,
+we may want to restrict the match to those cases where X will be set to a
+list of words denoting an object, such as [STEVE] or [THE UNIVERSITY] and
+have the match fail (ie return FALSE) in other cases, such as X being set to
+[TO WASH DISHES]. To achieve this, we must first write a 'restriction
+procedure' to test whether some list of words is acceptable. Let us suppose
+that we have written such a procedure and called it ISANP (for 'is a noun
+phrase'). We could then express the required 'restricted match' with the
+pattern:
+
+    [john hates ??x:isanp]
+
+The matcher recognizes the ':ISANP' following after '??X' and will only
+accept the match if ISANP returns TRUE to the words to be assigned to X. That
+is, if the definition of ISANP is such that:
+
+    isanp([steve]) =>
+    ** <true>
+    isanp([the university]) =>
+    ** <true>
+    isanp([to wash dishes]) =>
+    ** <false>
+    isanp([xxx yyy zzz]) =>
+    ** <false>
+
+then the following will be the case:
+
+    [john hates steve] matches [john hates ??x:isanp] =>
+    ** <true>
+    [john hates the university] matches [john hates ??x:np] =>
+    ** <true>
+    [john hates to wash dishes] matches [john hates ??x:np] =>
+    ** <false>
+    [john hates xxx yyy zzz] matches [john hates ??x:np] =>
+    ** <false>
+
+-- A VERY SIMPLE DEFINITION OF 'ISANP' AND 'ISASENT' ---------------------
+
+A suitable definition of ISANP for the examples above is:
+
+    define isanp(list) -> result;
+        if list matches [steve] then
+            true -> result
+        elseif list matches [the university] then
+            true -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+Obviously, this is not a very good definition as it recognizes only two noun
+phrases. It will reject all other sequences of words except those explicitly
+listed, thus the following will be the case:
+
+    isanp([aaron]) =>
+    ** <false>
+    isanp([the table]) =>
+    ** <false>
+    [john hates aaron] matches [john hates ??x:isanp] =>
+    ** <false>
+    [john hates the table] matches [john hates ??x:isanp] =>
+    ** <false>
+
+Later, a better defintion of ISANP is introduced.
+
+Using ISANP we can write a procededure called ISASENT to recognize whole
+sentences. Here is a simple definition:
+
+    define isasent(list) -> result;
+        vars x, y;
+        if list matches [??x:isanp hates ??y:isanp] then
+            true -> result
+        elseif list matches [??x:isanp loves ??y:isanp] then
+            true -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+We can use this procedure to see whether lists of words are recognized as
+sentences, for example:
+
+    isasent([steve loves the university]) =>
+    ** <true>
+    isasent([the university loves steve]) =>
+    ** <true>
+    isasent([aaron hates steve]) =>
+    ** <false>
+    isasent([steve hates to wash dishes]) =>
+    ** <false>
+
+-- EXERCISE 1 -----------------------------------------------------------
+
+Create a file called PARSE.P and put the definitions of ISANP and ISASENT
+into it. You may use ENTER-COPY and ENTER-YANK to assist you in this process.
+See TEACH YANK for details of how to do this.
+
+Having done this try out the above examples and make sure the results come
+out as predicted. Use TRACE on MATCHES, ISANP and ISAVP and then try some
+more examples of your own invention.
+
+Extend the procedures to cope with the following sentences:
+
+    [steve teaches ai1]
+    [jon teaches ai2]
+    [aaron teaches ct]
+    [jane studies ct]
+
+HINT: You will have to treat 'AI1', 'AI2', and 'CT' as though they were
+proper names like 'STEVE'.
+
+-- ADDING LEXICAL CATEGORIES --------------------------------------------
+
+An obvious problem with the simple minded definition of ISASENT given earlier
+is that we need to add two extra lines for every new verb. We can generalize
+the procedure to avoid doing this, thus:
+
+    define isasent(list) -> result;
+        vars x, y, z;
+        if list matches [??x:isanp ?y:isaverb ??z:isanp] then
+            true -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+Notice that there is only a single '?' before ISAVERB. This is because verbs
+are a 'lexical category' and hence are only a single word. Nounphrases
+are a 'syntactic category' and so can be any number of words so we must use a
+double query, ie '??'.
+
+ISAVERB can be simply defined in terms of MEMBER, thus:
+
+    define isaverb(word) -> result;
+        if member(word, [hates teaches studies loves]) then
+            true -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+-- EXERCISE TWO ----------------------------------------------------------
+
+Change your file PARSE.P to have the altered ISASENT and new ISAVERB.
+TRACE ISAVERB and try the following examples:
+
+    isasent([steve teaches ai1]) =>
+    isasent([steve hates aaron]) =>
+    isasent([steve hates to wash dishes]) =>
+    isasent([the university employs steve]) =>
+
+-- IMPROVING ISANP -------------------------------------------------------
+
+Just as we generalized ISASENT to use the lexical category 'verb', so we can
+generalize ISANP to use the lexical catgories of 'name', 'determiner' and
+'noun'. Here is the modified definition of ISANP:
+
+    define isanp(list) -> result;
+        vars x, y;
+        if list matches [?x:isaname] then
+            true -> result
+        elseif list matches [?x:isadet ?y:isanoun] then
+            true -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+'Determiners' are words like 'the', 'a', 'every' and 'some' that come at the
+start of nounphrases that are not just a simple name.
+
+-- EXERCISE 3 -------------------------------------------------------------
+
+Modify PARSE.P to include the altered ISANP. Also add definitions for ISADET,
+ISANAME and ISANOUN. TRACE all new procedures and try ISASENT on some
+examples.
+
+-- ADDING ADJECTIVES TO ISANP ---------------------------------------------
+
+So far, ISANP does not allow us to use 'adjectives' in noun phrases. We can
+easily add an extra pattern to allow for a single adjective, by changing
+ISANP to:
+
+    define isanp(list) -> result;
+        vars x, y, z;
+        if list matches [?x:isaname] then
+            true -> result
+        elseif list matches [?x:isadet ?y:isanoun] then
+            true -> result
+        elseif list matches [?x:isadet ?y:isadj ?z:isanoun] then
+            true -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+-- EXERCISE 4 ------------------------------------------------------------
+
+Add the above change to your program, write ISADJ and test the resulting
+program.
+
+-- ALLOWING LOTS OF ADJECTIVES -------------------------------------------
+
+It would be tedious to have to add special rules for two adjectives, three
+adjectives etc. We can solve this problem by writing a procedure to recognize
+a sequence of adjectives (possibly empty) followed by a noun. Let us call
+this a 'qualified noun' and write an appropriate procedure called ISAQNOUN,
+thus:
+
+    define isaqnoun(list) -> result;
+        vars x, y;
+        if list matches [?x:isanoun] then
+            true -> result
+        elseif list matches [?x:isadj ??y:isaqnoun] then
+            true -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+-- EXERCISE 5 -------------------------------------------------------------
+
+Add the above procedure to your file and modify ISANP to use it (hint: ISANP
+should become shorter as a result of your modification). Explain how ISAQNOUN
+works.
+
+-- ADDING PREPOSITIONS TO ISANP --------------------------------------------
+
+Noun phrases can include prepositions. For example:
+
+    THE MAN WITH THE GUN
+    THE MAN BY THE WINDOW
+    THE CUP ON THE TABLE
+
+We can extend ISANP to recognize these examples by adding an extra rule,
+thus:
+
+    [??x:isanp ?y:isaprep ??z:isanp]
+
+ISAPREP is a 'lexical procedure' which recognizes prepositions.
+
+-- EXERCISE 6 -----------------------------------------------------------
+
+Extend your program to recognize noun phrases containing prepositions.
+
+-- ADDING RELATIVE CLAUSES TO ISANP -------------------------------------
+
+Noun phrases may also include 'relative clauses', for example:
+
+    THE MAN THAT SHOT THE PRESIDENT
+    THE HOUSE THAT JACK BUILT
+    THE DOG THAT CHASED THE CAT THAT DRANK THE MILK
+
+A suitable rule is:
+
+    [??x:isanp that ??y:isarel]
+
+where ISAREL is a procedure to recognize relative clauses.
+
+There are several forms for relative clauses. They are very similar to
+sentences. In fact the easiest way of describing a relative clause is to say
+it is IDENTICAL to a a sentence but misses a nounphrase somewhere along the
+way. At present, we have that a sentence must MATCH the pattern:
+
+    [??x:isanp ?y:isaverb ??z:isanp]
+
+This gives us two patterns for a relative clause; in each pattern, one of the
+nounphrases will have been deleted, thus:
+
+    define isarel(list) -> result;
+        vars x, y;
+        if list matches [??x:isanp ?y:isaverb] then
+            true -> result
+        elseif list matches [?x:isaverb ??y:isanp] then
+            true -> result
+        else
+            false -> result
+        endif
+    enddefine;
+
+-- EXERCISE 7 ------------------------------------------------------------
+
+Extend your program to recognize noun phrases containing relative clauses.
+
+-- ADDING INTRANSITIVE VERBS TO ISASENT ----------------------------------
+
+The pattern that we have for whole sentences, viz:
+
+    [??x:isanp ?y:isaverb ??z:isanp]
+
+only works for 'transitive verbs', ie those that require an 'object'. This
+isn't the case for all verbs as we can see by considering the sentences:
+
+    [steve laughs]
+    [the man smiles]
+
+'Laughs' and 'smiles' are both 'intransitive verbs. To take account of these
+we should have TWO verb categories and TWO verb recognition procedures
+called, say, ISATVERB and ISAIVERB (for 'IS A Transitive VERB' and 'IS An
+Intransitive VERB').
+
+If we make use of these two procedures ISASENT will have two patterns, thus:
+
+    [??x:isanp ?y:isaiverb]
+    [??x:isanp ?y:isatverb ??z:isanp]
+
+-- EXERCISE 8 --------------------------------------------------------------
+
+Write out the rules for ISAREL tthat make use of IVERBS and TVERBS
+
+-- SUMMARY -----------------------------------------------------------------
+
+The 'grammar' we are using so far can be summed up by the rules:
+
+    ISASENT --> [??x:isanp ?y:isaiverb]
+                [??x:isanp ?y:isatverb ??z:isanp]
+
+    ISANP ----> [?x:isaname]
+                [?x:isadet ??y:isaqnoun]
+                [??x:isanp ?y:isaprep ??z:isanp]
+                [??x:isanp that ??y:isarel]
+
+    ISAQNOUN -> [?x:isanoun]
+                [?x:isaadj ??y:isaqnoun]
+
+    ISAREL ---> [?x:isaiverb]
+                [??x:isanp ?y:isatverb]
+                [?x:isatverb ??y:isanp]
+
+-- FURTHER  RELEVANT TEACH FILES ---------------------------------------
+
+Follow on reading to this TEACH file is TEACH MAKESENT.
+
+-- FURTHER EXERCISES ---------------------------------------------------
+
+These exercises are only for the keen!
+
+What additional rules would be needed to account for the following sentences:
+
+    john gives mary the book
+    john drives to london
+    john is happy
+    if mary loves john then john is happy
+    john is happy but mary is sad
+
+
+(1) Extend your program to accept these sentences.
+
+(2) Extend your program to accept questions
+
+(3) Extend your program to accept all English sentences (this is hard).
+
+
+After this file TEACH MAKESENT, TEACH PARSESENT and TEACH TRANSSENT should be
+read.
+
+-----<Copyright University of Sussex 1987.  All rights reserved.>-------

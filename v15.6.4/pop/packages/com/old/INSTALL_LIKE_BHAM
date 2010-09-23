@@ -1,0 +1,392 @@
+#!/bin/sh
+## $local/com/INSTALL_LIKE_BHAM
+## $local/popcd.tarfiles/INSTALL_LIKE_BHAM
+## Install a linux poplog system to simulate the Birmingham setup
+## Aaron Sloman
+## 25 Sep 1999
+
+## Revision Notes:
+## 3 Jan 2005
+##      removed ved_latex.embedded.tar.gz,
+##      and corrected a few other minor things
+## 30 Oct 2003
+##      Slightly modified final instructions
+## 28 Oct 2003
+##      Changed to assume that $usepop and $rootdir have already been specified
+## 24 July 2003
+##    Converted from csh to sh
+## Revisions 11 Jan 2003
+##  Changed to install master.tar.gz and give more information
+## More revisions 1 Sep 2002
+## 22 Apr 2002: changed "rehash" instruction, only needed if not running bash
+## 4 Apr 2002 : simplified because of restructuring of tar files
+## 28 Oct 2001: corrected minor typos
+## Changed 8 Oct 2001, to build saved images like the ones in Birmingham
+## Changed 13 Oct 2000, to check before creating links
+## Changed 22 Sep 2000, to refer to setup directory
+## Also changed to assume poplog already installed.
+
+## Run this in the directory in which popcd.tar has been unpacked
+## which could be the poplog CD or the user's hard drive
+
+tardir=`pwd`
+
+## No longer needed
+# rootdir=/usr/local/poplog
+
+## No longer needed
+# export usepop=$rootdir/current.poplog
+
+. $usepop/pop/com/poplog.sh
+
+## Location for local saved images
+## Version specific
+export poplocalbin=$usepop/poplocalbin
+
+if [ ! -d $poplocalbin ]
+then
+    mkdir $poplocalbin
+fi
+
+export poplocal=$rootdir
+
+export local=$poplocal/local
+
+if [ ! -d $rootdir ]
+then
+    mkdir $rootdir $rootdir/local
+
+    chmod 755 $rootdir $rootdir/local
+fi
+
+# The following should no longer be necessary, as link is now included
+# in the poplog tar file
+## ## link $local directory to default $poplocal/local
+cd $usepop/pop
+if [ ! -e local ]
+then
+    echo "creating link to $local in $usepop/pop"
+    ln -s $local local
+fi
+
+## install link from default location to $poplocalbin
+## Poplog system (wrongly) assumes $poplocalbin should be in local
+## directory rather than in version specific $usepop directory
+
+if [ ! -e $local/bin ]
+then
+    echo "Creating link to poplocalbin in $local/bin"
+    ln -s $poplocalbin $local/bin
+fi
+
+echo "links made"
+echo "======================================================"
+echo "installing packages in $local"
+
+cd $local
+
+cp -p $tardir/COPYRIGHT.html .
+
+mkdir auto lib help teach include data man ref doc
+
+echo "=========================================="
+echo ""
+
+echo "Unpacking bham.tar.gz"
+
+zcat $tardir/bham.tar.gz | tar xf -
+
+echo "Finished Unpacking bham.tar.gz"
+
+sleep 2
+
+echo ""
+echo "directories in $poplocal/local/ "
+
+ls -l
+
+echo ""
+sleep 2
+
+## echo ""
+## echo "=========================================="
+## echo ""
+
+echo ""
+
+echo "Unpacking newkit.tar.gz"
+
+zcat $tardir/newkit.tar.gz | tar xf -
+
+echo "contents of $poplocal/local/newkit "
+
+ls -l newkit
+
+## setup  links to newkit startup files
+## Now in bham.tar.gz so not needed
+# Make commands: uses prb, uses simlib, uses newkit work in pop11.
+#cd $local/lib
+#ln -s ../newkit/*.p .
+#cd $local
+
+echo ""
+
+echo "Doing brait.tar.gz (Braitenberg Vehicles based on LIB newkit"
+zcat $tardir/brait.tar.gz | tar xf -
+
+echo "contents of $poplocal/local/brait "
+
+ls -l brait
+
+echo ""
+
+echo    "Doing popvision.tar.gz - David Young's popvision library"
+
+zcat $tardir/popvision.tar.gz | tar xf -
+
+echo "contents of $poplocal/local/popvision "
+
+ls -l popvision
+
+echo ""
+
+## echo ""
+## echo "=========================================="
+## echo ""
+echo "Unpacking master.tar.gz (for system builders) "
+
+zcat $tardir/master.tar.gz | tar xf -
+
+
+## echo ""
+## echo "=========================================="
+## echo ""
+
+echo "READ THESE FILES IN $poplocal/local/com"
+echo "README"
+echo "README.ENVVARS"
+
+sleep 2
+
+
+echo ""
+echo "=========================================="
+echo ""
+echo "FINISHED UNPACKING TAR FILES"
+
+sleep 2
+
+echo ""
+echo "=========================================="
+echo ""
+echo "NOW RUNNING mkstartup.local and other build scripts"
+echo "    To build local saved images in poplocalbin"
+echo ""
+
+. $usepop/pop/com/poplog.sh
+echo $poplocalbin
+
+cd com
+
+export pop_pop11="-$poplocalbin/startup.psv"
+
+# Edit as needed to reduce the number of saved images or add some:
+
+    date
+    echo "Building startup.psv"
+    echo mkstartup.local
+    ./mkstartup.local ### 1 THIS IS ESSENTIAL (Make pop11)
+    echo "================================================"
+
+    date
+    echo mkplog.local
+    ./mkplog.local  #2 OPTIONAL (Make prolog)
+##     echo "================================================"
+##     date
+##     echo mklogic.local
+##     ./mklogic.local #3 OPTIONAL (logic tutor for prolog)
+    echo "================================================"
+    echo ""
+    echo ""
+    date
+    echo mkclisp.local
+    echo "IGNORE WARNING MESSAGES WHEN CLISP IS BEING COMPILED"
+    echo ""
+sleep 2
+    echo ""
+    ./mkclisp.local #4 OPTIONAL (Make Common Lisp)
+    echo ""
+    echo ""
+    echo ""
+    echo "Ingore all the above warning messages when building Common Lisp"
+    echo ""
+sleep 2
+    echo ""
+
+    echo "================================================"
+##     echo ""
+##     echo ""
+##     date
+##     echo "mkxvedlisp (Xved command for starting in clisp mode)"
+##     echo ""
+##     ./mkxvedlisp    #5 OPTIONAL (Xved command starting in clisp mode)
+##     echo ""
+##     echo ""
+##     echo ""
+##     echo "Ignore all the above warning messages"
+##     echo ""
+##     echo ""
+##     echo "================================================"
+    echo ""
+    echo ""
+    date
+    echo "Building pml.psv"
+    ./mkpml.local   #6 OPTIONAL (Make Poplog ML)
+    echo ""
+    echo ""
+    echo "================================================"
+    echo ""
+    echo ""
+    date
+    echo "Building xved.psv"
+    ./mkxved.local  #7 ESSENITAL (Make Xved starting in pop11 mode)
+    echo ""
+    echo ""
+    echo "================================================"
+    date
+    echo "Building xvedpro.psv (For starting XVed in prolog mode)"
+    ./mkxvedpro     #8 OPTIONAL (Xved command starting in prolog mode)
+    echo "================================================"
+    echo ""
+    echo ""
+    date
+#    echo "Building eliza.psv"
+#    ./mkeliza.local #9 OPTIONAL
+#    echo ""
+#    echo ""
+#    echo "================================================"
+#    date
+#    echo "Building gblocks.psv"
+#    ./mkgblocks     #10 OPTIONAL (SHRLDU-type demo)
+#    echo "================================================"
+#    date
+#    echo "Building boole.psv"
+#    ./mkboole       #11 OPTIONAL (Propositional logic tutor)
+#    echo "================================================"
+#    date
+#    echo "Building kitchen.psv"
+#    ./mkgram.local  #12 OPTIONAL See SHOWLIB gramdemo
+#                  ## creates kitchen.psv, for parsing sentences
+#                  ## about what went on in the kitchen
+#    echo "================================================"
+#    date
+#    echo "Building poly.psv"
+#    ./mkrc_poly   #13  OPTIONAL Poly-spiral demo
+#    echo "================================================"
+#    date
+#    echo "DONE"
+
+    echo "The Bham saved images are in $poplocalbin"
+    echo ""
+
+cd ..
+
+echo "BHAM saved images made"
+ls -l $poplocalbin
+
+echo ""
+echo "Later delete any you don't need."
+echo ""
+sleep 2
+
+echo "=========================================="
+echo ""
+
+echo "Setting extra links in $popsys"
+
+ln -s basepop11 $usepop/pop/pop/xvedpro
+ln -s basepop11 $usepop/pop/pop/xvedlisp
+
+ls -l $usepop/pop/pop/xved??*
+
+echo ""
+echo "=========================================="
+echo ""
+
+echo "Building index files for ENTER sourcefile"
+
+./com/mkind.local
+
+echo "Index files built"
+
+echo ""
+echo "=========================================="
+echo ""
+
+echo "Setting up up the 'poplog' command in /usr/local/bin"
+echo ""
+
+## If you put poplog somewhere else, you may need to edit this:
+ln -s $poplocal/local/setup/bin/poplog /usr/local/bin/poplog
+
+
+echo "Ignore warning if already exists"
+echo ""
+echo "=========================================="
+echo ""
+
+echo "setting links to poplog 'man' files in /usr/share/man/man1"
+
+## If you put poplog somewhere else, you may need to edit this:
+ln -s $poplocal/local/setup/man/man1/*.1 /usr/share/man/man1
+
+echo ""
+echo "=========================================="
+echo ""
+echo "Optional packages not installed"
+
+echo    "emacs.tar.gz"
+echo    "newc_dec.tar.gz"
+echo    "ved_latex.embedded.tar.gz"
+echo    "pophtmlprimer.tar.gz  (for reading the pop-11 primer in netscape or lynx"
+
+echo ""
+echo "=========================================="
+echo ""
+echo "More packages may be available in this directory or at"
+echo "http://www.cs.bham.ac.uk/research/poplog/linux-cd"
+echo ""
+echo    "brait.tar.gz (Braitenberg Vehicles based on LIB newkit"
+echo    "popvision.tar.gz"
+echo    "neural.tar.gz"
+echo    "vedgn.tar.gz  (for reading and sending news)"
+echo    "contrib.tar.gz (Contributed software and documentation)"
+echo   ""
+echo "In some distributions:"
+echo   "ctwm-window-manager.tar.gz (A convenient small, fast, tailorable window manager)"
+echo    "openmotif-2.1.30-8.i386.rpm (Motif libraries needed for Some tools)"
+
+echo ""
+echo "=========================================="
+echo ""
+
+echo "If you installed in /usr/local/poplog, check out poplog by typing"
+echo "   rehash (only if you are running tcsh or csh, not if running bash)"
+echo "then"
+echo "   poplog pop11 "
+echo "or"
+echo "   poplog xved"
+echo "or"
+echo '   poplog pop11 ":eliza()"'
+echo ""
+echo ""
+
+echo ""
+echo "=========================================="
+echo ""
+echo "For more detailed instructions on running pop11, xved, etc."
+echo "Read the file: HOW-RUN-POPLOG.txt"
+echo "and the file: checkout.txt"
+echo "In the file $tardir"
+echo ""
+echo ""

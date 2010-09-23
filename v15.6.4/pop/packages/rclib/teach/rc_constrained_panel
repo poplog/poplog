@@ -1,0 +1,1179 @@
+/*
+TEACH RC_CONSTRAINED_PANEL                           A.Sloman April 1999
+
+This file presents a tutorial on using rc_control_panel with fields
+constrained by "constrainer" procedures and linked by "reactor"
+procedures.
+
+It introduces you to the use of rc_control_panel with fields linked to
+Pop-11 variables, then to fields with constrainers which limit their
+possible values, then to fields with reactors which can cause changes to
+be propagated.
+
+This presupposes that you already know about the basic functionality of
+rc_control_panel.
+
+Modified 17 Apr 1999,
+to show how to use the procedures rc_update_fields and panel_update
+and the syntax {reactor [....]} using a list of vectors instead of a
+procedure.
+
+
+CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction and demonstration
+ -- -- Running the demonstrations
+ -- -- Play with panel1 (unconstrained)
+ -- -- Play with panel2 (constrained but not linked)
+ -- -- Play with panel3 (constrained and linked)
+ -- -- Play with panel4 (linking a slider and a counter button)
+ -- -- Play with panel5 (RADIO and SOMEOF buttons)
+ -- Find out how it is all done
+ -- Constraining panel components to change together
+ -- First example: creating an unconstrained panel: panel1
+ -- -- Testing unconstrained fields with identifiers: panel1
+ -- Constraining the values of the panel fields
+ -- -- Constraining the TEXTIN field: constrain_textin
+ -- -- Constraining the NUMBERIN field: constrain_number
+ -- -- The procedure create_constrained_panel
+ -- -- Testing the constrained fields: panel2
+ -- -- Exercise: give the text field an Error panel
+ -- Linking the fields
+ -- -- Linking the TEXTIN field to the other two: textin_reactor
+ -- -- Linking the NUMBERIN field to the other two: number_reactor
+ -- -- Linking the SLIDER field to the other two: a simpler method
+ -- -- The procedure create_linked_panel
+ -- -- Testing the constrained and linked fields: panel3
+ -- Linking the above panel to an active variable
+ -- Linking a counter (increment) button and a slider: panel4
+ -- -- Exercise: Add a number input button
+ -- Associating variables with RADIO buttons or SOMEOF buttons: panel5
+ -- -- Accessing or altering the state of a RADIO or SOMEOF field
+ -- -- Exercise: link RADIO field and SLIDER field
+ -- Associating a panel field with an lvars variable
+
+-- Introduction and demonstration -------------------------------------
+
+The RCLIB package provides a variety of flexible tools for combing
+graphical displays (including moving images) with interface components
+for interacting with a user, e.g. sliders, action buttons, text or
+number input fields, etc.
+
+In particular the rc_control_panel library makes it easy to create
+control panels containing various kinds of fields, which are
+automatically formatted. This file shows how to add constraints and
+reactors to changeable panel fields. A reactor is a procedure which does
+something when the field is changed, e.g. when a slider is moved.
+
+An introductory tutorial overview of the whole RCLIB package, including
+examples of the use of rc_control_panel can be found in
+
+    TEACH RCLIB_DEMO.P
+
+and a more general overview in
+    HELP RCLIB
+
+The rc_control_panel utility makes it relatively easy to assemble a
+panel displaying a number of different text fields, graphical fields and
+other interface components, which are automatically configured.
+
+General information about it, with examples, can be found in
+
+    HELP RC_CONTROL_PANEL
+
+with an extended tutorial example in
+
+    TEACH RC_CONTROL_PANEL
+
+This file assumes you have seen the sort of thing rc_control_panel can
+do. Using a mixture of Pop-11 code and commented out text, it introduces
+some of the more advanced features of rc_control_panel.
+
+Before reading this you should have played with some of the simple
+examples in the above help and teach files.
+
+-- -- Running the demonstrations
+
+You can get a feel for what this file is about if you first compile it
+all ("ENTER l1" in VED).
+
+Then compile each of the following Pop-11 commands (ESC d):
+
+    vars panel1 = create_simple_panel(20, 5);
+
+    vars panel2 = create_constrained_panel(360, 5);
+
+    vars panel3 = create_linked_panel(700, 5);
+
+    vars panel4 = create_slider_counter_panel(700, 280);
+
+    vars panel5 = create_colours_panel(700, 460);
+
+That will produce 5 panels created by rc_control_panel, differing as
+explained below.
+
+If you move the mouse pointer into a text input or number input field
+then either press a keyboard key or click with mouse button 1, it will
+go into edit mode, indicated by a change of background colour. You can
+then type into it, though if what you type is rejected you will see a
+message printed out.
+
+When you have completed an edit in a text input or number input field,
+either click on the text with mouse button 1, or press RETURN with the
+mouse cursor in the input area. The panel will change back to its
+"consolidated" colour and the new value installed in the associated
+data-structure.
+
+-- -- Play with panel1 (unconstrained)
+
+After changing anything in panel1, look at the values of these
+variables:
+
+    text1, number1, slider1 =>
+
+Note that the fields in panel1 are totally unconstrained, apart from the
+fact that the slider is limited to integer values between 0 and 5.
+
+You can dismiss that panel by clicking on the "Kill panel" button.
+
+
+-- -- Play with panel2 (constrained but not linked)
+
+The text input and number input fields in panel2 have had constrains
+associated with them limiting what they will accept.
+
+After changing things on panel2, try these variables:
+
+    text2, number2, slider2 =>
+
+The values you can give text2 by editing the text input field should now
+be restricted to the strings 'zero', 'one', 'two', 'three', 'four',
+five.
+
+Similarly the values you can give the variable number2 by editing the
+number input field should be restricted to integers in the range 0 to 5.
+
+If you attempt to put an excluded value into the textin or number window
+you will get a warning message, and the previous value will be restored.
+
+The slider behaves as in panel1.
+
+After testing panel2, dismiss it.
+
+-- -- Play with panel3 (constrained and linked)
+
+In panel3 has the text input, the number input and the slider fields
+linked (by using "reactor" procedures as explained below). This means
+that in addition to having the constraints of panel2 associated with the
+fields they are also programmed to react to changes so that the other
+fields are also changed to show the appropriate value. The variable
+one_to_five is also changed.
+
+After changing anything on panel3, try this:
+
+    one_to_five =>
+
+After playing with panel3, dismiss it.
+
+-- -- Play with panel4 (linking a slider and a counter button)
+
+Panel4 has a slider, as in previous panels, and also a counter button,
+displaying the value of the slider. You can increment the counter by
+clicking in it using mouse button 3, and decrement it using mouse button
+1. Try that and see what happens to the variable:
+
+    number4 =>
+
+Dismiss panel4 after playing with it.
+
+-- -- Play with panel5 (RADIO and SOMEOF buttons)
+
+Then try clicking on the colour names on panel5, and print out the
+values of these two variables:
+
+    colour, colours =>
+
+Dismiss panel5 after playing with it.
+
+-- Find out how it is all done ----------------------------------------
+
+After experimenting with the panels, click on the KILL buttons to get
+rid of them and read on to see how it is all done.
+
+The file introduces you to the use of rc_control_panel with fields
+linked to Pop-11 variables, then to fields with constrainers which
+limit their possible values, then to fields with reactors which can
+cause changes to a field to be propagated to one or more other fields.
+
+-- Constraining panel components to change together -------------------
+
+We first show how to create panel1, with three uconstrained,
+unliked fields.
+
+Then we show how to create panel2 with constrained text input and number
+input fields.
+
+This leads towards the definition of panel3 a control panel which
+includes:
+
+1. A text input field which can contain a string in the list
+    ['zero' 'one' 'two' 'three' 'four' 'five']
+
+2. A number input field which allows only an integer value in the range
+    0 to 5.
+
+3. A slider, whose values range between 0 and 5, constrained to be
+   integers,
+
+The fields are linked by reactors so that if any one of the three is
+changed, the other two should change accordingly. In addition
+
+4. The pop-11 variable "one_to_five" should have a value which is
+automatically updated to reflect the number specified on the panel.
+
+Later we show how to define an active variable which has the ability to
+alter the value displayed in a panel whenever the variable's value is
+changed. An active variable is essential a procedure with an updater,
+disguised as a variable, as explained in HELP ACTIVE_VARIABLES
+
+-- First example: creating an unconstrained panel: panel1 ---------
+
+First, here is a procedure which creates a panel with three fields, a
+text input field a number input field and a slider field, without the
+components being constrained.
+
+We use three separate variables, text1, number1, and
+slider1, associated with the three fields. We'll use three different
+variables because the fields will not yet be linked to each other.
+
+To associate the fields with variables, we use these expressions
+at appropriate points in the panel description list given to
+rc_control_panel:
+
+    {ident text1}
+    {ident number1}
+    {ident slider1}
+
+First ensure that relevant libraries are compiled.
+*/
+
+uses rclib
+uses rc_informant
+uses rc_window_object
+uses rc_slider
+uses rc_buttons
+uses rc_text_input
+uses rc_control_panel
+
+;;; Declare and initialise variables to be associated with each field.
+
+global vars
+    text1 = 'one',
+    number1 = 2,
+    slider1 = 3;
+
+;;; Define the first of several panel creation procedures.
+
+define create_simple_panel(x,y) -> panel;
+    ;;; A procedure to create the unconstrained panel, with
+    ;;; fields of type TEXT, ACTIONS, TEXTIN, NUMBERIN,
+    ;;; and SLIDERS
+    rc_control_panel(
+        x, y,
+        [
+            {width 30}
+            [TEXT :
+                'Demonstrating'
+                'unconstrained panel components'
+            ]
+            [ACTIONS {width 100}
+                {align centre} :
+                ['KILL PANEL' rc_kill_menu]
+            ]
+            [TEXTIN
+                {ident text1}
+                {margin 5}
+                {align centre}
+                {labelcolour 'blue'}
+                {labelstring 'Number word:'}
+                {width 50} :
+                ''  ;;; will be replaced by value of text1
+            ]
+            [NUMBERIN
+                {ident number1}
+                {margin 5}
+                {align centre}
+                {fg 'blue'}
+                {activebg 'yellow'}
+                {labelcolour 'blue'}
+                {labelstring 'Number:'}
+                {width 80} :
+                ''  ;;; will be replaced by value of number1
+            ]
+            [SLIDERS
+                {ident slider1}
+                {fieldbg 'grey75'}
+                {margin 10} {offset 40} {width 250} {height 30}
+                {framecol 'black'} {barcol 'white'}
+                {radius 6} {blobcol 'blue'} :
+                ;;; the word "round" constrains the value to integers
+                [{0 5 ^slider1 1} round
+                    [{5 10 'Integer value: [0 to 5]'}] ]
+            ]
+        ], 'Panel1') -> panel;
+enddefine;
+
+/*
+
+-- -- Testing unconstrained fields with identifiers: panel1
+
+;;; Test that
+vars panel1 = create_simple_panel(500, 20);
+
+;;; You can now alter the text field or the number field by putting
+;;; the mouse in the box and typing. When done click with mouse button 1
+;;; or press the RETURN key. You can also change the slider by using the
+;;; mouse to move the blob. You'll see that it moves discretely.
+
+;;; After changing things on the panel print these values out
+
+text1, number1, slider1 =>
+
+
+Each field can be changed independently of the others. The values of the
+appropriate variable will be changed whenever a field is changed.
+
+
+-- Constraining the values of the panel fields ------------------------
+
+We now define a new procedure create_constrained_panel with the textin
+and numberin fields constrained suitably. This time we link their values
+to the variabiles text2, number2, slider2.
+
+The slider field was already constrained to integer values by the use of
+"round" in the field description (as opposed to "noround"). It was also
+constrained to the range 0 to 5 by the expression {0 5}
+
+But we still need to constrain the TEXTIN and NUMBERIN fields.
+
+We'll define two constraint procedures, one to constrain the text input
+string, and another to constrain the number in the NUMBERIN field. We'll
+then define a new version of the panel creation procedure which includes
+these constraints in the panel specification.
+
+-- -- Constraining the TEXTIN field: constrain_textin
+
+We can constrain the TEXTIN field to be one of the desired strings
+as follows.
+*/
+
+;;;  Make a list of permitted strings used in the constraint
+vars allowed_strings = ['zero' 'one' 'two' 'three' 'four' 'five'];
+
+;;; Define a procedure which, when given a string checks that it is
+;;; permitted, and if not returns undef and print out a message.
+;;; Returning undef makes it use the old value. You could instead
+;;; return 'zero'
+
+define constrain_textin(string) -> string;
+    returnif(string = undef);
+    unless member(string, allowed_strings) then
+        ;;; printing out a warning, may or may not be desirable
+        [^string is not a permitted string here] =>
+        ;;; replace the illegal string with undef
+        undef -> string;
+    endunless;
+enddefine;
+
+/*
+
+Below, we can then use that procedure in the specification of the TEXTIN
+field using this expression:
+
+    {constrain constrain_textin}
+
+
+-- -- Constraining the NUMBERIN field: constrain_number
+
+Similarly we can provide a constraint for the NUMBERIN field,
+which will be used to constrain the NUMBERIN field thus:
+
+    {constrain constrain_number}
+
+This time, instead of printing out a message about the violated
+constraint, we use the procedure rc_message_wait to create a "pop up"
+panel to explain why the number is rejected.
+*/
+
+
+;;; Library used in next procedure
+uses rc_message_wait
+
+;;; Define a procedure to pop up a panel explaining which numbers are
+;;; permitted in the number input window.
+
+define explain_nums(num);
+
+    ;;; Create strings to be displayed in the pop up panel.
+    lvars errstrings =
+        [%num >< nullstring,
+            'Is not permitted.', 'Only numbers 0 to 5 are.' %];
+
+    ;;; rc_defer_apply will put the panel up after the current
+    ;;; event has been processed. Give it a Pop-11 closure of
+    ;;; rc_message_wait as argument. (See HELP CLOSURES)
+    rc_defer_apply(
+        rc_message_wait(%300, 300, errstrings, 1, true,
+                '9x15', 'black', 'white'%));
+enddefine;
+
+;;; Now a procedure which, when given a number, checks that it is
+;;; permitted. If not it displays a message panel, and returns
+;;; undef. (It could do something more fancy)
+
+define constrain_number(num) -> num;
+    returnif(num = undef);
+    unless isinteger(num) and 0 <= num and num <= 5 then
+        ;;; Display the panel (Optional)
+        explain_nums(num);
+        ;;; replace the illegal value with undef
+        undef -> num;
+    endunless;
+enddefine;
+
+/*
+
+-- -- The procedure create_constrained_panel
+
+After compiling the two procedures above, define a new procedure which
+creates a panel with the fields constrained to have only permitted
+valus.
+
+*/
+
+;;; Set up the variables linked to the fields, as before.
+global vars
+    text2 = 'one',
+    number2 = 2,
+    slider2 = 3;
+
+
+define create_constrained_panel(x,y) -> panel;
+    rc_control_panel(
+        x, y,
+        [
+            {width 30}
+            [TEXT :
+                'Demonstrating'
+                'constrained panel components'
+                'Select numbers:'
+            ]
+            [ACTIONS {width 100}
+                {align centre} :
+                ['KILL PANEL' rc_kill_menu]
+            ]
+            [TEXTIN
+                {ident text2}
+                ;;; altered to include constraint
+                {constrain constrain_textin}
+                {margin 5}
+                {align centre}
+                {labelcolour 'blue'}
+                {labelstring 'Number word:'}
+                {width 50} :
+                ;;; This will be over-ridden by the identifier value
+                ''
+            ]
+            [NUMBERIN
+                {ident number2}
+                ;;; altered to include constraint
+                {constrain constrain_number}
+                {margin 5}
+                {align centre}
+                {fg 'blue'}
+                {activebg 'yellow'}
+                {labelcolour 'blue'}
+                {labelstring 'Number:'}
+                {width 30} :
+                ''  ;;; to be replaced by identifier value
+            ]
+            [SLIDERS
+                {ident slider2}
+                {fieldbg 'grey75'}
+                {margin 10} {offset 40} {width 250} {height 30}
+                {framecol 'black'} {barcol 'white'}
+                {radius 6} {blobcol 'blue'} :
+                ;;; the word "round" constrains the value to integers
+                [{0 5 ^slider2 1} round
+                    [{-25 10 'Integer value: [0 to 5]'}] ]
+            ]
+        ], 'Panel2') -> panel;
+enddefine;
+
+/*
+
+-- -- Testing the constrained fields: panel2
+
+;;; test that procedure
+vars panel2 = create_constrained_panel(500, 20);
+
+;;; See what happens if you try to give the text or number input
+;;; field a value which is not permitted.
+
+text1, number1, slider1 =>
+
+All three fields are now constrained to have the required values, so all
+we need to do is link them, so that if one is changed the others are
+also changed.
+
+-- -- Exercise: give the text field an Error panel
+
+If you type an number which is not permitted, into the NUMBERIN field,
+you are shown a message in a popup display panel. Try doing that for the
+TEXTIN field.
+
+I.e. copy and edit the procedure explain_nums to define a procedure
+called explain_text which you can then allow constrain_textin to invoke,
+instead of printing out a message. It should cause an explanatory panel
+to be displayed if you type a disallowed string into the TEXTIN field.
+
+If you redefine constrain_textin, the new version should work without
+your having to recreate the panel.
+
+
+-- Linking the fields -------------------------------------------------
+
+We wish to make the fields linked. In order to do that we have to give
+each field a label (not to be confused with the labelstrings to the left
+of the text input and number input fields). The labels can then be used
+to access the compents of the fields, as explained in
+    HELP RC_CONTROL_PANEL;
+
+The new fields defined in the procedure create_linked_panel, below, will
+use these label specifications:
+
+    {label textin1}
+    {label numberin1}
+    {label slider1}
+
+This will enable the first field to be accessible using the word
+"textin1" as the <label> argument in any of the methods and procedures
+defined in LIB RC_CONTROL_PANEL, which take a <label> argument.
+
+They are briefly described in HELP RC_CONTROL_PANEL.
+
+We'll use a subset of these facilities below to cause changes in one
+field to produce changes in others, using reactor procedures.
+
+We link the fields by defining a collection of reactor procedures,
+called textin_reactor, number_reactor and slider_reactor,
+one for each changeable field.
+
+If a field's value changes, its reactor (if it has one) is invoked, and
+can then alter the other fields to keep them consistent.
+
+Because we make each change trigger other changes, there is a danger of
+looping. However the method rc_information_changed, in LIB RC_INFORMANT,
+which triggers the reactor procedures, uses a check to ensure that it
+does not invoke itself recursively.
+
+-- -- Linking the TEXTIN field to the other two: textin_reactor
+
+First we define a procedure textin_reactor, which is made a reactor
+associated with the TEXTIN field, so that whenever the TEXTIN field is
+altered the other two are made consistent with it. This reactor
+procedure will change the other two fields.
+
+The reactor procedure which will be given the text_input object and
+its current rc_informant_value (a string) whenever the contents are
+changed. We'll associate that procedure with the TEXTIN field using this
+format:
+
+    {reactor textin_reactor}
+
+in the procedure create_linked_panel, defined below.
+
+We'll re-use the two constraint procedure defined previously, i.e.
+    constrain_textin
+    constrain_number
+*/
+
+;;; Use a list of permitted strings, as before
+vars allowed_strings = ['zero' 'one' 'two' 'three' 'four' 'five'];
+
+define string_to_num(string) -> num;
+    ;;; Convert string to number, to change other fields.
+
+    lvars num = 0, item;
+
+    for item in allowed_strings do
+        returnif(item = string);
+        num + 1 -> num;
+    endfor
+enddefine;
+
+define num_to_string(num) -> string;
+    if num > listlength(allowed_strings) + 1 then
+        mishap('NUMBER TOO LARGE', [^num])
+    endif;
+    allowed_strings(num+1) -> string;
+enddefine;
+
+define textin_reactor(object, string);
+    ;;; Run this after the text_input object has been given a new string
+    ;;; Use the current value to set the NUMBERIN and SLIDER fields
+    rc_update_fields(string,
+                        [{. numberin3 1 string_to_num}
+                         {. slider3 1 string_to_num}]);
+enddefine;
+
+/*
+Compile that, and carry on.
+
+
+-- -- Linking the NUMBERIN field to the other two: number_reactor
+
+Similarly we can define a reactor procedure called number_reactor for
+the NUMBERIN field to make it update the other two fields, and install
+it using the following in the procedure create_linked_panel (defined
+below).
+
+    {reactor number_reactor}
+
+However, instead of doing this we'll use an abbreviated format which
+allows us to insert this directly into the specification of the
+numberin field:
+
+    {reactor [{. textin3 1 num_to_string} {. slider3 1}] }
+
+I.e. instead of a procedure we provide a list containing two vectors
+specifying that changes need to be propagated within the current panel
+(represented by "." to the field labelled textin3 and the field labelled
+slider3, and in the first case the value should be transformed by the
+procedure num_to_string before being propagated.
+
+*/
+
+/*
+
+-- -- Linking the SLIDER field to the other two: a simpler method
+
+We could, as with textin_reactor, define a procedure called
+slider_reactor and then use the format
+
+    {reactor slider_reactor}
+
+to make that procedure the reactor associated with the slider created in
+the next procedure.
+
+Instead we can use the sort of alternative format illustrated in
+connection with the numberin field above.
+
+Instead of the second element of the {reactor ...} property being a
+procedure (or its name) we allow it to be a list of specifications of
+actions, as follows.
+
+We use the format
+
+    {reactor <veclist>}
+
+where <veclist> is a list containing two vectors
+
+    [ {. textin3 1 num_to_string} {. numberin3 1} ]
+
+The first vector says convert the new value of the slider using
+num_to_string, then assign the converted value to the first field
+labelled "textin3" in the current panel (represented by "."). Instead of
+the "." we could have inserted
+    ^rc_current_window_object
+
+The second vector says that without any conversion, the new value is to
+be assigned to the first field labelled "numberin3" in the current
+panel.
+
+The field property
+
+    {reactor [....] }
+
+is equivalent to the following, which makes the reactor a closure of the
+procedure panel_update, obtained by partially applying panel_update to
+the list :
+
+    {reactor ^( panel_update(%[....]%) ) }
+
+*/
+
+/*
+
+-- -- The procedure create_linked_panel
+
+Now define create_linked_panel so as to use the reactor procedures as
+well as the constraint procedures.
+
+We also use a single variable one_to_five, associated only with the
+slider field this time. Its value will be changed whenever any of the
+three fields are altered.
+
+*/
+
+vars one_to_five = 0;
+
+define create_linked_panel(x, y) -> panel;
+    rc_control_panel(
+        x, y,
+        [
+            {width 30}
+            [TEXT :
+                'Demonstrating'
+                'linked panel components'
+                'Select your number.'
+            ]
+            [ACTIONS {width 100}
+                {align centre} :
+                ['KILL PANEL' rc_kill_menu]
+            ]
+            [TEXTIN
+                {label textin3}
+                ;;; altered to include constraint
+                {constrain constrain_textin}
+                {reactor textin_reactor}
+                {margin 5}
+                {align centre}
+                {labelcolour 'blue'}
+                {labelstring 'Number word:'}
+                {width 50} :
+                ''
+            ]
+            [NUMBERIN
+                {label numberin3}
+                ;;; altered to include constraint
+                {constrain constrain_number}
+                ;;; propagate changes to two other fields
+                {reactor [{. textin3 1 num_to_string} {. slider3 1}] }
+                {margin 5}
+                {align centre}
+                {fg 'blue'}
+                {activebg 'yellow'}
+                {labelcolour 'blue'}
+                {labelstring 'Number:'}
+                {width 30} :
+                0
+            ]
+            [SLIDERS
+                {label slider3}
+                {ident one_to_five}
+                ;;; propagate changes to two other fields
+                {reactor
+                   [ {. textin3 1 num_to_string} {. numberin3 1} ]
+                }
+                {margin 10}
+                {offset 50}
+                {width 180} {radius 6} {blobcol 'blue'}
+                {framecol 'black'} {height 30}
+                {fieldbg 'grey75'}
+                {barcol 'white'} :
+                [{0 5 ^one_to_five 1} round
+                    [{-25 10 'Integer value: [0 to 5]'}] ]
+            ]
+            ;;; For good measure add an action button to give help
+            [ACTIONS
+                {width 80}:
+                [HELP
+                    [POP11
+                        rc_message_wait(300, 300,
+                            ['ONLY NUMBERS 1 to 5 PERMITTED'],
+                            1, true, '9x15', 'black', 'white');
+                    ]
+                ]
+            ]
+        ], 'Panel3') -> panel;
+
+    ;;; Linking of fields is not done while rc_control_panel is creating
+    ;;; the panel, so now get the slider to run its reactors.
+    rc_information_changed(hd(rc_fieldcontents_of(panel, "slider3")));
+
+enddefine;
+
+
+/*
+-- -- Testing the constrained and linked fields: panel3
+
+;;; Build a new panel, to test the reactors.
+vars panel3 = create_linked_panel(500, 20);
+
+;;; Now try changing each of the fields, and see how it changes the
+;;; other two.
+
+;;; After changing things print this out:
+one_to_five =>
+
+Changing the text input field, or the number input field, or
+the slider should automatically change the other two values.
+
+It is possible to examine the fields directly, using their labels to get
+a "handle" on them. E.g. Examine the text input field, labelled
+"textin3":
+
+vars textfield = rc_field_of_label(panel3, "textin3");
+textfield =>
+vars textbutton = rc_field_contents(textfield);
+textbutton =>
+rc_text_value(textbutton) =>
+;;; See how updates are propagated when the textin_reactor procedure is
+;;; triggered
+'one' -> rc_text_value(textbutton);
+'two' -> rc_text_value(textbutton);
+'three' -> rc_text_value(textbutton);
+
+;;; As an exercise do the above for the numberin field with label
+;;; "numberin3", assigning numeric values instead of string values.
+
+;;; Similarly we can examine and update the slider field
+
+;;; This will be a list since there can be several sliders in the same
+;;; field.
+vars sliderfield = rc_field_of_label(panel3, "slider3");
+vars slider = hd(rc_field_contents(sliderfield));
+slider =>
+rc_slider_value(slider) =>
+
+;;; Try updating the slider's value and see what happens to the other
+;;; fields.
+5 -> rc_slider_value(slider);
+0 -> rc_slider_value(slider);
+
+Or, more compactly:
+4 -> slider_value_of_name(panel3, "slider3", 1);
+
+The appropriate reactor will be triggered if any of the values are
+changed under program control, e.g. by means of these commands:
+
+'three' -> rc_field_item_of_name(panel3, "textin3", 1);
+2 -> rc_field_item_of_name(panel3, "numberin3", 1);
+4 -> rc_field_item_of_name(panel3, "slider3", 1);
+1 -> slider_value_of_name(panel3, "slider3", 1);
+
+;;; Check after each command that this variable has the required value
+one_to_five =>
+
+*/
+
+/*
+-- Linking the above panel to an active variable ----------------------
+
+For information on active variables see the file
+    HELP ACTIVE_VARIABLES
+
+In this section we define an active variable number_val, whose value
+will always be the same as that of the variable one_to_five.
+
+When number_val is updated it changes the value displayed in panel3,
+which automatically alters the variable one_to_five also.
+
+*/
+
+vars panel3;    ;;; defined above
+
+define active number_val() -> num;
+    rc_field_item_of_name(panel3, "slider3", 1) -> num;
+enddefine;
+
+define updaterof active number_val();
+     -> rc_field_item_of_name(panel3, "slider3", 1)
+enddefine;
+
+/*
+;;; Make sure that panel3 exists, and if not create, then try
+;;; these
+
+number_val =>
+
+;;; See the effects of these on the panel.
+3-> number_val;
+2-> number_val;
+;;; This sets the variable to its maximum allowed value, constrained
+;;; by the slider.
+22-> number_val;
+number_val =>
+*/
+
+/*
+-- Linking a counter (increment) button and a slider: panel4 ----------
+
+A counter button has a numeric value which is incremented or decremented
+by clicking with mouse button 3 or 1.
+
+Sometimes it is useful to put a counter button adjacent to a slider so
+that an alternative to using the slider is clicking on the button.
+
+Here is an example. We link a slider and a counter button by means of
+appropriate reactors. In order to do this we could define reactor
+procedures as before and use the {reactor ...} format to attach them to
+the two fields.
+
+Instead, this time we'll create reactor procedures by using the
+{reactor [....] } syntax.
+
+Thus to enable the slider (with label slider4) to update the counter
+button (with label counter4) we use the list containing one
+three element vector:
+
+    [{. counter4 1}]
+
+and to allow the counter button to update the slider we use the list
+    [{. slider4 1}]
+
+So, to specify a reactor for the slider we use this format
+
+    {reactor [{. counter4 1}] }
+
+and for the counter button this format
+
+    {reactor [{. slider4 1}] }
+
+Note that instead of the "." we could have inserted
+    ^rc_current_window_object
+*/
+
+
+vars number4 = 500;
+
+define create_slider_counter_panel(x, y) -> panel;
+
+    rc_control_panel(x, y,
+        [
+            {width 380}
+            [ACTIONS
+                {width 100}
+                {align centre} :
+                ['KILL PANEL' rc_kill_menu]
+            ]
+            [TEXT {margin 5} :
+                'Adjust either the slider'
+                'or the increment buton'
+            ]
+            [SLIDERS
+                {label slider4}
+                {ident number4}
+                {reactor [{. counter4 1}] }
+                {constrain round}
+                {margin 15}
+                {step 10}
+                {offset 35}
+                {framecol 'black'} {height 30}
+                {fieldbg 'grey75'}
+                {barcol 'white'}
+                {width 300}:
+                [{0 1000}
+                    [{-15 15 'Integer value: [0 to 1000]'}] ]
+            ]
+            [ACTIONS
+                {label counter4}
+                {reactor [{. slider4 1}] }
+                ;;; {offset 35}
+                {gap -25}
+                {align right}
+                ;;; NB Don't paint background for panel
+                {fieldbg ^false}
+                {width 140} :
+                {counter 'Slider Value' ^(ident number4) {10 0 1000}}
+            ]
+        ],
+        'Panel4') -> panel;
+
+    ;;; Initialise the counter field, and propagate its value.
+    number4 -> rc_field_item_of_name(panel, "counter4", 1);
+
+enddefine;
+
+/*
+
+vars panel4 = create_slider_counter_panel(400, 20);
+
+number4 =>
+
+-- -- Exercise: Add a number input button
+
+Using the facilities illustrated previously in connection with the
+procedure create_linked_panel (and panel3) try modifying the procedure
+create_slider_counter_panel so that it also includes a NUMBERIN field
+linked to the slider and counter button.
+
+*/
+
+
+/*
+-- Associating variables with RADIO buttons or SOMEOF buttons: panel5 --
+
+The next section shows how the variables colour and colours can be
+associated with selected button in the panel created below.
+
+*/
+
+vars
+    ;;; if the variables have undef values they are ignored when the
+    ;;; panel is created
+    colour = undef, colours = undef,
+    ;;; set some defaults for the colour panels
+    ;;; colour = "yellow", colours = [orange blue],
+
+    ;;; A list of words to be used as labels in radio buttons
+    ;;; and someof buttons
+    options = [red orange yellow green blue];
+
+
+define create_colours_panel(x, y) -> panel;
+    rc_control_panel(
+        x, y,
+        [
+            [ACTIONS {width 100}
+                {align centre} :
+                ['KILL PANEL' rc_kill_menu]
+            ]
+            [TEXT {margin 5} :
+                'Demonstrating RADIO and SOMEOF'
+                'buttons linked to variables'
+                '(colour and colours):'
+                'Select one colour'
+                'then check the variable:'
+                'colour'
+            ]
+            [RADIO
+                {label radio1}
+                ;;; link the selected colour with the variable
+                {ident colour}
+                ;;; One way of setting defaults
+                {default green}
+                {width 70}:
+                ^^options
+            ]
+            [TEXT {margin 5}:
+                'Select any subset,'
+                'then check the variable:'
+                'colours'
+            ]
+            [SOMEOF
+                {label someof1}
+                ;;; link the selected colours with the variable
+                ;;; Its value will be a list of selected colours
+                {ident colours}
+                ;;; One way of setting defaults
+                {default [orange green]}
+                {width 70}:
+                ^^options
+            ]
+        ],
+        'Panel5') -> panel;
+enddefine;
+
+
+/*
+vars panel5 = create_colours_panel(700, 20);
+
+;;; Select items on the panel and then check these values
+colour, colours =>
+
+-- -- Accessing or altering the state of a RADIO or SOMEOF field
+
+To access the state of a RADIO or SONEOF  field use the method
+
+    rc_field_info_of_label(panel, label) -> info;
+
+To change it, use its updater
+
+    info -> rc_field_info_of_label(rc_panel, label);
+
+For example, using panel5 (recreate it if necessary), we can interrogate
+or update either the RADIO field (labelled "radio1") or the SOMEOF
+field, labelled "someof1", thus:
+
+;;; For examplpe
+;;; access the RADIO field
+    rc_field_info_of_label(panel5, "radio1") =>
+
+;;; update the RADIO field
+    "yellow" -> rc_field_info_of_label(panel5, "radio1");
+    "blue" -> rc_field_info_of_label(panel5, "radio1");
+    ;;; this should mishap
+    "grey" -> rc_field_info_of_label(panel5, "radio1");
+
+;;; access the SOMEOF field
+    rc_field_info_of_label(panel5, "someof1")=>
+
+;;; update the SOMEOF field
+    [red yellow blue] -> rc_field_info_of_label(panel5, "someof1");
+    [] -> rc_field_info_of_label(panel5, "someof1");
+    [blue orange] -> rc_field_info_of_label(panel5, "someof1");
+
+    ;;; this should mishap
+    [red grey pink blue] -> rc_field_info_of_label(panel5, "someof1");
+
+-- -- Exercise: link RADIO field and SLIDER field
+
+Try using the mechanisms described so far to create a panel with slider
+and a RADIO field showing buttons with the strings
+
+    '0' '1' ... '5'
+
+linked so that if one of the buttons is selected the slider changes and
+if the slider changes the selected button is shown.
+
+Hint: use the method
+    rc_field_info_of_label(panel, label) -> info;
+
+end its updater
+    info -> rc_field_info_of_label(rc_panel, label);
+
+
+-- Associating a panel field with an lvars variable -------------------
+
+The syntax shown above for linking a field in a panel with a variable
+
+    {ident <name>}
+
+works only with global "vars" variables (including variables in
+secions), but not with "lvars".
+(See TEACH VARS_AND_LVARS, for a summary of the differences.)
+
+Often programs are less buggy if "lvars" variables are used.
+To make selections in a control have an effect on lvars variables use
+this format:
+
+    {ident %ident <name>%}
+
+e.g. in the above, replace
+
+    {ident colour}
+    {ident colours}
+
+with
+
+    {ident %ident colour%}
+    {ident %ident colours%}
+
+The unquoted bit of the vector expression, between % ... %, uses the
+syntax word "ident" which reads a word and replaces it with the
+identifier corresponding to that word which can be a lexical identifier.
+
+But it has to be done at compile time. I.e. the expression containing
+those two vectors must be compiled within the scope of the  lvars
+declarations.
+
+You can try that, after replacing the"vars" declarations for colour and
+colours with "lvars".
+
+However it is then necessary to ensure that you compile a marked range
+that goes back at least as far as the lvars declaration and includes
+all the code that uses the two variables, i.e. up to the end of the
+invocation of rc_control_panel.
+*/
+
+/*
+
+Comments and suggestions for improvements welcome.
+Email: A.Sloman@cs.bham.ac.uk
+
+
+--- $poplocal/local/rclib/teach/rc_constrained_panel
+--- Copyright University of Birmingham 2002. All rights reserved. ------
+*/

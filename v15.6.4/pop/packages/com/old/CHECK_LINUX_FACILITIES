@@ -1,0 +1,206 @@
+#!/bin/bash
+##
+## $local/com/CHECK_LINUX_FACILITIES
+## http://www.cs.bham.ac.uk/research/poplog/com/CHECK_LINUX_FACILITIES
+## To be run before installing Poplog
+##  Aaron Sloman 30 Nov 2004
+##  http://www.cs.bham.ac.uk/~axs/
+##
+##
+## Check for libraries required for X11 stuff in poplog and
+## put links in where necessary.
+
+## First make sure C compiler/linker available
+
+gccloc=`which gcc`
+
+if [ -x "$gccloc" ]
+then
+    echo "C compiler found: $gccloc"
+else
+    echo "WARNING: gcc not found."
+    echo "So it will not be possible to link poplog on this machine."
+    echo "  You should either take steps to get gcc installed,"
+    echo "  or try installing a pre-linked version of poplog"
+    echo "  as described in PRE_LINKED_LINUX_POPLOG.txt"
+fi
+
+echo ""
+echo "-----------------------------------"
+
+
+## Now check out X window libraries and Motif
+
+cd /usr/X11R6/lib
+
+## for testing
+#cd /tmp/Xtest
+
+
+## Test whether file $1 exists. Used several times below
+## each time this is run $1 will have a different value
+##
+check_only()
+{
+echo ""
+echo "Checking for " $1
+
+if [ -f "$1" ]
+then
+
+    echo "/usr/X11R6/${1} already exists: Good"
+
+else
+    echo "/usr/X11R6/lib${1} does not exist"
+    echo "   --- will look for equivalent to link to."
+fi
+
+}
+
+check_only "libX11.so"
+check_only "libXt.so"
+check_only "libXext.so"
+check_only "libXm.so"
+
+echo ""
+echo "-----------------------------------"
+
+
+## check_and_fix must be run by super-user
+## tests whether file $1 exists and if not whether a suitable
+## version exists which can be linked to it.
+## E.g. if libXt.so does not exist but libXt.so.6.3 is found then
+## the latter can be linked to libXt.so (in /usr/X11R6/lib/).
+
+## variable to record missing files
+failed=""
+
+## each time this is run $1 will have a different value
+##
+check_and_fix()
+{
+echo ""
+echo "Checking whether something needs to be linked to" $1
+
+if [ -f "$1" ]
+then
+
+    echo "$1 already exists"
+
+else
+    ## The .so file does not exist.
+    ## See if there are versions that have version numbers appended
+    for file in ${1}* ;
+    do
+        if [ -f $file ]
+        then
+            ## found a suitable file, so make a symbolic link
+            echo Linking $file to $1 ;
+            ln -s $file $1 ;
+
+            ## stop trying any more file names
+            break;
+        fi
+    done
+
+    # check if successful
+    if [ -f "$1" ]
+    then
+        echo "$1 linked"
+    else
+        echo "   /usr/X11R6/lib/${1}* not found"
+        failed="$failed $1"
+    fi
+fi
+
+}
+
+## The string $failed may be extended by check_and_fix
+failed=""
+
+check_and_fix  "libX11.so"
+check_and_fix "libXext.so"
+check_and_fix "libXt.so"
+
+
+if [ "$failed" ]
+then
+    ## Report missing libraries
+    echo ""
+    echo "X WINDOW LIBRARIES MISSING"
+    echo "Could not find $failed"
+    echo "  nor files with version numbers to link them to".
+    echo "Cannot run poplog with graphical (X window) facilities"
+    echo "   Investigate installation of X Window system with libraries"
+    echo "   to support development work on your linux system"
+    echo "   (see either www.xfree86.org or www.x.org)"
+    echo ""
+    echo "Alternatively you can install poplog without using X window system"
+    nox="true"
+else
+    echo "The core required X window system libraries are available."
+    echo "Poplog should link and run with the X Window system."
+    nox=""
+fi
+
+echo ""
+echo "-----------------------------------"
+echo ""
+echo "Now checking for Motif"
+
+
+xx="libXm.so"
+xx3="libXm.so.3"
+xx2="libXm.so.2"
+# last option is for Lesstif
+xx1="libXm.so.1"
+
+nomotif=""
+
+if [ -f "$xx" ]
+then
+
+    echo "Good: $xx already exists"
+
+else
+
+    for file in ${xx3}* ${xx2}* ${xx1}*;
+    do
+        if [ -f $file ]
+        then
+            ## Found a version of Motif, so link it to the .so file
+            echo Linking $file to $xx ;
+            ln -s $file $xx ;
+            break;
+        fi
+    done
+
+    # check if successful
+    if [ -f "$xx" ]
+    then
+        echo "$xx linked"
+    else
+        echo "   /usr/X11R6/lib/${xx}* not found."
+        echo "   Please check out your motif installation."
+        nomotif="true"
+    fi
+fi
+
+
+if [ "$nomotif" ]
+then
+    echo "Could not find Motif (or Lesstif)"
+    echo "Cannot run poplog with Motif even if X libraries installed"
+else
+    echo "Motif OK"
+    if [ "$nox" ]
+    then
+        echo "But other X libraries missing -- so cannot use Motif"
+    else
+        echo "Poplog should link OK with X and Motif"
+        exit 0
+    fi
+fi
+
+## indicate failure
+exit 1

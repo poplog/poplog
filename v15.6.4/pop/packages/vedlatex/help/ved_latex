@@ -1,0 +1,729 @@
+HELP VED_LATEX                                       A.Sloman April 1992
+                                                     Updated 15 Oct 2000
+                                                     Updated 10 Feb 2008
+
+NOTE:
+    Since this file was originally written a new command has come
+    available for creating PDF files directly from latex files:
+        pdflatex
+    At present there is no ved interface to that, though one may be
+    added later. It should be easy for experiencd Pop-11 programmers
+    to do, by extending the 'ENTER latex' command.
+    For more information see HELP * LATEX
+
+LIB * VED_LATEX
+    Provides convenient commands for driving LaTeX, xdvi, bibtex,
+    and dvips from VED. There are some utilities to help with
+    preparation of latex files. It is extendable by users.
+
+See HELP * VED_BIB
+    For a utility to help with creation of bibtex entries.
+
+See TEACH * LATEX
+    For information on modifying your .login file to make latex work
+    (at Birmingham. Needs to be edited for other sites).
+
+See TEACH * LATEX.TEX
+    For a simple sample latex file, which can be used as a template
+    for reports or essays. It includes simplified instructions.
+
+NB: For notes on changes to LIB * VED_LATEX see
+        LIB * VED_LATEX/'Revision History'
+
+CONTENTS - (Use ENTER g to access required sections)
+
+ -- Introduction
+ -- ENTER latex (Run latex on current file)
+ -- -- Two versions of latex: latex209 and latex2e
+ -- Previewing a .dvi or .ps file
+ -- -- ENTER latex xdvi (Preview file using X)
+ -- -- ENTER xdvi
+ -- -- ENTER latex xdvi <args>
+ -- -- ENTER xdvi <args>
+ -- -- ENTER dvi2tty (Preview the latex file in a VED window)
+ -- -- ENTER dvi2tty <file>
+ -- -- ENTER dvi2tty <flags>
+ -- -- ENTER dvi2tty <flags> <file>
+ -- -- ENTER gv (preview postscript file)
+ -- COMMANDS RELATED TO BIBTEX
+ -- ENTER latex bibtex
+ -- ENTER bibtex
+ -- ENTER latex2
+ -- ENTER dobib
+ -- OTHER LATEX COMMANDS
+ -- ENTER latex clear
+ -- ENTER latex clear <args>
+ -- ENTER latex print
+ -- ENTER latex print -<flags>   (Provide flags for dvips)
+ -- ENTER latex printdefaults <printcom> (Set printing defaults)
+ -- ENTER latex print <printcom>   (Set defaults and use them now)
+ -- ENTER latex print ... ps (Print to postscript file)
+ -- Resetting default values
+ -- -- ENTER <command> default
+ -- -- ENTER <command> d
+ -- ENTER latex bold
+ -- ENTER latex bold <arg>
+ -- ENTER latex italic
+ -- ENTER latex italic <arg>
+ -- ENTER latex centre
+ -- ENTER latex centre <arg>
+ -- ENTER latex block <type>
+ -- ENTER latex block <type> <scope>
+ -- ENTER section
+ -- Using ENTER indexify and ENTER g with LaTeX files
+ -- -- latex_g_string
+ -- -- ENTER latex heading
+ -- -- ENTER latex indexify
+ -- -- ENTER latex g
+ -- -- Abbreviating the above commands
+ -- Sorting out quotation marks: ENTER latex quotes
+ -- Commenting out part of a file: ENTER latex comment
+ -- Extending the facility
+ -- -- latex_do_any(string1, string2)
+ -- Abbreviating commands using veddo
+ -- Justifying paragraphs in latex LIB VED_JLP
+ -- News for VED_LATEX users
+ -- Further Reading
+
+-- Introduction -------------------------------------------------------
+
+In order to understand this package you need to know a few things about
+LaTeX, as described in HELP LATEX. First, you normally create a "source"
+file whose name ends in '.tex'. Then you run LaTeX (either using the
+Unix 'latex' command, or the ENTER latex command described below, and
+that creates a corresponding file whose name ends in '.dvi' which is
+device-independent information about what the printed document should
+look like. There are commands for previewing the .dvi file under the
+X window system (using xdvi) for producing an approximate ascii version
+of the file (using dvi2tty) and for creating a postscript file (using
+dvips). These commands can be given from the Unix shell. However, it is
+often far more convenient to use them from inside VED, with the
+facilities described below.
+
+This package provides a collection of commands that make it relatively
+painless to work with LaTeX files in VED. There are commands that run
+LaTeX on the current file, showing any output (including error messages)
+in another VED file, and commands that allow the .dvi file corresponding
+to the current file to be previewed, using xdvi or dvi2tty, and commands
+that print the current .dvi file, using dvips, either onto a printer, or
+into a postscript file, for future use.
+
+There are also commands that automatically insert latex formatting
+instructions, e.g. \begin{center) and \end{center), around the current
+line, or the marked range.
+
+Details of these and other facilities are given below.
+
+As this package is still under development the next section lists recent
+additions or modifications.
+
+
+NB the section headed "News for VED_LATEX users" outlines recent
+changes to the package.
+
+-- ENTER latex (Run latex on current file)
+This is the basic command, which creates the .dvi file and makes it
+possible to preview or print the file.
+
+    It writes the current file to disk, if necessary,
+    then runs latex on it, and reads any output into a temporary VED
+    file. Creates the usual .dvi, .aux and .log files in the same
+    directory as the original file.
+
+    Output from latex, including error messages, is read into a
+    temporary VED buffer. This can usually be ignored, unless there's an
+    error message. NB the error message may not be in the visible
+    window, so it is important to check.
+
+
+-- -- Two versions of latex: latex209 and latex2e
+
+There are two versions of latex, the old latex
+    latex209
+
+and the new latex
+    latex2e
+
+The shell command "latex" usually defaults to latex2e.
+
+The "ENTER latex" command was altered (on 13 Dec 1997) to detect
+automatically whether you are using latex2e or latex209 by searching for
+a line begining with one of
+
+    \documentclass
+        (I.e. latex2e)
+or
+    \documentstyle
+        (I.e. latex209)
+
+You can specify to Ved which one you want as a default by assigning the
+name as a string (with a space at the end), to ved_latex_command, e.g.
+in your vedinit.p file. I.e. one of
+
+    ;;; Note space at end of each string
+    global vars ved_latex_command = 'latex209 ';
+    global vars ved_latex_command = 'latex2e ';
+
+Alternatively you can give the command
+
+    ENTER latex209
+
+or
+    ENTER latex2e
+
+To specify which version of latex you want.
+
+    ENTER latex
+
+
+-- Previewing a .dvi or .ps file
+
+-- -- ENTER latex xdvi (Preview file using X)
+-- -- ENTER xdvi
+    These commands will run xdvi on the .dvi file, using as arguments
+    the string ved_xdvi_args, which defaults to
+        ved_xdvi_args = '-keep -s 4 -paper a4 -offsets 0.5cm'
+
+    The defaults may change. Check by looking at LIB ved_xdvi
+
+    Users can give alternative defaults by giving extra arguments on the
+    command line, as explained below, or by assigning a string to this
+    variable. E.g. to have more expansion do
+
+        '-s 3 -paper a4' -> ved_xdvi_args; ;;; Note the spaces
+
+    For additional flags for xdvi see MAN * XDVI
+
+    NB once you have run xdvi you don't need to re-run it each time you
+    change the file. Just leave the xdvi winow, and after giving the
+    ENTER latex command again, to create a new .dvi file, just type
+    R (upper case) in the xdvi window, or re-expose the window (e.g.
+    uncover, or iconise and de-iconise. Xdvi will then read the latest
+    version of the .dvi file it was displaying.
+
+    NB The xdvi command assumes that you have already run ENTER latex
+    on the current file to produce the .dvi file
+
+-- -- ENTER latex xdvi <args>
+-- -- ENTER xdvi <args>
+
+    As above, but assign <args> to ved_xdvi_args. This assignment is
+    remembered for the remainder of the session, so it need not be
+    repeated. E.g. to have larger expansion do
+
+        ENTER xdvi -s 3 -paper a4
+
+-- -- ENTER dvi2tty (Preview the latex file in a VED window)
+
+    (Assumes that dvi2tty is installed on your system.)
+
+    This command will run dvi2tty on the current .tex file, and read the
+    output into a temporary VED file. The dvi2tty program takes the .dvi
+    file and produces an ordinary ascii file which gives an indication
+    of what the final printout will be, showing where the line breaks
+    and page breaks are. It will not work with graphics.
+    See MAN * DVI2TTY
+
+    NB this command assumes you have already run ENTER latex, to create
+    the .dvi file.
+
+-- -- ENTER dvi2tty <file>
+
+    As above but run dvi2tty on the specified file
+
+-- -- ENTER dvi2tty <flags>
+-- -- ENTER dvi2tty <flags> <file>
+
+    Run dvi2tty with the specified flags on the current file or the
+    specified file. For permissible flags see MAN * DVI2TTY
+
+WARNING if <flags> is included, then the LAST flag must be one that
+takes an extra argument, otherwise the final argument will be taken to
+be the file name. Examples:
+
+    ENTER dvi2tty -w 132 <file>
+        is OK
+    ENTER dvi2tty -f <file>
+        is NOT OK
+
+-- -- ENTER gv (preview postscript file)
+
+Assumes the current file is a .tex file, and a corresponding .ps file
+has been created (e.g. by running "ENTER latex print ps")
+
+The ENTER gv command will run the ved_gv command. This runs gv on the
+appropriate .ps file. It gives gv the flags held in the variable
+    ved_gv_args
+
+whose value defaults to this string
+    '-antialias -watch -scale -2 -resize '
+
+(It may change. Check by examining LIB ved_gv).
+
+-- COMMANDS RELATED TO BIBTEX
+-- ENTER latex bibtex
+-- ENTER bibtex
+
+    Runs bibtex on the .aux file.  Takes no arguments. Usually it is
+    better to run ENTER dobib, described below.
+        See MAN * BIBTEX for details.
+
+    Often it is necessary to run latex, to get the information about
+    citations used, then to run bibtex to extract those citations to
+    produce the .bbl file with bibliographic entries, then to run
+    latex twice first to get the citations into the file then to
+    fix the cross references. The next two procedures are provided
+    to simplify this.
+
+-- ENTER latex2
+    This runs latex twice in the current .tex file, producing
+    two separate VED output files showing error messages, etc.
+    This is useful for fixing tables of contents, new citations based on
+    bibtex, and other cross references.
+
+-- ENTER dobib
+    This runs ved_latex, then ved_bibtex then ved_latex2. It produces
+    four separate output files. Do this when you have introduced a new
+    citation, or when you have altered your .bib file and need to run
+    bibtex.
+
+
+-- OTHER LATEX COMMANDS
+
+-- ENTER latex clear
+    This clears the files produced by latex from the file currently being
+    edited. Which files are to be cleared is determined by the
+    suffix strings in the list ved_latex_clear, which defaults to
+
+        ['.aux' '.dvi' '.log' '.bbl' '.blg'],
+            (the last two are for "bibtex" users)
+
+    E.g. if you wish to leave the '.dvi' file do
+        ['.aux'  '.log' '.bbl' '.blg'], -> ved_latex_clear;
+
+    or use the next format:
+
+
+-- ENTER latex clear <args>
+    As above but the <args> are assigned to ved_latex_clear. E.g. to
+    leave the .dvi file do:
+
+        ENTER latex clear .aux .log
+
+
+-- ENTER latex print
+
+    Print the .dvi file corresponding to the current .tex file using the
+    command in the string ved_latex_pr_command which defaults to
+        'dvips -f -t a4 '.
+
+    To change the default, or supply additional flags to dvips see
+    the following forms.
+
+    The latex print command assumes that the .dvi file exists. If not,
+    create it using ENTER latex. It also assumes that giving an "lpr"
+    command without an argument will send things to the required
+    printer. So make sure that you have set $PRINTER to your printer.
+    You can do this inside Pop-11 if necessary, eg.
+
+        'lp' -> systranslate('PRINTER');
+
+
+-- ENTER latex print -<flags>   (Provide flags for dvips)
+
+    It is possible to use additional dvips flags by starting the
+    argument with "-". E.g. "-m" will cause the printing to be in
+    "manual feed mode", i.e. one page at a time, suitable for producing
+    transparencies. Similarly
+
+        ENTER latex print -m -r -x 900
+
+    will cause the current file to be printed with manual feed, last
+    page first, with magnification 900/1000, i.e. 90%
+
+Summary
+
+    ENTER latex print defaults to giving a print command (roughly)
+    in the form
+
+        ved_latex_pr_command <> flags <> dvifile <> ' | lpr '
+
+    For more on the command dvips and the available flags
+    see MAN * DVIPS
+
+
+-- ENTER latex printdefaults <printcom> (Set printing defaults)
+
+    This is equivalent to
+        <printcom> -> ved_latex_pr_command
+
+    I.e. it resets the printing defaults WITHOUT obeying the command
+
+        ENTER latex printdfaults dvips -f -t letter
+
+    sets the default printmode to be "letter"
+
+-- ENTER latex print <printcom>   (Set defaults and use them now)
+
+    If <printcom> is given, and does not start with "-", then it is
+    used to print the current file and is also assigned to
+    ved_latex_pr_command so that it need not be specified again. E.g.
+
+        ENTER latex print dvips -f -t a4 -r
+
+    will assign 'dvips -f -t a4 -r' to ved_latex_pr_command, so that
+    future printing is in reverse page order, and will do the printing.
+
+-- ENTER latex print ... ps (Print to postscript file)
+
+    If the command ends with "ps" then instead of printing to a printer
+    the 'dvips' postscript output is directed to a file, whose name ends
+    with '.ps' replacing the original suffix in the file name.
+
+    The file can later be printed via lpr, viewed in ghostview, printed
+    via psnup two pages per sheet, etc.
+
+    NB like the other latex print commands, this assumes that latex has
+    been run on the current file to create the .dvi file.
+
+
+-- Resetting default values
+
+-- -- ENTER <command> default
+-- -- ENTER <command> d
+
+    If you have previously changed one of the default settings and you
+    wish to reset it to its standard value, then you can use the
+    argument "default" or "d" with any of the above commands, e.g.
+
+    ENTER latex xdvi default    (or d)
+    ENTER latex clear default    (or d)
+    ENTER latex print default    (or d)
+
+    The default is reset AND the command obeyed
+
+-- ENTER latex bold
+-- ENTER latex bold <arg>
+    <arg> can be one of
+        range
+        line
+        word
+
+    This causes the string '{\\bf ' to be placed before the marked
+    range, or line, or word, and the string ' }' at the end. If there
+    is no <arg> it defaults to line.
+
+    range can be abbreviated as mr
+    line can be abbreviated as l
+    word can be abbreviated as w
+
+
+-- ENTER latex italic
+-- ENTER latex italic <arg>
+    <arg> can be one of
+        range
+        line
+        word
+
+    This causes the string '{\\em ' to be placed before the marked
+    range, or line, or word, and the string ' }' at the end. If there
+    is no <arg> it defaults to line.
+
+    The same abbreviations are accepted as for ENTER bold
+
+
+-- ENTER latex centre
+-- ENTER latex centre <arg>
+    <arg> can be one of
+        range
+        line
+
+    This causes the string '\\begin{center} to be placed before the
+    marked range, or line, and the corresponding end string after it.
+    If there is no <arg> it defaults to line.
+
+    The same abbreviations are accepted as for ENTER bold
+
+-- ENTER latex block <type>
+-- ENTER latex block <type> <scope>
+
+    Produces \begin{<type>} and \end{type} before and after the current
+    line or marked ranged, depending on whether <scope> is "range" or
+    "line".
+
+    If absent, <scope> defaults to <line>
+
+    So  ENTER latex centre
+is equivalent to
+        ENTER latex block center
+
+    Note the difference in spelling!
+
+-- ENTER section
+
+This command will turn the current line into a \section heading.
+
+
+-- Using ENTER indexify and ENTER g with LaTeX files ------------------
+
+It is often convenient to be able to use VED's ENTER indexify and
+ENTER g facilities with a latex file.
+
+See HELP * ENTER_G and HELP * VED_INDEXIFY for details.
+
+The extension to latex files is made possible with
+
+    LIB * LATEX_HEADING
+
+which provides a global variable, latex_g_string, and three procedures,
+latex_heading, latex_indexify, and latex_g, as follows.
+
+
+-- -- latex_g_string
+
+Global variable to replace ved_g_string for latex files.
+It defaults to '% -- '
+
+-- -- ENTER latex heading
+
+This copies the current line to make a heading for use with the other
+commands. (Removes a previous version if one exists. So of you do
+    ENTER latex heading
+
+on a line containing only
+
+\section{Demonstration}
+
+then this line will be preceded with a line that looks like this:
+
+% -- \section{Demonstration} -------------------------------------------
+
+Any leading spaces will be respected. latex_indexify can be used to make
+a table of contents, based on such headers.
+
+
+-- -- ENTER latex indexify
+
+Make an index based on the headings that have been created using
+latex_heading. The index can be used by latex_g, as described below.
+
+-- -- ENTER latex g
+
+Go to appropriate line made by latex_heading, using the index created by
+latex_indexify.
+
+-- -- Abbreviating the above commands
+
+You may wish to abbreviate the above commands so that less typing is
+required, or so that the commands can be assigned to function keys. The
+following will define command ENTER lheading, ENTER lindexify, ENTER lg
+
+    define ved_lheading =
+        veddo(% 'latex heading' %)
+    enddefine;
+
+
+    define ved_lindexify =
+        veddo(% 'latex indexify' %)
+    enddefine;
+
+    define ved_lg =
+        veddo(% 'latex g' %)
+    enddefine;
+
+
+-- Sorting out quotation marks: ENTER latex quotes --------------------
+
+ENTER latex quotes
+
+This command replaces occurrences of " either with `` or with '' as
+appropriate. In addition wrong occurrences of ' are replaced with `
+
+
+-- Commenting out part of a file: ENTER latex comment -----------------
+
+ENTER latex comment
+ENTER latex comment <scope>
+    The <scope> can be one of range, line, mr. It defaults to line.
+
+    This command causes the scope to be "commented out" by inserting
+    '% ' at the beginning of each line in the scope.
+
+
+-- Extending the facility ---------------------------------------------
+
+The procedure ved_latex is defined in such a way that if the <command>
+is not recognised in the context
+
+    ENTER latex <command> <args>
+
+(where <args> may or may not be present), then it runs the procedure
+latex_<command> autoloading it if necessary. This means that users can
+easily extend the facilities by defining new procedures with names of
+that form in autoloadable libraries.
+    (See HELP * AUTOLOAD, REF * popautolist)
+
+-- -- latex_do_any(string1, string2)
+
+This procedure is provided to make it easy to define extensions like the
+"ENTER latex bold" and "ENTER latex italic" commands described above.
+Essentially it assumes that the command name has been removed from
+vedargument, leaving one of 'line', 'l', 'range', 'mr', 'word', 'w', or
+the empty string, and it inserts string1 before and string2 after the
+portion of text specified by the remaining argument. It defaults to
+'line'. Thus the latex_italic command described above was simply defined
+as the procedure
+
+define global latex_italic =
+    latex_do_any(% '{\\em ', ' }'%)
+enddefine;
+
+See LIB * VED_LATEX for other examples, and for details of latex_do_any.
+
+Users can easily define other facilities like this. For example
+by defining a procedure latex_start you can make the command
+    ENTER latex start
+
+read a standard latex header file into the top of your current file.
+
+
+-- Abbreviating commands using veddo ----------------------------------
+
+If you frequently use a command like
+    ENTER latex bold word
+
+you may find it convenient to define an abbreviation, e.g
+    ENTER lbw
+
+The easiest way to do this is as follows:
+
+define ved_lbw =
+    veddo(% 'latex bold word' %)
+enddefine;
+
+
+-- Justifying paragraphs in latex LIB VED_JLP -------------------------
+
+The original ved_jp (See REF * ved_jp) was designed to be compatible
+with troff and nroff, and accordingly treated a line starting with "."
+as a paragraph boundary.
+
+LIB VED_JLP (Justify Latex Paragraph) is similar except that it treats
+lines starting with "\" as paragraph boundaries. This can be changed
+by assigning to the string latex_para_breaks. E.g.
+
+    vars latex_para_breaks = '\\{' ;
+
+will make it treat a line starting with either \ or { as a paragraph
+boundary. If you do
+
+    uses ved_jlp
+
+then
+    ved_jlp -> ved_jp
+
+then VED will use this version in all contexts where it would have used
+ved_jp.
+
+
+-- News for VED_LATEX users -------------------------------------------
+
+Here is a list of changes to the package, latest first.
+
+Aaron Sloman, Dec 13 1997
+    Made ved_latex adjust automatically for latex2e
+
+Aaron Sloman, Dec 25 1996
+    Minor changes, including making ved_latex go to end of output file.
+    Put ved_xdvi in separate file.
+
+Aaron Sloman, Jan 11 1996
+        Fix problems with ved_xdvi, including making it change to the
+        file's directory so as to work with psfig etc.
+
+Aaron Sloman, May 20 1995
+    Allowed users to assign an alternative command to
+        ved_xdvi_command
+
+Aaron Sloman, May 15 1995
+    Added '.toc' to latex_clear
+
+Aaron Sloman, April 17 1995
+    Changed dviprint to include dir argument so that it can do
+    cd dir, to ensure that any .eps files are picked up.
+
+    Added ENTER latex2, and ENTER dobib
+      ENTER latex2
+        This runs latex twice in the current .tex file, producing
+        two separate output files. It is useful for fixing tables
+        of contents, new citations based on bibtex, etc.
+
+      ENTER dobib
+        This runs ved_latex, then ved_bibtex then ved_latex2.
+        It produces four separate output files. Do this when you
+        have introduced a new citation, or when you have altered
+        your .bib file and need to run bibtex.
+
+
+Aaron Sloman, March 23 1995
+    Allowed "ps" to be combined with other commands, e.g.
+        ENTER latex print -t landscape ps
+
+Aaron Sloman, Aug 16 1994
+    Changed to use latex209 instead of latex, and introduced
+    ved_latex_command as a default users can change.
+Aaron Sloman, Aug  7 1994
+    Made to print dvips output into a ved file rather than to screen.
+
+Aaron Sloman, Jan 8th 1994
+    fixed latex_quotes to deal with ". and ",
+
+Aaron Sloman, Nov 22 1992
+    Made to jump to end of output file, so that errors can be found
+    easily.
+
+Aaron Sloman, Oct 10 1992
+    Altered to allow ENTER latex print -<flags>
+
+Jun 18 1992
+    Made dviclear do "rm -f"
+
+Jun 18 1992
+    Added ENTER dvi2tty, with documentation in HELP VED_LATEX
+    Added ENTER printdefaults
+    Added ENTER print ps
+
+    Changes due to Richard Dallaway
+        Added ved_bibtex and ENTER latex bibtex
+        Modified latex_clear to include .bbl and .blg
+        Modified HELP VED_LATEX accordingly
+
+May 10th 1992
+
+    Added:
+        LIB * VED_JLP
+        For justifying paragraphs in a latex file
+
+        latex_heading, latex_indexify, latex_g. See section headed
+        "Use with ENTER indexify and ENTER g"
+
+        latex_block, for things like "ENTER latex block tabbing"
+
+        latex_quotes, for getting quote marks right.
+
+        latex_section, for turning current line into a LaTeX
+        \section command
+
+
+-- Further Reading ----------------------------------------------------
+
+See HELP * LATEX
+
+HELP * VED_INDEXIFY
+
+
+--- $poplocal/local/ved_latex/help/ved_latex
+--- Linked to $poplocal/local/help/ved_latex
+
+--- $usepop/pop/packages/vedlatex/help/ved_latex
+--- Copyright University of Birmingham 2008. All rights reserved.

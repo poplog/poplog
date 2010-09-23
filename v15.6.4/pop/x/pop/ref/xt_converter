@@ -1,0 +1,1515 @@
+REF XT_CONVERTER                                 Adrian Howard, Jun 1991
+                          Revised: Jason Handby, Adrian Howard, Sep 1991
+                                        Revised: Adrian Howard, Jul 1993
+
+       COPYRIGHT University of Sussex 1993. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<     RESOURCE CONVERSION     >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This REF  file  describes  the workings  of  resource  converters  which
+provide a mechanism for conversion between different representations  of
+resource values.  It also  documents the  Pop-11 interface  to  resource
+conversion management.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction - Resource Conversion
+
+  2   Format Of TypeConverter Procedures
+
+  3   Problems Converting To "XtR String" Resource Type
+
+  4   Resource Conversion Caching
+
+  5   Problems With Conversion Caching
+
+  6   Format Of Destructor Procedures
+
+  7   Format Of ConvertArgProc Procedures
+
+  8   External Callback
+
+  9   Predefined Resource Converters
+
+ 10   LIB XT_CONVERTER
+      10.1  The XptConvertArgRec Structure
+      10.2  The XptConvertArgPtr Shadowclass
+      10.3  The XptConvertArgList Shadowclass
+      10.4  The XptCacheRef Structure
+      10.5  The XptCacheRefPtr Shadowclass
+      10.6  The XptCacheRefList Shadowclass
+      10.7  Procedures For Registering/Calling Resource Converters
+
+ 11   LIB FAST_XT_CONVERTER
+
+ 12   Miscellaneous
+
+
+
+-------------------------------------
+1  Introduction - Resource Conversion
+-------------------------------------
+
+Resource converters provide a mechanism for conversion between different
+representations of  resource values  Resource converters  serve  several
+purposes:
+
+ #  They allow  a  user  friendly ASCII  representation  of  non-textual
+    resource information. For example, boolean values could be specified
+    by the  strings  'true'  and  'false'  and  be  converted  into  the
+    appropriate internal representation automatically.
+
+ #  Default resources that are dependent  on things like the display  or
+    the colour map can  be represented textually  and then converted  to
+    appropriate values at  run time.
+
+ #  The resource converters  can cache  their results, via a  conversion
+    cache. This means that conversions that involve a lot of computation
+    are only executed once, thus improving program performance.
+
+For more details on resources, see REF * XT_RESOURCE.
+
+
+
+
+-------------------------------------
+2  Format Of TypeConverter Procedures
+-------------------------------------
+
+The main component  of a  resource converter is  the resource  converter
+procedure. This is either an appropriate external procedure, or a Pop-11
+procedure  that  is  coerced  with  the   XptExportTypeConverter(Cached)
+procedures.
+
+External procedures should be external function closures (for detail see
+REF * EXTERNAL), or of the type * XptProcedure. The external  procedures
+should expect  to  be called  in  the  same format  as  the  following C
+function prototype:
+
+        typedef Boolean (*XtTypeConverter)
+            (Display* displayptr, XrmValue* args, Cardinal* num_args,
+             XrmValue* from, XrmValue* to, XtPointer* data
+            );
+
+As with all handling of external  objects in Pop-11, care must be  taken
+with garbage collection (see REF * EXTERNAL_DATA).
+
+A Pop-11 resource converter  procedure p should expect  to be called  as
+follows:
+
+        p(displayptr, args, num_args, from, to, data) -> bool;
+
+The display  pointer displayptr  specifies  the display  connection  the
+conversion is  associated with.  In  Pop-11 it  is  passed as  a  normal
+display  pointer  descriptor,   as  returned  by   * XptImportDisplayPtr
+(* XptDefaultDisplay for example.) The display argument is normally only
+used     to      identify     the      application     context,      via
+* XtDisplayToApplicationContext, when issuing error messages.
+
+The args argument  is an external  pointer class record  pointing to  an
+additional list of arguments supplied  to the procedure. In Pop-11  this
+pointer can be represented  as an XptXrmValueList shadowclass  structure
+(for  details  of  this  structure,  see  REF * XPT_GENERALTYPES).   The
+external pointer can be converted  to an XptXrmValueList structure  with
+the * importXptXrmValueList procedure. The values specified in args  are
+used to supply any additional  context needed to perform the  conversion
+correctly. If no arguments are passed then args will be a null  external
+pointer. For full details of how these arguments are specified, read the
+descriptions of the * XptConvertArgRec and XptConvertArgList  structures
+given below.
+
+num_args represents  the number  of  additional arguments  specified  in
+args. In Pop-11 this is an unsigned 32 bit integer (external  procedures
+are passed a pointer to such a number, not the number itself).
+
+from represents the "source" resource value which needs to be converted.
+It is  passed  as  an  external pointer  class  record  pointing  to  an
+* XptXrmValue structure. This  can be converted  into an  XptXrmValuePtr
+structure  with  the  * importXptXrmValuePtr  procedure.  The  structure
+referred to  by from  contains the  size and  location of  the  "source"
+resource representation. For  details of  XptXrmValuePtr structures  see
+REF * XPT_GENERALTYPES.
+
+The to argument is of the same  type as the from argument and  specifies
+how and  where  the  converted  resource value  is  to  be  stored.  The
+behaviour of the converter  procedure is guided by  the value stored  in
+the structure referred to by from:
+
+  # If the address specified is null, then the converter should allocate
+    its own space to store the converted value. Care must be taken  when
+    doing this  to  ensure  that  the  space  allocated  by  the  Pop-11
+    procedure  will  not  be  garbage  collected  after  the   converter
+    procedure has exited. Any storage allocated by the converter  should
+    remain under its control. It should NOT be altered by the caller  of
+    the converter. The converter procedure is allowed to allocate  space
+    from a  constant  buffer  -  the  caller  of  the  converter  should
+    therefore copy the data immediately after the converter returns.
+
+  # If the size specified  turns out to be  too small for the  converted
+    value the following should occur:
+
+      o The size needed to store the converted value correctly should be
+        placed in  the size  field  (for return  to  the caller  of  the
+        converter).
+
+      o The converter should exit with false to indicate an unsuccessful
+        conversion.
+
+  # If the  address is  non-null  and the  specified  size is  equal  or
+    greater than the  size of  the converted value,  then the  converted
+    value should be be copied to  the location specified by the  address
+    field. If the  size of  the converted value  is less  than the  size
+    specified, then the  size field  should be updated  with the  actual
+    size used.
+
+The final argument is an external pointer to a location that may be used
+by the converter to store any item it wishes. This location is passed to
+a "destructor"  procedure  when  the converted  resource  is  no  longer
+needed. The purpose of destructor procedures is to free any memory  that
+the converter allocated.  Destructor procedures are  explained is  their
+own section further on in this file.
+
+Finally, the converter should return true or false according to  whether
+conversion was successfully  performed. If the  conversion could not  be
+performed due  to an  incorrect  source value,  then a  warning  message
+should    be    issued    (for     example,    with    the     procedure
+* XtDisplayStringConversionWarning).
+
+IMPORTANT NOTE: It is an error for a conversion procedure to return more
+than one result.
+
+Care must be taken when  using Pop-11 resource converter procedures.  It
+must be remembered that the Pop-11  procedure is NOT what is  registered
+with the  intrinsics, the  COERCED  procedure is.  If you  are  coercing
+Pop-11 procedures yourself, you must  ensure that the COERCED  procedure
+does not become garbage  during the lifetime  of the resource  converter
+procedure. This can be done by explicitly keeping track of the  external
+function    closure    returned     by    the    coercion     procedures
+XptExportTypeConverter(Cached) or by supplying  a true hold argument  to
+them.
+
+A couple of comments on writing resource converters. Firstly you  should
+try to ensure that their are at least some values that the converter  is
+guaranteed to operate on.  These can then be  used as sensible  resource
+defaults  (eg,  the   'XtDefaultForeground'  and   'XtDefaultBackground'
+strings that  can can  be  given to  the the  XtR  String to  XtR  Pixel
+converter; see  the  section title  'Predefined  Resource  Converters').
+Also, conversion to intermediate  values can maximise  the usage of  the
+conversion cache. An example would be to implement a string to dimension
+converter   by   a   combination   of   a   string-to-integer   and   an
+integer-to-dimension converter procedure.
+
+
+
+
+----------------------------------------------------
+3  Problems Converting To "XtR String" Resource Type
+----------------------------------------------------
+
+There is  a  problem in  current  toolkit implementations  when  writing
+converter  procedures  which  produce   resource  values  of  the   type
+XtR String. * XptXrmValue structures specify strings in a different  way
+from other vector classes. For other vector types the XptXrmValue  would
+hold the address  of a  pointer to  the vector,  plus the  size of  that
+pointer. For strings the XptXrmValue contains the address of the string,
+rather than a pointer to the address, and the length of the string.
+
+Thus, the XptXrmValue that was passed to the converter to specify  where
+the converted resource should be placed should contain the length of the
+string that would be returned by the converter.
+
+The problem occurs because  the toolkit does not  know what this  length
+will be since the XtR String type describes strings of any length.  This
+means that calls to  such a resource converter  that do not specify  the
+size of the converted resource explicitly will fail due to the incorrect
+size being passed to the converter.
+
+There are two possible solutions:
+
+ #  Call the  converter  explicitly  with  * XtCallConverter  where  you
+    specify the size of the converted resource yourself.
+
+  # Don't use the "XtR String" type!
+
+
+
+
+------------------------------
+4  Resource Conversion Caching
+------------------------------
+
+When a  new resource  converter  is registered,  the  way in  which  the
+conversion cache should  be used when  there are multiple  calls to  the
+converter must be specified.
+
+The way the cache is used is specified by the cachetype argument  passed
+to    the    registration     procedures    * XtSetTypeConverter     and
+* XtAppSetTypeConverter (these procedures are  explained in more  detail
+in the section on LIB * XT_CONVERTER).
+
+The cachetype  can have  one  of six  values  specified by  the  XtCache
+constants specified in INCLUDE * XT_CONSTANTS (see REF * XT_CONSTANTS):
+
+    Cache Type          Specification
+    ----------          -------------
+    * XtCacheNone       Specifies  that  converted   values  are   never
+                        cached. The  resource converter  will be  called
+                        each time the converted value is required.
+
+    * XtCacheAll        Specifies  that   the  result   of  a   resource
+                        conversion should be cached, and reused for  any
+                        conversion request  with the  same source  value
+                        and conversion arguments.
+
+    * XtCacheByDisplay  As  for  *  XtCacheAll,   but  if  the   display
+                        associated with the  converted value is  closed,
+                        then the destructor procedure  (if any) for  the
+                        value will be called,  and the resource  removed
+                        from the conversion cache.
+
+Each of the above values  can be inclusive ORed with  * XtCacheRefCount.
+If XtCacheRefCount is specified  then all calls  which use the  resource
+converter  procedure  increment  a  reference  count  on  the  converted
+resource. When the widget that  called the converter is later  destroyed
+the reference count  is decremented.  When the  reference count  reaches
+zero, the destructor procedure (if  any) associated with the value  will
+be called, and the resource removed from the conversion cache.
+
+When a converter  caches its  results, the  first call  to the  resource
+converter actually calls the converter  procedure and stores the  result
+in the cache. All future calls  to the converter then access the  cached
+value (until the cached value is removed).
+
+Because of the extra memory usage involved in keeping a reference  count
+on converted  resources, it  is possible  to specify  whether  reference
+counting is enabled when a widget  is created, via the boolean  resource
+"XtN initialResourcesPersistent". If this resource is true (the default)
+for a widget  then reference  counting is not  enabled. If  a widget  is
+likely to be destroyed,  and cached resource  values should be  cleared,
+then this resource should be set to true.
+
+There  also  exist  procedures  for  explicitly  decrementing  reference
+counts.    See     the     sections    on     LIB * XT_CONVERTER     and
+LIB * FAST_XT_CONVERTER for more details.
+
+
+
+
+-----------------------------------
+5  Problems With Conversion Caching
+-----------------------------------
+
+The operation  of the  conversion cache  in the  intrinsics is  somewhat
+eccentric under certain conditions, and can cause problems.
+
+The first  problem  occurs  when a  resource  conversion  fails.  Failed
+coercions are cached along with successful ones, so that if a conversion
+on  the  same  resource  is  requested  twice,  false  can  be  returned
+immediately without having to do possible costly calculations twice.
+
+The problem arises when  a failure is caused  by not enough space  being
+allocated for the result, rather than by an incorrect source value.  The
+caching routines  do  not  differentiate  between  these  two  types  of
+failure. The following example demonstrates what can occur:
+
+    1) We have  a converter procedure  CvtFooToBaz which which  converts
+    some resource into a 16 byte integer. This converter also caches its
+    results.
+
+    2) We call CvtFooToBaz with a resource that it can legally  convert,
+    but  we  only  allocate  8  bytes  for  the  result.  The  converter
+    procedure, quite correctly,  fails, updating the  size field of  the
+    output resource value so we know what the size should have been. The
+    failed conversion is cached.
+
+    3) We call CvtFooToBaz with the  same resource again, but this  time
+    with enough space for  the result. Since  the converter has  already
+    been called  with this  resource value  the cache  is examined  and,
+    because the previous  conversion failed, false  is returned This  is
+    unfortunate, since the arguments are correct on this occasion.
+
+The solution to this problem is to either:
+
+    1) Make sure  your program  always allocates the  correct amount  of
+    memory for the converted resource.
+
+    2) For conversion procedures with * XtCacheRefCount set,  explicitly
+    decrement the reference  count for the  resource after a  conversion
+    fails because not enough memory  was allocated. This will cause  the
+    resource to be  removed from the  cache before the  next attempt  at
+    coercion.  The  procedures  for  explicitly  decrementing  reference
+    counts are described in the sections on LIB * XT_CONVERTER.
+
+The second problem with the coercion  cache is also related to the  size
+allocated for  the  converted resource.  This  problem only  applies  to
+releases before X11R5, the problem has been fixed in X11R5.
+
+The problem previous to  X11R5 is that only  the size allocated for  the
+converted resource is used when recovering a cached resource value,  the
+actual size of the value is ignored.  The problem with this can be  seen
+with the following example:
+
+    1) We call the CvtFooToBaz converter with a legal resource value and
+    the converter procedure converts it into a 16 byte integer which  it
+    caches.
+
+    2) The converter is called with the same resource value, but  only 8
+    bytes are  allocated for  the  result. Because  the size  of  cached
+    resource value is ignored, the coercion is successful, but only  the
+    first 8 bytes of the converted value are returned.
+
+The reverse also applies. If you allocate more memory for the  converted
+resource value  than was  actually  needed, you  will get  the  resource
+value, plus some garbage bytes.
+
+The solution to this problem is, again, to make sure your program always
+allocates the correct amount of memory for the converted resource.
+
+
+
+
+----------------------------------
+6  Format Of Destructor Procedures
+----------------------------------
+
+To allow resources allocated by a  type converter procedure to be  freed
+once the  converted value  is  no longer  needed a  resource  destructor
+procedure may be supplied with  each conversion procedure. A  destructor
+procedure  is  either  an  appropriate  external  procedure,  or  Pop-11
+procedure  that   is   coerced   via   the   XptExportDestructor(Cached)
+procedures.
+
+External procedures should  be external function  closures (for  details
+see  REF * EXTERNAL),  or  of  the  type  * XptProcedure.  The  external
+procedure should expect to be called in the same format as the following
+C function prototype:
+
+        typedef void(*XtDestructor)
+            (XtAppContext appcontext, XrmValue* to, XtPointer data,
+             XrmValue* args, Cardinal* num_args
+            );
+
+As with all handling of external  objects in Pop-11, care must be  taken
+with garbage collection (see REF * EXTERNAL_DATA).
+
+A Pop-11 destructor procedure p should expect to be called as follows:
+
+        p(appcontext, to, data, args, num_args);
+
+appcontext specifies the application context that the resource is  being
+freed from. In  Pop-11 this is  passed as a  normal application  context
+descriptor, as would be returned by * XptImportApplicationContext (eg.
+* XptCurrentAppContext.)
+
+The to argument describes the resource value, returned by the  converter
+procedure, which is  to be freed.  It is passed  as an external  pointer
+class record pointing to an XptXrmValue structure. This can be converted
+into  an  * XptXrmValuePtr  structure  with  the  * importXptXrmValuePtr
+procedure.
+
+data is  an external  pointer to  the  location that  was given  to  the
+converter to store its own information. This location might contain, for
+example, a pointer to  a buffer used  by the converter  that can now  be
+freed.
+
+args and num_args specify any  additional arguments that were passed  to
+the converter procedure. They are passed in the same way as the args and
+num_args arguments passed to converter procedures.
+
+IMPORTANT NOTE: It is  an error for a  destructor procedure to  return a
+result on the stack.
+
+Care must be taken when using  Pop-11 destructor procedures. It must  be
+remembered that the Pop-11 procedure is NOT what is registered with  the
+intrinsics, the  COERCED  procedure  is.  If  you  are  coercing  Pop-11
+procedures yourself, you must ensure that the COERCED procedure does not
+become garbage during the lifetime of the destructor procedure. This can
+be done by  explicitly keeping  track of the  external function  closure
+returned by the  coercion procedures  XptExportDestructor(Cached) or  by
+supplying a true hold argument to them.
+
+
+
+
+--------------------------------------
+7  Format Of ConvertArgProc Procedures
+--------------------------------------
+
+There is  another  type  of  procedure  used  in  specifying  additional
+arguments to resource conversion procedures. See the description of  the
+XptConvertArgPtr shadowclass  record  (later on  in  this file)  for  an
+explanation of where  these procedures are  used. A conversion  argument
+procedure is  either  an appropriate  external  procedure, or  a  Pop-11
+procedure that has been coerced with the XptExportConvertArgProc(Cached)
+procedures.
+
+External procedures should  be external function  closures (for  details
+see  REF * EXTERNAL),  or  of  the  type  * XptProcedure.  The  external
+procedure should expect to be called in the same format as the following
+C function prototype:
+
+        typedef void(*XtConvertArgProc)
+            (Widget object, Cardinal* size, XrmValue* value);
+
+As with all handling of external  objects in Pop-11, care must be  taken
+with garbage collection (see REF * EXTERNAL_DATA).
+
+A Pop-11 conversion argument procedure p  should expect to be called  as
+follows:
+
+        p(object, size, value);
+
+object is  the widget  for which  the resource  is being  converted.  In
+Pop-11 this  is  passed as  a  normal  widget descriptor,  as  would  be
+returned by  * XptImportWidget.  object  will be  false  (null)  if  the
+converter was  not invoked  by  a resource  request  for a  widget  (for
+example, if it was called by * XtCallConverter).
+
+size is the size of the data  object that the item should return.  (This
+will be taken from  the size field  of the * XptConvertArgRec  structure
+containing the ConvertArgProc procedure.)
+
+value the location where the procedure should store the address and size
+of the conversion  argument it  produces. It  is passed  as an  external
+pointer class  record  pointing  to  an  * XptXrmValue  structure.  This
+pointer can  be  converted into  an  XptXrmValuePtr structure  with  the
+* importXptXrmValuePtr procedure.
+
+IMPORTANT NOTES:
+
+  o The Intrinsics do NOT guarantee to copy the data pointed to by value
+    after the procedure has exited. You must ensure that the data is not
+    moved or destroyed by a garbage  collection during the time it  will
+    be used.  This will  normally  be the  lifetime  of object,  or  the
+    lifetime of the resource with  which the output conversion  argument
+    is associated.
+
+  o It is an error for conversion argument procedures to return a result
+    on the stack.
+
+Care must be taken when using Pop-11 conversion argument procedures.  It
+must be remembered that the Pop-11  procedure is NOT what is  registered
+with the  intrinsics, the  COERCED  procedure is.  If you  are  coercing
+Pop-11 procedures yourself, you must  ensure that the COERCED  procedure
+does not become garbage during  the lifetime of the conversion  argument
+procedure. This can be done by explicitly keeping track of the  external
+function    closure    returned     by    the    coercion     procedures
+XptExportConvertArgProc(Cached) or by supplying a true hold argument  to
+them.
+
+
+
+
+--------------------
+8  External Callback
+--------------------
+
+Since Pop-11  Destructor, TypeConverter,  and ConvertArgProc  procedures
+are called from outside  Poplog they use  a special "external  callback"
+mechanism. This is explained in  REF * XT_CALLBACK. You should read  the
+following sections  from  REF * XT_CALLBACK  if you  have  not  done  so
+already:
+
+     o  Overview - External Callbacks
+     o  Generic External Callbacks Under The Poplog X Interface
+     o  Possible Problems With Default External Callback Coercion
+
+
+
+
+---------------------------------
+9  Predefined Resource Converters
+---------------------------------
+
+There exist a set of predefined resource converters that can be used  by
+all user programs. They allow  the following resource conversions to  be
+performed.
+
+    (a) Conversions from XtR String resource types:
+
+    --------------------------------------------------------------------
+    |          FROM          ||                   TO                   |
+    |------------------------||----------------------------------------|
+    |            |           ||                      |                 |
+    |  Resource  | Resource  ||       Resource       |    Resource     |
+    |    Type    |   Value   ||         Type         |      Value      |
+    |------------+-----------||----------------------+-----------------|
+    | XtR String | XptString || XtR AcceleratorTable | XptAccelerators |
+    | XtR String | XptString || XtR Atom             | XptAtom         |
+    | XtR String | XptString || XtR Bool             | XptBoolean      |
+    | XtR String | XptString || XtR Boolean          | XptBoolean      |
+    | XtR String | XptString || XtR Cursor           | XptCursor       |
+    | XtR String | XptString || XtR Dimension        | XptDimension    |
+    | XtR String | XptString || XtR Display          | XptDisplayPtr   |
+    | XtR String | XptString || XtR File             | FILE *          |
+    | XtR String | XptString || XtR Float            | XptFloat        |
+    | XtR String | XptString || XtR Font             | XptFont         |
+    | XtR String | XptString || XtR FontStruct       | :XFontStruct    |
+    | XtR String | XptString || XtR InitialState     | XptInt          |
+    | XtR String | XptString || XtR Int              | XptInt          |
+    | XtR String | XptString || XtR Pixel            | XptPixel        |
+    | XtR String | XptString || XtR Position         | XptPosition     |
+    | XtR String | XptString || XtR Short            | XptShort        |
+    | XtR String | XptString || XtR TranslationTable | XptTranslations |
+    | XtR String | XptString || XtR UnsignedChar     | XptUnsignedChar |
+    | XtR String | XptString || XtR Visual           | XptVisual       |
+    --------------------------------------------------------------------
+
+    (b) Conversion from XIDs and integer resource types:
+
+    --------------------------------------------------------------------
+    |          FROM          ||                   TO                   |
+    |------------------------||----------------------------------------|
+    |            |           ||                      |                 |
+    |  Resource  | Resource  ||       Resource       |    Resource     |
+    |    Type    |   Value   ||         Type         |      Value      |
+    |------------+-----------||----------------------+-----------------|
+    | XtR Color  | XptColor  || XtR Pixel            | XptPixel        |
+    | XtR Int    | XptInt    || XtR Bool             | XptBoolean      |
+    | XtR Int    | XptInt    || XtR Boolean          | XptBoolean      |
+    | XtR Int    | XptInt    || XtR Color            | XptColor        |
+    | XtR Int    | XptInt    || XtR Dimension        | XptDimension    |
+    | XtR Int    | XptInt    || XtR Float            | XptFloat        |
+    | XtR Int    | XptInt    || XtR Font             | XptFont         |
+    | XtR Int    | XptInt    || XtR Pixel            | XptPixel        |
+    | XtR Int    | XptInt    || XtR Pixmap           | XptPixmap       |
+    | XtR Int    | XptInt    || XtR Position         | XptPosition     |
+    | XtR Int    | XptInt    || XtR Short            | XptShort        |
+    | XtR Int    | XptInt    || XtR UnsignedChar     | XptUnsignedChar |
+    | XtR Pixel  | XptPixel  || XtR Color            | XptColor        |
+    --------------------------------------------------------------------
+
+The resource types give  above are specified with  the XtR macro.  For a
+full list of resource types see REF * XT_RESOURCE.
+
+The XtR String to XtR AcceleratorTable  converter takes a string in  the
+same format as  that taken by  * XtParseAcceleratorTable and returns  an
+* XptAccelerators structure. For more information see REF * XT_TRANS.
+
+The XtR String to XtR Atom converter takes a string and converts it into
+an atom (creating the atom if it doesn't already exist).
+
+The XtR String to XtR Bool or XtR Boolean converters convert the strings
+'true', 'yes', 'on', and  '1' to true values,  and the strings  'false',
+'off', 'no', and  '0' to false.  The strings are  case insensitive  (ie,
+'true' == 'TRUE' == 'TrUe' == true).
+
+The XtR String to XtR Cursor converter takes a cursor name and  converts
+it into an  * XptCursor id.  The cursor name  is one  of the  standard X
+cursor glyph names with the 'XC_' prefix removed, ie one of:
+
+         X_cursor            arrow                based_arrow_down
+         based_arrow_up      boat                 bogosity
+         bottom_left_corner  bottom_right_corner  bottom_side
+         bottom_tee          box_spiral           center_ptr
+         circle              clock                coffee_mug
+         cross               cross_reverse        crosshair
+         diamond_cross       dot                  dotbox
+         double_arrow        draft_large          draft_small
+         draped_box          exchange             fleur
+         gobbler             gumby                hand1
+         hand2               heart                icon
+         iron_cross          left_ptr             left_side
+         left_tee            leftbutton           ll_angle
+         lr_angle            man                  middlebutton
+         mouse               pencil               pirate
+         plus                question_arrow       right_ptr
+         right_side          right_tee            rightbutton
+         rtl_logo sailboat   sb_down_arrow        sb_h_double_arrow
+         sb_left_arrow       sb_right_arrow       sb_up_arrow
+         sb_v_double_arrow   shuttle              sizing
+         spider              spraycan             star
+         target              tcross               top_left_arrow
+         top_left_corner     top_right_corner     top_side
+         top_tee             trek ul_angle        umbrella
+         ur_angle watch      xterm
+
+The XtR String to XtR Display converter takes a display name string (eg,
+'fribble:0.0'), opens  the  specified  display, and  returns  a  display
+pointer.
+
+The XtR String to XtR File  converter takes a  filename and returns  a C
+file pointer. There exists no direct support for handling file  pointers
+in Poplog. It is possible to use the pointer with external C  procedures
+via the Pop-11  external mechanisms. See  REF * EXTERNAL for details  of
+using C procedures from Pop-11.
+
+The XtR String to XtR Font or XtR FontStruct converters take font  names
+and return the appropriate structures  (loading the font if  necessary).
+They also recognise  the string  'XtDefaultFont' which  is evaluated  as
+follows:
+
+  o First the resource database  is queried for a  resource with a  full
+    name of  'xtDefaultFont' and  a class  of 'XtDefaultFont'.  If  this
+    returns a string, use it as the  font name to convert. If the  value
+    of the resource  is not a  string, it should  be an * XptFont,  or a
+    pointer to an * XFontStruct, as appropriate.
+
+  o If the resource  value cannot be  found, or the  returned font  name
+    cannot be  opened,  an  implementation  defined  font  in  ISO8859-1
+    character set encoding is opened.
+
+  o If no ISO8859-1 can be opened, give an error message.
+
+The XtR String to  XtR InitialState converts  the strings  'NormalState'
+and 'IconicState' to the values indicating whether the application wants
+to start up normally or iconified.
+
+The XtR String  to XtR Pixel  converter  takes a  string  representing a
+color and converts it  into an appropriate pixel  value. The string  can
+either be the name of a colour (eg, 'red') or an RGB specification  (eg,
+'#ff00ff'), see HELP * XCOLOURS for details. The converter is guaranteed
+to always work  when given either  of the strings  'XtDefaultBackground'
+and 'XtDefaultForeground'. Running the converter with these values  will
+return two contrasting colours (not necessarily black and white).
+
+The XtR String to XtR TranslationTable converter  takes a string in  the
+same format as  that taken by  * XtParseTranslationTable and returns  an
+* XptTranslations structure. For more information see REF * XT_TRANS.
+
+The XtR String to XtR Visual converter returns the first visual that can
+be located that  matches the  type specified  by the  given string.  The
+allowed string  values  are  'StaticGray',  'StaticColor',  'TrueColor',
+'GrayScale', 'PseudoColor', and 'DirectColor'. When multiple visuals  of
+the same type exist, it is undefined which one will be returned.
+
+
+
+
+--------------------
+10  LIB XT_CONVERTER
+--------------------
+
+The library  LIB * XT_CONVERTER provides  the  Pop-11 interface  to  the
+various  X  Toolkit  convenience   routines  for  registering   resource
+converters. The library LIB * FAST_XT_CONVERTER (loaded automatically by
+LIB * XT_CONVERTER) provides a non-type  checking interface to the  same
+procedures.
+
+For more information on  the types of the  arguments and results of  the
+following procedures, see REF * XPT_TYPES.
+
+For more details of resource conversion see section 9.6 of:
+
+               X Toolkit Intrinsics - C Language Interface
+                             X Window System
+                         X Version 11, Release 4
+
+        Copyright (C)  1985,  1986,  1987,  1988,  Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+
+10.1  The XptConvertArgRec Structure
+------------------------------------
+LIB * XT_CONVERTER provides support for the * XptConvertArgRec structure
+with the two shadowclasses XptConvertArgPtr and XptConvertArgList. These
+represent pointers to single and multiple instances of  XptConvertArgRec
+structures.   See    REF * XPT_GENERALTYPES   for    details   of    the
+XptConvertArgRec typespec.
+
+XptConvertArgRec structures  are  used  to specify  extra  arguments  to
+resource conversion  procedures. A  list of  these structures  (see  the
+XptConvertArgList shadowclass)  is given  when a  resource converter  is
+registered. Before the converter is invoked the values in this list  are
+used to create  an XptXrmValueList containing  any additional  arguments
+the converter  may  need.  Each  XptConvertArgRec  structure  has  three
+fields:
+
+ #  The * XptCVRSize field  specifies the  size (in bytes)  of the  data
+    referred to by * XptCVRAddressId field of the structure.
+
+ #  The * XptCVRAddressMode  field contains  an integer  that  specifies
+    what is represented in the * XptCVRAddressId field of the structure.
+    The  appropriate  values  for  XptCVRAddressMode  are  provided   as
+    constant  macros   in   INCLUDE   *   XT_CONSTANTS.PH   (see   REF *
+    XT_CONSTANTS). The constants,  and their associated  interpretations
+    are:
+
+        * XtAddress
+            Specifies that the XptCVRAddressId  field is the address  of
+            the data.
+
+        * XtImmediate
+            Specifies that the contents of the XptCVRAddressId field  is
+            used as the data.
+
+        * XtResourceString
+            Specifies that the XptCVRAddressId  field is a pointer  to a
+            resource name represented as a null-terminated string.  When
+            the converter is invoked by a resource request for a widget,
+            the value of the specified resource for that widget is  then
+            used as the value of the data.
+
+        * XtResourceQuark
+            As for * XtResourceString,  except that the  XptCVRAddressId
+            should contain  a  quark  representing  the  resource  name,
+            rather than a string.
+
+        * XtBaseOffset
+            The XptCVRAddressId field  is the offset  (in bytes) of  the
+            data from the base of the widget structure. The byte  offset
+            can  be  found  by   using  the  * FIELDOFFSET  macro   (see
+            REF * XPT_WIDGETTYPES).
+
+        * XtWidgetBaseOffset
+            Similar to * XtBaseOffset, except  that it searches for  the
+            closest windowed ancestor if the object is not a subclass of
+            Core enabling it to be used with gadgets and objects.
+
+        * XtProcedureArg
+            Specifies that  the XptCVRAddressId  field should  contain a
+            ConvertArgProc as  described  in  a  previous  section.  The
+            * XptXrmValue pointer  that the  procedure returns  is  then
+            used as the data.
+
+    The * XptCVRAddressId field  contains the data  as specified by  the
+    * XptCVRAddressMode field.
+
+
+
+10.2  The XptConvertArgPtr Shadowclass
+--------------------------------------
+initXptConvertArgPtr() -> convertargptr                      [procedure]
+        Creates a new instance of an XptConvertArgPtr shadowclass record
+        which points  to an  * XptConvertArgRec containing  zero in  its
+        * XptCVRSize and * XptCVRAddressMode fields, and a null  pointer
+        in its * XptCVRAddressId field.
+
+
+fillXptConvertArgPtr(mode, id, size, convertargptr)          [procedure]
+                     -> convertargptr
+        Takes an XptConvertArgPtr  shadowclass record convertargptr  and
+        updates the * XptConvertArgRec structure it points to, returning
+        convertargptr.
+
+        The * XptCVRAddressMode of the XptConvertArgRec is set to  mode,
+        the * XptCVRAddressId field to id, and the * XptCVRSize field to
+        size. size  and  mode  should  be  integers.  id  should  be  an
+        * XptPointer.
+
+
+consXptConvertArgPtr(mode, id, size) -> convertargptr        [procedure]
+        Constructs an instance of an XptConvertArgPtr shadowclass record
+        which    points    to    an    * XptConvertArgRec    with     an
+        * XptCVRAddressMode field of mode, an * XptCVRAddressId field of
+        id, and an * XptCVRSize field of  size. size and mode should  be
+        integers. id should be an * XptPointer.
+
+
+destXptConvertArgPtr(convertargptr) -> (mode, id, size)      [procedure]
+        Returns    the    * XptCVRAddressMode     field    mode,     the
+        * XptCVRAddressId field id, and  the * XptCVRSize field size  of
+        the   * XptConvertArgRec   structure    pointed   to   by    the
+        XptConvertArgPtr shadowclass record convertargptr.
+
+
+XptCVRAddressMode(convertargptr) -> int                      [procedure]
+int ->  XptCVRAddressMode(convertargptr)
+        Accesses  or  updates   the  XptCVRAddressMode   field  of   the
+        * XptConvertArgRec structure  pointed  to by  convertargptr  (an
+        XptConvertArgPtr shadowclass structure).
+
+
+XptCVRAddressId(convertargptr) -> xptpointer                 [procedure]
+xptpointer -> XptCVRAddressId(convertargptr)
+        Accesses  or   updates   the  XptCVRAddressId   field   of   the
+        * XptConvertArgRec structure  pointed  to by  convertargptr  (an
+        XptConvertArgPtr shadowclass structure).
+
+
+XptCVRSize(convertargptr) -> int                             [procedure]
+int -> XptCVRSize(convertargptr)
+        Accesses   or   updates    the   XptCVRSize    field   of    the
+        * XptConvertArgRec structure  pointed  to by  convertargptr  (an
+        XptConvertArgPtr shadowclass structure).
+
+
+isXptConvertArgPtr(item) -> bool                             [procedure]
+        Checks to see  whether item  is an instance  of the  shadowclass
+        XptConvertArgPtr, and returns true or false accordingly.
+
+
+importXptConvertArgPtr(exptrclass) -> convertargptr          [procedure]
+        Takes  an  external   pointer  class  record   pointing  to   an
+        * XptConvertArgRec structure, and  returns the  XptConvertArgPtr
+        shadowclass record referring to that same structure (creating it
+        if necessary.)
+
+
+refreshXptConvertArgPtr(convertargptr) -> convertargptr      [procedure]
+        Refreshes     the     XptConvertArgPtr    shadowclass     record
+        convertargptr from  its external  representation, returning  the
+        refreshed  record.   See   REF * SHADOWCLASS  for   details   of
+        refreshing shadowclass records.
+
+        IMPORTANT NOTE: Refreshing convertargptr  will cause it to  lose
+        reference to any Pop-11 objects it contains. Separate references
+        to Pop-11 objects will need to be kept if they are not to become
+        garbage.
+
+
+XptConvertArgPtr_shadowkey -> shkey                           [constant]
+        Holds the shadowkey  for the  shadowclass XptConvertArgPtr.  For
+        more details of shadowkeys, see REF * SHADOWCLASS.
+
+
+
+10.3  The XptConvertArgList Shadowclass
+---------------------------------------
+All     XptConvertArgList     shadowclass     records     have     their
+* external_ptr_props set to the constant * XDT_CONVERTARGLIST to  enable
+"weak" type checking.  See REF * XptDescriptor  and REF  * XPT_CONSTANTS
+for more details.
+
+
+initXptConvertArgList(n) -> convertarglist                   [procedure]
+        Construct     an      XptConvertArgList     consisting      of n
+        * XptConvertArgRec  structures.   Each   XptConvertArgRec   will
+        contain zero * XptCVRAddressMode  and * XptCVRSize fields  and a
+        null * XptCVRAddressId field.
+
+
+fillXptConvertArgList(convertargptr_1, ..., convertargptr_n, [procedure]
+                      convertarglist) -> convertarglist
+        Copies  the  contents  of  the  * XptConvertArgRec   structures,
+        pointed   to   by   the   n   XptConvertArgPtr   records,   into
+        convertarglist.  convertarglist,  with  its  new  contents,   is
+        returned as  the result.  convertarglist must  be an  n  element
+        XptConvertArgList shadowclass structure.
+
+
+consXptConvertArgList(convertargptr_1, ..., convertargptr_n, [procedure]
+                      n) -> convertarglist
+        Construct an n  element XptConvertArgList shadowclass  structure
+        by copying  the contents  of the  * XptConvertArgRec  structures
+        pointed to by the top n elements of the stack (which all must be
+        XptConvertArgPtr shadowclass records).
+
+
+destXptConvertArgList(convertarglist) -> (convertargptr_1,   [procedure]
+                      ..., convertargptr_n)
+        This procedure  returns  an XptConvertArgPtr  record  for  every
+        * XptConvertArgRec structure in convertarglist, plus the  number
+        of structures n  in that  list. convertarglist is  an n  element
+        XptConvertArgList structure.
+
+        NOTE: The XptConvertArgPtr structures  returned refer to  COPIES
+        of the  items  in  convertarglist,  not  the  items  themselves.
+        Changing convertargptr_X  will  NOT  alter  convertarglist.  See
+        REF * SHADOWCLASS for a more detailed explanation.
+
+
+subscrXptConvertArgList(n, convertarglist) -> convertargptr  [procedure]
+convertargptr -> subscrXptConvertArgList(n, convertarglist)
+        Returns an  XptConvertArgPtr record  convertargptr for  the  Nth
+        * XptConvertArgRec   structure    in    the    XptConvertArgList
+        convertarglist.
+
+        NOTE: convertargptr refers to  a COPY of the  * XptConvertArgRec
+        in  convertarglist.  Changing   convertargptr  will  NOT   alter
+        convertarglist.  See  REF * SHADOWCLASS  for  a  more   detailed
+        explanation.
+
+
+isXptConvertArgList(item) -> bool                            [procedure]
+        Checks to see  whether item  is an instance  of the  shadowclass
+        XptConvertArgList, and returns true or false accordingly.
+
+
+importXptConvertArgList(exptrclass, n) -> convertarglist     [procedure]
+        Takes an external pointer class record pointing to a series of n
+        * XptConvertArgRec structures, and returns the XptConvertArgList
+        referring to those same structures (creating it if necessary).
+
+
+refreshXptConvertArgList(convertarglist) -> convertarglist   [procedure]
+        "Refreshes"   the   XptConvertArgList   shadowclass    structure
+        convertarglist from its  external representation, returning  the
+        refreshed  structure.  See  REF * SHADOWCLASS  for  details   of
+        refreshing Pop-11 representations from external representations.
+
+        IMPORTANT NOTE: Refreshing convertarglist will cause it to  lose
+        reference to any Pop-11 objects it contains. Separate references
+        will need to be kept if the objects are not to become garbage.
+
+
+XptConvertArgList_shadowkey -> shkey                          [constant]
+        Holds the shadowkey for  the shadowclass XptConvertArgList.  For
+        more details of shadowkeys see REF * SHADOWCLASS.
+
+
+
+10.4  The XptCacheRef Structure
+-------------------------------
+* XptCacheRef records  are used  to  keep a  reference count  on  cached
+resource conversions when the * XtCacheRefCount option is specified (see
+the section on 'Resource Conversion Caching').
+
+LIB * XT_CONVERTER provides support for  the XptCacheRef structure  with
+the  two   shadowclasses  XptCacheRefPtr   and  XptCacheRefList.   These
+represent pointers  to  single  and multiple  instances  of  XptCacheRef
+structures. See REF * XPT_GENERALTYPES  for details  of the  XptCacheRef
+typespec.
+
+All XptCacheRef  records  have  their * external_ptr_props  set  to  the
+constant * XDT_CACHEREF (see REF * XPT_CONSTANTS) to enable "weak"  type
+checking. See REF * XptDescriptor for more details.
+
+
+
+10.5  The XptCacheRefPtr Shadowclass
+------------------------------------
+All XptCacheRefPtr shadowclass  records have their  * external_ptr_props
+set to  the  constant  * XDT_CACHEREFPTR  (see  REF * XPT_CONSTANTS)  to
+enable "weak" type checking. See REF * XptDescriptor for more details.
+
+
+initXptCacheRefPtr() -> cacherefptr                          [procedure]
+        Returns a new  instance of the  XptCacheRefPtr shadowclass  that
+        points to a false (null) * XptCacheRef structure.
+
+
+fillXptCacheRefPtr(cacheref, cacherefptr) -> cacherefptr     [procedure]
+        Takes an  instance  of  the  XptCacheRefPtr  shadowclass  record
+        cacherefptr, updates it to point to the * XptCacheRef  cacheref,
+        and returns the updated cacherefptr record.
+
+
+consXptCacheRefPtr(cacheref) -> cacherefptr                  [procedure]
+        Construct a new XptCacheRefPtr shadowclass record that points to
+        the * XptCacheRef cacheref.
+
+
+destXptCacheRefPtr(cacherefptr) -> cacheref                  [procedure]
+        Returns  the   * XptCacheRef   cacheref  pointed   to   by   the
+        XptCacheRefPtr record cacherefptr.
+
+
+isXptCacheRefPtr(item) -> bool                               [procedure]
+        Returns true  if  item  is an  instance  of  the  XptCacheRefPtr
+        shadowclass, false otherwise.
+
+
+importXptCacheRefPtr(exptrclass) -> cacherefptr              [procedure]
+        Takes an  external  pointer  class  record  that  points  to  an
+        * XptCacheRef structure,  and returns  the shadowclass  instance
+        referring to that structure (creating it if necessary).
+
+
+refreshXptCacheRefPtr(cacherefptr) -> cacherefptr            [procedure]
+        "Refreshes" the XptCacheRefPtr shadowclass structure cacherefptr
+        from  its  external  representation,  returning  the   refreshed
+        structure.  See  REF * SHADOWCLASS  for  details  of  refreshing
+        Pop-11 representations from external representations.
+
+
+XptCacheRefPtr_shadowkey -> shkey                             [constant]
+        The  shadowkey  for  XptCacheRefPtr  shadowclass  records.   See
+        REF * SHADOWCLASS for more details.
+
+
+
+10.6  The XptCacheRefList Shadowclass
+-------------------------------------
+All XptCacheRefList shadowclass records have their  * external_ptr_props
+set to  the  constant * XDT_CACHEREFLIST  (see  REF * XPT_CONSTANTS)  to
+enable "weak" type checking. See REF * XptDescriptor for more details.
+
+
+initXptCacheRefList(n) -> cachereflist                       [procedure]
+        Construct an  n element  XptCacheRefList shadowclass  structure,
+        consisting of n false (null) * XptCacheRef records.
+
+
+fillXptCacheRefList(cacheref_1, ..., cacheref_n,             [procedure]
+                cachereflist) -> cachereflist
+        Takes  an  n   element  XptCacheRefList  shadowclass   structure
+        cachereflist, fills it with  the top n  elements from the  stack
+        (which  all   must  be   * XptCacheRef  records)   and   returns
+        cachereflist  as   the   result.  These   lists   are   normally
+        null-terminated, which means that cacheref_n should normally  be
+        false (null).
+
+
+consXptCacheRefList(cacheref_1, ..., cacheref_n, n)          [procedure]
+                -> cachereflist
+        Construct an XptCacheRefList shadowclass structure from the  top
+        n elements  of  the  stack,  which  all  must  be  * XptCacheRef
+        records. These lists are  normally null-terminated, which  means
+        that cacheref_n should normally be false.
+
+
+destXptCacheRefList(cachereflist)                            [procedure]
+                -> (cacheref_1, ..., cacheref_n, n)
+        Puts  all  the  * XptCacheRef  records  in  the  XptCacheRefList
+        cachereflist onto the stack, together with its length n.
+
+
+subscrXptCacheRefList(n, cachereflist) -> cacheref           [procedure]
+cacheref -> subscrXptCacheRefList(n, cachereflist)
+        Return or update  the nth * XptCacheRef  record cacheref of  the
+        XptCacheRefList shadowclass structure cachereflist.
+
+
+isXptCacheRefList(item) -> bool                              [procedure]
+        Returns true  if  item  is an  instance  of  an  XptCacheRefList
+        shadowclass structure.
+
+
+importXptCacheRefList(exptrclass, n) -> cachereflist         [procedure]
+        Takes an external pointer class record pointing to a series of n
+        * XptCacheRef  structures,  and   returns  the   XptCacheRefList
+        referring to those same structures (creating it if necessary).
+
+
+refreshXptCacheRefList(cachereflist) -> cachereflist         [procedure]
+        "Refreshes"   the    XptCacheRefList    shadowclass    structure
+        cachereflist from  its  external representation,  returning  the
+        refreshed  structure.  See  REF * SHADOWCLASS  for  details   of
+        refreshing Pop-11 representations from external representations.
+
+
+XptCacheRefList_shadowkey -> shkey                            [constant]
+        The shadowkey  for XptCacheRefList  shadowclass structures.  See
+        REF * SHADOWCLASS for more details.
+
+
+
+10.7  Procedures For Registering/Calling Resource Converters
+------------------------------------------------------------
+XtDisplayStringConversionWarning(displayptr, from, to)       [procedure]
+        This is a convenience procedure for issuing warnings in resource
+        conversion procedures that  convert from strings  to some  other
+        representation. The  procedure issues  a warning  with the  name
+        "conversionError",    the    type     "string",    the     class
+        "XtToolkitError", and the default  message "Cannot convert  from
+        to type  to". displayptr  specifies the  display connection  the
+        conversion  is  associated  with.   from  and  to  are   strings
+        representing the  value that  could not  be converted,  and  the
+        target representation type requested.
+
+
+XtSetTypeConverter(from, to, widentproc, convertarglist,     [procedure]
+                   num_args, cachetype, destructor)
+        This procedure  registers  a  type converter  procedure  in  all
+        application contexts created from Poplog, including any that may
+        be created in the future.
+
+        from is a string representing the source type of the  converter,
+        to is  a  string  representing the  destination  type  that  the
+        converter procedure  will  produce. These  strings  are  usually
+        specified with the * XtR macro, eg XtR String.
+
+        widentproc is  a type  conversion  procedure as  described  in a
+        previous section.
+
+        If the converter is passed as a Pop-11 word, procedure, or ident
+        it is coerced  automatically into an  external function  closure
+        with the * XptExportTypeConverterCached procedure. When this  is
+        done the procedure is added to the fixed hold list to prevent it
+        getting garbage  collected.  If  you ever  wish  to  remove  the
+        procedure from the  fixed hold  list (eg,  after destroying  the
+        application context  the  converter was  registered  with),  use
+        * free_fixed_hold. For more details of the fixed hold list,  see
+        REF * EXTERNAL.
+
+        convertarglist is  an  XptConvertArgList  shadowclass  structure
+        that specifies  any  additional  arguments needed  by  the  type
+        converter. For details of the format of this structure, see  the
+        sections   on   the   XptConvertArgPtr   and   XptConvertArgList
+        structures above. A value of false for convertarglist  indicates
+        that no extra arguments are needed.
+
+        num_args is  the  number of  items  in convertarglist,  zero  if
+        convertarglist is false.
+
+        cachetype is an  integer specifying how  the converted  resource
+        values  should  be  cached.  Details  of  the  values  that  are
+        permissible for  cachetype  can  be  found  in  the  section  on
+        'Resource Conversion Caching'.
+
+        destructor is a destructor procedure for the type converter,  as
+        described in a previous section. If the destructor is passed  as
+        a Pop-11 procedure, it is coerced automatically into an external
+        function   closure    (with   the    * XptExportDestructorCached
+        procedure) and added to the fixed  hold list. It can be  removed
+        from  the  fixed  hold   list  with  * free_fixed_hold.  If   no
+        destructor procedure is needed, destructor  can have a value  of
+        false.
+
+        If the same  from and  to type  are specified  in two  different
+        calls to the procedure, the most recent converter overrides  the
+        previous one.
+
+
+XtAppSetTypeConverter(appcontext, from, to, widentproc,      [procedure]
+                      convertarglist, num_args, cachetype, destructor)
+        As for * XtSetTypeConverter, but registers a type converter in a
+        single application context appcontext only.
+
+
+XtCallConverter(displayptr, widentproc, args, cardinal,      [procedure]
+                source, destination, cacherefptr) -> bool
+        Explicitly invoke a particular resource converter.
+
+        displayptr  specifies  the  display  the  conversion  is  to  be
+        associated with.
+
+        widentproc  is  the   converter  procedure   for  the   resource
+        conversion,  as  would  be  passed  to  * XtSetTypeConverter  or
+        * XtAppSetTypeConverter.
+
+        args is  an  XptXrmValueList  shadowclass  structure  of  length
+        cardinal. args and  cardinal will  be passed  to the  conversion
+        procedure referred to by widentproc as its additional arguments.
+        If no additional arguments are  needed args can be specified  as
+        false.
+
+        source is an  XptXrmValuePtr shadowclass  record that  specifies
+        the size and location of the value to be converted (in the  size
+        and address  fields of  the * XptXrmValue  record source  points
+        to).
+
+        destination  is  an   XptXrmValuePtr  shadowclass  record   that
+        specifies the size available for the converted resource, and the
+        location in which it should be  placed (in the size and  address
+        fields of the * XptXrmValue  record destination points to).  The
+        converted    resource    can     be    recovered    by     using
+        * refreshXptXrmValuePtr on destination after the call.
+
+        The final cacherefptr argument is used when converted  resources
+        are being  cached, it  relates  to the  reference count  on  the
+        cached  resource  (see  the  section  on  'Resource   Conversion
+        Caching'). If the * XptCacheRef  record returned in  cacherefptr
+        is non-false then it should be stored by the caller so that  the
+        reference count on the cached  resource can be decremented  when
+        it is no  longer required.  cacherefptr should  be specified  as
+        false if  the  caller is  unable,  or unwilling,  to  store  the
+        returned value.  The  returned  status  of  cacherefptr  can  be
+        recovered by using * refreshXptCacheRefPtr after the call.
+
+        The value  returned by  XtCallConverter depends  on whether  the
+        converter has a previously cached result. If the converter  does
+        have a previously cached result for the resource value specified
+        by source then:
+
+         #  If the cached conversion succeeded, but not enough space was
+            specified in  destination  for  the  converted  value,  then
+            return false and update the size field of the  * XptXrmValue
+            record pointed to by destination with the correct value.
+
+            IMPORTANT NOTE: this only applies to X11R5 or later (see the
+            section 'Problems With Conversion Caching').
+
+         #  Otherwise, if  the cached  conversion succeeded,  place  the
+            cached result in the  location specified by destination  and
+            return true.
+
+            If the specified location is  null, then it will be  altered
+            to point to  some private storage  containing the  converted
+            value. The caller  must NOT alter  this storage, and  should
+            copy the information it contains  as soon as the  conversion
+            has been completed.
+
+          o If the cached conversion failed, return false.
+
+        If the converter does not  have a previously cached result  then
+        the appropriate resource converter is called.
+
+          o If the conversion fails, return false.
+
+          o If the conversion succeeds, place the result in the location
+            specified by destination and return true. If the specified
+            location is null, then it will be altered to point to some
+            private storage containing the converted value. The caller
+            must NOT alter this storage, and should copy the information
+            it contains as soon as the conversion has been completed.
+
+          o If the location specified by destination is not large enough
+            for the converted value the size field of destination is
+            updated with a value that is large enough, and false is
+            returned.
+
+        If the resource caches its  results, the success/failure of  the
+        converter call will be cached (see the section on 'Problems With
+        Conversion Caching').
+
+
+XtConvertAndStore(widget, from, source, to, destination)     [procedure]
+                  -> bool
+        This procedure performs a resource conversion on widget.
+
+        widget specifies the widget to use for any additional  arguments
+        specified when  the  type  converter  was  registered  (actually
+        widget can be of class Object, or any of its subclasses).
+
+        from is  a string  specifying the  type of  the source  resource
+        value. This value  is normally  specified with  the * XtR  macro
+        (eg, XtR String).
+
+        source is the same as for * XtCallConverter.
+
+        to is a string specifying  the type of the destination  resource
+        value. This, like from, can be specified with the XtR macro.
+
+        destination is the same as for XtCallConverter.
+
+        The result  returned is  the same  as for  XtCallConverter  (ie,
+        cached results are returned, if present, otherwise the converter
+        is  called).  The  procedure  also   adds  a  callback  to   the
+        'destroyCallback'  list  of  widget  that  will  decrement   any
+        reference count kept  on the converted  resource value when  the
+        widget is destroyed.
+
+
+XtAppReleaseCacheRefs(appcontext, cachereflist)              [procedure]
+        Decrements the reference  counts on the  resources specified  by
+        cachereflist. cachereflist is a null terminated  XptCacheRefList
+        shadowclass structure consisting  of a  number of  * XptCacheRef
+        records (as returned by XtCallConverter). If the reference count
+        for any resource reaches  zero then the  destructor, if any,  is
+        called and the resource value removed from the conversion cache.
+
+
+XtCallbackReleaseCacheRef(widget, cacheref, call_data)       [procedure]
+        A convenience procedure that can be  used as a callback (for  an
+        explanation  of   callbacks   see   REF * XT_CALLBACK).   widget
+        specifies the  object  the  resource  is  associated  with.  The
+        procedure decrements by one the reference count on the  resource
+        specified by the * XptCacheRef record cacheref. If the reference
+        count for the resource reaches zero then the destructor, if any,
+        is called and  the resource  value removed  from the  conversion
+        cache. The call_data is ignored.
+
+
+XtCallbackReleaseCacheRefList(widget, cachereflist, data)    [procedure]
+        A convenience procedure that can be  used as a callback (for  an
+        explanation of callbacks  see REF * XT_CALLBACK). Equivalent  to
+        doing:
+
+            XtAppReleaseCacheRefs(
+                XtWidgetToApplicationContext(widget),
+                cachereflist
+            );
+
+        The data argument is ignored.
+
+
+
+
+-------------------------
+11  LIB FAST_XT_CONVERTER
+-------------------------
+
+fast_XtDisplayStringConversionWarning(displayptr, from, to)  [procedure]
+fast_XtSetTypeConverter(from, to, widentproc, convertarglist,[procedure]
+                num_args, cachetype, destructor)
+fast_XtAppSetTypeConverter(appcontext, from, to, widentproc, [procedure]
+                convertarglist, num_args, cachetype, destructor)
+fast_XtConvertAndStore(widget, from, source, to, destination)[procedure]
+                -> bool
+fast_XtCallConverter(displayptr, widentproc, args, cardinal, [procedure]
+                source, destination, cacherefptr) -> bool
+fast_XtAppReleaseCacheRefs(appcontext, cachereflist)         [procedure]
+fast_XtCallbackReleaseCacheRef(widget, cacheref, call_data)  [procedure]
+fast_XtCallbackReleaseCacheRefList(widget, cachereflist,     [procedure]
+                data)
+        Non-checking versions of  the procedures in  LIB * XT_CONVERTER.
+        There operation is the same except that:
+
+            #  There is no checking for valid arguments.
+            #  NO coercion of Pop-11 procedures is performed.
+
+        These procedures should only be used in fully debugged programs.
+        See REF * XTOOLKIT  for  full details  of  the Poplog  X  naming
+        conventions for non-checking and checking procedures.
+
+
+XptExportTypeConverter(widentproc, hold) -> efc              [procedure]
+        This procedure  coerces a  Pop-11 resource  converter  procedure
+        widentproc  into  an  external  function  closure  efc  that  is
+        suitable to be passed as  a resource converter procedure to  the
+        intrinsics.
+
+        NOTE: If XptExportTypeConverter is called on different occasions
+        with the  same  widentproc  it will  return  DIFFERENT  external
+        function closures which perform the same operation.
+
+        The procedure operates by creating an external function  closure
+        of the procedure * XptTypeConverterWrapper. The value of efc  is
+        given by:
+
+            exfunc_export(
+                XptTypeConverterWrapper(%widentproc%),
+                XptCallbackFlags,
+                hold
+            );
+
+        If the Boolean argument hold is true then a reference to efc  is
+        added to  the fixed  hold  list to  prevent it  getting  garbage
+        collected.   To   remove   the   efc   from   the   list,    use
+        * free_fixed_hold. See REF * EXTERNAL_DATA for more details.
+
+
+XptExportDestructor(widentproc, hold) -> efc                 [procedure]
+        This procedure coerces a Pop-11 destructor procedure  widentproc
+        into an external  function closure  efc that is  suitable to  be
+        passed  as  a  destructor  procedure  to  the  intrinsics.   Its
+        operation is the same  as * XptExportTypeConverter, except  that
+        the     procedure     * XptDestructorWrapper,     instead     of
+        * XptTypeConverterWrapper, is used to create efc.
+
+
+XptExportConvertArgProc(widentproc, hold) -> efc             [procedure]
+        This procedure coerces  a Pop-11  conversion argument  procedure
+        widentproc  into  an  external  function  closure  efc  that  is
+        suitable to be passed as a conversion argument procedure to  the
+        Intrinsics.     Its     operation     is     the     same     as
+        * XptExportTypeConverter,    except    that    the     procedure
+        * XptConvertArgProcWrapper,  not  * XptTypeConverterWrapper,  is
+        used to create efc.
+
+
+XptExportTypeConverterCached(widentproc, hold) -> efc        [procedure]
+        This procedure  coerces a  Pop-11 resource  converter  procedure
+        widentproc, into  an  external  function  closure  efc  that  is
+        suitable to  be  passed  to the  intrinsics  as  type  converter
+        procedure.
+
+        The   arguments   and   results   are   as   for   a   call   to
+        * XptExportTypeConverter,  the   difference   being   that   the
+        resultant external function  closure efc is  cached. This  means
+        that different calls to XptExportTypeConverterCached WILL return
+        the same external function closure  efc; if the same  widentproc
+        is used (the  cache considers the  arguments to be  the same  if
+        sys_= returns true when applied to them).
+
+        The entry in the cache for efc becomes garbage when efc  becomes
+        garbage. XptExportTypeConverterCached with a true hold  argument
+        is  the  default  procedure  for  coercing  resource   converter
+        procedures.
+
+
+XptExportDestructorCached(widentproc, hold) -> efc           [procedure]
+        As for  * XptExportTypeConverterCached, except  that it  coerces
+        between  Pop-11  destructor  procedures  and  external  function
+        closures. XptExportDestructorCached with a true hold argument is
+        the  default   procedure   for   coercing   resource   converter
+        procedures.
+
+
+XptExportConvertArgProcCached(widentproc, hold) -> efc       [procedure]
+        As for  * XptExportTypeConverterCached, except  that it  coerces
+        between  Pop-11  conversion  argument  procedures  and  external
+        function closures.
+
+
+XptTypeConverterWrapper(exptrclass, widentproc)              [procedure]
+        Closures of the  procedure XptTypeConverterWrapper  are used  by
+        the  * XptExportTypeConverter(Cached)   procedures   to   create
+        external function closures that can be used as toolkit  resource
+        converter procedures.  For  more details  of  external  function
+        closures see REF * EXTERNAL.
+
+        exptrclass should be an  external pointer class record  pointing
+        to an instance of the following structure:
+
+            l_typespec extdata {
+                displayptr :XptDisplayPtr,
+                args :exptr,
+                num_args :exptr.:XptCardinal,
+                from :exptr,
+                to :exptr,
+                data :XptPointer
+            };
+
+        Each field of the above structure is pushed onto the stack.  The
+        procedure referred to  by widentproc, which  should be a  Pop-11
+        resource conversion procedure,  is then  executed by  a call  to
+        * XptCallbackHandler with a type of "type_converter".
+
+        The result  returned  by  widentproc is  then  coerced  into  an
+        appropriate type  and  placed  at the  location  pointed  to  by
+        exptrclass.
+
+
+XptDestructorWrapper(exptrclass, widentproc)                 [procedure]
+        Closures of the procedure  XptDestructorWrapper are used by  the
+        XptExportDestructor(Cached)  procedures   to   create   external
+        function  closures  that  can  be  used  as  toolkit  destructor
+        procedures. For more details  of external function closures  see
+        REF * EXTERNAL.
+
+        exptrclass should be an  external pointer class record  pointing
+        to an instance of the following structure:
+
+            l_typespec extdata {
+                appcontext :XptAppContext,
+                to :exptr,
+                data :XptPointer,
+                args :exptr,
+                numargs :exptr.:XptCardinal,
+            };
+
+        Each field of the above structure is pushed onto the stack.  The
+        procedure referred to  by widentproc, which  should be a  Pop-11
+        destructor  procedure,   is  then   executed   by  a   call   to
+        * XptCallbackHandler with a type of "destructor".
+
+
+XptConvertArgProcWrapper(exptrclass, widentproc)             [procedure]
+        Closures of the procedure  XptConvertArgProcWrapper are used  by
+        the   XptExportConvertArgProc(Cached)   procedures   to   create
+        external  function  closures  that   can  be  used  as   toolkit
+        conversion argument  procedures. For  more details  of  external
+        function closures see REF * EXTERNAL.
+
+        exptrclass should be an  external pointer class record  pointing
+        to an instance of the following structure:
+
+            l_typespec extdata {
+                object :XptWidget,
+                size :exptr.:XptCardinal,
+                value :exptr
+            };
+
+        Each field of the above structure is pushed onto the stack.  The
+        procedure referred to  by widentproc, which  should be a  Pop-11
+        conversion argument procedure,  is then  executed by  a call  to
+        * XptCallbackHandler with a type of "convert_arg_proc".
+
+
+
+
+-----------------
+12  Miscellaneous
+-----------------
+
+The following two autoloadable  constants provide predefined  conversion
+argument descriptions (ie, XptConvertArgList structures):
+
+
+XptColorConvertArgs                                           [constant]
+        An two  element  XptConvertArgList  shadowclass  structure.  The
+        first argument  specifies  a pointer  to  a screen,  the  second
+        specifies a colormap. The screen and colormap will both refer to
+        the closest windowing  ancestor of  the object  that caused  the
+        converter to be called (allowing use with gadgets and objects).
+
+
+XptScreenConvertArg                                           [constant]
+        A single  element  XptConvertArgList shadowclass  structure.  It
+        specifies the screen  of the closest  windowing ancestor of  the
+        object that caused the converter to be called (allowing use with
+        gadgets and objects)
+
+
+
+--- C.x/x/pop/ref/xt_converter
+--- Copyright University of Sussex 1993. All rights reserved.

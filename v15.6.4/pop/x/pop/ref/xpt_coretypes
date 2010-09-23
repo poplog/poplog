@@ -1,0 +1,152 @@
+REF XPT_CORETYPES                                 Jason Handby, Aug 1991
+
+        COPYRIGHT University of Sussex 1992. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<         BASIC 'CORE'        >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<        TOOLKIT TYPES        >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This REF  file contains  declarations and  type specifications  for  the
+basic 'core' toolkit types found in INCLUDE * XPT_CORETYPES.
+
+
+
+---------------------------------------
+1  Declarations and Type Specifications
+---------------------------------------
+
+XptAppContext                                                 [typespec]
+        Typespec for  an  X  Toolkit  Application  Context,  created  by
+        XtCreateApplicationContext   or    XtWidgetToApplicationContext.
+        Destroyed by  XtDestroyApplicationContext. This  corresponds  to
+        the C XtAppContext datatype. Accessing an external pointer using
+        this  typespec   will   return  a   descriptor   with   datatype
+        XDT_APPCONTEXT.
+
+
+XptDisplayPtr                                                 [typespec]
+        Typespec for  pointers to  X  Display structures.  Displays  are
+        created and returned by XtOpenDisplay. Alternatively,  XtDisplay
+        can be used to  obtain the display of  any widget. Displays  are
+        destroyed using XtCloseDisplay. XptDisplayPtr corresponds to the
+        C -Display *- type. When  an external pointer is accessed  using
+        this typespec,  a  descriptor with  datatype  XDY_DISPLAYPTR  is
+        returned.
+
+
+XptWidget                                                     [typespec]
+        Typespec for an X Toolkit Widget. This corresponds to the C type
+        Widget.  When  an  external  pointer  is  accessed  using   this
+        typespec, a  descriptor with  datatype XDT_WIDGET  is  returned.
+        Note that the  widget's name is  extracted during this  process,
+        for display when the widget descriptor is printed.
+
+        In update mode, the  value false can be  used to specify a  NULL
+        widget. In  access  mode,  false is  returned  if  the  external
+        pointer contains NULL.
+
+
+XptWidgetClass                                                [typespec]
+        Typespec  for  an  X  Toolkit  WidgetClass  --  see  Widget  Set
+        Interfaces in  REF * X for  details of  loading  widgetclasses.
+        Alternatively, the procedure  XtClass will return  the class  of
+        any widget. This typespec corresponds to the C type WidgetClass.
+        When an  external pointer  is  accessed using  this  typespec, a
+        descriptor whose datatype is XDT_WIDGETCLASS is returned.
+
+
+XptObject                                                     [typespec]
+        Typespec for an X Toolkit  Object. This typespec corresponds  to
+        the C type Object.
+
+
+XptBoolean                                                    [typespec]
+XptLongBoolean                                                [typespec]
+        Typespec for X  Toolkit Booleans, which  are bytes  containing 0
+        (false) or 1 (true). Accessing a piece of data pointed to by  an
+        external pointer using this typespec will return Poplog true  or
+        false. In update mode, the typespec contains true and false into
+        1 and 0 respectively. XptLongBoolean  is a typespec for  integer
+        sized booleans (32 bits).
+
+
+XptPopObj                                                     [typespec]
+XptPointer                                                    [typespec]
+        These typespecs are the  same, and are  used to write  arbitrary
+        Poplog data into a  32 bit field. In  access mode, the field  is
+        always returned as an external pointer (since there is no way of
+        knowing the correct representation of the data in the field). In
+        update mode, Poplog  data objects are  first coerced into  their
+        correct external representation and then written in the field.
+
+        This type is in  fact just an "exval"  field with the  converter
+        exval_to_popobj on top. (See  REF * KEYS, `Field Specifiers  for
+        Poplog Data'). On access, the converter procedure does  nothing,
+        i.e. just  returns  the external  pointer  from the  field;  the
+        update side passes through  its argument unchanged, except  that
+        it makes a  fixed-address copy  of any structure  that needs  it
+        (and caches the copy against the original value).
+
+
+XptProcedure                                                  [typespec]
+        Typespec for external C procedures. When an external pointer  is
+        accessed using this typespec,  an XptDescriptor class object  is
+        returned, with an  XptDataType of  XDT_PROCEDURE. The  procedure
+        pointer to by this descriptor object can be called using exacc.
+
+        XptProcedures differ  from other  external procedures  in  that,
+        when they  are called,  Poplog  asynchronous event  handling  is
+        disabled. Normal event  handling is resumed  when the  procedure
+        returns. For this reason, it is wise to convert any C  procedure
+        which calls  Xlib  or  Xt  into an  XptProcedure,  and  use  the
+        XptProcedure version when you wish to call the C procedure.
+
+        See REF * XptImportProcedure for more information.
+
+
+XptString                                                     [typespec]
+        This typespec accepts or returns a Poplog string. It is just  an
+        "exval" field with the converter exval_to_string on top.
+
+        On access it will convert an external pointer to a string into a
+        Poplog string, or if the  external pointer contains NULL,  false
+        is returned. In update mode, it  checks for a string and if  the
+        argument is  not  already fixed-address,  makes  (and  caches) a
+        fixed copy to assign into the pointer field.
+
+
+XptEnum                                                       [typespec]
+        This typespec  corresponds to  the C  type XtEnum,  which is  an
+        unsigned integer.
+
+
+XptCardinal                                                   [typespec]
+XptInt                                                        [typespec]
+XptDimension                                                  [typespec]
+XptPosition                                                   [typespec]
+XptShort                                                      [typespec]
+XptUnsignedChar                                               [typespec]
+XptChar                                                       [typespec]
+XptFloat                                                      [typespec]
+        Basic typespecs for various numeric X Toolkit fields:
+
+            Field           Typespec
+            -----           --------
+            Cardinal        An unsigned 32 bit integer.
+            Int             32 bit signed integer.
+            Dimension       16 bit unsigned short integer.
+            Position        Signed 16 bit short integer,
+            Short           Signed 16 bit signed short integer
+            UnsignedChar    An unsigned 8 bit byte.
+            Char            Signed 8 bit byte.
+            Float           Signed single precision floating point
+                            number (accepts any Poplog real number).
+
+
+
+
+--- C.x/x/pop/ref/xpt_coretypes
+--- Copyright University of Sussex 1992. All rights reserved.

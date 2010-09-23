@@ -1,0 +1,670 @@
+TEACH RCLIB_GRAPHIC                               Aaron Sloman July 2009
+[Based on TEACH RC_GRAPHIC]
+
+This file provides an easy introduction to a subset
+the Pop-11 high level graphical facilities making use of the X window
+system. A more general overview is provided in
+    TEACH rc_demo
+
+In order to use this teach file you must have the Poplog X interface
+libraries in your path (see HELP *X) and be using an X server
+(workstation or XTerm) running at least X Version 11, preferably release
+4 or later. You should already know how to move windows around on the
+screen using the mouse.
+
+
+          THE "RELATIVE COORDINATES" (RC) GRAPHIC PACKAGE IN X
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- Getting started
+ -- Starting and re-starting the window and drawing pictures
+ -- Defining a picture drawing procedure
+ -- Changing line widths and line styles
+ -- A picture made of pictures
+ -- Letting the program do "clipping"
+ -- Printing text and changing fonts
+ -- Drawing curved lines (circular arcs)
+ -- Changing the coordinate frame: origin and scale
+ -- Setting the scale in inches, cm or frame-units
+ -- Creating a new window, with given size and location on screen
+ -- Rotating the user coordinate frame
+ -- Using the mouse to draw a picture "by hand"
+ -- Changing the colour used to draw with
+ -- Saving a picture drawn with the mouse, and re-drawing it
+ -- Example of use of rc_drawgraph
+ -- A more sophisticated graph drawing package
+ -- Using more than one window
+ -- Further reading
+
+
+-- Introduction -------------------------------------------------------
+
+This file consists entirely of illustrative examples showing how you can
+get started using the "relative coordinates" graphical facilities in X.
+They are more fully described in the HELP * RC_GRAPHIC file.
+
+The LIB * RC_GRAPHIC package makes it easy for the programmer to create
+a graphics window and define a coordinate frame with origin anywhere in
+the window and to think in terms of this coordinate frame instead of
+having to think in terms of pixel-based window coordinates with the
+origin in the top left hand corner.
+
+All the transformations from user coordinates to window coordinates are
+handled automatically.
+
+Some of the procedures described below use the idea (borrowed from the
+LOGO programming language) of a mythical "turtle" that has a position
+and a "heading" on the graphics window. It can either be made to jump or
+draw from its current position in the direction of its current heading,
+or it can be given coordinates of the ends of lines to draw. More
+general graphics facilities are also described.
+
+-- Getting started ----------------------------------------------------
+
+To start using the package, ensure that you are using Poplog with the X
+Window System version 11 release 4, or later. (Consult your local Poplog
+administrator if necessary.)
+
+After starting Poplog the easiest procedure is to get this teach file
+into VED, and then to mark and load commands that illustrate the
+facilities.
+
+First it is necessary to ensure that you can access the Poplog X
+interface libraries. If you are going to use X regularly you can put
+into your init.p file
+
+    uses popxlib
+
+If you have not already done that, you can mark and load that line now.
+
+Next you must get the rc_graphics package loaded. This is made of a
+number of fragments. The main part is compiled thus:
+
+    lib rc_graphic
+
+It will automatically compile a number of libraries that provide X
+facilities in Poplog that are used by the programs described below.
+
+After compiling lib rc_graphic you can run the following examples, by
+marking and loading them in VED. (See TEACH * MARK, TEACH * LMR)
+
+
+-- Starting and re-starting the window and drawing pictures -----------
+
+The following gives some simple examples of the use of the package.
+It should be possible to mark and load the commands:
+
+;;; Start (or re-start) the window and set up coordinate frame.
+rc_start();
+
+;;; If the window is not in a convenient place you can move it using
+;;; the mouse;
+
+;;; Draw a line, from the "turtle"'s current location in current heading
+rc_draw(30);
+
+;;; Draw the X axis, from point (-200, 0) to point (200, 0)
+rc_drawline(-200, 0, 200, 0);
+
+;;; Draw the Y axis
+rc_drawline(0, -200, 0, 200);
+
+;;; Jump to the centre
+rc_jumpto(0, 0);
+
+
+;;; Examples below all use degrees not radians, so
+false -> popradians;
+
+;;; Make the turtle's heading 45 degrees (up and to the right)
+45 -> rc_heading;
+;;; That does not draw anything, but determines the effect of the next
+;;; draw command.
+
+;;; Draw a line in that direction, turn, and draw another line
+rc_draw(50); rc_turn(90); rc_draw(100);
+
+
+You can draw rectangles thus:
+
+rc_start();
+rc_draw_rectangle(100, 50);
+rc_draw_rectangle(50, 100);
+
+and oblongs (rectangles with rounded corners)
+
+rc_start();
+rc_draw_oblong(50,80,20);
+rc_draw_oblong(200,50,10);
+
+See HELP * RC_GRAPHIC/rc_draw_oblong
+
+;;; Clear the picture
+rc_start();
+
+
+-- Defining a picture drawing procedure -------------------------------
+
+;;; Define a procedure for drawing regular polygons. Mark and load this
+
+define polygon(side,num);
+    lvars side, num, angle;
+
+    ;;; A polygon with num sides requires turn angles of 360/num
+    360.0 / num -> angle;
+
+    repeat num times
+        rc_draw(side); rc_turn(angle)
+    endrepeat;
+enddefine;
+
+;;; Use the procedure to draw a square and a hexagon
+polygon(50, 4);
+polygon(50, 5);
+polygon(50, 6);
+
+;;; clear the window
+rc_start();
+
+
+-- Changing line widths and line styles -------------------------------
+
+;;; Try the polygon procedure again with different linewidths
+5 -> rc_linewidth; polygon(90, 4);
+
+10 -> rc_linewidth; polygon(90, 5);
+
+15 -> rc_linewidth; polygon(90, 6);
+
+2 -> rc_linewidth;
+
+
+;;; Now try with different line "styles" (See HELP * RC_GRAPHIC)
+
+rc_jumpto(-100, -100);
+
+LineOnOffDash -> rc_linestyle; polygon(90, 4);
+
+;;; re-set the default
+LineSolid -> rc_linestyle; polygon(90, 5);
+
+
+;;; clear the window and re-set linewidth to the default
+rc_start();
+0 -> rc_linewidth;
+
+More sophisticated variations of line drawing style are described in
+    HELP * RC_GRAPHIC/rc_linefunction
+
+-- A picture made of pictures -----------------------------------------
+
+;;; A procedure to draw a pretty pattern made of squares
+;;; Mark and load this
+
+define cartwheel(side, sides, num);
+    ;;; A program to make a pretty picture
+    lvars side, sides, num, angle;
+    360.0 / num -> angle;
+
+    repeat num times
+        ;;; draw a polygon
+        polygon(side, sides);
+        ;;; rotate through angle degrees
+        rc_turn(angle);
+    endrepeat;
+enddefine;
+
+cartwheel(100, 8, 60);
+
+
+-- Letting the program do "clipping" ----------------------------------
+
+;;; Let the window boundary clip the picture, not this program
+false -> rc_clipping;
+rc_start(); cartwheel(100, 20, 60);
+
+;;; Now set an internal clipping boundary and compare result and speed
+true -> rc_clipping;
+450 ->> rc_xmax, ->rc_ymax;
+50 ->>rc_xmin -> rc_ymin;
+rc_start(); cartwheel(100, 20, 60);
+
+false -> rc_clipping;
+
+
+-- Printing text and changing fonts -----------------------------------
+
+;;; Print some text in the window
+rc_print_at(-150, 165, 'What a PRETTY picture');
+
+;;; Change the font and try again (returns false if font not found)
+;;; Repeat the SetFont call if necessary with a different font name
+XpwSetFont(rc_window,'9x15bold') =>
+;;; (may be necessary to do this twice)
+
+rc_print_at(-150, 145, 'What a PRETTY picture');
+
+XpwSetFont(rc_window,'r24') =>
+rc_print_at(-150, 120, 'What a PRETTY picture');
+
+XpwSetFont(rc_window,'lucidasans-bold-24') =>
+rc_print_at(-150, -100, 'What a PRETTY picture');
+
+XpwSetFont(rc_window,'6x13bold') =>
+rc_print_at(-150, -130, 'What a PRETTY picture');
+
+
+-- Drawing curved lines (circular arcs) -------------------------------
+
+;;; Start with an empty picture, then draw a line
+rc_start();
+rc_turn(45);
+rc_draw(30);
+
+;;; draw a semi-circle with radius 50, curving left, through 60 degrees
+rc_arc_around(50, 66);
+
+;;; draw a semi-circle with radius 50, curving to right 180 degrees
+rc_arc_around(50, -180);
+
+;;; Note how the "turtle" acquires a new location and heading after
+;;; each call of rc_arc_around
+
+rc_arc_around(20, -180);
+rc_arc_around(20, 180);
+rc_draw(30);
+rc_arc_around(10, 180);
+rc_draw(30);
+
+
+;;; Make an interesting picture using arcs:
+rc_start();
+rc_jumpto(-100, -100);
+repeat 60 times rc_draw(150); rc_arc_around(60,85) endrepeat;
+
+rc_start();
+
+WARNING: on some X servers it appears that the arc drawing programs have
+a bug that causes the wrong arc to be displayed if the initial angle is
+a multiple of 45 degrees and the arc angle is 90 or -90 degrees.
+
+
+-- Changing the coordinate frame: origin and scale --------------------
+
+To show the difference made by coordinate changes, do the following
+
+cartwheel(20, 15, 30); ;;; using procedure defined above
+
+;;; Shift origin down and to the left by 50 units (user coordinates)
+;;; comparing origin before and after
+rc_xorigin, rc_yorigin =>
+rc_shift_frame_by(-50, -50);
+rc_xorigin, rc_yorigin =>
+
+;;; re-draw cartwheel with the same parameters - it's no longer central
+cartwheel(20, 15, 30);
+
+;;; Check scale factors
+rc_xscale, rc_yscale =>
+
+;;; Reduce the scale to half the previous size
+rc_stretch_frame_by(0.50);
+
+rc_xscale, rc_yscale =>
+
+;;; re-draw cartwheel using same parameters as before
+cartwheel(20, 15, 30);
+
+;;; Restore the previous scale
+rc_stretch_frame_by(2);
+rc_xscale, rc_yscale =>
+
+rc_jumpby(-40, -40);
+;;; re-draw cartwheel
+cartwheel(20, 15, 30);
+
+
+-- Setting the scale in inches, cm or frame-units ---------------------
+
+This is made possible by an extension to lib rc_graphics which has to
+be explicitly loaded, thus
+
+    lib rc_set_scale
+or:
+    uses rc_set_scale
+
+;;; Assign the number of dots per inch on your screen (often 90):
+
+90 -> rc_pixels_per_inch; ;;; change the number if necessary
+
+;;; Clear screen etc.
+rc_start();
+
+;;; Make the draw and jump commands use 2 inch units.
+
+rc_set_scale("inches", 2, 2);
+
+rc_draw(1); rc_turn(135); rc_draw(1.5);
+
+;;; Now try centimetre units
+
+rc_start();
+
+rc_set_scale("cm", 1, 1);
+
+rc_draw(1); rc_turn(135); rc_draw(1.5);
+
+;;; Now set the scale in terms of frame size.
+rc_start();
+
+;;; Make the draw and jump commands use 1/4 frame units
+
+rc_set_scale("frame", 0.25, 0.25);
+
+rc_draw(1); rc_turn(135); rc_draw(1.5);
+
+;;; Re-set default unit to be pixel based
+
+rc_start();
+rc_set_scale(false, 1, 1);
+
+rc_draw(100); rc_turn(135); rc_draw(150);
+
+For more information see HELP * RC_GRAPHIC/rc_set_scale
+
+
+-- Creating a new window, with given size and location on screen ------
+
+;;; Replace the window with one of width 500, height 600, top left
+;;; corner at location 520 along 200 down, and re-set the origin to the
+;;; middle of the new window
+
+rc_new_window(500, 600, 520, 200, true);
+;;; The value true means: set new default origin and scale
+
+;;; draw in the new window
+cartwheel(100, 20, 60);
+
+
+-- Rotating the user coordinate frame --------------------------------
+
+;;; Load library for rotating coordinate frame
+lib rc_rotate_xy
+
+rc_start();
+rc_jumpto(50,50);
+polygon(100, 4); polygon(100, 5);
+
+;;; Save the old coordinate transformation procedure (in case it is
+;;; wanted later). It transforms user coordinates to window ones.
+vars oldxyout = rc_transxyout;
+
+;;; Set the new transformation procedure to do rotations
+rc_rotate_xy -> rc_transxyout;
+
+;;; Set the frame angle to 0, i.e. lined up with screen
+0 -> rc_frame_angle;
+
+;;; now rotate coordinate frame 90 degrees counter-clockwise
+rc_rotate_frame(90);
+
+;;; And re-draw the picture made of two polygons, using same parameters
+polygon(100, 4); polygon(100, 5);
+
+;;; rotate The frame some more
+rc_rotate_frame(45);
+;;; And re-draw again
+polygon(100, 4); polygon(100, 5);
+
+;;; and again
+rc_rotate_frame(45); polygon(100, 4); polygon(100, 5);
+
+;;; re-set to zero rotation by assigning directly to the active variable
+;;; rc_frame_angle
+0 -> rc_frame_angle;
+
+
+;;; Watch the effect of a 180 degree rotation
+rc_start();
+polygon(100, 4); polygon(100, 5);
+
+180 -> rc_frame_angle;
+polygon(100, 4); polygon(100, 5);
+
+;;; restore the frame angle
+0 -> rc_frame_angle;
+
+
+-- Using the mouse to draw a picture "by hand" ------------------------
+
+;;; Now use the mouse to draw a picture
+
+lib rc_mouse; ;;; load the mouse package
+
+rc_start(); ;;; set it up to trap button presses in the window
+
+
+;;; Draw a picture by repeatedly pressing mouse button 1 or 2 in the
+;;; graphic window and terminate picture by pressing mouse button 3
+;;; "false" below means don't list the points. (If you are using a
+;;; Hewlett Packard workstation and your mouse has only two buttons,
+;;; the left one should be button 1 and the right one button 3. For
+;;; "button 2" you need to press both buttons! Such details may be
+;;; different on different terminals.)
+
+rc_mouse_draw(false, 3); ;;; NB terminate picture with button 3
+
+When you do this it should show you a moving line from where you last
+pressed a button to where the mouse pointer is. I.e. there's a "rubber"
+band between the last fixed point and the mouse. If this rubber band is
+not visible, you may have to alter the "function" used to do the
+rubber-band drawing. E.g. if you are using a colour display, or an NCD
+X terminal or a Hewlett Packard workstation, try marking and loading the
+following
+
+    GXequiv -> rc_rubber_function;
+
+Then re-do the above rc_mouse_draw command. Compare the effect of
+
+    GXxor -> rc_rubber_function;
+
+which is the default.
+
+;;; Now draw a different picture, and return a list of pairs of numbers
+;;; giving points at which mouse pointed (first argument true),
+;;; terminated when button 1 is pressed. The -true- means make a list
+;;; of the points coordinates of the vertices in the picture.
+
+rc_start();
+rc_mouse_draw(true, 1) ==> ;;; NB terminate picture with button 1
+
+;;; The list of points is printed out by ==>. Each point is produced by
+;;; calling rc_conspoint with two arguments. rc_conspoint has the value
+;;; conspair, but can be redefined, as long as rc_destpoint is also
+;;; redefined (default is destpair). See HELP * RC_GRAPHIC/rc_conspoint
+
+
+-- Changing the colour used to draw with ------------------------------
+
+If you are using a colour display, you can repeat the above drawing
+commands with colour changed as follows:
+
+XpwSetColor(rc_window, 'red');
+XpwSetColor(rc_window, 'green');
+XpwSetColor(rc_window, 'black');
+
+For more information see REF * XpwCore, * XpwPixmap, * XpwGraphic
+
+
+-- Saving a picture drawn with the mouse, and re-drawing it -----------
+
+
+;;; Declare a variable to hold a list of picture points
+vars picpoints;
+
+;;; Now draw a picture and save the coordinates in picpoints
+rc_start();
+rc_mouse_draw(true, 3) -> picpoints; ;;; NB terminate with button 3
+
+
+;;; Define a procedure to re-draw a picture from a list of points,
+;;; using a specified line_width
+
+define drawpic(pointlist, rc_linewidth);
+    lvars pointlist, point;
+    dlocal rc_linewidth; ;;; Must use dlocal - its an active variable
+                            ;;; Don't use vars
+
+    ;;; Jump to the first point
+    rc_jumpto(front(pointlist));
+
+    ;;; Draw the successive following points
+    for point in pointlist do rc_drawto(point) endfor
+enddefine;
+
+;;; Mark and load that procedure then test it on the list picpoints
+;;; created above
+
+rc_start();
+drawpic(picpoints, 0); ;;; 0 is the minimum linewidth. Compare 1
+
+rc_start();
+drawpic(picpoints, 1);
+
+;;; Clear the picture, and draw it upside down with a thicker width
+rc_start();
+180 -> rc_frame_angle;
+drawpic(picpoints, 5);
+
+;;; Now the right way up again, with an even thicker line
+rc_start();
+0 -> rc_frame_angle;
+drawpic(picpoints, 10);
+
+
+-- Example of use of rc_drawgraph -------------------------------------
+
+A library program for drawing graphs is provided as an extension
+to lib rc_graphic. An example of its use follows.
+
+;;; Load the library
+
+lib rc_drawgraph
+
+;;; Define a procedure that corresponds to a parabola for each
+;;; valueof x0 and r
+define testproc(x, x0, r);
+    ;;; x0 and r will be partially applied, to give different parabolas
+    ;;; y = r*x*(x0 - x)
+    lvars x,r;
+    r*x*(x0 - x)
+enddefine;
+
+;;; Start or clear the window
+rc_start();
+
+;;; Set coordinate frame with origin at bottom left of window,
+;;; with window bounds each corresponding to 1 unit.
+rc_set_coordinates(
+    0, rc_window_ysize,
+    rc_window_xsize, -rc_window_ysize
+);
+
+;;; Draw the graph with x0 = 1, and r = 2.3,
+;;; I.e. y = 2.3*x*(1 - x)
+
+rc_drawgraph(0,1,0,1,0.1,0.1,0.02,0.02,0.05, testproc(%1,2.3%)) =>
+
+
+;;; Note that rc_drawgraph returns the minimum and maximum values for
+;;; y, in case you want to change the x bounds.
+
+;;; The format for rc_drawgraph, explained in HELP RC_GRAPHIC is
+;;; rc_drawgraph(xmin,xmax,ymin,ymax,xstep,ystep,xline,yline,xincr,fun)
+;;; -> minyvalue -> maxyvalue
+
+;;; Change origin to middle of window, and halve the scale.
+rc_set_coordinates
+    (rc_window_xsize / 2.0, rc_window_ysize/2.0,
+        rc_window_xsize/2.0, -rc_window_ysize/2.0);
+
+
+;;; use rc_clear_window to clear the window without re-setting
+;;; origin and scale
+
+rc_clear_window();
+
+;;; draw a new graph: y = 2.3*x*(0.5 - x)
+rc_drawgraph(-1,1,-1,1,0.1,0.1,0.02,0.02,0.05, testproc(%0.5,2.3%)) =>
+
+
+;;; draw y = 3*x*(0.6 - x), superimposed on the above
+rc_drawgraph(-1,1,-1,1,0.05,0.05,0.02,0.02,0.05, testproc(%0.6, 3%)) =>
+
+
+-- A more sophisticated graph drawing package -------------------------
+
+This package, providing far more options for drawing graphs, is
+described in
+
+    TEACH * RC_GRAPHPLOT
+    HELP * RC_GRAPHPLOT
+
+
+-- Using more than one window -----------------------------------------
+
+LIB * RC_CONTEXT enables different windows to be created and to save
+the current context, switch to a different window by restoring its
+context, then switch back to the original. For details see
+
+    HELP * RC_GRAPHIC/RC_CONTEXT
+
+
+-- Further reading ----------------------------------------------------
+
+The facilities described above are described in more detail in
+HELP * RC_GRAPHIC
+
+Further facilities are described in
+TEACH * RC_GRAPHPLOT
+HELP * RC_GRAPHPLOT
+
+To see how they were defined:
+
+SHOWLIB * RC_GRAPHIC, * RC_ROTATE_XY, * RC_MOUSE, * RC_DRAWGRAPH
+
+SHOWLIB * RC_GRAPHPLOT, * RC_GRAPHPLOT2
+
+TEACH * Xpw
+    Examples of use of more basic X facilities
+
+TEACH * OPENLOOK
+    A tutorial on using OLIT
+
+TEACH * MOTIVE
+    A tutorial on using the Motif widget set
+
+HELP * X
+    A general introduction to Poplog X facilities.
+
+HELP * Xpw
+    An overview of the Poplog Widget Set
+
+REF * XpwCore * XpwPixmap * XpwGraphic
+    Gives information about additional graphics and text facilities,
+    including "raster" operations, etc.
+
+REF * XPOPINDEX
+    A list of REF files available for X
+
+HELP * XPOPINDEX
+    A list of HELP files available for X
+
+TEACH * XPOPINDEX
+    A list of TEACH files available for X
+
+--- C.x/x/pop/teach/rc_graphic
+--- Copyright University of Sussex 1991. All rights reserved. ----------

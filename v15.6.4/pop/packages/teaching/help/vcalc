@@ -1,0 +1,511 @@
+HELP VCALC                                updated Aaron Sloman July 1986
+
+
+                LIB VED_VCALC: A VED-BASED 'SPREADSHEET'
+                    =================================
+
+
+CONTENTS - (Use <ENTER> g to access desired sections)
+
+ -- Introduction
+ -- Using VCALC
+ -- Example: declarations of invars and outvars
+ -- Example equations
+ -- Setting up the table with initial values for invars
+ -- Constraints
+ -- Running VCALC
+ -- NOTES
+ -- Format of the table
+ -- Location of output values
+ -- Format for equations
+ -- Initialising VCALC
+ -- Interactive alterations
+ -- Manipulating non-numerical structures
+ -- Printing out results
+ -- Abbreviating Utilities
+ -- Additional VED Utilities
+ -- SHOWING and CHATTY
+ -- Possible further developments:
+
+
+-- Introduction -------------------------------------------------------
+LIB VED_VCALC allows collections of values of variables to be
+manipulated, with consequences of any change automatically computed and
+displayed on the screen. Constraints can be specfied, and if violated
+will cause an error message.
+
+E.g. you could have an array of numbers, and after changing one number
+the relevant row and column totals, averages, etc. could be
+automatically re-computed. Constraints on their bounds can be set, to
+ensure that reasonable values are given. VCALC makes it easy to
+experiment with different combinations of numbers, automatically
+checking that user-defined constraints are not violated. E.g. it has
+been used to draft a grant application subject to a specified upper
+bound on the total funding requested.
+
+Since July 1986 negative numbers, decimals, ratios or complex numbers
+can all be handled.
+
+It is also possible to manipulate non-numeric objects, such as strings,
+words or lists. Since all the resources of POP-11 and VED are available
+to the user of VCALC, it is potentially an extremely powerful tool.
+
+The program can be autoloaded by using <ENTER> VCALC as below, or
+explicitly loaded with the command:
+    lib ved_vcalc;
+
+WARNING: this program is experimental, and may be withdrawn or changed
+later. If you wish to ensure that you can go on using it, make a copy.
+
+-- Using VCALC --------------------------------------------------------
+
+To use it on a new file called FOO type, to VED
+    <ENTER> vcalc foo
+
+This will autoload the library program initialise records, put you in
+the file FOO and put the following reminder into the file, inviting you
+to specify some input variables, some output variables, some equations
+(more strictly, assignments), a 'table' and some constraints:
+
+    invars ;
+
+    outvars ;
+
+    EQS
+
+    ;
+
+    TABLE
+
+    ;
+
+    ;;; constraint <name> [ <expression> ];
+
+-- Example: declarations of invars and outvars ------------------------
+If you wished to have a two by three array of numbers, using VCALC to
+add up rows, columns, row totals and column totals, then you might fill
+in the blanks thus (the first two lines are optional, and merely provide
+a consistency check):
+
+    invars a1 a2 b1 b2 c1 c2;
+
+    outvars row1 row2 row3 col1 col2 Rowtotal Coltotal;
+
+-- Example equations --------------------------------------------------
+Now provide a set of equations specifying how the output variables are
+to get their values from input variables or other output variables:
+
+    EQS
+    row1 = a1 + a2;
+    row2 = b1 + b2;
+    row3 = c1 + c2;
+    col1 = a1 + b1 + c1;
+    col2 = a2 + b2 + c2;
+    Rowtotal = sumof row;       ;;; 'sumof' is explained below
+    Coltotal = sumof col;
+    ;
+
+-- Setting up the table with initial values for invars ----------------
+Set up a table with input variables indicated by ":" and output
+variables by "::". Give the initial values for the input variables, and
+use a dot (or 0) for initial values of output variables. (<ENTER> row,
+explained below, can simplify this task.)
+
+    TABLE
+    | a1:20       | a2:-15.3       | row1::.
+    | b1:24       | b2:3           | row2::.
+    | c1:-14.3    | c2:17          | row3::.
+    | col1::.     | col2::.        | Rowtotal::.     | Coltotal::.
+    ;
+
+The table can include optional vertical bars "|" to improve readability.
+These will be ignored by VCALC. The terminating semicolon is required.
+
+Note that in the TABLE, a dot has been used to indicate unknown output
+values. You could use "0" or "?" or some other character instead. When
+VCALC runs the character will be replaced with the appropriate entry.
+
+-- Constraints --------------------------------------------------------
+You may wish the entries in the first row to add up to less than 20 and
+the sum of entries in the second row to exceed those in the third row.
+The following two constraints specify these restrictions on permitted
+values.
+
+    constraint cr1 [ row1 < 20 ];
+
+    constraint cr2 [ row2 >  row3 ];
+
+A third constraint can be given specifying that the sum of row totals
+and sum of colum totals should be the same. If decimal numbers are used,
+equality can't be relied on, owing to rounding errors so a threshold on
+difference should be used instead.
+
+    constraint cr3 [ abs(Rowtotal - Coltotal) < 0.001];
+
+A constraint can perform any computation, alter a database, write files,
+etc., so long as it returns a boolean result, which should be TRUE if
+processing is to continue.
+
+-- Running VCALC ------------------------------------------------------
+
+There are several ways of getting the output values calculated and
+entered into the tables. Initially you need all the declarations,
+equations, initial values and constraints to be processed, i.e. the
+whole file. This can be done using the command:
+    <ENTER> run
+
+Provided you have given enough information, the unknown values in the
+table will be filled in. E.g.
+    TABLE
+    | a1:20       | a2:-15.3       | row1::4.7
+    | b1:24       | b2:3           | row2::27
+    | c1:-14.3    | c2:17          | row3::2.7
+    | col1::29.7  | col2::4.7      | Rowtotal::34.4  | Coltotal::34.4
+    ;
+
+VCALC will not change the format unless an output value will not fit
+into the space provided.
+
+If you have inadvertently declared the same thing as both an input and an
+output variable you will get an error message.
+
+If a constraint is violated the name of the offending constraint will be
+reported on the status line and VED will go to the constraint.
+
+-- NOTES --------------------------------------------------------------
+Because the file will be altered by <ENTER> run, and other commands
+explained below, it is as well to make a copy before giving the command
+in case you want to get back to the original state.
+
+The 'invars' and 'outvars' declarations are not strictly necessary,
+since they are implied by the use of ':' and '::' in the table,
+respectively. However, the declarations are useful as a consistency
+check.
+
+The variables may be any legitimate POP identifiers, not system words,
+e.g.
+    a43   fred_salary_1985a_*   etc
+
+-- Format of the table ------------------------------------------------
+The input variables are ones for which you have to specify numerical
+values in the table, using the format
+
+    <variable>:<value>
+
+e.g.
+    a3:99    fred_salary:66500
+
+(you may add extra spaces, tabs or vertical bars if you wish).
+
+The output variables are ones which you specify in the table by means
+of the format
+    <variable>::<dummy value or ".">
+
+e.g.
+    total::0    total::.
+
+The 'table' starts with the word 'TABLE' (in capitals) followed by a
+sequence of specifications of input variables and output variables,
+separated by spaces tabs, new lines, or vertical bars, in any format you
+like, and terminated with a semi colon.
+
+-- Location of output values ------------------------------------------
+Note that it is not necessary for the output values to be between TABLE
+and the semi-colon. VCALC will search for an entry of the form 'total::.'
+anywhere in the file when it has computed a value for the output
+variable total. Sometimes it is convenient to keep the output values in
+a separate part of the file.
+
+-- Format for equations -----------------------------------------------
+The equations are introduced by the keyword EQS, and each is of the form
+
+    <output variable>  =  <pop-11 expression> ;
+
+The whole set of equations ends with an extra semicolon.
+
+The expression may use input variables and output variables. However,
+the initial term of the equation must be an output variable, and will be
+automatically declared as such if it has not been. The equations are
+really assignments from right to left.
+
+If you give more than one equation with the same first element (output
+variable), then only the last one will be used.
+
+-- Initialising VCALC -------------------------------------------------
+The interactive alterations mentioned below require various properties
+in VCALC to be initialised. They are initialised automatically by the
+'<ENTER> run' and '<ENTER> vcalc' commands, so interactive facilities
+may be used after those command. Alternatively the command
+    <ENTER> vstart
+
+can be used to initialise the tables without changing anything in the
+current file.
+
+-- Interactive alterations --------------------------------------------
+
+Any of the following can be altered using VED and the consequences
+explored.
+
+If you want to change values associated with input variables, or the
+equations, you can edit them using VED normally. Various options are
+then open to you. It is often wise to copy the table to another file
+first. The whole file can be saved using the VED command
+    <ENTER> w <name>
+
+1. You can completely redo the whole current file by typing
+        <ENTER> run
+
+The equations will be re-read, the input values read from the table,
+output values re-computed and updated in the table and constraints
+re-read and checked.
+
+This is the most convenient option if you have made a lot of changes.
+
+2. If you have previously done <ENTER> run or <ENTER> vstart, you can
+redo just the collection of equations, or just the table by using VED to
+mark the relevant range of the file, then typing <ENTER>lmr or CTRL-D.
+The values of output variables in the table will then be re-calculated
+and new values inserted.
+
+NB you must mark the WHOLE collection of equations, or the WHOLE
+table, starting from EQS or TABLE and ending with the final semi-colon.
+
+3. To re-compute output values after editing just one input value, use
+    <ENTER> edv
+
+The cursor moves left to ":", assumes the variable to its left has been
+changed, reads the value after ":", and re-does all relevant assignments
+and constraints. The output values will be altered in the file.
+
+4. If you have edited several input values in the same line, it is
+quicker to have them all redone at once, by putting the cursor on the
+line and typing:
+        <ENTER> edl
+
+The line will be re-read, and any relevant output variables will have
+their values re-calculated and altered on the screen. The constraints
+will be checked.
+
+5.  You can redo a particular equation, by putting the cursor on the
+first line of that equation (it can go over more than one line)
+then typing
+        <ENTER> edeq
+
+6. If you have altered a constraint, or added a new constraint, just
+mark the relevant line(s) and do <ENTER> lmr (load marked range) or
+CTRL-D
+
+It may be convenient to move to another file and type in a constraint
+specifying VED printing commands after you have had all the output
+values computed. (See below on formatting.)
+
+The above interactive commands on part of a file can be applied to this
+help file (after loading LIB VED_VCALC and doing <ENTER> vstart).
+
+-- Manipulating non-numerical structures ------------------------------
+Although table entries for input variables cannot be complex objects,
+the equations can be used to assign things like lists to variables.
+Running the following equations.
+
+EQS
+    x = [a list of words];
+    y = hd(x);
+    z = 'A string';
+    w = substring(2,4,z);
+;
+will transform a line in the file like:
+    x::.                    y::.        z::.        w::.
+
+to
+    x::[a list of words]    y::a        z::A string w:: str
+
+(After loading LIB VCALC and doing <ENTER> vstart, the user can verify
+this by marking the above equations and doing CTRL-D or <ENTER>lmr).
+
+A table entry can assign a string, since POP-11 treats a string as a
+single text item. Thus given the table entry:
+
+    a:'foo'
+
+(which can be run using <ENTER> edl) and the equation
+
+    b = datalist(a);
+
+(use <ENTER> edeq) the table entry
+
+    b::.
+
+will be transformed to
+
+    b::[102 111 111]
+
+However, at present any subsequent attempt to read such tables will cause
+trouble, as VCALC requires the value after "::" to be a single text
+item when it reads a table.
+
+-- Printing out results -----------------------------------------------
+The VCALC variables are represented by words and their values by a
+property called 'vcalcval'. Thus, in the above example, the value of
+the variable Rowtotal can be found thus:
+    vcalcval("Rowtotal") =>
+    ** 34.4
+
+The same property is used for input variables and for output variables.
+POP-11 programs can therefore easily be written to print out results in
+any format required e.g. using PRINTF (see HELP * PRINTF) or, in more
+ambitious cases FORMAT_PRINT (see HELP * FORMAT_PRINT)
+
+It would be useful to introduce a macro to abbreviate expressions like
+    vcalcval("Rowtotal")
+
+E.g. the following could be used to define "$" as a prefix:
+
+    define macro $ x;
+        "vcalcval", "(", """, x, """, ")"
+    enddefine;
+
+Then
+    printf($Rowtotal, $row3, $row2, $row1,
+               'Rowtotals: row1: %p  row2: %p row3: %p -- Total: %p');
+
+Would print out:
+
+    Rowtotals: row1: 4.7  row2: 27 row3: 2.7 -- Total: 34.4
+
+(See HELP * PRINTF).
+
+-- Abbreviating Utilities ---------------------------------------------
+
+The abbreviator 'sumof' was illustrated in the first example above.
+Several such macros are provided to simplify equations and constraints.
+
+sumof foo
+    is an expression whose value is the sum of the values of all the
+    invars and outvars which include 'foo' as a substring, e.g.
+        foo1 foo2 afoo bfoo etc.
+
+prodof foo
+    is an expression whose value is the product of the values of
+    the invars and outvars which include 'foo' as a substring.
+
+average foo
+    is the average of the corresponding values.
+
+numof foo
+    is the number of invars which contain 'foo' as a substring plus
+    the number of outvars which do.
+
+All these abbreviations can be used in equations, or in constraints.
+E.g.
+    Row_total = sumof row;
+
+    constraint rowprod [prodof row <= 1000];
+
+
+WARNINGS:
+If you use sumof, prodof, etc. you must be sure that the relevant
+substrings are not used inadvertently in variables where you did
+not intend them. To make sure you can bound them with underscores,
+    e.g.    row_1 row_2 etc.
+Then 'sumof row_' will not include values for crown1 crown2, etc.
+Alternatively use capitals where appropriate.
+
+One symptom of having used e.g. 'sumof' with a string that is not
+selective enough is that a total does not get updated. This is because
+sumof aborts the relevant equation if one of the variables containing
+the substring does not yet have a value.
+
+In certain circumstances, e.g. when you've typed one colon instead of
+two in an entry for an 'outvar' and then correct it, you may not have
+all the output values shown in the right places. You can get them all
+updated with
+
+    <ENTER> showvals
+
+This does not re-compute the values of the output variables: it merely
+sets them on the screen. Use <ENTER> run, to force complete
+re-computation or just <ENTER> vcheck to check all the equations and
+constraints without re-reading them or the table.
+
+-- Additional VED Utilities -------------------------------------------
+Some VED utilities are provided, to make it easier to build up tables.
+
+To produce a row with various additions to a constant string, do:
+
+    <ENTER> row string type width s1 s2 s3 s4 ... sn
+
+Type is either "left" (or "<") or "right" (or ">"). This produces a row
+of entries consisting of the string concatenated with first s1 then s2
+then s3 etc. Whether the string is concatenated on the left or the right
+is determined by the second argument. The 'width' of the columns is the
+third argument. Each entry is followed by ':0' indicating a default
+value of 0 for the input variable. E.g.
+
+    <ENTER> row cat < 8 1 2 3 4 5 6 7
+
+which gives
+    cat1:0  cat2:0  cat3:0  cat4:0  cat5:0  cat6:0  cat7:0
+
+Compare
+    <ENTER> row 3 < 10 cat dog mouse bat frog
+
+This will produce:
+
+    3cat:0    3dog:0    3mouse:0  3bat:0    3frog:0
+
+whereas:
+
+    <ENTER> row _smith > 15 joe fred mary bill
+
+will produce
+    joe_smith:0    fred_smith:0   mary_smith:0   bill_smith:0
+
+Using the CHANGEMODE VED key (or <ESC> CTRL-G) one can easily go back
+repeatedly to the command line to alter the string for the next row.
+
+To create a row of output values do
+
+    <ENTER> outrow string type width s1 s2 s3 s4 ... sn
+
+This will behave like <ENTER> row, except that '::' is used instead of
+':' and the default value is '.' representing an unknown value. E.g.
+
+    <ENTER> outrow TOTAL_ < 18 smith jones miller black
+
+will produce
+    TOTAL_smith::.    TOTAL_jones::.    TOTAL_miller::.   TOTAL_black::.
+
+-- SHOWING and CHATTY -------------------------------------------------
+Not all variable updates will necessarily be visible in the current
+window. To ensure that you see all changes, switch 'showing' ON by:
+    <ENTER> showing
+
+do it again to switch 'showing' OFF.
+
+To have equations and constraints shown as they are processed do:
+    <ENTER> chatty
+
+do it again to switch OFF. When CHATTY is ON, VCALC waits for three
+seconds after displaying each message. You can make it move more
+quickly by pressing a key after each message, e.g. the LF or BS key.
+
+For further details look at the program, i.e.:
+    SHOWLIB VED_VCALC
+
+-- Possible further developments: -------------------------------------
+1. Improve consistency checking - e.g. testing for circularity in the
+equations.
+
+2. Provide 'pretty printing' facilities to make it convenient
+to print out results in a convenient format.
+
+3. Generalise the TABLE reading part to allow more complex objects to
+be read in. At present values of variables following ":" or "::" in
+a table must be single POP-11 text items. This excludes something like a
+list or vector, but allows strings. Up to a point it is possible to get
+round this by using the equations to assign appropriate values as shown
+above.
+
+
+--- ________________C.all/help/vcalc
+--- _________Copyright __________University __of ______Sussex _____1993. ___All ______rights _________reserved.

@@ -1,0 +1,315 @@
+#!/bin/sh -e
+# --- Copyright University of Sussex 1992. All rights reserved. ----------
+# File:             $poplocal/local/com/newmaster/installmaster
+# Purpose:			Installs a file in a master tree
+# Author:           Rob Duncan, Jan 13 1989 (see revisions)
+# Documentation:	HELP * NEWMASTER
+# Related Files:	LIB * VED_NEWMASTER, * NEWMASTER_INSTALL
+
+
+#######################################################################
+# NB:                                                                 #
+# This file should never be run except via NEWMASTER_INSTALL		  #
+# It should be owned by POP and have the setuid bit on: this must be  #
+# reset after every edit                                              #
+# The first line must read: #!/bin/sh -e                              #
+# The "-e" flag causes the program to abort if any command fails      #
+#######################################################################
+
+umask 022	# Make new files writeable only by POP
+
+CMD=`basename $0`
+USAGE="Usage: $CMD [-v] [-test dir] NEW|MOD SRC|DOC root dir file spool key"
+
+case "$1" in
+	-v)
+		# verbose: echo all commands executed
+		set -x
+		shift
+		;;
+esac
+
+case "$1" in
+	-test)
+		# testmaster directory
+		case "$2" in
+			*/)
+				TEST="$2"
+				;;
+			*)
+				TEST="$2/"
+				;;
+		esac
+		shift; shift
+		;;
+	*)
+		TEST=
+		;;
+esac
+
+case "$1" in
+	NEW|MOD)
+		MODE=$1
+		shift
+		;;
+	*)
+		echo $USAGE 1>&2
+		exit 1
+		;;
+esac
+
+case "$1" in
+	SRC|DOC)
+		TYPE=$1
+		shift
+		;;
+	*)
+		echo $USAGE 1>&2
+		exit 1
+		;;
+esac
+
+if [ $# -ne 5 ]
+then
+	echo $USAGE 1>&2
+	exit 1
+fi
+
+case "$1" in
+	*/)
+		ROOT="$1"
+		;;
+	*)
+		ROOT="$1/"
+		;;
+esac
+if [ ! -d $ROOT ]
+then
+	echo "Error: no such root directory: $ROOT" 1>&2
+	exit 1
+fi
+shift
+
+case "$1" in
+	*/)
+		DIR="$1"
+		;;
+	*)
+		DIR="$1/"
+		;;
+esac
+if [ ! -d ${ROOT}$DIR ]
+then
+	echo "Error: no such directory: ${ROOT}$DIR" 1>&2
+	exit 1
+fi
+shift
+
+FILE=$1
+shift
+
+SPOOL=$1
+shift
+if [ ! -f $SPOOL ]
+then
+	echo "Error: no such file: $SPOOL" 1>&2
+	exit 1
+fi
+
+KEY=$1
+shift
+
+TARGET=${DIR}$FILE
+
+NEWMASTER="@"NEWMASTER"@"
+DATE="`date`"
+INSTALL=${ROOT}install
+LOG=$INSTALL/LOG
+
+echo $NEWMASTER $MODE $TYPE $TARGET $KEY $DATE >> $LOG
+
+cd $ROOT
+
+case $MODE in
+
+NEW)
+	# install a new file:
+	if [ -f $TARGET ]
+	then
+		echo "Error: file already exists: ${ROOT}$TARGET" 1>&2
+		exit 1
+	fi
+	# if file is in a C. directory, determine links to any S. directories
+	sfiles=
+	case $DIR in
+	C.*/*)
+		Cdir=`expr $DIR : '\(C\.[^/]*\)'`
+		subdir=`expr $DIR : 'C\.[^/]*/\(.*\)'`
+		if Sdirs=`grep -l $Cdir S.*/CDIRS`
+		then
+			quit=no
+			for Sdir in $Sdirs
+			do
+				Sdir=`expr $Sdir : '\(.*\)/CDIRS'`
+				if [ ! -d $Sdir/$subdir ]
+				then
+					echo "Error: no such directory: ${ROOT}$Sdir/$subdir" 1>&2
+					quit=yes
+				fi
+				if [ -f $Sdir/TRANSLATE_NAME ]
+				then
+					sfile=`$Sdir/TRANSLATE_NAME $FILE`
+				else
+					sfile=$FILE
+				fi
+				sfile=$Sdir/${subdir}$sfile
+				if [ -f $sfile ]
+				then
+					echo "Error: file already exists: ${ROOT}$sfile" 1>&2
+					quit=yes
+				fi
+				sfiles="$sfiles $sfile"
+			done
+			if [ $quit = yes ]
+			then
+				exit 1
+			fi
+		else
+			echo "Warning: no links to directory ${ROOT}$Cdir" 1>&2
+		fi
+		;;
+	esac
+	cp $SPOOL $TARGET
+	chmod o-w $TARGET
+	if [ -n "$sfiles" ]
+	then
+		for sfile in $sfiles
+		do
+			ln $TARGET $sfile
+		done
+	fi
+	# make an entry in the new files list
+	echo $TARGET $KEY $DATE >> $INSTALL/NEW$TYPE
+
+	# add into any relevant testmaster directories
+	if [ -n "$TEST" ]
+	then
+		case $DIR in
+			S.*)
+				sfiles="$sfiles $TARGET"
+				;;
+		esac
+		if [ -n "$sfiles" ]
+		then
+			cd $TEST
+	        for sfile in $sfiles
+			do
+		        # e.g. sfile = S.sun/src/example.p
+		        Mdir=M.`expr $sfile : 'S\.\([^/]*\)/'`
+		        # e.g. Mdir = M.sun
+		        if [ -d $Mdir -a -f $Mdir/$sfile ]
+		        then
+			        mfile=pop/`expr $sfile : 'S\.[^/]*/\(.*\)'`
+			        # e.g. mfile = pop/src/example.p
+			        if [ ! -f $Mdir/$mfile ]
+			        then
+						# file must be in a volatile directory:
+				        # add a new symbolic link
+						linkpath=`echo "$mfile" | \
+							sed -e 's#[^/]*/#../#g' -e 's#[^/]*$##'`
+						# e.g. linkpath = ../../
+						ln -s ${linkpath}$sfile $Mdir/$mfile
+			        fi
+		        fi
+	        done
+		fi
+	fi
+	;;
+
+MOD)
+	# replace an existing file:
+	if [ ! -f $TARGET ]
+	then
+		echo "Error: no such master file: ${ROOT}$TARGET" 1>&2
+		exit 1
+	fi
+	# keep a "diff" record
+	diff=no
+	if [ -f $INSTALL/DIFF-IN-DIR ]
+	then
+		diff=yes
+		# make a record in the DIFF directory
+		case $DIR in
+		C.*)
+			dfile=${DIR}DIFFS/$FILE
+			if [ ! -d ${DIR}DIFFS ]
+			then
+				mkdir ${DIR}DIFFS
+			elif [ -f $dfile.Z ]
+			then
+				uncompress $dfile
+			fi
+			echo $NEWMASTER $KEY $DATE >> $dfile
+			if diff -b -e $SPOOL $TARGET >> $dfile
+			then
+				:
+			elif [ $? -eq 2 ]
+			then
+				echo "Error: diff failed: ${ROOT}$dfile" 1>&2
+				exit 1
+			fi
+			if compress $dfile
+			then
+				:
+			elif [ $? -ne 2 ]
+			then
+				echo "Warning: compress failed: ${ROOT}$dfile" 1>&2
+			fi
+			;;
+		esac
+	fi
+	if [ -f $INSTALL/DIFF-IN-LOG ]
+	then
+		diff=yes
+		# make a record in the LOG file
+		echo $NEWMASTER DIFF >> $LOG
+		if diff -b -e $TARGET $SPOOL >> $LOG
+		then
+			:
+		elif [ $? -eq 2 ]
+		then
+			echo "Error: diff failed: $LOG" 1>&2
+			exit 1
+		fi
+		echo $NEWMASTER END-DIFF >> $LOG
+	fi
+	# check that some diff record was kept
+	if [ $diff = no ]
+	then
+		echo $NEWMASTER NO-DIFF >> $LOG
+		echo "Warning: no DIFF record kept" 1>&2
+	fi
+	# copy the new version onto the old
+	cp $SPOOL $TARGET
+	;;
+esac
+
+exit 0
+
+# --- Revision History ---------------------------------------------------
+# --- Robert John Duncan, Mar  9 1992
+#		Now keeps diffs for doc files as well as source; all diff files are
+#		compressed
+# --- Robert John Duncan, Dec 10 1990
+#		Changed test on "$quit" to be more explicit: previous version
+#		didn't work with the Sun shell
+# --- Robert John Duncan, Nov 21 1990
+#		Extensive revision: does more error-checking before installing
+#		anything to minimise risk of leaving the master tree in an
+#		inconsistent state; added support for M. directories.
+# --- Robert John Duncan, Sep  7 1990
+#		Added verbose option (-v) for debugging; changed test on result
+#		of "diff" command to something that works on Ultrix.
+# --- Rob Duncan, Jul 12 1989
+#		Added umask 022 to restrict write permission on new files to
+#		POP only (stops inadvertent writes to the masters)

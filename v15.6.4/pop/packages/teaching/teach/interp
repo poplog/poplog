@@ -1,0 +1,517 @@
+TEACH INTERP                              Chris Mellish and Aaron Sloman
+
+=== SEMANTIC INTERPRETATION ==========================================
+
+The purpose of this demo is to begin to investigate how we might write a
+computer program to extract the MEANING from a piece of text. By now you
+should have some idea (from the PARSING  demo,  LIB  GRAMMAR  and  TEACH
+GRAMMAR)  how  we  can  determine the syntactic structure of a sentence,
+given a grammar for the language  under  consideration.  In  this  demo,
+assume   that  syntactic  structures  can  be  discovered  somehow,  and
+concentrate on how the syntactic structure of a sentence can be used  as
+the  input  for  a  process of SEMANTIC interpretation.  The basic ideas
+that we will make use of have been used in the formal analysis  of  both
+natural  and  artificial  languages,  as well as in computer programs to
+process language.
+
+
+Extracting the Meaning
+----------------------
+How are we to extract the meaning from something as complex as a book, a
+paragraph,  or even a sentence? Many people have pondered this question,
+but one principle due to Frege stands out in just about  every  approach
+that has been made. It can be informally stated as:
+
+  The meaning of the whole is a function of the meanings of the parts
+
+Frege distinguished at least three different uses of the word  'meaning'
+called REFERENCE (roughly, what thing or class of things in the world is
+referred to) SENSE (roughly, HOW it is referred to) and the ASSOCIATIONS
+suggested  by  a  word  or  phrase.  The third sort of meaning will vary
+enormously from one individual to another,  whereas  Frege  thought  the
+first  two were common to different users of the same language.  Frege's
+principle, stated above applies to the first two  senses  of  'meaning'.
+The  notion  of  'sense'  is  hard  to  define  precisely,  and  is very
+controversial.  For present purposes we shall ignore it, and refer  only
+to  reference.  So  we  are  concerned  with  the problem of finding the
+reference of a noun phrase, or the class of objects  referred  to  by  a
+predicate,  or  the  truth-value  of  a sentence. (Frege showed that the
+truth-value could be thought of as a special kind of reference.)
+
+According to  this  principle,  the  reference  of  a  sentence  can  be
+expressed  in  terms  of  the  references  of the phrases within it. The
+references of these in turn depend on the references of  the  subphrases
+within  them.  And  so  on,  until  we  are  down  to  the references of
+individual words (or even smaller).
+
+Adopting Frege's principle does not  make  extracting  the  reference  a
+trivial process. It merely gives us a framework for organising our ideas
+and decomposing  the  problem.   In  particular,  we  must  resolve  the
+following questions:
+
+1. What are the appropriate subphrases  to  consider  when  we  want  to
+    obtain the reference of a phrase?
+2. Just how does the reference of a particular phrase depend on that  of
+    its subphrases?
+3. What are the references of individual  words  (the  phrases  that  no
+    longer subdivide into smaller phrases)?
+4. What kinds of things should meanings be anyway? Are they  symbols  in
+    the  machine?  Are  they  things in the world? Are they some kind of
+    relationship between the two?
+
+As for what the appropriate subphrases of a phrase are,  we  might  hope
+that these would be precisely what are given by the syntactic structure.
+So, for instance, when we have a rule in the grammar that says:
+
+                              [s [np vp]]
+
+then as well as saying something about what forms a  sentence  can  take
+("a  sentence can be a noun phrase followed by a verb phrase"), it might
+say something about how the reference is to be extracted ("the reference
+of  the  sentence  is some function of the references of the noun phrase
+and the verb phrase").  (You should here be reminded of some of the work
+you  did on 'propositions' in the MENTAL SCHEMATA course.) Of course, it
+may be asking  too  much  for  the  same  breakdown  of  a  phrase  into
+subphrases to yield both syntactic and semantic generalistions. However,
+if the reason for  using  syntactic  analysis  is  only  to  provide  an
+appropriate  preliminary for semantic analysis, we are obviously free to
+choose our grammar in a way that divides up phrases in  a  way  that  is
+semantically  appropriate. We might nevertheless hope that there is some
+consistent  relationship  between  syntax  and  semantics   in   natural
+languages,  and  that  a  semantically appropriate grammar also captures
+syntactic generalisations. Apparent exceptions  might  be  constructions
+like
+
+                   Jack, but not his wife, likes fat
+
+           If alive call the doctor otherwise the undertaker
+
+Are these exceptions? Can you  find  other  cases  where  the  syntactic
+divisions don't seem to correspond to semantic components, in English?
+
+Assuming that syntactic  analysis  divides  up  phrases  correctly  into
+subphrases,  it  remains  for  us to specify just how the reference of a
+complex expression (e.g. the truth-value of a sentence) depends  on  the
+references  of  the parts (e.g. the noun phrase and the verb phrase). It
+would be desirable to be able to  cope  with  every  possible  way  that
+complex phrases can be made up of immediate subphrases. This leads to an
+approach where syntactic and semantic rules are PAIRED  -  corresponding
+to  each syntactic rule saying how a phrase can be constituted, there is
+a semantic rule which says  how  the  reference  of  such  a  phrase  is
+composed  out  of the references of the parts. We will shortly be seeing
+some examples of this.
+
+There  are  two  main  options  for  how  we  can  use  these   semantic
+interpretation rules.
+
+A: As soon as the parser recognises the presence of a phrase  consisting
+of  some  sequence  of  subphrases, the reference of the whole phrase is
+immediately worked out from the references of the  parts  (at  the  same
+time as this bit of parse tree is constructed).
+
+In such a regime, the reference of a single word would be constructed as
+soon  as  the  parser  encountered it.  Such a possibility would involve
+adapting the parser, and we will not investigate it  here  (although  we
+will see that there would be advantages in it).
+
+B: The reference is worked out  after  the  parse  tree  for  the  whole
+sentence has been constructed.
+
+In this case, the semantic interpretation process must look at the parse
+tree  to determine how the sentence decomposes. It will start by looking
+at the top ("sentence" node). To find the reference  of  this,  it  will
+need  to  look  at  the  immediate  constituents  of  this.  To find the
+references of these, it will need to look further down the tree, and  so
+on.  This kind of semantic interpretation can be characterised as a kind
+of  recursive  tree-walking  exercise,  where  values  (references)  are
+associated with the nodes of the tree.
+
+You may wish to think about whether either of these two approaches would
+be  appropriate  for analysing the SENSE of a complex expression, rather
+than its REFERENCE.
+
+To see how these ideas work in practice, we start with a simple language
+for arithmetic expressions.
+
+Semantic Interpretation for an Expression Language
+--------------------------------------------------
+Consider a restricted  artificial  language,  in  which  one  can  write
+arithmetic  expressions,  using  numbers  and the symbols +, *, ( and ).
+Because of the way LIB GRAMMAR works, we will  write  numbers  as  words
+(and  restrict  ourselves  to  small numbers). We will also require that
+brackets are  provided  around  ALL  non-trivial  subexpressions  of  an
+expression.  Given  this, the following is an appropriate description of
+the language. In this language, "expr" is supposed to be  the  "starting
+symbol"  -  the 'top-level' category that utterances in the language are
+supposed to belong to (compare "sentence" in English).
+
+    [
+      [expr [simple] [simple + simple] [simple * simple]]
+      [simple [number] [( expr )]]
+    ]
+      -> grammar;
+
+    [
+      [number one two three four five six]
+    ]
+      -> lexicon;
+
+Type this in to LIB GRAMMAR and try out a few examples:
+
+    : REPEAT 9 TIMES EXPR(READLINE())==> ENDREPEAT;
+
+Try and give the parser a wide variety of kinds of phrases, so that  you
+can  establish  just  what  is  and  what  is  not a legal "expr" in the
+language:
+
+
+What interpretation might we want to place on a phrase in this language?
+It  is  reasonable  to say that all we can talk about in the language is
+numbers. We can talk about them more or  less  directly.  For  instance,
+"four"  is  a  way of talking about 4. The phrase "two * (one + one)" is
+another way of  talking  about  the  same  number.  The  have  the  same
+REFERENCE  though  not  (according to Frege) the same SENSE.  So we will
+take the 'interpretation' of a phrase to be the number  it  denotes,  or
+refers  to.  (An  alternative might be to think of the interpretation as
+the process you have to go  to  work  out  the  number  denoted  by  the
+expression.  This  would  be close to Frege's notion of 'sense'. In that
+case,  "four"  and  "two * (one + one)"  would   not   have   the   same
+interpretation.)
+
+How can we organise the derivation of the reference?
+
+Fortunately, the parse trees produced, given the grammar above,  provide
+just  the  information  that  is needed for determining the reference of
+phrases in the language. For instance, the phrase "two + (three * four)"
+gives  rise  to  a  parse  tree  with  three  immediate subtrees - those
+corresponding to "two", "+" and "(three * four)". The  presence  of  the
+"+"  signals  to  us  that  the  reference  of the whole phrase is to be
+determined by adding together the references of the two subphrases.
+
+In saying this we are saying something about  the  meaning  of  '+'.  In
+fact,  we  are  assuming  a  procedural  interpretation  of its meaning,
+something like its SENSE.  You could think of it as having a  reference,
+which  is  the (infinite) set of  all possible triples consisting of two
+numbers and their sum. Then,  finding  the  reference  of  "two + three"
+might  involve  searching  the  set  for  a  triple  starting  with  the
+references of "two" and "three", and taking the  third  element  as  the
+result. Instead, we just assume the ability to add!
+
+How can we design a program to 'evaluate'  an  arithmetical  expression?
+We  want  a procedure INTERP to look at the top level of the parse tree.
+This should be a tree for a grammatically correct "expr".  It  will,  as
+usual,  start  with  a  symbol saying what kind of thing it is the parse
+tree for. We can then dig out the sub-tree and use another procedure  to
+interpret it, called INTERP_EXPR:
+
+    define interp(phrase);
+            vars expr;
+            phrase --> [expr ??expr];
+            interp_expr(expr)
+    enddefine;
+
+Notice that we will keep to certain conventions throughout this program.
+There  will  be one procedure that "knows about" each syntactic category
+and how references of instances of that category can be obtained.  Since
+all  "references"  here  are  numbers,  these  procedures will generally
+receive bits of parse trees as their arguments and  produce  numbers  as
+their  results. In the above definition of INTERP, a numerical result is
+intended - it is simply the result of the call of INTERP_EXPR.
+
+Now for the definition of INTERP_EXPR. Looking back at the  grammar,  we
+can  see  that  there  are  three  possible  cases  for  an  "expr". The
+definition will have to cope with each of these:
+
+    define interp_expr(phrase);
+            vars e1 e2;
+            if phrase matches [[simple ??e1]]
+              then interp_simple(e1)
+            elseif phrase matches [[simple ??e1] + [simple ??e2]]
+              then interp_simple(e1) + interp_simple(e2)
+            elseif phrase matches [[simple ??e1] * [simple ??e2]]
+              then interp_simple(e1) * interp_simple(e2)
+            endif;
+    enddefine;
+
+Notice how we are making use  of  a  procedural  interpretation  of  the
+arithmetic  operators.  That is, for now, we are not defining procedures
+called  INTERP_PLUS,  INTERP_TIMES,  but  simply  using   the   standard
+procedures for adding or multiplying.
+
+This definition makes use of  another  procedure  (yet  to  be  defined)
+INTERP_SIMPLE,  which  can  extract  the  reference  from phrases of the
+category "simple". Notice  that  (because  of  how  INTERP  works),  the
+argument  of  INTERP_EXPR  is  an  "expr"  tree  with the initial "expr"
+removed. For instance, if the initial argument given to INTERP was:
+
+    [expr
+      [simple [number two]]
+      +
+      [simple [number three]]
+    ]
+
+then the tree fragment given to INTERP_EXPR would be
+
+    [
+       [simple [number two]]
+       +
+       [simple [number three]]
+    ]
+
+Similarly, the argument to INTERP_SIMPLE is a  "simple"  tree  with  its
+head cut off.
+
+    define interp_simple(phrase);
+            vars e n;
+            if phrase matches [[number ?n]]
+              then interp_number(n)
+            elseif phrase matches [( [expr ??e] ) ]
+              then interp_expr(e)
+            endif
+    enddefine;
+
+Notice how INTERP_SIMPLE calls INTERP_EXPR, and also  INTERP_EXPR  calls
+INTERP_SIMPLE.  This  phenomenon,  where  two things are defined each in
+terms of the other, is called MUTUAL RECURSION.
+
+Because of the mutual recursion, INTERP_SIMPLE (and INTERP_EXPR) may end
+up  indirectly  calling  itself.  However,  the program is guaranteed to
+terminate because each time a procedure is called from  within  another,
+the  "phrase" argument of the new procedure is smaller than the original
+one. Since we cannot go on  indefinitely  finding  smaller  and  smaller
+lists,   the   succession  of  one  procedure  calling  another  calling
+another.... must eventually stop.  In fact, the  sequence  of  procedure
+calls will finally stop when it gets to a word specifying a number.
+
+We need to provide one more procedure, to cover this case:
+
+    define interp_number(word);
+            if word = "one" then 1
+            elseif word = "two" then 2
+            elseif word = "three" then 3
+            elseif word = "four" then 4
+            elseif.........
+            ...........
+            endif
+    enddefine;
+
+Exercise 1:
+-----------
+Type in definitions of the above procedure and  try  them  out  on  some
+examples, eg.
+
+    : TRACE EXPR;
+    : REPEAT 6 TIMES INTERP(EXPR(READLINE())) => ENDREPEAT;
+    ** ....
+
+You could trace INTERP and the procedures it uses, also.
+
+Exercise 2.
+-----------
+Extend the  grammar  and  semantic  interpretation  procedures  so  that
+subtraction and division can also be handled in the language.
+
+How would the grammar have to  be  extended  if  we  wanted  unambiguous
+expressions  to be handled even if brackets were not provided everywhere
+(eg.  phrases like "two + one * five")?
+
+Exercise 3.
+-----------
+Write a short explanation  of  how  the  procedures  work,  using  trace
+printing to illustrate.
+
+Talking about Numbers in English
+--------------------------------
+The previous section dealt with an artificial language for talking about
+numbers. We will now look at how numbers are talked about in English. Of
+course, one way we can talk about numbers is  just  to  write  down  the
+figures.   That  is not very interesting. More interesting is how we put
+together complex phrases like:
+
+    twelve thousand three hundred and ninety nine
+
+The way we specify numbers by sequences of  words  is  not  random,  but
+obeys  certain  implicit rules. These rules determine both the syntax of
+the phrases (which sequences of words are legal) and  the  semantics  of
+the phrases (what they mean). Let us look at the syntax first.
+
+The words representing the numbers from 1 to  9  seem  to  belong  to  a
+special  category  in  the grammar of English numbers. These numbers can
+appear in any of the contexts represented as '...':
+
+    twenty ...
+    a hundred and ...
+
+Let us call this category the category "digit".
+
+The words for the numbers from 10 to 19  also  seem  to  fall  naturally
+within  a  category. These words can appear in all but the second of the
+above contexts.  Let us call this the category "teen". The  phrases  for
+the  numbers  from  21  to  29,  31 to 39, 41 to 49, ... 91 to 99 have a
+stereotyped form - one word followed by a "digit".  We  could  invent  a
+category  for  the  words  that start these - "twenty", "thirty", etc. -
+calling it "tens" say. And we can continue in this  way,  extending  the
+grammar to cover as many numbers as we like. To some extent, the grammar
+we write is arbitrary, as long as it covers all the  valid  phrases  and
+nothing  else.  Where  there  are  options,  we might be guided by which
+yields the most concise grammar. Here is a fragment of the grammar  that
+might be produced:
+
+    [
+      [number [undertwenty] [twentytohundred] ....
+      [undertwenty [digit] [ten] [teen]]
+      [twentytohundred [tens] [tens digit]]
+      ...
+    ] -> grammar;
+
+    [
+      [digit one two three four five six seven eight nine]
+      [tens ten twenty thirty forty ....
+      ...
+    ] -> lexicon;
+
+Exercise 4.
+----------
+Can you extend that grammar, by adding new forms of "number"?
+
+Now for the semantics. This is  fairly  straightforward,  because  every
+phrase  and  subphrase can be seen as talking about a number, just as in
+the previous language. We can start writing procedures as follows:
+
+    define interp(phrase);
+            vars num;
+            phrase --> [number ??num];
+            interp_number(num)
+    enddefine;
+
+    NB you have to think carefully about the structure that ??num will pick up.
+    It will have one more set of brackets than you might think. Consequently, the
+    next procedure needs what you might think of as surplus brackets. Look
+    carefully at the parse-trees produced by lib grammar, and be sure you
+    understand the brackets!
+
+    define interp_number(phrase);
+            vars n;
+            if phrase matches [[undertwenty ??n]]
+                    then interp_undertwenty(n)
+            elseif phrase matches [[twentytohundred ??n]]
+                    then interp_tth(n)
+            elseif ...
+            ...
+    enddefine;
+
+    define interp_digit(word);
+            if word = "one" then 1
+            elseif word = "two" then 2
+            elseif word = "three" then 3
+            ...
+    enddefine;
+
+Exercise 5:
+-----------
+Complete the number grammar, so that it covers all  numbers  from  1  to
+999999 (this is not as bad as it sounds). Or, if you like, make a number
+grammar for another language, like French or  German.  Also,  provide  a
+complete  set  of  interpretation procedures, so that a reference can be
+worked out for every phrase allowed by the grammar.
+
+GENERATING and TRANSLATING
+
+Another thing you might try is generating the English phrase for a given
+number.  This  time, you can again have a procedure associated with each
+grammatical category. The program might start something like:
+
+    define generate_number(n)->list;
+       if n < 20 then generate_undertwenty(n)->list
+       elseif n < 100 then generate_twentytohundred(n)->list
+       ......
+    enddefine;
+
+    define generate_twentytohundred(n)->list;
+       if ...10...n... then generate_tens(n)
+       else
+          generate_tens(...n...10...) <> generate_digit(...n...10...)
+       endif
+    enddefine;
+
+
+    define generate_digit(n);
+       if n = 1 then [one]
+       elseif n = 2 then [two]
+       ...
+    enddefine;
+
+If  your  generating  and  interpreting  procedures  are  working   with
+different  languages,  you can use the combination to translate from one
+language  to  another.  For  instance,  if  INTERP  interprets   numbers
+expressed  in  French  and GENERATE_NUMBER generates a phrase in English
+from a number, then the following procedure will translate  from  French
+into English:
+
+    define translate(phrase)->newphrase;
+       generate_number(interp(phrase))->newphrase
+    enddefine;
+
+Exercise 6:
+-----------
+Generalise one of the grammars so that instead of merely allowing phrases
+which denote numbers, they permit complete sentences, like
+
+                 four + four = (two * three) + two
+    or
+                 four times seven equals twenty six
+
+Define procedures which will evaluate such sentences, using the parse trees
+as input.
+
+Exercise 7:
+-----------
+Write a program which takes an expression in one of the above languages and
+instead of creating a parse tree computes the reference of the whole
+expression, i.e. using strategy A referred to above. You may find it useful
+to make use of the general form of the procedures described in the PARSING
+demo, but with suitable modifications.
+
+PROBLEM: What about translating from English into the "expression" language
+defined by our first grammar above?
+
+PROBLEM: What is the relationship between interpreting a sentence and
+interpreting an image? In both cases we can say that one sort of structure is
+related to some other object. Is there anything more to be said about the
+comparison? Is the notion of syntax relevant to pictures? Can pictures have a
+sense and a reference?
+
+PROBLEM: In general, building a representation of the reference of an
+expression will be inadequate to our ordinary notion of building a
+representation of the meaning, since what we ordinarily understand by
+'meaning' is closer to sense than to reference. For instance, if you had to
+translate the phrase 'The Vice-Chancellor of Sussex University' into French,
+it would not do to find just any old French expression which happened to
+refer to Denys Wilkinson. E.g. using his name in the French version would not
+count as a translation, and it would be positively misleading in sentences
+like:
+
+            'The Vice-Chancellor of Sussex University chairs Senate meetings'
+
+for this refers to the role, not the person. The same problem arises
+concerning the translation of phrases in 'intensional' contexts, e.g.
+
+        'Fred believes that the Vice Chancellor is a physicist'
+
+The V-C may actually be the man who often sits next to Fred on the bus, and
+chats to him, about the weather and politics. It doesn't follow that the
+above sentence has the same meaning as:
+
+        'Fred believes that the man on the bus is a physicist'
+
+even if the two bits which differ have the same reference. In fact, one could
+assert a true proposition whilst the other is false. Try thinking of a way of
+representing the meaning which would deal with these problems.
+
+
+
+
+
+
+
+CM and AS                         -9-                           Jan 1982

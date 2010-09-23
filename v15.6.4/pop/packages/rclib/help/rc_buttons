@@ -1,0 +1,3665 @@
+HELP RC_BUTTONS                                  Aaron Sloman, June 1997
+                                                    Updated: 19 Feb 2004
+Corrected table of contents 17 Feb 2004
+
+For changes see
+    HELP rclib_news
+    Note: Sept 2002
+    rc_informant_value, rc_button_label and rc_real_contents
+    are now distinct slots in radio and someof buttons
+        rc_options_chosen returns a list of labels of selected buttons
+        rc_options_chosen returns a list of 'real_contents' of selected
+            buttons
+
+    The three categories of action button types POPNOW, POP11
+    and INVED are all now collapsed into one: POP11 actions.
+    Changes to the event handler have made the distinctions
+    unnecessary. However DEFER actions remain a distinct category.
+
+
+For an overview of rclib see
+    HELP RCLIB
+
+
+CONTENTS
+
+ -- Overview
+ -- Introduction
+ -- Use of featurespec arguments
+ -- Types of buttons and related facilities
+ -- -- Asynchronous control buttons
+ -- -- Input fields
+ -- -- Buttons for popup menus
+ -- -- Information display panels
+ -- Making the buttons available
+ -- Examples of individual buttons, using rc_create_button
+ -- -- A button to print out a greeting
+ -- -- Using a featurespec and an identifier record
+ -- -- Using a three element vector with a type word
+ -- -- Action buttons with blobs
+ -- -- An action button invoking a Unix command
+ -- -- An action to display a message panel
+ -- -- Specifying button actions as {[proc arg1 arg2 arg3]}
+ -- -- Specifying actions as {'<pop11 code>'}
+ -- -- A button to kill a window
+ -- -- Other action formats
+ -- -- Global variable rc_selected_action_button
+ -- -- Global variable rc_in_button_handler
+ -- -- Global variables rc_action_button_x, rc_action_button_y;
+ -- The "scale independence" of button creation commands
+ -- Getting rid of spare windows
+ -- The definition of create_rc_button
+ -- -- Inputs for create_rc_button
+ -- -- create_rc_button does the following.
+ -- Where output goes: async_vedbuffer
+ -- Making output go into a Ved buffer
+ -- A column of buttons
+ -- Counter buttons and toggle buttons
+ -- -- Changing the appearance of toggle buttons and counter buttons
+ -- Creating buttons with blobs
+ -- Procedures for creating rows and columns of buttons
+ -- Button specification formats in lists of buttons
+ -- -- 1. A string. (ACTION button)
+ -- -- 2. A word. (ACTION button)
+ -- -- 3. A list of at least two elements. (VARIOUS types)
+ -- -- 4. A vector of three or more elements. (VARIOUS types)
+ -- -- 5. Adding a featurespec
+ -- -- Examples of legal specifications for list elements
+ -- -- Specifying an array of buttons
+ -- Allowed abbreviations in featurespec vectors
+ -- -- Adding a new abbreviation
+ -- Specifying an action button or blob button
+ -- Buttons with associated state
+ -- -- Toggle buttons
+ -- -- Counter buttons
+ -- -- Option buttons, radio buttons, someof buttons
+ -- WARNING: List expressions in POP11 (and similar) actions
+ -- An example list of buttons
+ -- Making a column: create_button_column
+ -- -- Exercise
+ -- Making horizontal rows of buttons: create_button_row
+ -- Using create_button_columns
+ -- -- An array of buttons in three columns
+ -- -- Additional examples: 4 and 6 columns
+ -- Buttons on popup menus: rc_popup_query
+ -- -- Example invocations of selection menus
+ -- -- Global variables for rc_popup_query
+ -- "Popup" Messages without buttons: rc_message
+ -- -- Global variables for rc_message
+ -- Messages that persist: rc_poster
+ -- A variant that waits: rc_message_wait
+ -- Radio buttons and someof buttons
+ -- Complete list of action specifications for action buttons
+ -- Default values for global variables in LIB rc_buttons
+ -- SUMMARY OVERVIEW
+ -- -- The main mixins: rc_button, rc_display_button
+ -- The main button classes: action, blob, toggle,etc.
+ -- -- Option buttons and radio and someof subclasses
+ -- Procedures for creating individual buttons or collections
+ -- -- Procedures in LIB RC_BUTTONS
+ -- -- Procedures in LIB RC_BUTTON_UTILS
+ -- -- Summary contents of LIB RC_BUTTONS
+ -- -- Additional facilities in LIB RC_POPUP_QUERY
+ -- -- Facilities in LIB RC_INFORMANT
+ -- -- Additional autoloadable library procedures:
+ -- Getting from a button or button list to its container
+ -- See also
+ -- Revision notes
+
+-- Overview -----------------------------------------------------------
+
+LIB * RC_BUTTONS is a library within the RCLIB package, providing
+facilities for creating buttons of various sorts on an RC_GRAPHIC window
+object. It can also create and automatically format multiple columns or
+rows of buttons of various kinds.
+
+It is used by the rc_control_panel utility which automatically formats
+control panels containing buttons, sliders, dials, text fields, graphic
+elements, etc.
+
+Besides the examples presented below, there are additional examples in
+    TEACH * RCLIB_DEMO.P
+    TEACH * POPCONTROL
+    TEACH * RC_CONTROL_PANEL
+    HELP  * RC_CONTROL_PANEL
+    TEACH * RC_CONSTRAINED_PANEL
+
+
+-- Introduction -------------------------------------------------------
+
+This file gives an overview of the facilities for creating "active"
+buttons of various sorts, provided by
+
+    LIB * RC_BUTTONS
+    LIB * RC_BUTTON_UTILS
+
+and also the facilities provided in these files
+
+    LIB * RC_POPUP_QUERY
+    LIB * RC_MESSAGE
+    LIB * RC_MESSAGE_WAIT
+
+These provide related functions, involving panels that are displayed
+with information and possibly questions to be answered or selections to
+be made (rc_message and rc_message_wait do not use buttons).
+
+LIB * RC_CONTROL_PANEL
+
+defines a procedure that creates panels containing sets of text fields,
+button fields, slider fields, graphic fields, and several other types,
+all automatically formatted.  These facilities are described in more
+detail in
+    HELP * RC_CONTROL_PANEL
+
+The files TEACH * RC_CONTROL_PANEL and TEACH * RCLIB_DEMO.P both
+illustrate the use of buttons related mechanisms. Further detailed
+examples can be found in LIB * RC_POLYPANEL.
+
+For many purposes the procedures described below which create individual
+buttons, i.e.
+
+    create_rc_button,
+    create_action_button
+    create_blob_button
+    create_option_button
+    create_select_button
+
+will be found found less useful than the procedures which do automatic
+formatting of arrays of buttons i.e. the procedure for creating an array
+of buttons
+
+    create_button_columns(x, y, width, height, spacing, columns,
+            list, type, specs) -> buttons;
+
+or its more specialised variants:
+
+   create_button_column(x, y, width, height, spacing,
+            list, type, specs) -> buttons;
+
+   create_radio_button_columns(x, y, width, height, spacing, columns,
+            string, list, specs) -> buttons;
+
+   create_someof_button_columns(x, y, width, height, spacing, columns,
+            string, list, specs) -> buttons;
+
+   create_button_row(x, y, width, height, spacing,
+            list, type, specs) -> buttons;
+
+   create_button_column(x, y, width, height, spacing,
+            list, type, specs) -> buttons;
+
+Probably the most useful procedure of all is
+
+    rc_control_panel(x, y, fields, title) -> panel;
+
+Described in HELP rc_control_panel
+
+-- Use of featurespec arguments ---------------------------------------
+
+Many of the procedures in the RCLIB package including button creation
+procedures allow permit a "specs" argument. This allows the default
+specifications for buttons to be overridden using the mechanisms
+described in HELP * FEATURESPEC.
+
+When a procedure is given a list of button specifications it is
+sometimes useful to make individual buttons look different and the
+notation described below also allows a shorthand for altering the
+defaults for individual buttons within a list of buttons.
+
+
+-- Types of buttons and related facilities ----------------------------
+
+The main facilities related to buttons are described in several groups,
+as follows:
+
+-- -- Asynchronous control buttons
+
+o Action buttons. These cause some specified action to happen when
+  pressed (no matter what else is going on)
+
+o Invisible action buttons. These are the same except that they do not
+  have a visible border which changes colour when mouse button 1 is
+  pressed.
+
+o Action buttons with blobs. These are like action buttons, but with a
+  different appearance.
+
+o Toggle buttons. These display the value of a boolean variable and
+  toggle the value when selected, displaying the new value thereafter.
+
+o Counter buttons. These have an associated numeric variable and an
+  increment. When selected with mouse button 1 the button decreases
+  the value of the variable by the increment. When selected with mouse
+  button 3 it decrease the value. The new value is shown in the button.
+
+o Radio buttons. These come in groups displayed in a control panel.
+  Only one can be selected at any time. Selecting a new one deselects
+  the previous one. Each button has an associated select method and a
+  deselect method. These are applied to the buttons when the selection
+  changes.
+
+o Someof buttons. These come in groups displayed in a panel
+  in a control panel. Any subset or none can be selected at any time.
+  Each button has an associated select method and a deselect method.
+  These are applied to the buttons when the selection changes.
+
+All of these allow a changed value to be automatically assigned to a
+specified pop-11 variable.
+
+-- -- Input fields
+
+o Text input buttons
+o Number input buttons.
+  These may look like buttons but are used for inserting or modifying
+  a text or number field. See HELP * RC_TEXT_INPUT
+
+These also allow a changed value to be automatically assigned to a
+specified pop-11 variable.
+
+-- -- Buttons for popup menus
+
+o Select buttons. These can be used in a popup menu which waits for the
+  user to select one of the buttons. At that point the button label (or
+  some other value associated with it, e.g. a number) is then returned
+  by the menu procedure. (These are partly analogous to Radio buttons.)
+
+o Option buttons. These come in groups displayed in a panel in a popup
+  menu which asks a question. Any subset or none can be selected to
+  answer the question. An additional button has to be provided to
+  indicate when the selection has been made, whereupon a list of the
+  selected buttons is returned by the menu procedure. (These are partly
+  analogous to Someof buttons.)
+
+Besides their use in popup menus these can also be used in control
+panels that include other sorts of buttons, sliders, etc.
+
+
+-- -- Information display panels
+
+ o These panels, created using rc_message, are not strictly types of
+   buttons, but are included here. There are two sorts,
+        Asynchronous panels remain visible until the user dismisses
+        them or the garbage collector gets rid of them.
+            rc_message produces these.
+
+        Synchronous display panels, wait for the user to dismiss
+        the panel before processing can continue
+            rc_message_wait produces these.
+
+NOTE: the examples below should work whether you are using Ved or Xved,
+except that if you are not using Xved some of the instructions to create
+a new Xved window will simply cause a new Ved buffer to be created.
+
+
+-- Making the buttons available ---------------------------------------
+
+To make the package available use these commands:
+
+    uses rclib
+    uses rc_buttons
+
+Some of the additional facilities described below are in this file
+
+    uses rc_button_utils
+
+In order to create buttons you have to create an instance of
+rc_window_object, using rc_new_window with the newrc_button_window
+creation procedure. The first two numbers give screen location, the
+next two width and height of the window. See TEACH * RC_LINEPIC.
+
+    uses rc_window_object
+
+    vars win1 =
+        rc_new_window_object(
+            "right", "top", 300, 300, true, newrc_button_window, 'win1');
+
+By default this new window will have an associated coordinate frame with
+its origin in the middle of the window, with x increasing to the right
+and y upwards. (See TEACH RC_GRAPHIC).
+
+The window object is created automatically when rc_control_panel is used
+for creating buttons.
+
+-- Examples of individual buttons, using rc_create_button -------------
+
+-- -- A button to print out a greeting
+
+Here is one way to define an action button to print out a greeting when
+selected.
+
+The procedure create_rc_button can take arguments in several formats,
+including this:
+
+    x, y, width, height, [^label ^action], "action", specs
+
+The first two numbers give the location of the top left corner of the
+button in the current rc_graphic coordinage frame.
+
+Any of width, height, and specs may be false, in which case defaults
+are used.
+
+The word "action" may be replaced buy "blob" to produce an action button
+with a blob on the left, or "invisible" to produce an action button
+which does not necessarily have visible components. To make it visible
+either give it a label other than nullstring or draw something in the
+desired location, e.g using rc_draw_blob. (Even if invisible, the action
+button will still have a "sensitive" area, depending on the
+rc_mouse_limit slot.)
+
+The label can be a string, or word, or number. The action can be a
+string (a VED ENTER command), a word (the name of a procedure to be
+run), an ident whose idval is a procedure, a procedure, or a list which
+is interpreted according to the first word of the list. Here's a
+possible action procedure:
+
+define print_greeting();
+    ;;; A procedure to be the action of a button.
+    'Hello everybody' =>
+enddefine;
+
+The command given below will create and display a button that will
+invoke that action, using the current window object, held in
+rc_current_window_object.
+
+The arguments to create_rc_button may take various forms. Here we
+provide
+    x, y, width, height, label and action specification, type, and false
+
+The false argument could be replaced by a featurespec giving further
+information, as explained below.
+
+    uses rc_buttons
+
+    vars button1 =
+        create_rc_button(
+            0, 150, 100, 29, ['Press me' print_greeting], "action", false);
+
+You can now try "pressing" the button, using the mouse with left button
+(button 1). When you press it the border changes, but no action occurs
+till you release the button. If you first move the mouse pointer off the
+button picture then the action is not performed when you let go.
+
+If you are running Xved launched from an Xterm window the printing may
+appear in that window, so you'll have to open and uncover the window if
+it is obscured. If you are running ordinary Ved the printing will go
+straight to the terminal, and may mess up your Ved window. Press RETURN
+to fix that.
+
+In the button's action specification, we give the name of the procedure
+rather than the procedure itself, because that means you can edit and
+recompile the procedure without having to create the button. It would be
+acceptable to give the procedure itself, for instance to prevent
+problems about crossing section boundaries.
+
+If "invisible" had been used instead of "action" the button's border
+would not have been drawn, and by default the sensitive area would have
+been a rectangle of the same size and location for a visible button with
+a border of thickness 0.
+
+If the word "blob" had been used instead of "action", a button with a
+slightly different appearance would have been drawn, as illustrated
+below.
+
+-- -- Using a featurespec and an identifier record
+
+A featurespec is a structure specifying alternatives to the default
+configuration for an instance of a class. See HELP FEATURESPEC for full
+details. We here give an example of use of a featurespec vector to
+override the default font and colour specifications.
+
+    ;;; Create a featurespec descriptor to override the defaults
+    ;;; when the next button is created
+    vars spec1 =
+        {rc_button_font '10x20' rc_button_stringcolour 'yellow'
+            rc_button_labelground 'brown'};
+
+Such featurespec vectors using the full names of slots in objectclass
+instances can be very cumbersome. The RC_BUTTONS library supports
+abbreviations in featurespec vectors, as illustrated below in button4.
+
+We now create a button similar in function to the previous one, except
+that the new featurespec defines its appearance, and instead of the word
+"print_greeting" we give the corresponding identifier, so that the
+behaviour can work with file-local lvars or variables defined in a
+section:
+
+    vars button2 =
+        create_rc_button(
+            0, 120, 150, 29,
+             ['Press me too' ^(ident print_greeting)], "action", spec1);
+
+-- -- Using a three element vector with a type word
+
+Another way to specify the button is to replace the action list with a
+three element vector starting with the keyword "action". In that case
+the type specifier given as the next argument to create_rc_button is
+ignored (e.g. it could be false).
+
+This can be used in a command to create a list of buttons of the same
+default type, where the default type is to be overridden in some of the
+buttons in the list, which are of a different type. Examples are given
+below.
+
+Meanwhile here are two illustrations of the vector format starting
+with a type word, and in the case of button4 we use an abbreviated
+featurespec to specify foreground and background colours:
+
+
+    vars button3 =
+        create_rc_button(0, 90, 120, 29,
+            {action 'PressHere' ^print_greeting}, false, false);
+
+or
+    vars button4 =
+        create_rc_button(0, 60, 160, 30,
+            {toggle 'GC Trace' popgctrace}, false,
+                {font '10x20' textfg 'yellow' textbg 'blue'});
+
+Clicking on the former button prints out a message. Clicking on the
+latter switches the value of popgctrace between true and false. See
+HELP POPGCTRACE.
+
+Note that a "toggle" button has a different sort of border. It also
+reacts immediately when the mouse button goes down.
+
+Type words available at present for use in the three element vector
+format for specifying active buttons are:
+
+    "action", "blob", "counter", "option", "radio", "select", "toggle"
+    "invisible"
+
+However, users will normally only need these:
+
+    "action" "blob" "counter" "toggle" and perhaps "invisible"
+
+since the others are usually invoked in a different way, e.g. using
+rc_control_panel, or create_button_columns, illustrated below.
+
+
+-- -- Action buttons with blobs
+
+It is possible to make an action button have a blob on the left, either
+by using "blob" as the type argument before the featurespec argument, or
+by using the word "blob" as the first element of a three element vector,
+as in this example, where we provide no featurespec argument to
+create_rc_button, but put an extra specification as the last item in the
+button description vector:
+
+    vars button5 =
+        create_rc_button(0, 30, 120, 29,
+            {blob 'PressHere' print_greeting {textbg 'yellow' textfg 'blue'}},
+                false, false);
+
+Note that the featurespec vector in the contents vector can use the same
+abbreviated notation as illustrated in button4, instead of using full
+names of the button slots.
+
+Alternatively we can specify a blob button using the word "blob" as the
+type argument for create_rc_button, and add a different blob colour to
+spec1, while putting a pop-11 command in a list to specify the
+button's action:
+
+    vars button6 =
+        create_rc_button(0, 0, 120, 29,
+            ['No Here' [POP11 'blobby here' =>]], "blob",
+                [^spec1 {blobcol 'ivory'}]);
+
+-- -- An action button invoking a Unix command
+
+This one invokes a Unix command with output read into a Ved buffer:
+
+    vars button7 =
+        create_rc_button(0, -30, 120, 29,
+          ['Users' 'sh who'], "blob",
+            [^spec1 {blobcol 'pink' textfg 'pink'}]);
+
+or, another way to specify the blob colour:
+
+    vars button7 =
+        create_rc_button(0, -30, 120, 29,
+          {blob 'Users' 'sh who' {blobcol 'blue'}}, false, spec1);
+
+-- -- An action to display a message panel
+
+Here the action is a command to invoke the rc_message procedure
+described in more detail below:
+
+define showmessage();
+    rc_message(200, 200,
+        ['This is a test message' 'using white on black.'
+            'Generated at' ^(sysdaytime())],
+         0, true, '12x24', 'black', 'white') ->
+enddefine;
+
+    vars button8 =
+        create_rc_button(0, -60, 120, 29,
+          ['Message' showmessage {blobcol 'blue' textfg 'white'}],
+            "blob", spec1);
+
+
+WARNING:
+Sometimes after interacting with another panel, it is necessary to reset
+the "current" window object before installing more buttons.
+
+You can do this either by clicking mouse button 1 on the desired window
+while holding the "Control" key down, or, equivalently, executing this
+assignment:
+
+    win1 -> rc_current_window_object;
+
+Check the value:
+    rc_current_window_object=>
+
+It should show that you are currently dealing with the panel called
+'win1'.
+
+If rc_current_window_object points to the wrong window your button
+creation command may have unintended effects. If it is false, because a
+window has just been killed, the next button creation command will
+produce an error.
+
+-- -- Specifying button actions as {[proc arg1 arg2 arg3]}
+
+You can specify an action to be performed as a vector containing a list
+starting with a procedure or name of a procedure, followed by the
+arguments (i.e. the action arguments themselves, not words that have
+them as values):
+
+    win1 -> rc_current_window_object;
+
+    vars button9 =
+        create_rc_button(0, -90, 120, 29,
+          ;;; a button to edit the user's login file
+          ['EditLogin' {[vededit '~/.login']}],
+            "blob",
+            [^spec1
+              {rc_button_blobcolour 'blue' rc_button_stringcolour 'pink'}]);
+
+-- -- Specifying actions as {'<pop11 code>'}
+
+An action can be a vector containing a string with program text,
+which will be compiled and run, e.g. this button containing the
+pop-11 instruction
+
+    999*9 =>
+
+    vars button10 =
+        create_rc_button(0, -120, 120, 29,
+          ['999*9' {'999*9=>'}],
+            "action", false);
+
+-- -- A button to kill a window
+
+Try adding a button to kill the current window by invoking the library
+procedure rc_kill_panel.
+
+    vars button11 =
+        create_rc_button(-150, 150, 95, 29,
+          ['KILL' rc_kill_panel], "blob",
+            {textbg 'yellow' textfg 'blue' font '10x20'});
+
+If you have to ensure that the KILL action is run asynchronously, no
+matter what else is going on, use a list starting with "POPNOW",
+followed by a procedure or procedure name, or a longer list containing
+Pop-11 instructions to be obeyed:
+
+    vars button11 =
+        create_rc_button(-150, 150, 95, 29,
+          ['KILL' [POPNOW rc_kill_panel]], "blob",
+            {textbg 'yellow' textfg 'blue' font '10x20'});
+
+or
+
+    vars button11 =
+        create_rc_button(-150, 150, 95, 29,
+          ['KILL' [POPNOW rc_kill_panel();]], "blob",
+            {textbg 'yellow' textfg 'blue' font '10x20'});
+
+
+As a last resort you can do
+    rc_kill_window_object(win1);
+
+-- -- Other action formats
+
+Additional action formats are described below, in addition to actions
+specified in lists starting [POP11 ...] or [POPNOW ...], as illustrated
+above. Additional keywords can be used to indicate specific types of
+actions.
+
+Creating individual buttons and working out their locations as in the
+examples just given can be very tedious. More powerful mechanisms for
+automatically generating a layout for rows or columns of buttons are
+described below and in HELP RC_CONTROL_PANEL, which describes a tool
+which does automatic formatting.
+
+-- -- Global variable rc_selected_action_button
+
+rc_selected_action_button is false by default, but points to the
+currently selected button when mouse button 1 has been clicked on an
+action button. See the method definitions in LIB * RC_BUTTONS.
+
+-- -- Global variable rc_in_button_handler
+
+The variable rc_in_button_handler has the value false by default, but it
+is set true in the context where an action button is running, invoked by
+this method:
+
+    rc_rcbutton_1_up(pic:rc_action_button, x, y, modifiers);
+
+Thus procedures which are sometimes invoked by a mouse button and
+sometimes called directly from Pop-11 programs can tell which is
+happening by means of this variable.
+
+-- -- Global variables rc_action_button_x, rc_action_button_y;
+
+These two variables are set in rc_rcbutton_1_up, but not locally. So
+deferred actions may be able to use them to refer to the occurrence of
+the last deferred event.
+
+
+-- The "scale independence" of button creation commands ---------------
+
+You can use rc_new_window to create a window which has its origin at
+location (10 50) with xscale = 2 and yscale = -2, and give the above
+commands with appropriate adjustments to the coordinates. The sizes of
+the buttons are not changed by the change of size of the window, unlike
+other picture objects, as shown in HELP rc_linked_pic, and illustrated
+below.
+
+vars win1 =
+    rc_new_window_object(
+        650, 20, 300, 300, {10 50 2 -2}, newrc_button_window, 'win1');
+
+;;; Show the origin: note that the blob will be expanded because of the
+;;; scale values 2, -2. I.e. the radius 10 will be displayed as 20.
+    rc_draw_blob(0, 0, 10, 'red');
+
+    vars buttona =
+        create_rc_button(55, 18, 120, 29,
+            {blob 'PressHere' print_greeting}, false, false);
+
+    vars buttonb =
+        create_rc_button(-5, 25, 95, 29,
+          ['KILL' [POPNOW rc_kill_panel]], "blob", false);
+
+    vars buttonc =
+        create_rc_button(55, -30, 120, 29,
+          ;;; invoke procedure showmessage defined above
+          ['Message' showmessage],
+            "blob",
+            [^spec1
+              {rc_button_blobcolour 'blue' rc_button_stringcolour 'pink'}]);
+
+-- Getting rid of spare windows ---------------------------------------
+
+NOTE: if you have a left over window without a functioning KILL button,
+e.g. because an error occurred while attempting to create the window,
+you can get rid of the window as follows:
+
+    Hold down the "Control" and click in the window with mouse button 1
+    then
+        Either, in Ved
+            ENTER killwin
+
+        Or, in Pop-11
+            ved_killwin();
+
+Alternatively you can use the window manager's "delete" or "close" mouse
+action. (Beware the stronger "destroy" action available on some window
+managers, e.g. f.destroy in twm or ctwm, will kill the whole pop-11
+process, not just the window.)
+
+
+-- The definition of create_rc_button ---------------------------------
+
+create_rc_button(x, y, w, h, contents, type, specs) -> button;
+create_rc_button(x, y, w, h, contents, type, specs, "nodraw") -> button;
+
+-- -- Inputs for create_rc_button
+
+    x. y: location of top left corner of button (numbers)
+
+    w, h: width and height of button (numbers)
+        Can be false, in which case current defaults are used,
+        determined by the values of global variables:
+            rcbutton_width rcbutton_height
+        unless overridden by specs
+
+    contents:
+        string, or word, or list, or vector.
+        This will determine the button label, and possibly values of
+        some other fields that may be required, In some cases the word
+        or string will serve two purposes, e.g. being both the button
+        label and also a specification of an action, e.g. when it is
+        a Ved "enter" command.
+
+        If it is a list it will usually have at least two elements, the
+        label, and other information specifying slot values for the
+        button, including possibly an action to be performed. If there
+        are more than two elements the third will be a featurespec.
+
+        If it is a vector, the first item will be a word specifying the
+        type of button, overriding the type argument. The other elements
+        will include the label for the button and other components,
+        depending on the type of button. E.g. for action, blob, toggle
+        and counter buttons the last item in the vector can be a
+        featurespec vector using an abbreviated notation, as in
+        button5 and button7 above.
+
+    type:
+        Word or class key specifying type of button, or possibly false.
+        If it is false, the contents argument must be a vector
+        whose first item is a word specifying the type.
+
+    specs:
+        This can be a primitive or compound feature specifier to
+        override the default button features. See HELP * FEATURESPEC
+        Example feature specs were given above, e.g. blob_specs.
+
+    "nodraw":
+        If this word is provided as the last argument, then the button
+        is not drawn when created. This allows a button to be invisible,
+        or allows a user procedure to modify the button after it is
+        created and before it is drawn.
+
+
+-- -- create_rc_button does the following.
+
+    1. It creates a button instance of the required type using general
+        mechanisms and sets its x, y, w, h values.
+
+    2. It uses interpret_specs and the specs argument to override any
+        defaults (See HELP FEATURESPEC)
+
+    3. It runs the (user definable) method
+            modify_instance(button, contents, type, specs);
+        which can take additional action. The default version of this
+        method extracts items from the contents list or vector and
+        stores them in the appropriate slots of the new instance. For a
+        blob button it computes the blob radius if the radius has not
+        been changed from 0. The specs argument given to modify_instance
+        is the featurespec extracted from the list or vector contents
+        argument to create_rc_button.
+
+    4. Unless the "nodraw" argument is provided, it uses rc_draw_linepic
+       to draw the button in the current window.
+       For an "invisible" action button, this will draw only the label
+       unless the specs argument has been used to provide appropriate
+       contents for the rc_pic_lines and/or rc_pic_strings slots (as
+       illustrated in TEACH RC_LINEPIC). To make an invisible button
+       totally invisible use the empty string as label (nullstring).
+
+    5. It adds the button to rc_current_window_object using
+        rc_add_pic_to_window(button, rc_current_window_object, true)
+       so that the picture becomes mouse sensitive.
+
+-- Where output goes: async_vedbuffer ---------------------------------
+[This is provisional and may change later]
+
+If a button action does some printing, the output can be controlled by
+the variable async_vedbuffer, which can be given a string as value. In
+that case if there are any ved files open at all (vedbufferlist
+is not empty) then output is directed to a VED buffer with that name.
+
+The default value is 'output.p'. It will be a file in the current
+directory.
+
+Alternatively try something like this to make sure it always goes to the
+same output buffer.
+
+    '~/output.p' -> async_vedbuffer;
+
+-- Making output go into a Ved buffer ---------------------------------
+
+You can define the procedure that is invoked by an action button so as
+to ensure that its output goes where you want it to, and the window does
+not take up too much space, and that it is non-writeable. The following
+definition will change the behaviour of the buttons previously created
+which use the procedure print_greeting. The difference is biggest where
+XVed is in use.
+
+define print_greeting();
+    ;;; Ensure print out goes to a file called 'OUT'
+    ;;; If running Xved, control the size, font, etc.
+
+    dlocal
+        cucharout = veddiscout('OUT'),
+        vedautowrite = false;
+
+    ;;; The next bit will be ignored outside Xved
+    dlocal
+        %xved_value("nextWindow",
+            [x y numRows numColumns font])% =
+                (100,100,3,50,'9x15'),
+        ;
+
+    'Hello there -- Press REDO to quit this file' =>
+
+    ;;; Make the output file non-writeable
+    false -> vedwriteable;
+    ;;; Prepare a Ved quit command
+    vedputcommand('q');
+    vedrefreshstatus();
+enddefine;
+
+To test it, create a window if there isn't one.
+
+    vars win1 =
+        rc_new_window_object(
+            650, 20, 300, 300, {10 50 2 -2}, newrc_button_window, 'win1');
+
+
+Now create a button to invoke the above procedure:
+
+    vars button_greet =
+        create_rc_button(55, 18, 120, 29,
+            {blob 'PressHere' print_greeting}, false, false);
+
+
+-- A column of buttons ------------------------------------------------
+
+Destroy the previous window if necessary and start a new one.
+
+rc_kill_window_object(win1);
+
+
+uses rclib
+uses rc_window_object
+uses rc_buttons
+
+vars win1 =
+    rc_new_window_object(
+        600, 20, 300, 300, true, newrc_button_window, 'win1');
+
+Define some more procedures to be invoked by action buttons.
+Compile this, and test it:
+
+define fact(x);
+    ;;; Compute the factorial of x
+    if x == 0 then 1 else x*fact(x-1) endif
+enddefine;
+
+;;; test it
+fact(hd(vedreadlinefrom('TYPE_A_NUMBER', false, false))) =>
+
+In response to the readline prompt, type a number and press RETURN
+
+
+Now define a procedure that will
+    1. destroy the current window,
+    2. create a new one, of the same size and location
+    3. insert in it all the buttons previously known to the window
+       (the datastructures survive the destruction of the window,
+        and can be added to a new window).
+
+
+define do_restart();
+    lvars
+        win = rc_active_window_object,
+        (x, y, w, h) = rc_window_location(win),
+        title = rc_window_title(win),
+        frame = rc_window_origin(win),
+        pics = rc_window_contents(rc_active_window_object);
+
+    ;;; Kill the current window
+    rc_kill_window_object(rc_active_window_object);
+
+    ;;; Built a new one and assign it to a variable derived from the
+    ;;; old one's title (a string).
+    rc_new_window_object(x,y,w,h, frame, newrc_button_window, title)
+        -> valof(consword(title));
+
+    ;;; Now redraw the old picture objects and add them to the window.
+    lvars pic;
+    for pic in pics do
+        rc_draw_linepic(pic);
+        rc_add_pic_to_window(pic, win1, false)
+    endfor;
+enddefine;
+
+Now create a collection of buttons, one of which will be an action
+button which runs the above procedure.
+
+For some of the buttons false is used for height and/or width, which
+means the current defaults will be used, as specified by the values of
+    rc_button_width_def
+    rc_button_height_def
+
+The featurespec given to each of these buttons is the empty list, [].
+
+If you have already created win1, as above, then you should be able to
+mark and load all of the following down to the semicolon. The buttons
+will be created and you can then test them. (Beware, the "factorial"
+button may cause messy interaction with Ved.)
+
+vars
+    sb0 =
+        create_rc_button(
+          -150, 150, 149, 35, ['Restart' do_restart {textbg 'yellow'}],
+                "action", {}),
+    sb1 =
+        create_rc_button(
+          -150, 110, 149, false,
+            ['Memlim' ^(ident popmemlim) 10000
+                {borderwidth 6 bordercol 'red'}],
+                "counter", {}),
+    sb2 =
+        create_rc_button(
+          -150, 85, false, false, ['help strings' ^false], "action", {}),
+    sb3 =
+        create_rc_button(
+          -150, 60, false, false,
+            ['factorial'
+             [POP11
+                fact(hd(vedreadlinefrom(
+                            'TYPE_A_NUMBER', false, true)))=>]],
+                    "action", {}),
+
+    ;;; use the vector notation for the next two
+    sb4 =
+        create_rc_button(
+          -150, 35, false, false,
+             {action 'Yes Press me' [POP11 'hello there'=>]}, false, {}),
+    sb5 =
+        create_rc_button(
+          -150, 10, false, false,
+            {action 'LockHeap' sys_lock_heap}, false, {}),
+    sb6 =
+        create_rc_button(
+          -150, -15, false, false,
+            ['UnlockHeap' sys_unlock_heap], "action", {}),
+    sb7 =
+        create_rc_button(
+          -150, -40, false, false,
+            ['GarbageCollect' sysgarbage], "action", {}),
+
+    ;;; An action button to run a UNIX command, 'who'
+    sb8 =
+        create_rc_button( -150, -65, false, false,
+            ['who' [UNIX 'who']], "action", {}),
+
+    ;;; Use vector notation for toggle buttons
+    sb9 =
+        create_rc_button(
+          -150, -90, false, false,
+                {toggle 'Gctrace' ^(ident popgctrace)
+                    {borderwidth 6 bordercol 'red'}}, false, {}),
+
+    sb10 =
+        create_rc_button(
+          -150, -115, false, false,
+            {toggle popsyscall ^(ident popsyscall)
+                {borderwidth 6 bordercol 'red'}}, false, {}),
+
+    sb11 =
+        create_rc_button(5, 150, 95, 35,
+          {blob 'KILL' rc_kill_panel {textbg 'yellow'}}, false, false),
+    ;
+
+
+Note that the toggle buttons and counter buttons, which control values
+of global variables, have a different appearance from the others.
+They have different borders and also when you click on them they
+immediately change to show the new value of the variable. The difference
+in appearance has been exaggerated here by making their borders thicker
+and yellow in colour.
+
+The action buttons (including blob buttons) do not perform their actions
+until you release the mouse button.
+
+For counter buttons use left mouse button to decrement, right mouse
+button to increment the numeric value (buttons 1 and 3).
+
+Try the various buttons.
+
+Try using the Gctrace toggle button to make popgctrace true, then click
+on the GarbageCollect button to invoke sysgarbage. Then try again with
+popgctrace false. (See HELP POPGCTRACE)
+
+If you press on Restart it should replace the window with a new one
+containing all the buttons.
+
+
+-- Counter buttons and toggle buttons ---------------------------------
+
+Some of the buttons in the above demonstration have different borders
+from the action buttons. E.g. the Memlim button is a counter button. It
+shows the current value of popmemlim and if you click with the right
+mouse button the value is incremented, and decremented if you use the
+left button. The amount of increase and decrease is 10000, the
+"increment" argument given to create_rc_button.
+
+There are also two toggle buttons, one showing the value of popgctrace
+and the other the value of popsyscall, both of which can be true or
+false. Clicking with the left mouse button changes the value and shows
+you the current value.
+
+-- -- Changing the appearance of toggle buttons and counter buttons
+
+You can change the appearance of a toggle button, by giving it two new
+strings to show for true and false values. Likewise the appearance of a
+counter button can be changed.
+
+E.g. create some buttons as before:
+
+rc_new_window_object( 600, 20, 300, 300, true, newrc_button_window, 'win1')
+    -> win1;
+
+vars
+    togglebutton =
+        create_rc_button(
+          -150, 150, 150,30,
+            {toggle popsyscall ^(ident popsyscall)}, false, {}),
+
+    counterbutton =
+        create_rc_button(
+          -150, 115, 150, 30,
+            ['Memlim' ^(ident popmemlim) 10000], "counter", {}),
+
+    killbutton =
+        create_rc_button(5, 150, 95, 35,
+          ['KILL' rc_kill_panel], "blob", false);
+
+
+Instead of the lists given to create_rc_button, the last two could have
+been created using vectors starting with the word "counter" and "blob"
+respectively.
+
+Now change the appearance of the togglebutton, so that it shows "+" or
+"-" instead of "T" or "F":
+
+    {' [+]' ' [-]'} -> rc_toggle_labels(togglebutton);
+    rc_draw_linepic(togglebutton);
+
+Now try clicking on the popsyscall button.
+
+Or try these two strings:
+    {' [Yes]' ' [No]'} -> rc_toggle_labels(togglebutton);
+    rc_draw_linepic(togglebutton);
+
+It is possible to change the brackets surrounding the number associated
+with a counter button. E.g. try this
+
+    {'((' '))'} -> rc_counter_brackets(counterbutton);
+    rc_draw_linepic(counterbutton);
+
+You can invent your own bracket pairs. E.g. this format could remind you
+which button increments and which decrements.
+
+    {'-|' '|+'} -> rc_counter_brackets(counterbutton);
+
+The default strings used for the brackets are held in two global
+variables, with these default values:
+
+    global vars
+        rc_toggle_labels_def = {' (T)' ' (F)'},
+        rc_counter_brackets_def = {'[' ']'};
+
+
+-- Creating buttons with blobs ----------------------------------------
+
+To emphasise the importance of certain buttons or simply to provide a
+different style, the package defines action buttons in the sub class
+rc_blob_button which is like an action button but with two extra fields
+for a blobcolour and  blobradius. If the blobradius is left at 0, the
+default, an appropriate radius is chosen automatically when the button
+is drawn.
+
+To give these buttons a different set of colours when they are drawn, we
+can define a new featurespec. (See HELP FEATURESPEC) to be used with the
+create procedures.
+
+Mark and load the following:
+
+;;; Some new defaults for buttons with blobs on left. One of the
+;;; buttons below overrides the font specified here.
+
+vars blob_specs =
+    {rc_button_font '8x13' rc_button_stringcolour 'white'
+        rc_button_bordercolour 'red' rc_button_labelground 'brown'
+        rc_button_blobcolour 'ivory'};
+
+
+rc_new_window_object( 600, 20, 300, 300, true, newrc_button_window, 'win1')
+    -> win1;
+;;; Create buttons with blobs visible on left
+
+vars
+    ;;; a button to get a help file
+    bb1 =
+    create_rc_button
+        (0, 135, 130, 22, ['help rclib' ^false], "blob", blob_specs),
+    ;;; buttons to move up and down the VED buffer and load marked range
+    bb2 =
+    create_rc_button
+        (0, 112, 130, 24, ['PageUP' vedprevscreen], "blob", blob_specs),
+    bb3 =
+    create_rc_button
+      (0, 87, 130, 26, ['PageDown' vednextscreen], "blob", blob_specs),
+    bb4 =
+    create_rc_button
+      (0, 60, 130, 35, ['LoadRange' ved_lmr], "blob",
+            [^blob_specs {rc_button_font '*lucida*-r-*sans-14*'}]),
+    ;;; a button to rotate ved buffers, with a very large blue blob
+    bb5 =
+    create_rc_button
+      (0, 24, 130, 40, ['Next file' ved_rb {blobrad 12 blobcol 'blue'}],
+        "blob", [^blob_specs {rc_button_font '*lucida*-r-*sans-14*'}]),
+    ;;; Print out the value of PI
+    bb6 =
+    create_rc_button
+      (0, -17, 130, 40, {blob 'PI' [POP11 pi =>]}, false, blob_specs),
+    ;;; Change the number of decimal points printed. Use mouse buttons
+    ;;; 1 and 3 to increment or decrement
+    bb7=
+    create_rc_button
+      (0, -58, 130, 30, ['pr_places' pop_pr_places 1], "counter", {});
+;
+
+If you click on the 'PI' button it prints out the value of Pop-11's
+global variable pi. Notice how you can use the left and right mouse
+buttons on the pr_places counter button to change the number of decimal
+places printed out. See REF * POP_PR_PLACES
+
+Try redoing the above with different values in the blob_specs structure,
+different button locations, etc.
+
+Destroy the window.
+rc_kill_window_object(win1);
+
+
+-- Procedures for creating rows and columns of buttons ----------------
+
+Several procedures are provided:
+
+create_button_columns:
+    can display a list of buttons in a row, or in one or more columns.
+
+create_button_row:
+    displays just one row. (Probably redundant.)
+
+create_button_column:
+    displays just one column. (Probably redundant.)
+
+rc_popup_query:
+    presents some text and one or more rows of buttons and waits until
+    the user makes a selection, whereupon it returns with information
+    about the selection. There are two forms:
+
+    o the select form where only one option can be chosen
+    o the options form where several options or none can be chosen.
+      This form has two sorts of buttons: options buttons and action
+      buttons to indicate that the selection is complete.
+
+    In both cases strings are supplied which are displayed above the
+    buttons explaining what the selection is about. In some cases the
+    button labels are themselves words or strings indicating the
+    options. In other case they are numbers corresponding to options
+    described in the strings displayed.
+
+Examples of all the above are given below.
+
+
+-- Button specification formats in lists of buttons -------------------
+
+There are various ways of specifying formats for buttons, some of which
+directly use the relevant Pop-11 (and objectclass) procedures and
+methods, whereas others use short-hand notations which are more
+convenient when specifying the appearance of a complex display panel.
+
+For examples see the button specification formats in this file and in
+    TEACH * RC_CONTROL_PANEL
+    HELP * RC_CONTROL_PANEL
+
+We need to be able to create a list of button specifications to give to
+the procedures that create rows or columns of buttons.
+
+In a list, each specification for a button requires one of the following
+forms to indicate the type and appearance of the button, and possibly
+also what information it contains or what action it performs when
+selected.
+
+-- -- 1. A string. (ACTION button)
+        The string is used as label for the button and as a VED ENTER
+        command to be obeyed if the button is selected. The button
+        is an action button. If a string is given as the button
+        specification it is also copied to the rc_informant_value
+        field, so that procedures which examine the button find that as
+        its current contents. (Note that this copying is not done for
+        all button types. E.g. for radio and someof buttons the
+        rc_informant_value value is a boolean.
+
+-- -- 2. A word. (ACTION button)
+        This is used as label and possibly the name of a procedure
+        to be obeyed if the button is selected, if the button
+        is an action button. If a word is given as the button
+        specification it is also copied to the rc_informant_value
+        field, so that procedures which examine the button find that as
+        its current contents.
+
+-- -- 3. A list of at least two elements. (VARIOUS types)
+        Depending on the type of button this can be interpreted
+        differently. E.g. if it is an action (or blob) button, the first
+        element is taken as label and the second as action. Formats
+        for action specification are described below.
+        (If the first element is a word or string, the second can be
+        false. This amounts to the same as case 1 or case 2).
+
+        If it is a select button (of type rc_select_button, used in
+        rc_popup_query) then a two-element list can be used to indicate
+        the button label and the item to be the rc_informant_value
+        value, capable of being returned by a menu selection procedure,
+        for instance. (See LIB rc_popup_query).
+
+        If it is a toggle button or a counter button additional
+        information can be provided as explained below.
+
+        If it is a radio button or a someof button, the first item will
+        be the string displayed as a label on the button and the second
+        item will be the value that is to be used if the button is
+        selected. It will be stored in the rc_real_contents slot of
+        the button. If only a string is given it is stored in both the
+        rc_button_label and the rc_real_contents.
+
+-- -- 4. A vector of three or more elements. (VARIOUS types)
+        The first element should be a word specifying the button type,
+        e.g. "action", "blob", "counter", "toggle", etc. The remaining
+        elements correspond to the elements of the list in case 3.
+
+    In the case of a counter button the second, third and fourth
+        items are
+        o a string or word to be displayed
+        o the word or identifier to be incremented
+        o either an integer, specifying the amount of the increment or a
+          vector of three items
+            {<inc> <min> <max>}
+          where <inc> is an integer, giving the amount of the increment,
+          <min> is either an integer specifying the minimum value the
+          counter can have, or false meaning there is no minimum, and
+          <max> is an either an integer specifying the maximum value the
+          counter can have, or false meaning there is no maximum.
+          Where there is no maximum a two element vector can be used, to
+          specify <inc> and <min>
+
+        o A fifth element can be a featurespec vector, using
+          abbreviations.
+
+    In the case of a toggle button the second and third items are
+        o a string or word to be displayed
+        o the word or identifier whose value is to be toggled.
+        o A fourth element can be a featurespec vector, using
+          abbreviations.
+
+
+    Radio buttons and Someof buttons are handled differently, as
+    illustrated in TEACH rclib_demo.p, and below.
+
+-- -- 5. Adding a featurespec
+
+        A featurespec is an even length vector consisting of procedure
+        value pairs which can be used to override defaults when a
+        button instance is created. (See HELP * FEATURESPEC). It is
+        possible to specify that a particular button should override
+        current defaults without creating a special class for that
+        button, by providing a featurespec as the final element of the
+        list in case 3, or the final element of the vector in case 4.
+
+        (In this context featurespec vectors allow abbreviations
+        described below.)
+
+-- -- Examples of legal specifications for list elements
+
+Example legal button specifications which can occur in lists of buttons
+to be displayed in rows and/or columns will now be given.
+
+Where a word occurs on its own it will be used as the label of an action
+button and the name of a procedure to be invoked when the button is
+selected.
+
+Where a string occurs on its own it will be used both as the label and
+as a VED enter command to be invoked when the button is selected.
+
+Wherever a list occurs without a type specification it is taken to be an
+"action" button.
+
+Where a list or vector is used it is possible to add an extra item which
+is a featurespec vector, in which featurespec abbreviations can be used
+as summarised below.
+
+The examples follow:
+
+Example action buttons:
+
+        "vedprevscreen"
+        'help rc_buttons'
+        ['GetHelp' 'help rc_buttons']
+        {blob 'GetHelp' 'help rc_buttons' {blobrad 10}}
+        ['GC' sysgarbage]
+        ['Show Users' 'sh who']
+        ['Show Usage' [UNIX 'w']]
+        ['Show files ' [UNIX 'ls -l']]
+        ['Greet' [POP11 'hello there' =>]]
+        ['Show Menu' [DEFER setupmenu(myoptions)]]
+        ['Increment' [POPNOW counter + 1 -> counter]]
+        ['KILL PANEL' rc_kill_panel]
+
+        {action 'Show Usage' [UNIX 'w']}
+
+A toggle button
+        {toggle 'GC trace' popgctrace {textbg 'blue' textfg 'yellow'}}
+
+Counter buttons
+        {counter 'Memlim' popmemlim 10000}
+        {counter 'Memlim' ^(ident popmemlim) ^(ident popmemliminc)}
+
+        ;;; The fourth element in a counter button spec can be a vector
+        ;;; of two or three numbers, as explained below.
+        {counter pop_pr_radix ^pop_pr_radix {1 2 36}}
+        {counter pop_prolog_lim ^pop_prolog_lim {10000 0}}
+        {counter pop_pr_places ^pop_pr_places {1 0} {reactor reactproc}}
+
+NOTE 1:
+In the last example, the procedure reactproc should be a suitable
+reactor procedure for the counter. E.g. it may change a slider's value.
+Examples involving reactors are given in
+    HELP * RC_CONTROL_PANEL
+    TEACH * RC_CONSTRAINED_PANEL
+
+NOTE 2: the "DEFER" prefix is explained below.
+
+To illustrate the use of a featurespec vector this is how it might be
+specified that a button should have a pink background. Consider an
+action button which when selected kills the current window. This could
+be specified as
+
+    ['KILL PANEL' rc_kill_panel]
+
+It would be possible to require this to have a pink background, no
+matter what the current default button background was, by using this
+format:
+
+    ['KILL PANEL' rc_kill_panel  {rc_button_labelground 'pink'}]
+
+or, using the abbreviation facility:
+
+    ['KILL PANEL' rc_kill_panel  {textbg 'pink'}]
+
+The third element of the list is a featurespec vector containing a
+button instance slot name (or an abbreviation for one), and a possible
+value. It is possible to include several slot value pairs, e.g.
+
+    {rc_button_labelground 'pink' rc_button_font '10x20'
+        rc_button_stringcolour 'brown'}
+
+which can be abbreviated as
+
+    {textbg 'pink' font '10x20' textfg 'brown'}
+
+Apart from the abbreviations defined below, it is necessary to know the
+names of the slots (as defined in LIB * RC_BUTTONS and other files)
+to make full use of featurespec vectors.
+
+(Watch HELP * RCLIB_NEWS for information about new abbreviations).
+
+The variety of types of featurespecs and their uses is described at
+length in HELP * FEATURESPEC
+
+-- -- Specifying an array of buttons
+
+Several different button specifications can be assembled in a list and
+given to the create_button_columns procedure, or included in field
+specification lists to rc_control_panel.
+
+They can also be used with other procedures, as illustrated below.
+
+In addition to these specifications, procedures for creating buttons
+will need information about location, width, height, various colour
+specifications, etc. However some of these can be derived from defaults,
+or provided via featurespecs, as shown below. In the case of the
+procedures for creating columns of buttons, or control panels, the
+locations of buttons are computed automatically depending on the
+required spacing, the height and width of the buttons, how many rows and
+columns there are, whether they are to be centred or not, etc.
+
+For more information and examples see
+    TEACH * RC_CONTROL_PANEL
+    TEACH * RCLIB_DEMO.P
+    HELP  * RC_CONTROL_PANEL
+    LIB   * RC_POLYPANEL
+
+-- Allowed abbreviations in featurespec vectors -----------------------
+
+The abbreviations allowed in featurespec vectors given within a button
+description list or vector are held in the property rc_button_spectrans
+which by default has the following mappings:
+
+    [height rc_button_height]          [width rc_button_width]
+    [font rc_button_font]              [borderwidth rc_button_border]
+    [textfg rc_button_stringcolour]    [bordercol rc_button_bordercolour]
+    [textbg rc_button_labelground]     [blobrad rc_button_blobrad]
+    [blobcol rc_button_blobcolour]     [labels rc_toggle_labels]
+    [constrain rc_constrain_contents]  [ident rc_informant_ident]
+    [reactor rc_informant_reactor]
+
+-- -- Adding a new abbreviation
+
+To allow the word "bg" to be used instead of "textbg" as an abbreviation
+for rc_button_labelground, do
+
+    rc_button_labelground -> rc_button_spectrans("bg");
+
+Note: these abbreviations can be used in lists of ACTION buttons in
+connection with rc_control_panel. But they are not necessarily the same
+as the abbreviations allowed in panel property specifications or field
+property specifications. See HELP RC_CONTROL_PANEL
+
+
+-- Specifying an action button or blob button -------------------------
+
+The following comments apply also to invisible action buttons.
+
+As illustrated in the above examples, action buttons and blob buttons
+(which are a species of action button) need an action specification
+which can be any of the following:
+
+    1. A string to be given to veddo: i.e. a string which could be a Ved
+       ENTER command.
+
+    2. A word or procedure or ident. If it is a word or ident,
+        its valof or idval should be a procedure.
+
+    3. A list consisting of a keyword following by additional
+        information. How this is interpreted depends on the
+        keyword.
+
+    3.a. Keyword "UNIX" should be followed by a string, e.g. 'ls -lt'
+        which will be treated as a unix shell command. The command is
+        run and any output read into a Ved buffer. (Examples were given
+        above.)
+
+    3.b. Keyword "POP11" means interpret the rest of the list as a
+        pop11 command to be run. It will be run with the environment
+        set by default so that any drawing actions will apply to the
+        window in which the command is given. The command is run as a
+        procedure given to external_defer_apply, so it is safe to use
+        with complex procedures which may cause garbage collections,
+        etc. (See REF external_defer_apply)
+
+    3.c. Keyword "POPNOW" causes the rest of the list to be interpreted
+        as an action to be performed immediately, without using
+        external_defer_apply. This means it is not safe for actions
+        which can invoke memory management operations or other complex
+        events that should not happen within a callback. It is safe to
+        use for simple assignments of constants to variables.
+
+    3.d. Keyword "DEFER" (optionally followed by "POP11") causes the
+        action to be run in a context in which the global variables
+        rc_current_window_object, rc_window, rc_xorigin etc., etc. are
+        no longer set to correspond to the window object in which the
+        event occurred. I.e. they are set back to whatever values they
+        had before the event occurred. This sort of action can be used
+        to assign to rc_current_window_object. It causes the action to
+        be run via rc_defer_apply, defined in LIB * rc_mousepic.
+            See HELP * RC_LINEPIC/rc_defer_apply
+
+    3.4. Keyword "INVED" is analogous to "POP11" except that instead
+        of the action procedure simply being given to
+        external_defer_apply, the procedure vedinput is applied
+        to it, if XVed is running.
+
+        NB:
+            Since 6 Sep 2002 this is no longer needed, since the
+            test for whether XVed is running and whether it is
+            suspended or active is now performed at a lower level
+            in the procedure rc_handle_event, as described in
+            HELP RC_EVENTS
+
+        (Using vedinput means that the action will be put in XVed's
+        input stream. Unless this is done, actions which interact with
+        XVed may not perform as expected, especially if they read input
+        from a Ved buffer.)
+
+NOTE: if the list specifying an action button starts with one of these
+keywords:
+    "POP11" "DEFER"  "POPNOW" "INVED"
+then the procedure to be run is compiled when the button is created, not
+each time the button is activated. If the latter is desired, the POP-11
+action can include a call of pop11_compile.
+
+-- Buttons with associated state --------------------------------------
+
+There are four kinds of buttons with associated state:
+    Toggle buttons:
+        These have a value true or false, which is changed by
+        a mouse click.
+
+    Counter buttons:
+        These have an associated number wnich can be made to go
+        up or down by a mouse click
+
+    Radio buttons:
+        Like toggle buttons these have an associated boolean value which
+        can be changed by a mouse click. However only one of an array
+        of Radio buttons can be true at a time.
+
+    Someof buttons:
+        Like radio buttons except that any subset of an array of radio
+        buttons can be true.
+
+-- -- Toggle buttons
+
+For a toggle button, a string or word (the label) and a boolean variable
+(or ident) to be toggled must be provided.
+A toggle button is specified by a three or four element vector
+containing:
+
+    o the word "toggle"
+    o a string or word (the label),
+    o a variable (word or ident) whose value is to be toggled.
+
+AND OPTIONALLY a featurespec vector, possibly using abbreviations.
+
+E.g.
+        {toggle 'GC trace' popgctrace}
+
+        {toggle 'Full Doing List' popsyscall}
+            ;;; See REF * popgctrace, * popsyscall
+
+Additional featurespec information can be provided.
+
+-- -- Counter buttons
+
+A counter button has an associated variable with a numeric value which
+is incremented when mouse button 3 is used on the counter button, and
+decremented when mouse button 1 is used.
+
+A counter button is specified by a four or five element vector
+containing:
+
+    o the word "counter"
+    o a string or word (the label),
+    o a variable (word or ident) to be incremented or decremented,
+
+AND ONE OF THE FOLLOWING:
+    o a number specifying the amount by which to increment or decrement.
+    o a variable or identifier holding as its value the amount by which
+      to increment or decrement (so that the amount can be varied
+      dynamically, or it may be a two or three element vector.
+    o a three element vector
+        {<inc> <min> <max>}
+      where <inc> specifies the amount by which to increment or
+      decrement, <min> is the lowest value allowed for the associated
+      variable, <max> is the highest value allowed.
+    o a two element vector
+        {<inc> <min>}
+      where <inc> and <min> are as above, and there is no maximum.
+
+<min> and <max> can either be numbers or false. In the latter case there
+is no minimum or maximum value.
+
+AND OPTIONALLY a featurespec vector.
+
+Examples of counter button specifications are:
+
+        {counter 'Memlim' popmemlim 10000}
+        {counter 'Memlim' ^(ident popmemlim) ^(ident popmemliminc)}
+        {counter 'Memlim' popmemlim {10000 0 ^false}}
+
+        {counter pop_pr_radix ^pop_pr_radix {1 2 36}}
+        {counter pop_prolog_lim ^pop_prolog_lim {10000 0}}
+        {counter pop_pr_places ^pop_pr_places {1 0}}
+        {counter pop_pr_places ^pop_pr_places {1 0}
+            {reactor reactproc textbg 'pink' height 40}}
+
+
+Instead of a vector starting with the word "counter" a list can be used
+without the word, provided that the type argument "counter" is given in
+an appropriate way to the the procedure creating the buttons.
+
+-- -- Option buttons, radio buttons, someof buttons
+
+These are created by
+
+For an options button or a select button only a word or string or number
+need be provided. The same applies to radio buttons and someof buttons.
+
+For examples see
+    TEACH * RCLIB_DEMO.P/'Radio buttons and someof buttons'
+    TEACH * RC_CONTROL_PANEL/'[RADIO'
+    TEACH * RC_CONTROL_PANEL/'[SOMEOF'
+
+
+
+-- WARNING: List expressions in POP11 (and similar) actions ------------
+
+If an action button specification includes a list starting with one
+of these words:
+
+    "POP11", "INVED", "POPNOW" or "DEFER"
+
+it is compiled to form a POP11 procedure, which is run later when the
+button is activated (possibly using external_defer_apply, or
+vedinput).
+
+When the procedure is created during button creation, the list
+specifying its action has already been created. Therefore the use of
+expressions of the form
+
+            [% ... %]
+
+in [POP11 ...] instructions will not have the desired effect, since the
+expression between the "%" symbols is executed when the list is created,
+NOT later on when the panel is created, nor when the button action is
+invoked.
+
+The same applies to the use of "^" and "^^" in expressions creating
+lists and vectors.
+
+This means that if you want a procedure to use such constructs it is
+necessary to define the procedure in advance, and then in the button
+specification list simply invoke the procedure, instead of putting the
+instructions inline in the action specification.
+
+-- An example list of buttons -----------------------------------------
+
+;;; The examples in this section work at Birmingham where the rcmenu
+;;; library is available. It can be fetched from
+;;;    http://www.cs.bham.ac.uk/research/poplog/rcmenu.tar.gz
+;;; Some of the buttons will work without this. All will display
+;;; in the panel, and the ones with missing library procedures will
+;;; complain only when selected.
+
+;;; Load the extra library
+uses rcmenulib
+
+uses rclib
+
+uses rc_scratchpad  ;;; explained below
+uses rc_message     ;;; Explained below
+
+;;; create the list of button specifications. We shall display buttons
+;;; in various numbers of rows and columns.
+
+vars buttonlist =
+     [
+        ['TEACH' 'teach rc_linepic']
+        ['PageUP' vedprevscreen {textbg 'yellow'}]
+        ['PageDown' vednextscreen {textbg 'pink'}]
+        ['GoSection' 'g']
+        ['QuitFile' 'q']
+        [Swapfiles vedswapfiles]
+        ['MachineUse' [UNIX 'w']]
+        'dired'
+        'dired -lt'
+        'dired -d'
+        [999
+            [POP11
+               rc_message(
+                    300,300,
+                    sysdaytime() :: ['Hello Hello'
+                                    'I want to report'
+                                    'an emergency'],0,
+                            true, '9x15', false, false)->; ]
+            {textbg 'blue' textfg 'yellow'}]
+        ;;; The next four use LIB * RC_SCRATCHPAD
+        ;;; Use RCSCRATCH to draw a blob on the scratchpad
+        ;;; NB the semi colon is essential after RCSCRATCH
+        ['DRAW BLOB'
+            [POP11 RCSCRATCH
+                    rc_draw_blob(
+                        200 - random(400), 200 - random(400),
+                        5 + random(60),
+                        oneof(['red' 'green' 'blue' 'white']));]]
+
+        ;;; Start up the scratchpad blank
+        ['SCRATCHPAD'
+            [DEFER POP11
+                rc_scratch_window -> rc_current_window_object]]
+
+        ;;; This saves (tears off) the previous scratchpad and starts
+        ;;; a new one
+        ['TEAROFF'  rc_tearoff]
+
+        ;;; this kills all the saved tearoffs
+        ['KILL TEAROFFS' rc_kill_tearoffs]
+
+        ;;; This hides the current scratchpad window
+        ['HIDE PAD'
+            [DEFER POP11 false -> rc_scratch_window ]]
+
+
+        {counter Dpoints pop_pr_places 1}
+        ['Editor...' [MENU editor]]
+        ['Mail...' [MENU mail]]
+        ;;; For the next one one see REF * POP_UI/pop_ui_edittool
+        ['EditFile*'
+            {[pop_ui_edittool ^false ^false '*' ^false]}]
+        ['FastChoose*' menu_choosefile2]
+        ['Autosave*'
+            [ENTER 'autosave 5'
+                ['Get VED to save all files, e.g. every 5 minutes'
+                    'See HELP VED_AUTOSAVE']]]
+        ['PurgeFiles*'
+            [ENTER 'purgefiles *-'
+              ['To delete all files matching a pattern, give the command'
+               'below with a pattern. Edit the pattern if necessary'
+               'After pressing Do, you will get a request for confirmation'
+               'of the form:  "OK?(n=NO,RETURN=yes,s=show)"'
+               'Type s to show the files before deciding whether to delete.']]]
+        ['ENTER' [INVED vedenter(); ]]
+        {blob 'DISMISS' rc_hide_menu}
+        {invisible 'KILL' rc_kill_panel}
+     ];
+
+This list is used below.
+
+/*
+Additional examples are in TEACH * RC_CONTROL_PANEL
+
+-- Making a column: create_button_column ------------------------------
+*/
+
+uses rclib
+uses rc_buttons
+uses rc_button_utils
+    ;;; NB the last command is needed to make available the extra
+    ;;; procedures used below, e.g. for creating rows and columns
+    ;;; of specific sorts of buttons.
+
+;;; create a tall narrow window
+
+vars win2 =
+    rc_new_window_object(
+        800, 20, 120, 650, {0 0 1 1}, newrc_button_window, 'win2');
+
+;;; We specify the default buttonwidth (false), and a buttonheight of 24
+;;; The default width should be 120, as above.
+
+vars
+  colbuttons =
+     create_button_column(0, 0, false, 24, 1, buttonlist, "action", false);
+
+Compile and mark all that. It should create a vertical column of
+buttons. Experiment on them (using left mouse button) to find out what
+they do. E.g. try the 999 button, which uses rc_message to display a
+message.
+
+Note the effect on the following variables after pressing various
+buttons:
+
+    false -> rc_current_window_object;
+    false -> rc_active_window_object;
+    rc_current_window_object =>
+    rc_active_window_object =>
+
+Try replacing one of the occurrences of "blob" with "invisible". The
+sensitive area for the invisible button will correspond to the height
+and width specified, i.e. roughly where it would have been if it were
+not invisible.
+
+The Dpoints button as before controls the number of decimal points shown
+in printing. It can be increased or decreased using left and right mouse
+buttons.
+
+The 'DRAW BLOB' button creates a new "scratchpad" window and draws a
+random blob in it.
+
+If you click on the DISMISS blob button it runs the procedure
+rc_hide_menu() which will remove the window and its buttons from view.
+It can be shown again with the command:
+
+    rc_show_window(win2);
+
+If you click on KILL it runs the procedure rc_kill_panel which destroys
+the current window, after which rc_show_window will not work.
+
+If you have not destroyed the window, you can also relocate it if you
+wish, e.g.:
+
+    20,20,false,false -> rc_window_location(win2);
+
+(The third and fourth arguments should be false as they otherwise alter
+the width and height. See HELP * RC_WINDOW_OBJECTS
+
+;;; Get rid of the window if necessary.
+rc_kill_window_object(win2);
+
+;;; Try the above create_button_column command again, with a negative
+;;; scale for y specified in the vector argument. It should still work
+vars win2 =
+    rc_new_window_object(
+        800, 20, 120, 650, {0 0 1 -1}, newrc_button_window, 'win2');
+
+vars
+  colbuttons =
+     create_button_column(0, 0, false, 24, 1, buttonlist, "action", false);
+
+;;; Get rid of the window if necessary.
+rc_kill_window_object(win2);
+
+-- -- Exercise
+
+Copy and edit the above to create a window that uses the scratchpad
+facilities, plus a number of buttons to assign values to a variable
+holding a colour name (See HELP * XCOLOURS), and a counter button to
+set the radius of a blob, and then a button to draw a blob using the
+selected colour and the current radius.
+
+-- Making horizontal rows of buttons: create_button_row ---------------
+
+Create a new wide window. Make the fifth argument a "setframe"
+vector specifying that the origin of the window is the top left
+corner (0,0) and that rc_xscale and rc_yscale are both 1, so that
+x increases to the right and y downwards.
+
+uses rclib
+uses rc_buttons
+uses rc_button_utils
+
+vars win2 =
+    rc_new_window_object(
+        20, 20, 1055, 51, {0 0 1 1}, newrc_button_window, 'win2');
+
+Use the buttonlist from the previous section:
+
+;;; We need the length of the list to shorten the list and split
+;;; it in two.
+vars buttonlen = length(buttonlist);
+
+;;; get the 22 last buttons, to make two rows of 11
+vars newlist = allbutfirst(length(buttonlist) - 22, buttonlist);
+
+vars buttonlen = length(newlist);
+
+vars
+    list1 = allbutlast(round(buttonlen/2 ), newlist),
+    list2 = allbutfirst(intof(buttonlen/2 ), newlist),
+    ;
+
+
+;;; Now create the buttons and display them. Some of them may be a
+;;; bit short for the text. If so increase the window width and the
+;;; third argument of create_button_row:
+vars
+  rowbuttons1 =
+    create_button_row( 0,0,95,25,1, list1, "action", false),
+  rowbuttons2 =
+    create_button_row(0,26,95,25,1, list2, "action", false),
+;
+
+;;; After experimenting, destroy the window, using the KILL button or:
+rc_kill_window_object(win2);
+
+;;; Now try the above on a window with origin near botton left and y
+;;; going up (rc_yscale = -1)
+
+vars win2 =
+    rc_new_window_object(
+        20, 20, 1055, 70, {0 70 1 -1}, newrc_button_window, 'win2');
+
+vars
+  rowbuttons1 =
+    create_button_row( 0,70,95,25,1, list1, "action", false),
+  rowbuttons2 =
+    create_button_row(0,40,95,25,1, list2, "action", false);
+
+Note how each row is drawn as before, even though rc_yscale is now -1.
+
+If you click on the dismiss button to hide the window, bring it back
+with
+
+    rc_show_window(win2);
+
+You can clear the current window with
+
+    rc_start();
+
+And then redraw it with
+
+    rc_redraw_window_object(win2);
+
+Now destroy it.
+
+    rc_kill_window_object(win2);
+
+-- Using create_button_columns ----------------------------------------
+
+-- -- An array of buttons in three columns
+
+We now show how to use the more powerful procedure
+create_button_columns, which can create an array of several columns of
+buttons.
+
+For a change, we'll use different colours. Create a featurespec vector
+to be  used in the drawing procedures below. Experiment with different
+versions of the featurespec. (See HELP * FEATURESPEC)
+
+vars
+  array_specs=
+    {rc_button_font '*lucida*-r-*sans-12*'
+            ;;; Other possibilities '9x15'; '8x13',
+        rc_button_stringcolour 'yellow' ;;; colour of label
+        rc_button_bordercolour 'grey60'
+        rc_button_labelground 'NavyBlue'
+        rc_button_blobcolour 'ivory'
+        rc_button_pressedcolour 'grey85'
+        ;;; Alternatives might be
+        ;;;'lightsalmon'; ;;; 'linen' ; ;;;'LightGrey';
+    };
+
+
+Create a new window
+
+vars win2 =
+    rc_new_window_object(
+        600, 20, 400, 360, {10 10 -4 -4}, newrc_button_window, 'win2');
+
+;;; an amount by which popmemlim can be incremented or decremented
+vars popmemliminc = 10000;
+
+;;; Some of the actions here use facilities in the Birmingham
+;;; menulib package. Replace actions that don't work with others
+;;; of your choice.
+
+vars buttonarray =
+  create_button_columns(0,0,125,30,5,3,
+   [
+     'sh who' 'dired' 'dired -l' 'dired -lt'
+     'dired -d' 'dired -dcd' 'qdired'
+     sysgarbage
+     {counter 'Mlim' ^(ident popmemlim) ^(ident popmemliminc)
+        {bordercol 'yellow'}}
+     {counter 'Dplaces' ^(ident pop_pr_places) 1}
+     ['Print PI' [POP11 pi =>]]
+     ['PageUP' vedprevscreen]
+     ['PageDown' vednextscreen]
+     ['GoSection' 'g']
+     ['MarkLo' vedmarklo]
+     ['MarkHi' vedmarkhi]
+     ['Editor(Ved)...' [MENU editor]]
+     ['Mail...' [MENU mail]]
+     {toggle 'Gctrace' popgctrace {borderwidth 8 bordercol 'orange'}}
+     {toggle popsyscall popsyscall {borderwidth 8 bordercol 'orange'}}
+     ['EditFile*'
+       [ENTER
+        'ved ' 'Editing a new file - insert the name on right.']]
+     ['Choosefile*' menu_choosefile1]
+     ['FastChoose*' menu_choosefile2]
+     ['Autosave*'
+           [ENTER 'autosave 5'
+               ['Get VED to save all files, e.g. every 5 minutes'
+                   'See HELP VED_AUTOSAVE']]]
+     ['PurgeFiles*'
+        [ENTER 'purgefiles *-'
+         ['To delete all files matching a pattern, give the command'
+           'below with a pattern. Edit the pattern if necessary'
+           'After pressing Do, you will get a request for confirmation'
+           'of the form:  "OK?(n=NO,RETURN=yes,s=show)"'
+           'Type s to show the files before deciding whether to delete.'
+       ]]]
+     {blob 'ENTER' [POP11 vedenter(); vedrefreshstatus()]}
+     {blob 'TopMenu...' [MENU toplevel]}
+    {blob 'Dismiss' rc_hide_menu}
+    {blob 'Kill' rc_kill_panel {rc_button_labelground 'brown'}}
+   ],
+    "action", array_specs);
+
+Because the array_specs featurespec vector is given separately as an
+argument to create_button_columns it cannot use the abbreviations.
+
+Notice that you can change the value assigned to the variable
+popmemliminc, and that will affect the amount by which the Mlim
+button changes when you click on it.
+
+;;; You can examine the buttons
+buttonarray ==>
+
+rc_kill_window_object(win2);
+
+
+-- -- Additional examples: 4 and 6 columns
+
+;;; Try 4 columns, without the featurespec above.
+;;; Kill the previous window if necessary
+rc_kill_window_object(win2);
+
+vars win2 =
+   rc_new_window_object(
+     650, 20, 121*4, 25*7, {0 0 1 1}, newrc_button_window, 'win2');
+
+vars buttons =
+    create_button_columns(
+        0, 0, 120, 24, 1, 4, buttonlist, "action", false);
+
+
+;;; Try 6 columns
+rc_kill_window_object(win2);
+vars win2 =
+    rc_new_window_object(
+        400, 20,121*6, 26*5, {0 0 1 1}, newrc_button_window, 'win2');
+
+;;; Now make a panel with 6 columns
+
+vars buttons =
+    create_button_columns(1,1,120,25,1,6, buttonlist, "action", false);
+
+rc_kill_window_object(win2);
+
+-- Buttons on popup menus: rc_popup_query -----------------------------
+
+To make the following facilities available, give the following commands
+
+    uses rclib
+    uses rc_popup_query
+
+The format is as follows:
+
+rc_popup_query(
+    x,y, strings, answers,
+        centre, columns, buttonwidth, buttonheight, font, bgcol,
+        fgcol, specs, options) -> selection;
+
+This creates a window at location x, y on the screen. The window has a
+set of strings at the top, centred if the "centre" argument is true, and
+a row of answer buttons showing the elements of the answers list. It may
+have additional action buttons.
+
+If answers is the word "numbers", then the buttons will have
+automatically generated numbers, and the strings will be shown preceded
+by numbers. If it is the word "NUMBERS" and it is not a someof query
+(i.e. the last argument is not true) then an additional answer "None" is
+added to the list of numerical answers.
+
+The centre argument can be any of
+    false   (align the strings on left)
+    true    (centre the strings)
+    "right" (align the strings on right)
+anything else counts as true.
+
+The font, bgcol, fgcol and specs arguments can influence the appearance.
+
+The final argument (options) determines whether the program waits for a
+COLLECTION of answers to be selected or only ONE answer. In the former
+case it is a "someof" query, in the latter a "oneof" query.
+
+If options is true, there will be an additional row of buttons at the
+bottom for the user to indicate that the selection is complete, or that
+all or none of the options is wanted.
+
+If the options argument is false, the program wants for you to select
+one of the answers, whose label is then returned.
+
+If it is true, then after the panel appears, you can turn answers on and
+off by clicking on buttons (which will change their colour to indicate
+whether they are on or off). Then you indicate that your selection is
+complete by selecting one of the three control buttons, labelled
+"ACCEPT", "ALL", and "NONE".
+
+A list of answers will be returned, namely a (possibly empty) list of
+labels of the selected buttons.
+
+If the process is interrupted (e.g. CTRL C) before the selection is made
+then rc_popup_query returns false.
+
+rc_popup_query uses the user-definable procedure rc_warp_to(win, x, y)
+to warp the mouse pointer to the centre of the new panel.
+
+Like rc_message-wait, it locally sets rc_sole_active_widget to hold the
+current widget so that all events in other widgets are disabled until
+this one is dismissed.
+
+
+-- -- Example invocations of selection menus
+
+First some sets of strings to be displayed at the tops of the menu
+panels.
+
+First some silly instruction and question strings, and lists of
+possible answers.
+
+vars
+    strings=
+        ['Now is the time' 'for all good men and women' 'to stand up'
+        'and be counted.' 'What is your answer?'],
+
+    strings2 = ['yes please' 'no thanks' 'sometimes' 'never'],
+
+    answers1 = [yes no maybe thanks],
+
+    answers2 = [Apple Banana Carrot Dog],
+
+    answers3 = [ 1 2 3 4],
+
+    answers4 =
+        [one two three four five six
+            seven eight nine ten eleven twelve],
+
+    ;;; Sometimes when a string is given as the label for a button
+    ;;; you will want a word or number to be returned when the
+    ;;; selection is made, as in these two examples
+    answers5 =
+        [['yes please' yes] ['no thanks' no] sometimes never],
+
+    answers6 =
+        [['yes please' 1] ['no thanks' 2] [sometimes 3] [never 4]],
+
+;
+
+;;; Try some additional specs which can change the appearance of buttons
+
+vars button_specs =
+  {rc_button_font '8x13' rc_button_stringcolour 'yellow'
+     rc_button_bordercolour 'red' rc_button_labelground 'brown'
+     rc_chosen_background 'grey20'};
+
+
+
+;;; Try each of these, using mouse button 1 to select your answers
+;;; Note that when the final argument is true, you will be shown a set
+;;; of option buttons which can be turned on or off, as well as three
+;;; buttons (Accept, All or None), to indicate that your selection is
+;;; done.
+
+
+rc_popup_query(
+    300,30, strings, answers1, true, false, 80, 25,
+        '9x15', 'pink', 'black', false, false) =>
+
+;;; Using "numbers" as the "answers" parameter makes the program offer
+;;; numbered options corresponding to the strings
+;;; Try with the button_specs featurespec vector to get different
+;;; colours, etc.
+rc_popup_query(
+    500,300, strings2, "numbers", false, 2, 40, 25,
+        '9x15', 'navyblue', 'yellow', button_specs, false) =>
+
+;;; The same again, but use "right" for the centre argument, to make
+;;; the strings right justified (looks a bit silly)
+rc_popup_query(
+    500,300, strings2, "numbers", "right", 2, 40, 25,
+        '9x15', 'navyblue', 'yellow', button_specs, false) =>
+
+;;; This is similar, but an extra optional answer is given because
+;;; "NUMBERS" is in upper case. The extra option is "None"
+;;; Use 5 columns
+rc_popup_query(
+    500,300, strings2, "NUMBERS", false, 5, 60, 25,
+        '9x15', 'navyblue', 'yellow', button_specs, false) =>
+
+;;; Now try with the button_specs featurespec vector. This returns
+;;; a list of words selected from answers1
+rc_popup_query(
+    200,300, strings, answers1, true, 2, 80, 25,
+        '10x20', 'black', 'white', button_specs, true) =>
+
+;;; This one always returns a list of words, from answers5
+rc_popup_query(
+    200,300, strings, answers5, true, 2, 100, 25,
+        '10x20', 'black', 'white', button_specs, true) =>
+
+;;; This returns a list of numbers, from answers6
+rc_popup_query(
+    200,300, strings, answers6, true, 2, 100, 25,
+        '10x20', 'black', 'white', button_specs, true) =>
+
+;;; This returns ONE item from answers6
+rc_popup_query(
+    200,300, strings, answers6, true, 2, 100, 25,
+        '10x20', 'black', 'white', button_specs, false) =>
+
+rc_popup_query(
+    300,30, answers2, "numbers", false, 4, 40, 25,
+        '8x13', 'black', 'pink', button_specs, true) =>
+
+;;; For a "someof" query, using "NUMBERS" is the same as "numbers"
+rc_popup_query(
+    300,30, answers2, "NUMBERS", false, 4, 40, 25,
+        '8x13', 'black', 'pink', button_specs, true) =>
+
+rc_popup_query(
+    300,30, strings, answers4, true, 2, 80, 25,
+        '9x15', 'pink', 'black', button_specs, true) =>
+
+rc_popup_query(
+    300,30, strings, answers4, true, 3, 80, 25,
+        '12x24', 'black', 'pink', false, true) =>
+
+rc_popup_query(
+    300,30, strings, answers4, true, 3, 80, 25,
+        '9x15', 'gold', 'black', false, false) =>
+
+rc_popup_query(300,30,
+    strings, answers1, true, false, 80, 25,
+        '8x13bold', 'pink', 'black', button_specs, true) =>
+
+rc_popup_query(
+    300,30, strings, answers1, true, false,
+        80, 25, '9x15', 'pink', 'black', button_specs, true) =>
+
+rc_popup_query(
+    300,300, strings, answers2, true, false, 100, 24,
+        '9x15', false, false, false, true) =>
+
+rc_popup_query(
+    300,300, strings, answers2, true, 2, 100, 24,
+        '6x13', false, false, false, true) =>
+
+rc_popup_query(
+    300,30,strings, answers1, true, false, 80, 24,
+        '10x20', 'darkslategrey', 'yellow', false, false) =>
+
+rc_popup_query(
+    300,30,strings, answers1, true, false, 80, 24,
+        '10x20', 'darkslategrey', 'yellow', false, true) =>
+
+;;; Change the instructions at the top of menus
+'[[[PLEASE ANSWER TRUTHFULLY]]]' -> rc_popup_query_instruct;
+
+rc_popup_query(
+    300,300,strings,answers3, true, false, 40, 30,
+        '*lucida*-r-*sans-14*', 'yellow', 'blue', false, false) =>
+
+rc_popup_query(
+    10,300,answers2, "numbers", false, false, 40, 30,
+        '*lucida*-r-*sans-14*', 'yellow', 'blue', false, false) =>
+;;; Change the instructions at the top, and the "action" buttons
+
+    '[[INDICATE YOUR PREFERENCES]]' -> rc_popup_options_instruct;
+    ['OK' 'The lot' 'Zilch'] -> rc_options_labels;
+
+rc_popup_query(
+    300,300,strings,answers3, true, 2, 40, 30,
+        '*lucida*-r-*sans-14*', 'yellow', 'blue', false, true) =>
+
+;;; remove the instructions for select menus
+false -> rc_popup_query_instruct;
+
+;;; Try new "instructions"
+rc_popup_query(
+    600,100,['What do you think?'],answers1, true, false, 80,30,
+        '*lucida*-r-*sans-14*', 'yellow','blue', button_specs, false)=>
+
+rc_popup_query(
+    600,100,['Hi there'],answers1, true, 1, 80,30,
+        '*lucida*-r-*sans-14*', 'yellow', 'blue', false, true) =>
+
+-- -- Global variables for rc_popup_query
+
+rc_current_query
+    This variable, accessible from button actions while rc_pop_query is
+    running, holds the current window object containing the menu.
+    rc_kill_window_object is applied to it on exit.
+
+rc_popup_query_instruct
+    This holds false or the instruction string to be displayed at
+    the top of the panel for a select menu. The default is
+        '[SELECT ONE ANSWER]',
+
+rc_popup_options_instruct
+    This holds false or the instruction string to be displayed at
+    the top of the panel for an options menu. The default is
+        '[SELECT OPTIONS]'
+
+rc_options_button_width
+rc_options_button_height
+    These two variables control the size of the control buttons used at
+    the bottom of an options panel.
+
+rc_options_labels
+    This three element list of words or strings holds labels for
+    the action buttons on an options menu, used to indicate that
+    selection of options is complete. The default is
+        [ACCEPT ALL NONE]
+    If this list is changed then it may be necessary to redefine the
+    following procedure, unless the new list has three words or strings
+    with the same interpretation as these three words.
+
+define vars rc_getoptions(answer, buttons) -> options;
+    ;;; get all the labels of buttons in buttons that have been selected
+    lvars
+        button,
+        (accept, all, none) = explode(rc_someof_labels);
+    if answer == none then []
+    elseif answer == all then
+        maplist(buttons, rc_informant_value)
+    else
+        ;;; answer was accept
+        rc_options_chosen(buttons)
+    endif -> options
+enddefine;
+
+
+-- "Popup" Messages without buttons: rc_message -----------------------
+
+rc_message(x,y, strings, spacing, centre, font, bgcol, fgcol) -> win;
+
+The procedure rc_message can be used to put up a message consisting of a
+lot of strings, using a specified font, font colour and background
+colour. The message stays up until you click on the window with mouse
+button 1, or press a key while the mouse pointer is in the window.
+
+As before the centre argument can be false, true or "right"
+
+rc_message returns the window_object as its result. If this is not
+saved then it is possible for the garbage collector to remove the window
+before you dismiss it.
+
+Examples follow:
+
+uses rclib
+uses rc_message
+
+;;; First some strings to be displayed in messages.
+
+vars strings=
+    ['Now is the time''for all good men and women''to stand up'
+     'and be counted,' 'for the price of freedom'
+    'is eternal vigilance'];
+
+;;; Now display some message panels, then later dismiss them using
+;;; mouse button 1 or pressing a key while the pointer is in the window.
+
+;;; rc_message(x,y, strings, spacing, centre, font, bgcol, fgcol) -> win;
+rc_message(300,300,strings, 0, false, '9x15', false, false)->;
+rc_message(300,300,strings, 0, true, '9x15', false, false)->;
+rc_message(300,300,strings, 0, "right", '9x15', false, false)->;
+
+rc_message(200,300,strings,20, true, '9x15', 'pink', false)->;
+
+rc_message(300,300,strings,5, true, '9x15', 'orange', false)->;
+
+rc_message(300,200,strings <> strings,0, true, '8x13bold', false, false)->;
+
+rc_message(300,200,strings,0, true, '10x20', 'darkslategrey', 'yellow')->;
+
+rc_message(
+    300,300,strings<>strings ,0, true, '*lucida*-r-*sans-14*',
+        'yellow', 'blue')->;
+
+rc_message(
+    600,100,['Hi there'],0, true, '12x24', 'yellow', 'blue')->;
+
+rc_message(20,20,
+    [%
+        'Hi there - this is a very long one line message from '
+        <> ' your friendly over confident computer',
+      'OK?' %],
+        0, true, '10x20', 'yellow', 'blue')->;
+
+
+-- -- Global variables for rc_message
+vars
+    rc_message_instruct = '[CLICK TO DISMISS]',
+
+This string is automatically put at the front of the list of messages,
+followed by an empty string. Change this if you wish to have different
+instructions.
+
+If it is made false, the instructions are omitted.
+
+
+-- Messages that persist: rc_poster -----------------------
+
+rc_poster(
+    x,y, strings, spacing, centre, font, bgcol, fgcol) -> win_obj;
+
+The procedure rc_poster, like rc_message, can be used to put up a
+message consisting of a lot of strings, using a specified font, font
+colour and background colour. However, whereas the rc_message window is
+mouse sensitive the rc_poster window is not. So it remains until
+explicitly removed using rc_kill_window_object.
+
+rc_poster returns the window_object as its result. If this is not
+saved then it is possible for the garbage collector to remove the window
+eventually.
+
+As before the centre argument can be false, true or "right"
+
+Examples follow:
+
+uses rclib
+uses rc_poster
+
+;;; First some strings to be displayed in messages.
+
+vars strings=
+    ['Now is the time''for all good men and women''to stand up'
+     'and be counted,' 'for the price of freedom'
+    'is eternal vigilance'];
+
+;;;rc_poster(x,y, strings, spacing, centre, font, bgcol, fgcol) -> win;
+
+vars posters =
+    [%
+        rc_poster(30,20,strings,0, false, '9x15', false, false),
+
+        rc_poster(200,20,strings,20, true, '9x15', 'pink', false),
+
+        rc_poster(30,300,strings,5, "right", '9x15', 'orange', false),
+
+        rc_poster(250,200,strings <> strings,0, true,
+            '8x13bold', false, false),
+
+        rc_poster(800,20,strings,0, true,
+            '10x20', 'darkslategrey', 'yellow'),
+
+        rc_poster(300,300,strings<>strings ,0, true,
+            '*lucida*-r-*sans-14*', 'yellow', 'blue'),
+
+        rc_poster(600,100,['Hi there'],0, true, '12x24', 'yellow',
+            'blue'),
+
+        rc_poster(20,150,
+            [%
+                'Hi there - this is a very long one line message from '
+                <> ' your friendly over confident computer',
+             'OK?' %],
+            0, true, '10x20', 'yellow', 'blue') %];
+
+Because the poster windows are not mouse sensitive they can only
+be got rid off via rc_kill_window_object.
+
+applist(posters, rc_kill_window_object);
+
+
+
+-- A variant that waits: rc_message_wait ------------------------------
+
+rc_message_wait(x,y, strings, spacing, centre, font, bgcol, fgcol);
+
+The procedure rc_message_wait is like rc_message in the arguments it
+takes, but it does not return any result, and the procedure does not
+return unless you click on the window, or press a key, or invoke
+interrupt.
+
+It also uses rc_warp_to to make the mouse pointer move to the window.
+
+It locally sets rc_sole_active_widget to hold the current widget so that
+all events in other widgets are disabled until this one is dismissed.
+
+The centre argument can be false, true or "right"
+
+uses rclib
+uses rc_message_wait
+
+;;; First some strings to be displayed in messages.
+
+vars strings=
+    ['You are now seeing' 'a demonstration of the'
+     'rc_message_wait procedure.' 'It will not continue'
+     'until you dismiss this window'];
+
+
+;;; Now display some message panels, then dismiss them using
+;;; mouse button 1 or pressing a key while the pointer is in the window.
+
+;;;rc-message_wait(x,y, strings, spacing, centre, font, bgcol, fgcol);
+rc_message_wait(300,300,strings,0, true, '9x15', false, false);
+rc_message_wait(300,300,strings,0, false, '9x15', false, false);
+rc_message_wait(300,300,strings,0, "right", '9x15', false, false);
+
+rc_message_wait(200,300,strings,20, true, '9x15', 'pink', false);
+
+rc_message_wait(300,200,strings,0, true, '10x20', 'darkslategrey', 'yellow');
+
+rc_message_wait(
+    600,100,['Hi there'],0, true, '12x24', 'yellow', 'blue');
+
+rc_message_wait(20,20,
+    [%
+        'Hi there - this is a very long one line message from '
+        <> ' your friendly over confident computer',
+      'OK?' %],
+        0, true, '10x20', 'yellow', 'blue');
+
+The global variable rc_message_wait_instruct should hold false or a
+string to be used to specify instructions at the top of the panel. If it
+is made false, the instructions are omitted.
+
+Previously rc_message_wait could not be invoked from a control panel
+produced by rc_control_panel, or arbitrary action buttons. This has now
+been fixed.
+
+
+-- Radio buttons and someof buttons -----------------------------------
+
+This section shows how to create a panel which includes
+
+    o radio buttons, which allow only one item to be selected at a time,
+
+    o someof buttons, which allow any subset to be selected or
+      deselected.
+
+Appropriate actions are performed when individual buttons are selected
+or deselected. For the radio buttons we'll have a message panel put up
+displaying the selected colour. For the oneof buttons we have text
+messages printed out as the individual buttons are selected or
+deselected.
+
+The examples shown here can be used to create a panel of radio buttons
+or of someof buttons at a specified location in a window which contains
+other things. For a generic facility for creating control panels
+including these buttons see HELP * RC_CONTROL_PANEL, with illustrations
+in TEACH * RC_CONTROL_PANEL and LIB * RC_POLYPANEL. In general using
+rc_control panel is easier.
+
+A simpler example is provided in TEACH * RCLIB_DEMO.P
+
+
+;;; When you experiment with the buttons with colour names. Note what
+;;; happens if you click twice on one of the "someof" buttons.
+
+uses rclib
+uses rc_button_utils
+uses rc_message
+
+;;; Radio buttons allow you to select one at a time only.
+;;; Someof buttons allow any any subset to be on or off
+
+
+;;; Use this to record previous message put up, in case it needs to be
+;;; removed
+vars last_message = false;
+
+define show_selected(button);
+    ;;; When a radio button has been selected with a colour name, put
+    ;;; up a message using the colour as the background.
+    dlocal rc_message_instruct = '[FOR INFORMAION]';
+    lvars
+        label = rc_button_label(button),
+        content = rc_real_contents(button),
+
+        strings = ['The selected item is now' ^label %' i.e. ' >< content% '' 'Thank you'];
+
+    if last_message then
+        rc_kill_window_object(last_message);
+        false -> last_message;
+    endif;
+
+    content =>
+
+    rc_message(300,300, strings, 0, true, '10x20', content, 'black')
+        -> last_message;
+enddefine;
+
+define selecting_someof(button);
+    ;;; Report selection of a someof button
+    [selecting
+        ^(rc_button_label(button)) : ^(rc_real_contents(button)) ] =>
+enddefine;
+
+define deselecting_someof(button);
+    ;;; Report deselection of a someof button
+    [Deselecting
+        ^(rc_button_label(button)) : ^(rc_real_contents(button)) ] =>
+enddefine;
+
+
+;;; We make a list of labels for the radio buttons and the someof
+;;; buttons created below. Each item is a two element list, where
+;;; the first element is the string to be displayed on the button
+;;; and the second is the item to be stored in the rc_real_contents
+;;; slot of the button. (If we used only a list of strings, then
+;;; each button would use its string both as its label and as its
+;;; real contents.)
+
+vars
+    radio_labels =
+        [['Y' 'yellow'] ['P' 'pink'] ['O' 'orange'] ['Go' 'gold']
+         ['I' 'ivory'] ['Gr' 'green'] ['B' 'blue'] ['C' 'cyan']];
+
+;;; Create a window large enough to hold the two arrays of buttons and a
+;;; cancel button, with origin in top left corner and y axis going down.
+
+vars panel =
+    rc_new_window_object(
+        650, 20,71*4, 26*7, {0 0 1 1}, newrc_button_window, 'panel');
+
+;;; Now create the two lots of buttons, using featurespecs to set the
+;;; actions.
+
+vars
+    radio_buttons =
+        create_radio_button_columns(
+            0,0,70,25,1,4, 'Choose your colour (only one)',
+                radio_labels, {rc_radio_select_action ^show_selected }),
+
+    someof_buttons =
+        create_someof_button_columns(
+            0,75,70,25,1,4, 'Select/deselect some colours (any number)',
+              radio_labels,
+                {rc_radio_select_action ^selecting_someof
+                    rc_radio_deselect_action ^deselecting_someof
+                    rc_button_bordercolour 'black' });
+
+;;; add a cancel button
+panel -> rc_current_window_object;
+
+create_rc_button(
+   0, 150, 75, 22, ['Cancel' rc_kill_panel], "blob", false);
+
+
+/*
+
+-- -- Accessing and changing the state of radio and someof buttons
+*/
+
+We have created these buttons
+
+    radio_buttons ==>
+    someof_buttons ==>
+
+There are many procedures available for operating on them, defined in
+    HELP RC_BUTTONS
+    HELP RC_CONTROL_PANEL
+
+
+Try this before and after clicking on the first radio button.
+It prints a boolean value:
+    rc_button_value(radio_buttons(1)) =>
+
+This returns the label, a string, of the currently selected radio
+button or a list of the labels of selected someof buttons.
+    rc_options_chosen(radio_buttons) =>
+    rc_options_chosen(someof_buttons) =>
+
+This returns the rc_real_contents of the currently selected radio
+button or a list of the contents of selected someof buttons.
+    rc_values_chosen(radio_buttons) =>
+    rc_values_chosen(someof_buttons) =>
+
+
+This can be changed by program commands also:
+    rc_set_radio_buttons('B', radio_buttons);
+    rc_set_radio_buttons('C', radio_buttons);
+    rc_options_chosen(radio_buttons) =>
+    rc_values_chosen(radio_buttons) =>
+
+
+    rc_set_radio_buttons('B', radio_buttons);
+
+It is also possible to do a selection by running the button 1 down event
+handler for the selected button, rc_rcbutton_1_down.
+
+But this requires rc_current window_object to be set, so do this:
+
+    SETWINDOW panel;
+
+Turn on radio button 1 then turn it off by turning on radio button 3,
+and after each operation examine the settings:
+    rc_rcbutton_1_down(radio_buttons(1), 0, 0, nullstring);
+    rc_rcbutton_1_down(radio_buttons(3), 0, 0, nullstring);
+    rc_button_value(radio_buttons(1)) =>
+    rc_button_value(radio_buttons(3)) =>
+    rc_options_chosen(radio_buttons) =>
+    rc_informant_value(radio_buttons(1)) =>
+    rc_informant_value(radio_buttons(3)) =>
+    rc_values_chosen(radio_buttons) =>
+
+
+Note that here the rc_button_value result is a boolean whereas the
+result of rc_informant_value is the string that is the label of the
+button.
+
+
+Similar things can be done with the someof buttons. Try turning the
+first and third buttons on and off, and check the following commands:
+
+    rc_button_value(someof_buttons(1)) =>
+    rc_button_value(someof_buttons(3)) =>
+
+The following now returns a (possibly empty) list of label strings, not
+just a single label:
+    rc_options_chosen(someof_buttons) =>
+    rc_values_chosen(someof_buttons) =>
+
+Try changing the selection among the someof buttons and running that
+command.
+
+The selections among the someof buttons can be altered using the
+procedure rc_set_someof_buttons as follows:
+
+    rc_set_someof_buttons(['P' 'Go' 'B'], someof_buttons);
+    rc_options_chosen(someof_buttons) =>
+    rc_values_chosen(someof_buttons) =>
+    rc_set_someof_buttons([], someof_buttons);
+    rc_set_someof_buttons("none", someof_buttons);
+    rc_set_someof_buttons("all", someof_buttons);
+    rc_options_chosen(someof_buttons) =>
+
+Run this one twice: It toggles the corresponding values
+    rc_change_someof_buttons(['P' 'Go' 'B'], someof_buttons);
+
+Or, alternatively:
+
+    ;;; Doing the following repeatedly causes the state to
+    ;;; change back and forth
+    SETWINDOW panel;
+    rc_rcbutton_1_down(someof_buttons(1), 0, 0, nullstring);
+
+    ;;; This gives the string that is the label of the button.
+    rc_button_label(someof_buttons(1)) =>
+    ;;; Compare
+    rc_real_contents(someof_buttons(1)) =>
+    rc_button_value(someof_buttons(1)) =>
+    rc_informant_value(someof_buttons(1)) =>
+
+We can get at the containing window from the button
+
+    rc_button_container(someof_buttons(1)) =>
+
+
+-- Complete list of action specifications for action buttons ----------
+
+See LIB * RC_BUTTONS/rc_do_button_action
+
+This is what happens by default) when you click on an action button,
+expressed in Pop-11 for now (in the method
+
+define :method rc_do_button_action(pic:rc_action_button);
+    ;;; Action to be performed when mouse pic is released.
+    ;;; action will determine the action
+
+    ;;; Re-enable events. Is this safe ?
+    dlocal rc_in_event_handler = false;
+
+    lvars real_action, action = rc_button_action(pic);
+
+    ;;; in case it is a word or identifier, get its valof
+    recursive_valof(action) -> action;
+
+    if isident(action) then idval(action) -> action endif;
+
+    if isclosure(action) and pdpart(action) == rc_defer_apply then
+
+        action();
+        ;;;process_defer_list();
+        return;
+    elseif isprocedure(action) then
+        ;;; Includes closures
+        ;;; Do it in "defer" mode
+        ;;; rc_active_window_object=>
+        rc_async_apply(action, false);
+    elseif islist(action) then
+        if front(action) == "POPNOW" then
+            ;;; should no longer arise:
+            'POPNOW action not expected '>< action =>
+            back(action) -> action;
+            procedure();
+                dlocal vedediting = vedinvedprocess and isstring(rc_charout_buffer);
+
+                lvars proc = recursive_valof(front(action));
+                if isprocedure(proc) then
+                    ;;; do it without deferring
+                    rc_async_apply(proc, false);
+                else
+                    ;;; This is generally unsafe with POPNOW!
+                    async_interpret_action(action)
+                endif;
+            endprocedure();
+
+        else rc_async_apply(async_interpret_action(%action%), false)
+        endif
+    elseif isvector(action) and isstring(action(1) ->> real_action) then
+        ;;; vector containing string: treat as pop11 instruction to be
+        ;;; compiled and run
+        rc_async_apply(pop11_compile(%stringin(real_action)%), false)
+    elseif isvector(action) and islist(action(1) ->> real_action) then
+        ;;; treat list as procedure (or procedure name) plus args
+        rc_async_apply(
+                    recursive_valof(front(real_action))(%
+                        explode(back(real_action))%), false)
+
+    elseif isstring(action) then
+        ;;; treat as ved command
+        rc_async_apply(veddo(%action,true%), false)
+    else
+        mishap('UNKNOWN ACTION TYPE IN ', [^action ^rc_active_picture_object])
+    endif;
+
+    if vedusewindows == "x" and not(vedinvedprocess) then
+        ;;; The next one sometimes causes an error
+        ;;; vedinput(rc_flush_everything);
+        XptSetXtWakeup();
+    else
+        rc_flush_everything();
+    endif;
+enddefine;
+
+
+-- Default values for global variables in LIB rc_buttons --------------
+
+This was the situation as of 28 Jul 2002
+
+define :rc_defaults;
+
+    ;;; total height of button
+    rc_button_height_def = 24;
+
+    ;;; total length of button
+    rc_button_width_def = 120;
+
+    ;;; default border width
+    rc_button_border_def = 3;
+
+    ;;; standard font for label
+    rc_button_font_def =
+        '-adobe-helvetica-bold-r-normal-*-10-*-*-*-p-*-*-*';
+        ;;; Other possibilities '9x15'; '8x13';
+        ;;; '*lucida*-r-*sans-10*';
+
+    ;;; colour of text label
+    rc_button_stringcolour_def = 'black';
+
+    ;;; make this non-zero to get a blob on action button
+    rc_button_blobrad_def = 0;
+
+    ;;; If there's a blob to left of label use this colour
+    rc_button_blobcolour_def = 'grey50';
+
+    ;;; This is "blob" size for "display" buttons, e.g.
+    ;;; e.g. toggle, counter, radio, someof buttons
+    rc_button_default_blobrad = 5;
+
+    ;;; colour of border
+    rc_button_bordercolour_def = 'grey60';
+
+    ;;; colour of border of action button when pressed
+    rc_button_pressedcolour_def = 'grey75';
+        ;;;'lightsalmon'; ;;; 'linen' ; ;;;'LightGrey';
+
+    ;;; colour of background to label
+    rc_button_labelground_def = 'white';
+
+    ;;; background colour for option button when pressed
+    rc_button_chosenground_def = 'grey75';
+
+    ;;; Toggle button shows true or false using one of these labels
+    ;;; can easily be replaced with another pair of strings.
+    rc_toggle_labels_def = {' (T)' ' (F)'};
+
+    ;;; Counter buttons show the number between brackets. Use
+    ;;; these as default
+    rc_counter_brackets_def = {'[' ']'};
+
+    ;;; Make this false to prevent attempts to redirect output
+    ;;; when action buttons cause printing
+    async_vedbuffer = 'output.p';
+
+enddefine;
+
+
+-- SUMMARY OVERVIEW
+
+The following information was consistent with LIB RC_BUTTONS on 30 Jul
+2002. Since the code libraries may change look in that file if
+necessary, to get the latest correct information.
+
+-- -- The main mixins: rc_button, rc_display_button
+
+define :mixin vars rc_button;
+    is rc_linepic, rc_selectable, rc_informant;
+    slot rc_button_label = '??Label??';
+    slot rc_button_height = rc_button_height_def;
+    slot rc_button_width = rc_button_width_def;
+    slot rc_button_border = rc_button_border_def ;
+    slot rc_button_font = rc_button_font_def ;
+    slot rc_button_stringcolour = rc_button_stringcolour_def;
+    slot rc_button_bordercolour = rc_button_bordercolour_def;
+    slot rc_button_labelground = rc_button_labelground_def;
+    slot rc_button_blobrad = 0;
+
+    ;;; Not needed. Inherits from rc_informant
+    ;;; slot rc_informant_value
+
+    ;;; Sensitivity rectangle for buttons
+    ;;; This needs to be kept consistent with height and width of button
+    slot rc_mouse_limit =
+        {%rc_button_border_def/rc_xscale, rc_button_border_def/rc_yscale,
+        (rc_button_width_def-rc_button_border_def)/rc_xscale,
+        (rc_button_height_def-rc_button_border_def)/rc_yscale%};
+
+    ;;; This specifies the drawing procedure to be used
+    slot rc_pic_lines == "rc_draw_button";
+
+    slot rc_button_up_handlers =
+        { rc_rcbutton_1_up rc_button_do_nothing rc_button_do_nothing};
+    slot rc_button_down_handlers =
+        { rc_rcbutton_1_down rc_button_do_nothing rc_button_do_nothing};
+    slot rc_drag_handlers =
+        {rc_button_do_no_drag rc_button_do_no_drag rc_button_do_no_drag };
+    slot rc_move_handler = "rc_button_do_nothing";
+    slot rc_button_container == undef;
+enddefine;
+
+
+;;; This is used for toggle, counter, radio and someof buttons
+
+define :mixin vars rc_display_button;
+    ;;; No longer has a border: has a square or blob to left of label
+    ;;; square for counter and toggle buttons.
+    ;;; blob for someof and radio buttons
+    slot rc_button_labelground = 'grey95';
+    slot rc_button_blobcolour = rc_button_blobcolour_def;
+    slot rc_button_blobrad = rc_button_default_blobrad;
+enddefine;
+
+
+-- The main button classes: action, blob, toggle,etc.
+
+define :class vars rc_action_button; is rc_button;
+    slot rc_button_action = identfn;
+    slot rc_button_pressedcolour = rc_button_pressedcolour_def;
+enddefine;
+
+define :class vars rc_invisible_action_button; is rc_action_button;
+    ;;; This needs to be kept consistent with height and width
+    ;;; Default box below and to right of button location.
+    slot  rc_mouse_limit = {0 0 20 -20};
+    slot rc_drag_handlers = {rc_drag_invisible ^false ^false};
+enddefine;
+
+define :class vars rc_blob_button; is rc_action_button;
+    ;;; for action buttons with blob on left.
+    slot rc_button_blobcolour = rc_button_blobcolour_def;
+    slot rc_button_blobrad = rc_button_blobrad_def;
+enddefine;
+
+
+define :class vars rc_toggle_button; is rc_display_button rc_button;
+    ;;; These are buttons with an extra boolean field
+    slot RC_informant_value = false;
+    ;;; NB the same vector is shared by all instances.
+    ;;; So make a copy if some are to have different toggle_labels.
+    slot rc_toggle_labels = rc_toggle_labels_def;
+enddefine;
+
+define :class vars rc_counter_button; is rc_display_button rc_button;
+    ;;; These are buttons with a number and an increment.
+    ;;; Clicking with button 1 increases the number by the increment.
+    ;;; Clicking with button 3 decreases it.
+    ;;; Removed rc_counter_value 29 Mar 1999
+
+    slot rc_counter_inc = undef;
+    slot rc_counter_min = false;
+    slot rc_counter_max = false;
+    ;;; the number will be printed inside these values
+    slot rc_counter_brackets = rc_counter_brackets_def;
+    slot rc_button_down_handlers ==
+        { rc_rcbutton_1_down rc_button_do_nothing rc_rcbutton_3_down };
+    slot rc_original_label = false;
+enddefine;
+
+
+-- -- Option buttons and radio and someof subclasses
+
+
+The top level class here is rc_option_button, for which rc_radio button
+and rc_someof_button are descendants. The design for these was altered
+around September 2002 to give them a clearer structure.
+
+Since these inherit from rc_informant, they also have an
+rc_informant_value slot (previously called rc_informant_contents).
+This value is normally a boolean, true for a button when it is in the
+selected state, otherwise false.
+
+In addition each has a label, rc_button_label, which normally does not
+change, though it could change.
+
+Finally each can have an additional value associated with it in the slot
+rc_real_contents. So for example a button may have as its rc_button_label
+the string 'My papers', and have as its rc_real_contents a string which
+is a file name, or some other object.
+
+In the standard specification for a button of one of these types the
+label can be specified as a string, whereas it it is a two element list,
+the first element is the string to be used as label and the second
+element is held in the rc_real_contents slot.
+
+define :class vars rc_option_button; is rc_display_button rc_button;
+    ;;; These are buttons to be used in an array of options, where
+    ;;; any subset of the options can be selected or unselected
+    slot RC_informant_value == false;
+    slot rc_real_contents == false;
+    slot rc_chosen_background = rc_button_chosenground_def;
+enddefine;
+
+
+define :class vars rc_radio_button; is rc_option_button;
+    ;;; These are buttons to be used in an array of options, where
+    ;;; choosing one option undoes the choice of a different option
+    slot rc_radio_list = [];    ;;; list of sibling buttons
+    slot rc_radio_select_action = erase;
+    slot rc_radio_deselect_action = erase;
+enddefine;
+
+define :class vars rc_someof_button; is rc_radio_button;
+    ;;;  Allow any number in the list to be turned on
+    ;;; will have slightly different methods
+enddefine;
+
+
+
+-- Procedures for creating individual buttons or collections ----------
+
+-- -- Procedures in LIB RC_BUTTONS
+
+create_rc_button(x, y, width, height, contents, type, specs) -> button;
+    Create an individual button, of whatever type
+
+
+create_button_columns(x, y, width, height, spacing, columns,
+                                    list, type, specs) -> buttons;
+    Display a list of buttons in a row, or in one or more columns,
+    in an array with top left corner at location x, y.
+
+
+-- -- Procedures in LIB RC_BUTTON_UTILS
+
+These procedures are all subsumed by create_rc_button and
+create_button_columns.
+
+The command
+    uses rc_button_utils
+
+will load all these. Alternatively they can be autoloaded, as they all
+have files linked to rclib/lib/rc_button_utils
+
+
+create_action_button(x, y, width, height, label, action, specs) -> button;
+
+create_blob_button(x, y, width, height, label, action, specs) -> button;
+
+create_option_button(x, y, width, height, label, specs) -> button;
+
+create_select_button(x, y, width, height, label, specs) -> button;
+
+create_radio_button_columns(
+    x, y, width, height, spacing, columns, string, list, specs) -> buttons;
+
+    Create and display a set of radio buttons, with a message given by
+    string
+
+create_someof_button_columns(
+    x, y, width, height, spacing, columns, string, list, specs) -> buttons;
+
+    Create and display a set of someof buttons, with a message given by
+    string
+
+create_button_row(
+    x, y, width, height, spacing, list, type, specs) -> buttons;
+
+create_button_column(
+    x, y, width, height, spacing, list, type, specs) -> buttons;
+
+    Create and displays just one column of buttons
+
+-- Summary contents of LIB RC_BUTTONS ---------------------------------
+
+-- -- New class of window object (rc_button_window)
+ define :class vars rc_button_window; is rc_window_object;
+ define :method rc_realize_window_object(win_obj:rc_button_window);
+
+-- -- Globals holding default values for button appearance
+ define :rc_defaults;
+
+-- -- rc_button and rc_display_button mixins
+ define :mixin vars rc_button;
+ define :mixin vars rc_display_button;
+
+    To examine the available slots see
+        LIB * RC_INFORMANT/':mixin'
+        LIB * RC_BUTTONS/':mixin rc_button'
+        LIB * RC_BUTTONS/':mixin rc_display_button'
+
+-- -- The main button classes: action, blob, toggle,etc.
+
+    See
+        LIB * RC_BUTTONS/':class rc_action_button'
+
+ define :class vars rc_action_button; is rc_button;
+ define :class vars rc_invisible_action_button; is rc_action_button;
+ define :class vars rc_blob_button; is rc_action_button;
+ define :class vars rc_toggle_button; is rc_display_button rc_button;
+ define :class vars rc_counter_button; is rc_display_button rc_button;
+ define :class vars rc_option_button; is rc_display_button rc_button;
+ define :class vars rc_radio_button; is rc_option_button;
+ define :class vars rc_someof_button; is rc_radio_button;
+
+-- -- Utility methods
+
+ define :method rc_move_to(pic:rc_button, x, y, trail);
+
+-- -- Generic button methods for values/contents, etc.
+
+ define lconstant DEREF(item) -> item;
+ define :method rc_button_value(pic:rc_display_button) -> val;
+ define :method updaterof rc_button_value(val, pic:rc_display_button);
+ define :method updaterof rc_button_value(val, pic:rc_radio_button);
+
+ define :method rc_toggle_value(pic:rc_toggle_button);
+ define :method updaterof rc_toggle_value(val, pic:rc_toggle_button);
+
+ define :method rc_counter_value(pic:rc_counter_button);
+ define :method updaterof rc_counter_value(val, pic:rc_counter_button);
+
+ define :method rc_option_chosen(pic:rc_option_button);
+ define :method updaterof rc_option_chosen(val, pic:rc_option_button);
+
+ define :method updaterof rc_informant_value(val, button:rc_display_button);
+ define :method updaterof rc_informant_value(val, button:rc_counter_button);
+
+-- -- Some dummy methods for buttons with missing slots
+    (for harmless use in spec vectors).
+    These all have updaters that just pick up the item and do nothing.
+
+ define :method updaterof rc_button_pressedcolour(x, pic:rc_button);
+ define :method updaterof rc_button_blobcolour(x, pic:rc_button);
+ define :method updaterof rc_button_blobrad(x, pic:rc_button);
+ define :method updaterof rc_counter_brackets(x, pic:rc_button);
+ define :method updaterof rc_toggle_labels(x, pic:rc_button);
+ define :method updaterof rc_chosen_background(x, pic:rc_button);
+ define :method updaterof rc_radio_select_action(x, pic:rc_button);
+ define :method updaterof rc_radio_deselect_action(x, pic:rc_button);
+
+-- -- Utility methods and procedures
+
+ define :method print_instance(pic:rc_button);
+ define :method print_instance(pic:rc_display_button);
+ define :method print_instance(pic:rc_counter_button);
+ define :method print_instance(pic:rc_toggle_button);
+ define :method print_instance(pic:rc_radio_button);
+ define :method print_instance(pic:rc_someof_button);
+ define :method print_instance(pic:rc_action_button);
+
+-- -- Drawing methods and procedures for buttons
+
+ define lconstant DRAW_OB(x, y, xinc, yinc, width, height, border, radius, colour);
+
+ define :method rc_draw_border_shape(pic:rc_button, x, y, width, height,
+        border, halfborder, colour);
+ define :method rc_draw_border(pic:rc_button, colour);
+ define :method rc_draw_border(pic:rc_invisible_action_button, colour);
+
+ define :method rc_setframe_draw_border(pic:rc_button, colour);
+ define :method rc_setframe_draw_border(pic:rc_invisible_action_button, colour);
+
+ define :method rc_draw_button_type(pic:rc_display_button, blobrad, height, colour);
+ define :method rc_draw_button_type(pic:rc_radio_button, blobrad, height, colour);
+ define :method rc_draw_button_type(pic:rc_someof_button, blobrad, height, colour);
+
+ define :method rc_offset_print_button_label(pic:rc_button, stringx, stringy, label);
+ define :method rc_offset_print_button_label(pic:rc_display_button,
+        stringx, stringy, label);
+ define :method rc_offset_print_button_label(pic:rc_invisible_action_button,
+        stringx, stringy, label);
+
+ define :method rc_string_offset(pic:rc_button, border, blob_rad) -> offset;
+ define :method rc_string_offset(pic:rc_display_button, border, blob_rad) -> offset;
+
+ define :method rc_draw_button_string(pic:rc_button, blob_rad, border, width, height);
+
+ define :method rc_draw_border_or_blob(pic:rc_button);
+
+ define :method rc_draw_button_blob(pic:rc_display_button);
+
+ define :method rc_draw_border_or_blob(pic:rc_display_button);
+
+ define :method draw_action_blob(pic:rc_button, mid, border, blob_rad);
+
+ define :method rc_draw_button_background(pic:rc_button, mid,
+        border, blob_rad, width, height);
+
+ define :method rc_draw_button_background(pic:rc_display_button, mid,
+        border, blob_rad, width, height);
+
+ define :method rc_draw_button(pic:rc_button);
+    This is the default procedure associated with the rc_pic_lines slot
+    of button instances. It draws a button by drawing its background,
+    then the border, then the label string.
+    It uses:
+
+    rc_draw_button_background(pic, mid, border, blob_rad, width, height);
+
+    rc_draw_border_or_blob(pic);
+
+    rc_draw_button_string(pic, blob_rad, border, width, height);
+
+ define :method rc_draw_button(pic:rc_invisible_action_button);
+
+ define :method rc_draw_button(pic:rc_toggle_button);
+
+ define vars rc_DRAWBUTTON(pic);
+
+-- -- Undrawing methods for buttons
+
+ define :method rc_undraw_button_background(pic:rc_button, mid, border,
+        blob_rad, width, height);
+
+ define :method rc_undraw_button(pic:rc_button);
+ define :method rc_undraw_linepic(pic:rc_button);
+
+-- -- Mouse and motion methods for windows and buttons
+
+ define :method rc_button_1_up(win_obj:rc_button_window, x, y, modifiers);
+
+ define :method rc_mouse_exit(win_obj:rc_button_window, x, y, modifiers);
+
+ define :method rc_button_do_nothing(pic:rc_button, x, y, modifiers);
+
+ define :method rc_button_do_no_drag(pic:rc_button, x, y, modifiers);
+
+ define :method rc_drag_invisible(pic:rc_invisible_action_button, x, y, modifiers);
+
+ define :method rc_rcbutton_1_down(pic:rc_button, x, y, modifiers);
+ define :method rc_rcbutton_1_up(pic:rc_button, x, y, modifiers);
+
+-- -- Facilities for action buttons
+
+ define rc_async_apply(proc, deferring);
+    This is the default procedure that runs actions associated with
+    action buttons (when the mouse button is released).
+
+    The button procedure may be run immediately or deferred. This is
+    designed to support actions manipulating Ved files, e.g. opening
+    new files, rotating or swapping files, etc. But does not warp the
+    Xved context. It is a long and complex procedure defined in
+    LIB rc_buttons. Some of the complications to be dealt with
+    are discussed in HELP RC_EVENTS
+
+ define :method rc_async_apply_action(pic:rc_button, action_type);
+    ;;; handle the action in an appropriate context, e.g. to ensure that
+    ;;; printing goes to the right place.
+    ;;; This method could be redefined for some types of buttons to avoid
+    ;;; the use of rc_async_apply
+
+ define :method rc_do_button_action(pic:rc_action_button);
+    The main action method for buttons. Invoked when the button is
+    released.
+    See full definition above.
+
+ define :method rc_rcbutton_1_down(pic:rc_action_button, x, y, modifiers);
+ define :method rc_rcbutton_1_down(pic:rc_invisible_action_button, x, y, modifiers);
+
+    When mouse button 1 is depressed in an action button,
+        pic -> rc_selected_action_button;
+
+    and this method is invoked:
+        rc_setframe_draw_border(pic, rc_button_pressedcolour(pic));
+
+    I.e. the button appearance is changed to show that the button has
+    been selected and the mouse button is still held down.
+
+
+ define vars do_rcbutton_1_up(pic, x, y, modifiers);
+ define :method rc_rcbutton_1_up(pic:rc_action_button, x, y, modifiers);
+ define :method rc_rcbutton_1_up(pic:rc_invisible_action_button, x, y, modifiers);
+
+    If the mouse button is released with the mouse pointer within the
+    button limits, the action will be performed, otherwise the action
+    will not be performed.
+
+    When the button is released (whether the action is performed or not)
+    this redraws the border to its normal appearance:
+        rc_setframe_draw_border(pic, rc_button_bordercolour(pic));
+
+-- -- Facilities for display buttons
+
+ define :method switch_rc_toggle_value(pic:rc_toggle_button);
+ define :method rc_rcbutton_1_down(pic:rc_toggle_button, x, y, modifiers);
+ define :method rc_rcbutton_1_up(pic:rc_toggle_button, x, y, modifiers);
+
+-- -- Facilities for counter buttons
+
+ define lconstant procedure stack_chars_from(item);
+ define :method rc_draw_button(pic:rc_counter_button);
+ define lconstant restrict_to_range(val, minval, maxval) -> val;
+ define :method rc_increment_counter(pic:rc_counter_button, up);
+ define :method rc_rcbutton_1_down(pic:rc_counter_button, x, y, modifiers);
+ define :method rc_rcbutton_1_up(pic:rc_counter_button, x, y, modifiers);
+ define :method rc_rcbutton_3_down(pic:rc_counter_button, x, y, modifiers);
+
+-- -- Facilities for option buttons
+
+ define :method rc_draw_button(pic:rc_option_button);
+ define :method rc_rcbutton_1_down(pic:rc_option_button, x, y, modifiers);
+
+ define rc_button_with_label(item, buttonlist) -> button;
+    Check that item, usually a string, is one of the labels of
+    the buttons in the list. Return the button or false.
+        Used in rc_button_in_field_in_panel described in
+        HELP RCLIB
+
+ define rc_options_chosen_for(buttons, procedure proc) -> options;
+    This is partially applied to eithe rc_button_label or
+    rc_real_contents, to get the next two procedures.
+
+ define rc_options_chosen(buttons) -> options;
+    The argument is a list of radio or someof buttons.
+    Return a list of all labels of the chosen options. Stop after first
+    if it's a radio button. If they are radio buttons and nothing is
+    found return false. If they are someof buttons return a list.
+
+ define rc_values_chosen(buttons) -> options;
+    As for rc_options_chosen, except that instead of returning the
+    button label or labels it returns the rc_real_contents of the
+    buttons that are selected.
+
+
+    For examples of use see above, and also
+        TEACH * RCLIB_DEMO.P/rc_values_chosen
+
+        TEACH * RC_CONTROL_PANEL/rc_options_chosen,
+        HELP  * RC_CONTROL_PANEL/rc_options_chosen,
+
+    There is also an updater:
+
+ define updaterof rc_options_chosen(options, buttons);
+    This uses rc_set_button_defaults, defined above. Note the
+    warning.
+
+-- -- Facilities for radio buttons
+
+ define :method rc_rcbutton_1_down(pic:rc_radio_button, x, y, modifiers);
+
+ define rc_set_radio_buttons(item, buttons);
+    Item is a button label, usually a string. Set the  button with that
+    label to be on, and the others off.
+    For examples see HELP rc_control_panel
+
+ define rc_set_button_defaults(buttons, wid, def, buttontype);
+    Set the default button or buttons either on the basis
+    of the associated word or identifier wid, if set or the
+    default def, which may come from from a field in rc_control_panel
+    Let wid have the priority unless the value is undef, or an
+    undef instance.
+    buttontype is one of "radio" and "someof"
+
+    Warning: rc_current_window_object must have been set
+
+
+-- -- Facilities for someof buttons
+
+ define :method rc_rcbutton_1_down(pic:rc_someof_button, x, y, modifiers);
+
+ define set_or_unset_someof_buttons_to(list, buttons, setting);
+    ;;; List is either empty, which means deselect all the buttons,
+    ;;; or a list of labels of buttons (usually strings). Select all the
+    ;;; buttons in list, leaving any others that were previously selected
+    ;;; still selected. If list is the world "all", then select every one.
+    ;;; If it is "none" unset all
+
+    For examples see HELP rc_control_panel
+
+ define rc_set_someof_buttons = set_or_unset_someof_buttons_to(%true%)
+ define rc_unset_someof_buttons = set_or_unset_someof_buttons_to(%false%)
+ define rc_change_someof_buttons = set_or_unset_someof_buttons_to(%undef%)
+
+
+-- -- Abbreviations for feature spec items
+
+ define procedure rc_button_spectrans = newproperty(
+
+ define expand_button_spec_abbreviations(spec) -> spec;
+
+-- -- Utilities for modifying buttons during creation
+
+ define vars rc_update_button_mouse_limit(button, oldborder, oldheight, oldwidth);
+
+ define :method modify_instance(button:rc_button, contents, type);
+ define :method modify_instance(button:rc_action_button, contents, type);
+ define :method modify_instance(button:rc_invisible_action_button,
+        contents, type);
+
+ define :method modify_instance(button:rc_display_button, contents, type);
+ define :method modify_instance(button:rc_toggle_button, contents, type);
+ define :method modify_instance(button:rc_counter_button, contents, type);
+ define :method modify_instance(button:rc_option_button, contents, type);
+
+-- -- Utilities for creating new buttons
+
+ ;;; User extendable property for abbreviating button types
+ define procedure rc_button_type_key = newproperty(
+
+ define rc_button_key_of_type(type) -> key;
+    ;;; if the type is a word, find the corresponding key. If it is already
+    ;;; a key, return it
+
+ define create_rc_button(x, y, width, height, contents, type, specs) -> button;
+    ;;; Type is either a recognised word, e.g. "toggle", "counter", "action"
+    ;;; or a class key. The location of the button is at x, y.
+    ;;; The specs can be used to override default slots. It is false
+    ;;; or a vector of form {field val field val field val....},
+    ;;; as described in REF * OBJECTCLASS/create_instance, * OBJECTCLASS/set_slots
+    ;;; or a list of such vectors, or a list of lists, etc.
+
+-- -- Procedures for creating rows, columns and arrays of buttons
+
+ define create_button_columns(x, y, width, height, spacing, columns, list, type, specs) -> buttons;
+    This is used heavily in rc_control_panel. It is perhaps the most
+    flexible procedure for creating button arrays.
+
+ define rc_inform_button_siblings(buttons);
+    Used when a collection of related buttons is created. It informs
+    each of them about all the others, so that if any button is
+    selected it can invoke an appropriate action involving any or
+    all of the others, e.g. in radio buttons.
+
+-- -- Additional facilities in LIB RC_POPUP_QUERY
+
+ define :class rc_select_button; is rc_option_button;
+
+ define :method rc_draw_button_type(pic:rc_select_button,
+        offset, height, colour);
+
+-- -- Facilities for select buttons
+
+    See LIB * RC_POPUP_QUERY/'rc_select_button'
+
+ define :method rc_rcbutton_1_down(pic:rc_select_button, x, y, modifiers);
+ define :method rc_rcbutton_1_up(pic:rc_select_button, x, y, modifiers);
+ define :method rc_undo_selected(win_obj:rc_selectable, x, y, modifiers);
+
+ define lconstant trynumber(numbers_wanted, answer) -> answer;
+
+ define vars rc_getoptions(answer, buttons) -> options;
+ define rc_popup_query(x,y, strings, answers, centre, columns,
+    buttonW, buttonH, font, bgcol, fgcol, specs, options) -> selection;
+
+
+-- -- Facilities in LIB RC_INFORMANT
+
+A method inherited from rc_informant, by all these button classes, is
+rc_informant_value, which can be used by application procedures to
+access or store information used by event handlers.
+
+For more details see HELP RCLIB/rc_informant
+
+The use of constraints and reactors is illustrated in
+    TEACH rc_constrained_panel
+
+-- -- Additional autoloadable library procedures:
+
+The following may be usefully invoked from action buttons.
+
+ define rc_hide_panel();
+ define rc_kill_panel();
+ define rc_redraw_this_panel();
+
+-- Getting from a button or button list to its container --------------
+
+If button is added directly to a window, then the slot method
+    rc_button_container(button)
+
+will return the window object.
+
+For example
+    vars win1 =
+        rc_new_window_object(
+            "right", "top", 240, 100, true,
+                newrc_button_window, 'win1');
+
+Add a kill button:
+    vars kill_button =
+        create_rc_button(-90, 40, 95, 29,
+          ['KILL ME' rc_kill_panel], "action", [{font '12x24'}]);
+
+This will print out the container.
+    rc_button_container(kill_button) =>
+
+We can add a row of three buttons:
+    vars buttonrow =
+      create_button_columns(-95,0,65,20,4,3,
+       [
+         'sh who'
+         ['PageUP' vedprevscreen]
+         ['PageDown' vednextscreen]
+       ],
+        "action", []);
+
+To find the container of the list, select its first element and get the
+container of that:
+
+    rc_button_container(hd(buttonrow)) =>
+
+This should again be the window object win1.
+
+However, if we get a button list out of a panel created by
+rc_control_panel, then the container of each button will be a field in
+the control panel, and that will in turn have the window_object as its
+container.
+
+Create a simple example
+
+    vars buttonpanel =
+
+         rc_control_panel(500, 20,
+            [
+             [ACTIONS
+                 {label demo}
+                 {width 90} {height 30}
+                 {cols 3} :
+                ['DISMISS' rc_kill_panel]
+                ['PageUP' vedprevscreen]
+                ['PageDown' vednextscreen]
+              ]
+
+            ]  , 'Container Demo');
+
+Because the set of ACTIONS buttons is in a control panel, the container
+of the first button will be the action button field.
+
+We can use the fact that the button field has a label "demo" in order to
+get access to that field.
+
+    vars buttons = rc_fieldcontents_of(buttonpanel, "demo");
+
+    ;;; Print the list of buttons.
+    buttons ==>
+
+    ;;; extract the first one:
+
+    vars button = hd(buttons);
+
+    button ==>
+
+    rc_button_container(button) =>
+    ** <rc_actions_field,(3 0) Label: demo, In: 'Container Demo',
+       Contents: [['DISMISS' rc_kill_panel]
+                  ['PageUP' vedprevscreen]
+                  ['PageDown' vednextscreen]]
+
+
+However we can also ask for the container of the field
+
+    rc_field_container(rc_button_container(button)) ==>
+
+    ** <window_obj Container Demo 500 20 278 33 items: 3>
+
+So starting from a button, or button list it is possible to get to the
+containinng window, e.g. in order to hide it or re-size it, etc.
+This may sometimes be done in one step using rc_button_container, where
+a button was added directly to a window, or in two steps using
+rc_button_container and rc_field_container, where the button is part of
+a panel produced by rc_control_panel.
+
+A program that operates on a button and which needs to change what is
+displayed by the button (e.g. its colour) can use this mechanism to get
+at the window object in order to ensure that drawing commands are done
+in the right context, using something like this construct:
+
+    dlocal rc_current_window_object = container;
+
+
+
+-- See also -----------------------------------------------------------
+
+HELP  * RCLIB
+
+HELP  * RC_LINEPIC
+    Explains event handlers and top level mixins and methods
+
+TEACH * POPCONTROL
+TEACH * RC_ASYNC_DEMO
+
+TEACH * RCLIB_DEMO.P
+TEACH * RC_LINEPIC
+TEACH * RC_CONSTRAINED_PANEL
+
+TEACH * RC_CONTROL_PANEL
+HELP  * RC_CONTROL_PANEL
+
+LIB   * RC_CONTROL_PANEL
+LIB   * RC_POLYPANEL
+LIB   * RC_BUTTONS
+LIB   * RC_BUTTON_UTILS
+LIB   * RC_POPUP_QUERY
+
+
+-- Revision notes -----------------------------------------------------
+
+NOTE (18 Feb 2004)
+Various changes in Sept 2002 and more recently recorded in help
+RCLIB_NEWS
+
+NOTE: (16 Jun 2000)
+LIB RC_BUTTONS has been completely reorganised, and many details
+changed. Most programs should run as before. However, there may be
+slight differences in the appearance of some files, and some bugs
+were fixed. A few procedures are withdrawn (e.g. rc_DRAWBUTTON)
+and some have had their paramaters changed. See HELP RCLIB_NEWS
+
+NOTE (28 Feb 2000):
+The [DEFER ...] format has been changed to invoke rc_defer_apply,
+defined in LIB * rc_mousepic. This enables actions to change the value
+of rc_current_window_object, etc.
+
+All other actions triggered by action buttons, including all specified
+as [POP11 ...] actions, are handled via external_defer_apply, unless
+they use the [POPNOW ...] format.
+
+[POPNOW ... ] actions are invoked immediately by the event handler, and
+programmers must make sure that such actions do not do anything complex
+(in particular anything that could trigger a garbage collection) except
+via external_defer_apply.
+
+NOTE (18th April 1999)
+
+The facilities for specifying properties of buttons on an individual
+basis were extended, by defining abbreviations for featurespec vectors
+included with button descriptions. This uses the property:
+    rc_button_type_key
+and the procedure rc_button_key_of_type(type) (not exported for users
+till July 2002.
+
+NOTE (8th Nov 1997)
+
+LIB RC_BUTTONS was altered so as to ensure that all buttons, button
+rows, button columns took location coordinates to refer to the top left
+corner of the button or button array, no matter what the current values
+of rc_xscale and rc_yscale. Similarly, specifications of button border
+with, button length and button height are not affected by the current
+picture scales.
+
+--- $poplocal/local/rclib/help/rc_buttons
+--- Copyright University of Birmingham 2004. All rights reserved. ------

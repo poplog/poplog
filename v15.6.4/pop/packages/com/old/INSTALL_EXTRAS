@@ -1,0 +1,67 @@
+#!/bin/csh
+## $local/cdtarfiles/INSTALL_EXTRAS
+## $local/com/INSTALL_EXTRAS
+## Install additions to a poplog system to simulate the Birmingham setup
+## NB assumes $usepop already set up
+## Not properly tested
+## Aaron Sloman
+## 25 Sep 1999
+##
+## Chanted 13 Jan 2003, to use bham.tar.gz and new build scripts
+## Changed 13 Oct 2000, to check before creating links
+
+## Run this in the directory in which popextras.tar has been unpacked
+
+set tardir=`pwd`
+
+## EDIT THIS LINE IF NECESSARY: location for $poplocal, etc
+set rootdir=/usr/local/poplog
+
+## create the local directory if necessary
+mkdir $rootdir $rootdir/local
+
+echo $rootdir
+
+chmod 755 $rootdir $rootdir/local
+
+echo "creating link to local in usepop/pop"
+
+setenv usepop $rootdir/current.poplog
+
+source $usepop/pop/com/poplog
+
+echo "$poplocal"
+setenv local $poplocal/local
+
+
+
+cd $usepop/pop
+
+## link $local directory to default $poplocal/local, if necessary
+
+if (! -e local) then
+    echo "creating link to $local in $usepop/pop"
+    ln -s $local local
+endif
+
+## install link from default location to $poplocalbin
+## Poplog system (wrongly) assumes $poplocalbin should be in local
+## directory rather than in version specific $usepop directory
+
+if ( ! -e $local/bin ) then
+    ln -s $poplocalbin $local/bin
+endif
+
+echo "installing packages in $local"
+
+cd $local
+
+mkdir auto lib help teach include data man
+
+cd $tardir
+
+./INSTALL_LIKE_BHAM
+
+echo "READ THE AREADME FILE IN $local/setup/AREADME file"
+
+echo "FINISHED UNPACKING TAR FILES AND BUILDING IMAGES"

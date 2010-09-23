@@ -1,0 +1,558 @@
+TEACH DIARY
+                                              Riccardo Poli Feb 1995
+                                                    Revised Sep 1997
+
+     USING THE POP-11 DATABASE TO IMPLEMENT AN ELECTRONIC DIARY
+
+
+This is the first marked exercise for SEM1A9.  It includes two phases.
+In the first phase you will revise what you have learnt on the pattern
+matcher and the  database. This part is not  assessed but you need  to
+understand the  concepts recalled, before  you  move on to  the second
+part. You can ask for help from the demonstrators while you go through
+the revision examples.
+
+In the second phase, you will use what you have learnt to implement an
+electronic diary.   The  marks awarded (up   to a maximum of  10) will
+depend on how far you  have gone in the exercise  by the end of the
+workshop.   During this  phase  you   cannot ask  for help   from  the
+demonstrators (unless you   have questions  of  general  interest  not
+directly  related to the   assignment) nor  from other  students (this
+might be considered plagiarism).
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Prerequisites
+ -- Objectives 
+ -- Quick revision of the pattern matcher 
+ -- -- Example 1 
+ -- -- Example 2 
+ -- -- Example 3 
+ -- -- Example 4 
+ -- -- Example 5 
+ -- -- Example 6 
+ -- -- Example 7 
+ -- -- Example 8 
+ -- -- Example 9 
+ -- -- Example 10: A toy Eliza-like application 
+ -- -- Example 11: Another toy Eliza-like application 
+ -- Quick revision of the database 
+ -- -- ADD procedure 
+ -- -- -- Example 12 
+ -- -- -- Example 13
+ -- -- PRESENT procedure 
+ -- -- FOREACH-DO-ENDFOREACH 
+ -- -- -- Example 14
+ -- -- -- Example 15
+ -- -- FLUSH procedure 
+ -- -- A Toy Eliza based on the database 
+ -- The assignment 
+ -- -- add_appointment() 
+ -- -- cancel_appointment()
+ -- -- appointments() 
+ -- -- search_appointments()
+ -- -- Improvements 
+ -- Suggestions for the implementation
+ -- Further reading 
+
+
+-- Prerequisites ------------------------------------------------------
+
+It  is assumed that you  are familiar with the  use  of the editor for
+creating and  testing  procedures (TEACH VEDPOP, TEACH  VEDPROC, TEACH
+VEDNOTES).
+
+You should be familiar  with techniques  for defining procedures,  the
+use of variables and the pattern matcher, and the use of conditionals.
+Revision TEACH files are:
+
+    TEACH DEFINE, TEACH VARS, TEACH MATCHES,
+    TEACH DATABASE gives a more detailed introduction to the Pop-11
+    database.
+
+You will also need to  know how to construct multi-branch conditionals
+as explained in HELP IF.
+
+-- Objectives ---------------------------------------------------------
+
+This  teach file has two objectives.   The first objective is to teach
+you  how to  produce   a "package" of   procedures,  using the  Pop-11
+database, to solve a  simple problem (implementing an electronic diary
+in which  you can  add,    search, delete appointments).   The  second
+objective is to assess your current fluency with the language and your
+ability  to     solve  programming problems   by  dividing   them into
+sub-problems which can be solved more easily.
+
+-- Quick revision of the pattern matcher ------------------------------
+
+The MATCHES operator can be used to check  if a list matches (i.e. has
+a structure which is compatible with) a pattern (another list in which
+special symbols like =, ==, ?, ?? can be used to specify the structure
+of  a class of lists).  See  HELP *MATCHES or  TEACH *MATCHES for more
+details.
+
+In the following, several examples of use of  the pattern matchers are
+given. They are also present in your lecture notes. 
+
+-- -- Example 1 ------------------------------------------------------
+
+[a b c] matches [a b c] =>
+
+The result of compiling the  previous line is:
+
+** <true> 
+
+-- -- Example 2 ------------------------------------------------------
+
+[x b y] matches [= b =] =>
+
+The result of compiling the  previous line is:
+
+** <true> 
+
+-- -- Example 3 ------------------------------------------------------
+
+[[k1 k2 k3] b y] matches [= b =] =>
+
+The result of compiling the  previous line is:
+
+** <true> 
+
+-- -- Example 4 ------------------------------------------------------
+
+[x b y] matches [= B =] =>
+
+The result of compiling the  previous line is:
+
+** <false> 
+
+-- -- Example 5 ------------------------------------------------------
+
+[a b c] matches [a ==] =>
+
+The result of compiling the  previous line is:
+
+** <true> 
+
+-- -- Example 6 ------------------------------------------------------
+
+[x a  b c y] matches [x == y] =>
+
+The result of compiling the  previous line is:
+
+** <true> 
+
+-- -- Example 7 ------------------------------------------------------
+
+vars l;
+[A b c] matches [?l b c] =>
+l =>
+
+The result of compiling the  previous lines is:
+** <true> 
+** A 
+
+-- -- Example 8 ------------------------------------------------------
+
+[x a  b c y] matches [x ??l y] =>
+l =>
+
+The result of compiling the  previous lines is:
+** <true> 
+** [a b c]
+
+
+-- -- Example 9 ------------------------------------------------------
+
+Local variables can be used in patterns ONLY if the patterns are
+preceded by an exclamation mark "!". For example:
+
+lvars l;
+[x a  b c y] matches ![x ??l y] =>
+l =>
+
+The result of compiling the  previous lines is:
+** <true> 
+** [a b c]
+
+
+-- -- Example 10: A toy Eliza-like application ------------------------
+
+readline() -> x;
+if x matches [== my name is ??l] then 
+	[Hello ^^l !] ==> 
+endif
+
+The result of compiling the  previous lines with the following input:
+
+? Hello, my name is Billy The Kid
+
+is
+** [Hello Billy The Kid !]
+
+While with the following input:
+
+? Hi boy, my name is Ilop Odraccir
+
+is
+** [Hello Ilop Odraccir !]
+
+-- -- Example 11: Another toy Eliza-like application -----------------
+
+vars x, y;
+readline() -> x;
+if x matches [== father ==] or 
+	x matches [== mother ==] then 
+    [Tell me more about your family] =>
+elseif x matches [ == I am ??y] then
+    [Did you come here because you are ^^y?] =>
+else
+    [Pardon?] =>
+endif;
+
+Compiling the previous lines and giving the following input:
+
+? My mother is very fat
+
+gives
+
+** [Tell me more about your family]
+
+Here are three more runs:
+
+? I am very unhappy
+** [Did you come here because you are very unhappy ?]
+
+? I am very fat
+** [Did you come here because you are very fat ?]
+
+? you are very fat
+** [Pardon ?]
+
+-- Quick revision of the database ---------------------------------------
+
+The Pop-11 database is a variable  called "database" containing a list
+of items.
+
+Initially the content of such a variable is just the empty list [], as
+can be easily seen by compiling the following line:
+
+database ==>
+
+Anything   can  be  assigned   to  the database,   as  it is  a normal
+variable. For example, compiling the lines:
+
+[[something]] -> database;
+database ==>
+
+gives as output:
+
+** [[something]]
+
+This method of manipulating the database  is, in general, only used do
+clear it, with the following command:
+
+[] -> database;
+
+Usually  the database is  manipulated by special procedures.  They are
+described  in  you lecture   notes.   They  are also  revised  in  the
+following.
+
+-- -- ADD procedure -----------------------------------------------------
+
+Here  are some   examples  on how  to  use  the procedure ADD  to  add
+information to the database.
+
+-- -- -- Example 12 ------------------------------------------------------
+
+add([this is a thing I want to remember]);
+database ==>
+
+The result of compiling the  previous lines is:
+
+** [[this is a thing I want to remember]] 
+	 
+-- -- -- Example 13 -----------------------------------------------------
+
+The variable "it" will remember the last item in the database that has
+been accessed (added, deleted, retrieved, etc).
+
+add([this is another important thing]);
+database ==>
+it =>
+
+After Example  12 has been run,  the result of  compiling the previous
+lines is:
+
+** [[this is another important thing]
+    [this is a thing I want to remember]]
+** [this is another important thing] 
+
+-- -- PRESENT procedure -----------------------------------------------
+
+The PRESENT procedure can be  used to check  if a piece of information
+(a fact)  is present in the  database. As it  is based  on the pattern
+matcher, PRESENT allows complex searches to be performed.
+
+present([== important ==]) =>
+it =>
+
+After Example 12  and 13 have been run,   the result of  compiling the
+previous lines is:
+
+** <true> 
+** [this is another important thing] 
+
+-- -- FOREACH-DO-ENDFOREACH ------------------------------------------
+
+This construct allows you to perform some computation  on each item of
+the database that matches a given pattern. Here are some examples.
+
+-- -- -- Example 14 --------------------------------------------------
+
+foreach [== thing ==] do 
+    it => 
+endforeach;
+
+The result of compiling the previous lines is:
+
+** [this is another important thing]
+** [this is a thing I want to remember]
+
+-- -- -- Example 15 --------------------------------------------------
+
+foreach [this is ??x] do 
+    x => 
+endforeach;
+
+The result of compiling the previous lines is:
+
+** [another important thing]
+** [a thing I want to remember]
+
+-- -- FLUSH procedure -----------------------------------------------
+
+This   is a  procedure to  delete  a complete   set  of items from the
+database. All the items matching a given pattern are deleted. Here is
+an example:
+
+flush([== important ==]);
+database ==>
+
+The result of compiling the previous lines is:
+
+** [[this is a thing I want to remember]]
+
+-- -- A Toy Eliza based on the database -----------------------------
+
+[] -> database;
+add([father 'Tell me more about your family']);
+add([mother 'Tell me more about your family']);
+add([problem 'Is this the reason why you came here?']);
+
+define eliza();
+    lvars sentence, topic, reply, word;
+
+    repeat 
+        readline() -> sentence;
+        foreach ![?topic ?reply] do
+           for word in sentence do
+              if word == topic then
+                 npr(reply);
+                 quitloop(2);
+              endif
+           endfor
+        endforeach;
+    endrepeat;
+enddefine;
+
+eliza();
+
+The result of compiling the previous lines is:
+
+? I have a problem
+Is this the reason why you came here?
+? yes, my mother is very fat
+Tell me more about your family
+
+-- The assignment -----------------------------------------------------
+
+By using what you have learnt  on Pop-11 (in particular on procedures,
+loops, conditionals,  the pattern matcher and  the  database), try and
+write a set of procedures that implement  an electronic diary. 
+
+Do this  in a file  called diary.p in  your home directory.  Save this
+file at  the end of  the workshop and make   sure that it  is readable
+(this will allow us  to check it later, for  marking).  Do not  modify
+that file until you get your marks. Before the end  of the workshop or
+when you have completed the exercise ask a  demonstrator to check what
+you have done. The demonstrator will fill  a form which will later help
+in the assessment of your work.
+
+Here are  some  suggestions on procedures  you might  want to write to
+implement the electronic diary.
+
+-- -- add_appointment() ----------------------------------------------
+
+A procedure to   add an appointment to  the  diary. It  could have the
+following form:
+
+define add_appointment( day, time, what ) -> can_be_added;
+....
+enddefine;
+
+Such  a  procedure would  receive  as input  the  day and  time of the
+appointment and  a list (what) describing the  item to be added to the
+diary.
+
+A possible call could be:
+
+add_appointment( [March 2], [10 : 30 am], [Meeting with Eliza] )
+
+If the   diary entry for  March 2,  at 10:30am is  free, the procedure
+should   return <true>   to  signal  that   the appointment  has  been
+fixed. Otherwise the procedure should return <false>.
+
+Each appointment should  be stored in  the Pop-11 database as a single
+entry, i.e. as a compound fact, maybe  represented as a list including
+three  lists: one for  the  day,  one for   the time and  one  for the
+description of  the  appointment.  For example,   each entry could  be
+something like:
+
+[[March 2] [10 : 30 am] [Meeting with Eliza]]
+
+The procedure add_appointment() should first check the presence in the
+database of another appointment having the same date and time. If this
+is the  case  it   should  return <false>  and   should  not add   the
+appointment to the database.
+
+NOTE:    the spaces  between  "10",   the  colon   ":"   and "30"  are
+important. As  ":" can be used to  express numbers in a different base
+(e.g.  in  binary or octal), if   the spaces  are  absent, Pop-11 will
+interpret 10:30 as    the number 30  in   base 10. Try compiling   the
+following line:
+      
+    [10:30am] =>
+
+-- -- cancel_appointment() -------------------------------------------
+
+A procedure to cancel an appointment from the diary. It could have the
+following form:
+
+define cancel_appointment( day, time );
+....
+enddefine;
+
+Such a procedure  would  receive as input the   day and  time  of the
+appointment.
+
+A possible call could be:
+
+cancel_appointment( [March 2], [10 : 30 am] )
+
+If an appointment is present in the diary for March 2, at 10:30am this
+call should  simply cancel such  an appointment.  If no appointment is
+present for that date, cancel_appointment() should simply do nothing.
+
+If  each appointments  is  stored in the  Pop-11 database  as a single
+entry, the  procedure   cancel_appointment()  should  first build   an
+appropriate pattern to match such  an entry and  then remove the entry
+using the procedure flush() or remove().
+
+-- -- appointments() -------------------------------------------------
+
+A procedure that returns  a list of the  appointments for a given day.
+It could have the following form:
+
+define appointments( day ) -> appointments;
+....
+enddefine;
+
+Such a procedure would receive as input a day and should return a list
+of the appointment for such a day.
+
+A possible call could be:
+
+appointments( [March 2] )
+
+If appointments are present in the  diary for March  2 this call would
+return a list of such appointments such as:
+
+[
+ [[March 2] [9 : 00 am] [Do assignment]]
+ [[March 2] [10 : 30 am][Meeting with Eliza]]
+]
+
+The procedure appointments() should first build an appropriate pattern
+to match the database entries (the appointments) relative to the given
+day and then  build a list of  the  matching entries, maybe  using the
+foreach looping construct.
+
+-- -- search_appointments() ------------------------------------------
+
+A more sophisticated procedure to find  appointments in the diary.  It
+could have the following form:
+
+define search_appointments( day, time, what ) -> appointments
+....
+enddefine;
+
+Such a procedure would receive as input a pattern representing the day
+of the appointments to search, a pattern representing the time of such
+appointments  and  a pattern  representing   the descriptions of  such
+appointments.
+
+A possible call could be:
+
+search_appointments( [March =], [== am], [==] )
+
+This call would retrieve all the appointments in the diary which are
+in March AND in the morning. 
+
+The structure    of this   procedure  would  be   similar to  that  of
+appointments() (which could actually call search_appointments() with a
+special pattern to perform its task).
+
+-- -- Improvements ---------------------------------------------------
+
+If you have  time try and write additional  functions that allow  more
+complex searches into the diary (for example all the appointments that
+are in March or July, or all the appointments that are after 11am).
+
+Another useful improvement would be to store  the database on disk and
+retrieve it  from disk so as to  make the diary  persistent (otherwise
+Pop-11 will forget all your appointments as soon as you quit ved). You
+could use the instructions
+
+   database -> datafile('MY_FILENAME');
+
+to save the database in a file called MY_FILENAME, and 
+
+   datafile('MY_FILENAME') -> database;
+
+to read a database from file (see HELP DATAFILE).
+
+Another  improvement could   be  to represent  also   the  duration of
+appointments (it could  be a fourth list)  and check that appointments
+do not clash when fixing them.
+
+-- Further reading ----------------------------------------------------
+
+HELP * DATABASE
+    Summarises Pop-11 database facilities
+
+Documentation on basic database facilities can be found in
+HELP * ADD * PRESENT, * LOOKUP, * REMOVE, * FLUSH, * MATCHES, * IT,
+    * ISIN, *AREIN * WHICH * FOREACH * ALLPRESENT * FOREVERY.
+
+TEACH * POPCORE 
+  Is an online summary of a subset of Pop-11.
+
+TEACH * PRIMER 
+  Is a large  introduction to most  Pop-11 features.  (Paper copies  of
+  this file are available for a small fee in the School library.)
+
+--- $poplocal/local/teach/diary
+--- The University of Birmingham 1996.  --------------------------------
+

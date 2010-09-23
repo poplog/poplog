@@ -1,0 +1,128 @@
+REF XClientConnections                               A.Schoter, Jun 1991
+                                        Revised: Adrian Howard, Jun 1993
+
+        COPYRIGHT University of Sussex 1993. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<  KILLING XLIB CLIENTS AND   >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<  SETTING THEIR CLOSE DOWN   >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<            MODE             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+The following  details the  Xlib functions  which allow  you to  destroy
+clients, and decide what  happens to any resources  they hold when  they
+die.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   LIB XClientConnections
+      1.1   Constants
+      1.2   Procedures
+
+
+
+-------------------------
+1  LIB XClientConnections
+-------------------------
+
+To load LIB * XClientConnections do:
+
+        uses xlib, XClientConnections;
+
+The procedures supplied by  this library are  direct equivalents of  the
+Xlib C functions. For  information on the C  functions see section  7.72
+'Killing Clients' in:
+
+                      Xlib - C Language X Interface
+                        MIT X Consortium Standard
+                         X Version 11, Release 4
+
+        Copyright (C) 1985, 1986, 1987, 1988, 1989 Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+
+1.1  Constants
+--------------
+The following constants are defined by LIB * XClientConnections.
+
+
+AllTemporary -> 0                                       [constant macro]
+        See * XKillClient for details.
+
+
+DestroyAll -> 0                                         [constant macro]
+        Used in * XSetCloseDownMode to specify what happens to a clients
+        resources when it's  server connection  is closed.  This is  the
+        default close-down  mode for  a client  if XSetCloseDownMode  is
+        never called.  When the  X  servers connection  to a  client  is
+        closed and  it's  close-down mode  is  DestroyAll then  all  the
+        clients resources are destroyed. Compare with  * RetainPermanent
+        and * RetainTemporary.
+
+
+RetainPermanent -> 1                                    [constant macro]
+RetainTemporary -> 2                                    [constant macro]
+        These constants are possible close-down  modes for a client,  as
+        specified by * XSetCloseDownMode. If either of these  close-down
+        modes is specified the clients resources are kept by the  server
+        after the clients  server connection has  been closed. They  are
+        kept  permanently,   or   temporarily   depending   on   whether
+        RetainPermanent or  RetainTemporary is  used. See  * XKillClient
+        for more information. Compare with * DestroyAll.
+
+        When the last connection  to the X  server closes any  resources
+        that   were    retained   via    setting   RetainPermanent    or
+        RetainTemporary close-down modes are destroyed.
+
+
+
+1.2  Procedures
+---------------
+The following procedures are defined by LIB * XClientConnections.
+
+
+XSetCloseDownMode(displayptr, close_mode)                    [procedure]
+        This procedure defines what happens to a clients resources  when
+        it's display  connection (specified  by displayptr)  is  closed.
+        close_mode should be either * DestroyAll, * RetainPermanent,  or
+        * RetainTemporary.
+
+        DestroyAll is the default  close down mode if  XSetCloseDownMode
+        is never called.
+
+        XSetCloseDownMode can generate a "BadValue" error if it is given
+        incorrect arguments
+
+
+XKillClient(displayptr, xid)                                 [procedure]
+        XKillClient  causes  the  client   that  created  the   resource
+        specified by the XID xid to be closed down.
+
+        If the client has already be closed down with  * RetainPermanent
+        or * RetainTemporary set then all  of the clients resources  are
+        destroyed.
+
+        xid also can  be the  special constant  * AllTemporary. If  this
+        argument is supplied then all the resources of clients that have
+        been closed  down in  RetainTemporary  mode are  destroyed  (see
+        * XCloseDisplay.)
+
+        This  facility  allows  the  implementation  of  window  manager
+        features which can aid debugging. A buggy client program can set
+        its close-down mode to RetainTemporary so that, when it crashes,
+        its windows are not destroyed.  The programmer can then  inspect
+        the application's  window tree  and use  the window  manager  to
+        destroy the zombie windows when they're finished.
+
+        XKillClient can  generate  a "BadValue"  error  if it  is  given
+        incorrect arguments
+
+
+
+
+--- C.x/x/pop/ref/XClientConnections
+--- Copyright University of Sussex 1991. All rights reserved.

@@ -1,0 +1,223 @@
+TEACH MSDEMO                Richard Bignell & Aaron Sloman Jan 1987
+
+
+USING THE MSBLOCKS DEMONSTRATION PROGRAM
+
+This file describes a library program with capabilities analogous to
+Winograd's SHRDLU program, but in a simplified form. The file
+
+    TEACH * MSBLOCKS
+
+introduces some of the syntactic and semantic analysis techniques
+required for writing a program analogous to Winograd's SHRDLU "blocks
+world" language understander. This file explains how to run a version of
+the program that draws pictures show what is going on when commands to
+move blocks are obeyed.
+
+The version of the program currently exported with POPLOG cannot be used
+with graphics facilities in the POPLOG window manager on workstations.
+A later version may include a PWM variant.
+
+The use of MSDEMO as a demonstration package is described below. It
+requires a number of library programs to be loaded. To save time you may
+find that they have already been loaded and stored in a saved image. You
+can find out whether this is so by trying to run it.
+
+-- Running the saved image --------------------------------------------
+
+The command required depends on whether you are using VMS or UNIX.
+Run the saved image by doing one of the following (without typing the
+prompts):
+
+On UNIX type to the shell:
+
+        % pop11 -msdemo
+
+or, if an abbreviation has been defined:
+
+        % msdemo
+
+On VMS, type to DCL
+
+        $ pop11/msdemo
+
+or if an abbreviation has been defined:
+
+        $ msdemo
+
+
+When you leave the demo you will be returned to the shell or DCL.
+
+-- If the  saved image doesn't exist ----------------------------------
+
+You will be given an error message saying 'SAVED IMAGE NOT FOUND' if
+there is no pre-prepared saved image. In that case you can load the
+program yourself by typing:
+
+    lib msdemo
+
+When you get the POP-11 prompt, type:
+
+    go();
+
+If you are using a terminal other than a Visual 200 or a Visual 55,
+it would be a good idea first to edit LIB MSDEMO and search for the word
+"terminal" then edit the next line to load the appropriate VED
+conversion file.
+
+-- Introduction --------------------------------------------------------
+
+The demonstration is based around the blocks world used by Winograd
+in his SHRDLU system (see references below [1]). The demonstration here
+is by no means comparable to SHRDLU. However it does illustrate the
+principles of that system; namely limited Natural Language
+interpretation, planning, and the use of list structures to represent
+the current state of a micro-world (toy blocks being moved by a
+simulated robot).
+
+The package uses standard POP-11 libraries to implement the various
+stages in interpreting each command. (Thus one of the things
+demonstrated is how the POPLOG libraries facilitate re-usable software).
+
+All the features described in the TEACH * MSBLOCKS file are
+implemented in this demonstration (a detailed list is given below).
+The package subsumes an earlier POP-11 library file LIB MSBLOCKS, by
+providing the facility to answer limited questions about the state of
+the blocks world at any current time. The four extra commands forming
+these questions -- 'what', 'where', 'which', 'is' -- are detailed below.
+
+-- Commands ------------------------------------------------------------
+
+    1) Commands
+
+put,
+move        These commands are equivalent, they cause a block to be
+            moved to another location. The syntax of the command is as
+            follows:
+                put <block> on <block or table>
+            where
+                <block> is a general block specifier that will evaluate
+                to a unique block. e.g.
+                    the big red block
+                    a big block on the small red one
+                <block or table> is either <block> as above, or
+                    the table
+            If an ambiguous reference is given then the command will
+            fail.
+
+            Examples:
+
+                put the small red block on the big green one
+                move the small green block onto the table
+
+help        This command causes a sequence of messages describing the
+            commands that may be used to be printed in the text window.
+
+chatty      This command switches mode of output messages; if chatty is
+            on, then messages and the intermediate results from stages
+            of the demo will be printed in the text window as they are
+            produced; if chatty is off, then the intermediate messages
+            and prompts will not be produced. The default value for
+            chatty is on.
+
+no chatty   This command sets chatty off, irrespective of its previous
+            value.
+
+bye         This command exits from the demonstration to the shell.
+
+    2) Questions
+    (Note: question marks are optional)
+
+what        This question takes the form:
+                what is on <block or table> ?
+
+where       This question takes the form:
+                where is <block> ?
+
+which       This question takes the form:
+                which block is on <block> ?
+
+is          This question takes the form:
+                is <block> on <block or table> ?
+
+NOTE: there is limited pronoun referencing built in to the system by
+the use of the pronoun 'it'. For example, if the following command is
+issued:
+
+    put the big red block on the small green one
+
+and the command succeeds, then the question:
+
+    where is it ?
+
+will refer to the big red block.
+
+-- Output --------------------------------------------------------------
+
+The output from the demo is in two parts: a visual description of
+the current state of the blocks world and text output containing the
+intermediate results of the processing of each command and responses to
+questions asked.
+
+The visual representation of the world is shown in a ved-buffer, the
+blocks shown as shapes made up of letters denoting the colour of the
+block; e.g. the small green block is shown by:
+
+                ggg
+                ggg
+
+
+The hand (required for movement of the blocks) is also shown. The
+initial state of the world is always the same.
+
+The textual output from the demo is shown separately in the lower
+window. Prompts are shown here and all input is accepted from this
+window. If chatty is on then the intermediate results of the processing
+will also appear in this window.
+
+-- Operation -----------------------------------------------------------
+
+Each command or question is processed in several sequential steps.
+First, all possible parse-trees are produced for the sentence (using
+LIB * TPARSE) using the grammar and lexicon supplied in the demo. The
+next step is to apply some 'semantic' rules to each of the parse-trees
+(using LIB * FACETS). This will generate a description of the object as
+a determiner and a list of database terms, e.g. the big red block:
+
+    "the" [[size large ?A] [isa block ?A] [colour red ?A]] and
+
+prepositional phrases generated as:
+
+    "the" [[on ?B ?A] [isa block ?A] [size large ?A] [colour red ?A]]
+
+for instance. These 'meanings' are stored in a list for the next stage.
+
+The next step is to evaluate the references of these database terms and
+form a specific command for each meaning generated earlier. This
+produces a structure with possibly multiple commands.
+
+Next, one command is selected from this structure; however, the
+system is set up so that IF more than one command is generated by the
+previous stage it is treated as if the input was ambiguous or too
+difficult. Assuming a valid command was produced the next step is to
+store the principle referent of the command as the one to be referred to
+by future pronoun references. The final stage is to execute the command.
+
+If the command is to move a block then a simple (and possibly redundant)
+plan is generated and the plan executed. The actions of the system
+during the execution of the plan are illustrated on screen by movements
+of the blocks shown (using LIB * MSHAND). If the command was a question
+then the response to the question is output and there is no effect on
+the visual state of the micro-world.
+
+-- References ----------------------------------------------------------
+
+[1] Winograd, T. 1972
+    'Understanding Natural Language'
+    Academic Press, New York
+
+See also
+TEACH * MSBLOCKS
+TEACH * TEACHFILES
+
+-----<Copyright University of Sussex 1987.  All rights reserved.>-------

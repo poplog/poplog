@@ -1,0 +1,737 @@
+TEACH RC_DIAL                                   Aaron Sloman August 2000
+                                                     Updated 26 Aug 2002
+
+LIB RC_DIAL
+
+This is a package for creating dials with moving pointers, either
+directly on window objects or automatically formatted using the
+rc_control_panel tool. The rc_dial procedure uses several other
+libraries to provide the low level facilities, for which it provides a
+convenient high level interface. A closely related high level interface
+is available using the mechanisms described in HELP rc_control_panel
+
+Note: this package was extended and generalised in March 2001. It may
+take a while for all the documentation files referring to dials
+to be updated. The latest descriptions are in this file and in
+    HELP RC_DIAL
+which gives more formal and complete specifications of the procedure
+rc_dial.
+
+This file mainly gives examples.
+
+
+
+CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- Load libraries and prepare a window
+ -- Example d1
+ -- . Adding decorations to d1
+ -- -- . Adding radial marks
+ -- -- . Adding numeric labels round the dial
+ -- -- . Printing text strings as captions
+ -- Making rc_dial add "decorations" automatically
+ -- Examples of manipulation of dials
+ -- Exploring the behaviour of the dial
+ -- EXERCISE
+ -- A rotated dial
+ -- Definition of rc_dial
+ -- Further examples of rc_dial
+ -- WARNING: changing the sign of rc_yscale
+ -- Future plans
+
+-- Introduction -------------------------------------------------------
+
+The RCLIB package provides a variety of tools for producing graphical
+objects which can be manipulated using mouse and/or keyboard and which
+can interact with programs. Many examples are described in HELP RCLIB
+
+The facilities for creating dials are built up from many other
+facilities provided in RCLIB and combined using the object oriented
+approach supported by the Pop-11 Objectclass system. In particular,
+rclib allows various kinds of movable objects including instances of the
+class rc_opaque mover, which is used as the basis of the moving pointer
+on a dial. Separately there are procedures for drawing portions of a
+circle, including the procedure rc_draw_blob_sector, which can draw
+a sector of a circle. This is used both to draw the dial panel and also
+the movable pointer. The mixin rc_constrained_rotater extends the
+facilities of the rc_constrained_mover, by allowing a mover to have
+a fixed pivot point around which movement is allowed. It also provides
+mechanisms for converting between the actual orientation of a rotating
+object, rc_axis(object), and the orientation used to represent a value,
+namely rc_virtual_axis(object).
+
+The librar file LIB rc_constrained_pointer defines a class which
+inherits from the classes and mixins already mentioned and also from
+rc_informant.
+
+    define :class rc_constrained_pointer;
+        is rc_constrained_rotater rc_opaque_rotatable
+                rc_selectable, rc_informant;
+
+This is defined and illustrated in TEACH rc_constrained_pointer
+
+The facilities defined there are quite complex and messy to use, so the
+autoloadable procedure rc_dial, described in this file and also in
+HELP rc_dial, provides a high level interface. This teach file mainly
+gives examples, whereas the help file gives more formal definitions.
+
+Some examples follow.
+
+-- Load libraries and prepare a window --------------------------------
+
+
+;;; Load relevant libraries
+uses rclib
+uses rc_window_object
+uses rc_dial
+
+;;; Some utilities for use in examples below.
+
+;;; Declare a variable to hold a window object
+vars win1;
+
+;;; Here's a procedure to start a new window when needed, and assign
+;;; it to win1. This uses standard rc_graphic coordinates, with
+;;; rc_yscale = -1, so that y increases upwards
+
+define ved_win1();
+    if rc_islive_window_object(win1) then
+        rc_kill_window_object(win1);
+    endif;
+
+    ;;; create a window object, with default picture coordinates
+    ;;; including origin at the centre
+    rc_new_window_object(
+        "right", "top", 480, 480, {240 240 1 -1}, 'win1') -> win1;
+
+enddefine;
+
+
+;;; Create a window with the following command
+
+    ved_win1();
+
+;;; or, in Ved, do: ENTER win1
+
+;;; A similar procedure which creates win1 with rc_yscale = 1,
+;;; so that y increases downwards instead of upwards.
+
+define ved_win2();
+
+    if rc_islive_window_object(win1) then
+        rc_kill_window_object(win1);
+    endif;
+
+    ;;; create a window object, with new default coordinate frame
+
+    rc_new_window_object(
+        "right", "top", 480, 480, {240 240 1 1}, 'win2') -> win1;
+
+enddefine;
+
+;;; This can be invoked as ENTER win2 or ved_win2();
+
+
+;;; create a new window, with y going up:
+
+ved_win1();
+
+
+-- Example d1 ---------------------------------------------------------
+
+
+
+;;; Using the current window,
+;;; create a dial, with centre at location (110, 95), with start
+;;; orientation 0 degrees, (start edge horizontal to left), angular
+;;; sweep 180 degrees (i.e. a semi-circle), value range going from
+;;; 0 to 10, default value 5 (half way) with steps of 1, with pointer
+;;; length 80, width at base 15, pointer colour 'yellow', background
+;;; 'blue' and associated variable d1val, to be updated whenever the
+;;; pointer value is changed.
+
+vars d1val;
+vars d1 =
+    rc_dial(
+        110, 95, 0, 180, {0 10 5 1}, 80, 15, 'yellow', 'blue', "d1val");
+
+;;; Check that you can move the yellow pointer with mouse (dragging
+;;; it with button 1).
+;;; As you do so, check the value associated with d1:
+
+rc_pointer_value(d1) =>
+
+;;; The pointer ranges from 0 to 10, in steps of 1, with an initial
+;;; value of 5, as indicated by the fourth argument to rc_dial,
+;;; the range vector (defined precisely in HELP rc_dial
+
+;;; Test how the value of the variable d1val also changes as you move
+;;; the pointer with the mouse
+
+d1val =>
+
+;;; You can also change the value of the pointer by program commands
+;;; like these, and see how the pointer moves:
+
+3 -> rc_pointer_value(d1);
+9 -> rc_pointer_value(d1);
+
+;;; after each assignment check the associated values
+rc_pointer_value(d1) =>
+d1val =>
+
+
+;;; Altering the variable does not change the pointer location:
+6 -> d1val;
+
+;;; Unlike
+6 -> rc_pointer_value(d1);
+
+;;; Unfortunately, without using an "active" variable, or a timer,
+;;; you can't make the pointer automatically monitor changes
+;;; to the variable. To see how to do it with active variables
+;;; see HELP active_variables
+
+-- . Adding decorations to d1
+
+;;; Now add some "decorations" to the dial, each type specified
+;;; by a list of vectors. (Details explained later.)
+
+-- -- . Adding radial marks
+
+;;; add 10 short red marks (at intervals of 18 degrees), and
+;;; three longer 'black' marks at intervals of 90 degrees.
+
+rc_draw_dial_marks(d1, [{5 18 2 8 'red'} {8 90 2 10 'black'}]);
+
+;;; rc_draw_dial_marks takes a list of vectors, where each vector
+;;; specifies marks to be drawn: how far beyond the dial, the
+;;; angular gap, the angular width (the marks are segments of a
+;;; circle) the radius of each mark, and the colour.)
+;;; You can experiment with variants of the above, as long as you
+;;; use vectors with the format
+
+;;; {extra-radius angular-gap mark-width mark-length colour}
+
+-- -- . Adding numeric labels round the dial
+
+;;; Now add some numeric labels, red ones showing the angle, and
+;;; blue ones, closer to the dial showing the pointer value
+
+rc_draw_dial_labels(d1,
+    [{42 18 180 -18 'red' '6x13'} {20 18 0 1 'blue' '6x13'}]);
+
+;;; rc_draw_dial_labels takes a list of vectors where each list
+;;; specifies some numbers to be drawn around the dial. Each vector
+;;; indicates how far out from the dial, the angular interval, the
+;;; first number to be displayed, the increment, the colour and the
+;;; font. Change the initial value to a decimal number to print
+;;; decimals (e.g. 0.0 instead of 0).
+
+;;; Here each vector has the format
+;;;  {extra-radius angular-gap initial-value increment colour font}
+
+;;; Not all combinations will work well: the formatting is only
+;;; approximately correct and uses the following two global variables to
+;;; specify horizontal and vertical offsets. The default values shown
+;;; may need to be changed for different fonts and for numbers requiring
+;;; more digits.
+;;;
+;;; rc_dial_label_xoffset = -8; ;;; left a bit
+;;; rc_dial_label_yoffset = 5;  ;;; down a bit (when rc_yscale < 0)
+
+;;; The algorithm for placing numeric values is not optimised to handle
+;;; all cases, so numbers some may be offset slightly from ideal
+;;; locations no matter what values you give these variables.
+
+
+-- -- . Printing text strings as captions
+
+;;; Now print some captions below (giving vectors with arguments
+;;; to be used by rc_print_a_string)
+
+;;; Define two captions in different colours with different fonts:
+
+rc_print_dial_captions(d1,
+    [{-100 -20 'Degrees shown in red' 'red' '9x15'}
+     {-80 -40 'Values in blue' 'blue' '9x15'}]);
+
+;;; Each vector has coordinates relative to the (x, y) coordinates
+;;; of the dial, a string to be printed, a colour and a font. The
+;;; general format is
+
+;;;     {relative-location string colour font}
+
+;;; where the relative-location is two numbers
+
+
+-- Making rc_dial add "decorations" automatically ---------------------
+
+The above decorations (marks, labels, captions), can be done within the
+call of rc_dial, by giving rc_dial some extra arguments in lists with
+keywords to identify their purpose.
+
+
+    [MARKS    ....]
+    [LABELS   ....]
+    [CAPTIONS ....]
+
+(The full set of optional extra
+arguments allowed is defined in HELP RC_DIAL)
+
+The lists starting with the keywords "MARKS", "LABELS", "CAPTIONS", each
+contain one or more vectors. Each vector is used to compute a set of
+arguments for the appropriate "decoration procedure", namely one of
+these procedures illustrated above:
+
+    rc_draw_dial_marks
+    rc_draw_dial_labels
+    rc_print_dial_captions
+
+Here is an example of the use of three such lists, each with
+two vectors, to produce a dial similar to d1, but slightly smaller
+(pointer length 60 instead of 80) and located in the lower left of the
+window (if rc_yscale is negative):
+
+vars smalldial =
+
+    rc_dial(
+        -100, -140, 0, 180, {0 18 5 1}, 60, 15, 'yellow', 'blue',
+
+        [MARKS
+            ;;; {extra radius, angular gap, mark width, length, colour}
+            {5 10 2 8 'red'}
+            {8 90 2 10 'black'}],
+
+        [LABELS
+            ;;; {extra radius, angular gap, initial value, increment,
+            ;;;         colour font}
+          {50 18 180 -18 'red' '6x13'} {25 10 0 1 'blue' '6x13'}],
+
+        [CAPTIONS
+            ;;; {relative location, string, colour, font}
+            {-100 -20 'Degrees shown in red' 'red' '9x15'}
+            {-80 -40 'Values in blue' 'blue' '10x20'}]
+    );
+
+;;; Mark and compile that to see the automatic reformatting produced
+;;; to fit the smaller pointer length.
+
+;;; See how the value changes as you move the pointer, then
+;;; obey this command (ESC d):
+
+rc_pointer_value(smalldial) =>
+
+;;; see how the pointer changes as you update the value
+3 -> rc_pointer_value(smalldial);
+10 -> rc_pointer_value(smalldial);
+17 -> rc_pointer_value(smalldial);
+5 -> rc_pointer_value(smalldial);
+0 -> rc_pointer_value(smalldial);
+
+;;; But you cannot push it beyond the limits specified
+
+34 -> rc_pointer_value(smalldial);
+-3 -> rc_pointer_value(smalldial);
+
+;;; You can also check the angle:
+;;; Repeatedly move the pointer with the mouse and check the axis
+rc_axis(smalldial) =>
+
+
+
+-- Examples of manipulation of dials ----------------------------------
+;;; move the pointer and compare dial settings with pointer value
+;;; The following examples use smalldial but you can also try them
+;;; with d1 if that dial is still present.
+
+;;; show the pointer moving
+vars x;
+for x from 0 to 18 do
+    x -> rc_pointer_value(smalldial);
+    ;;; pause for 20/100 of a second
+    syssleep(20);
+endfor;
+
+
+
+-- Exploring the behaviour of the dial --------------------------------
+
+;;; These examples use the original dial, d1. If necessary go back
+;;; and re-create it. Alternatively use the recently created small
+;;; dial, by doing this before testing the commands below:
+
+    smalldial -> d1;
+
+;;; try moving the pointer and see what happens to the stored value
+;;; printed out by this command
+rc_pointer_value(d1) =>
+
+;;; Notice how the movements are "stepped" because of the step value
+;;; 1 in the range vector (the fifth argument).
+
+;;; Move it under program control, and check the value after each
+4-> rc_pointer_value(d1);
+6-> rc_pointer_value(d1);
+8-> rc_pointer_value(d1);
+
+;;; You can't exceed the limits under program control either:
+-3 -> rc_pointer_value(d1);
+rc_pointer_value(d1) =>
+12 -> rc_pointer_value(d1);
+25 -> rc_pointer_value(d1);
+rc_pointer_value(d1) =>
+
+;;; See the stored range information
+rc_informant_start(d1)=>
+rc_informant_end(d1)=>
+rc_informant_step(d1)=>
+
+;;; compare setting the value and setting the angle:
+10 -> rc_pointer_value(d1);
+2 -> rc_pointer_value(d1);
+rc_set_axis(d1, 60, true);
+rc_axis(d1) =>
+rc_pointer_value(d1) =>
+rc_set_axis(d1, 140, true);
+rc_axis(d1) =>
+rc_pointer_value(d1) =>
+
+;;; the angle will have been coerced to fit the value constraint
+;;; (i.e. the value increases in steps of 1, angle step 18 degrees)
+
+;;; The dial is an instance of rc_informant, defined in
+;;; LIB rc_informant, so the stored value can be accessed thus:
+rc_informant_value(d1) =>
+
+;;; The end of the pointer can also be moved by specifying new
+;;; coordinates, though as it is an instance of rc_constrained_mover,
+;;; the possible moves are constrained
+rc_move_to(d1, 0, 140, true);
+rc_move_to(d1, 500, 240, true);
+rc_move_to(d1, 100, 10000, true);
+rc_pointer_value(d1) =>
+
+-- EXERCISE -----------------------------------------------------------
+
+Copy and edit the above commands to create dials, and try defining some
+new dials with different locations, orientations, value ranges, colours,
+etc.
+
+E.g. Try doing all that again with a greater pointer width, e.g. 50
+instead of 15, or a different initial orientation, e.g. tilted 45
+degrees instead of horizontal. The procedures for decorating the
+dial should all adjust.
+
+
+-- A rotated dial -----------------------------------------------------
+
+;;; Create a dial tilted 90 degrees to the right, with an angular
+;;; sweep of 140 degrees. It will have values ranging from 0 to 14,
+;;; and there will be 14 red marks alongside the dial each labelled
+;;; with the corresponding integer in blue.
+
+vars d90 =
+    rc_dial(
+        130, -120,
+        90, 140, ;;; tilt and angular range
+        {0 14 0 1}, ;;; value range specification
+        60, 15, ;;; pointer length and base width
+        false, false, ;;; default colour and background
+        [MARKS
+            ;;; {extra radius, angular gap, mark width, length, colour}
+            {5 10 2 8 'red'}],
+        [LABELS
+          {20 10 0 1 'blue' '6x13'}],
+        );
+
+rc_pointer_value(d90) =>
+vars x;
+for x from 0 to 14 do
+    x -> rc_pointer_value(d90);
+    syssleep(30)
+endfor;
+
+;;; See what happens if you do the above with a tilt angle of
+;;; -90 instead, leaving everything else, except the coordinates
+;;; of the dial unchanged. The dial should be tilted in the opposite
+;;; direction.
+
+vars dminus90 =
+    rc_dial(
+        110, -140,
+        -90, 140, ;;; tilt and angular range
+        {0 14 0 1}, ;;; value range specification
+        60, 15, ;;; pointer length and base width
+        false, false, ;;; default colour and background
+        [MARKS
+            ;;; {extra radius, angular gap, mark width, length, colour}
+            {5 10 2 8 'red'}],
+        [LABELS
+          {20 10 0 1 'blue' '6x13'}],
+        );
+
+rc_pointer_value(dminus90) =>
+
+
+-- Definition of rc_dial ----------------------------------------------
+
+This section duplicates information in HELP RC_DIAL. If there is
+any conflict the HELP file is likely to be the accurate one.
+
+This procedure has nine required arguments and a number of additional
+optional arguments, including the optional arguments shown above
+for specifying "decorations".
+
+It returns an instance of the class rc_constrained_pointer, which
+inherits from various mixins used which give it its properties.
+
+These are the required arguments:
+
+rc_dial(
+    x, y, orient, angwidth, range, len, width, colour, bg) -> pointer;
+
+    with the following optional arguments (in any combination),
+    explained below:
+        wid, specs, typespec, win,
+
+        marks, labels, captions
+
+Where
+    (x,y)
+        defines the location of the dial in rc_graphic coordinates.
+
+    orient
+        is the orientation of the "start" edge of the dial. E.g.
+        0 means that the leading edge of the dial points to the left
+        if rc_yscale is negative or to the right otherwise.
+
+    angwidth
+        is the "sweep" angle of the dial from the start edge, which is
+        clockwise if y goes up (rc_yscale is negative), otherwise
+        counter-clockwise
+
+    range
+        is a number or vector of two to four elements, as in rc_slider.
+        The options are interpreted as follows:
+
+        - A positive number N:
+        The range of values is then 0 to N, with default value = 0.
+
+        - A vector containing two, three or four numbers:
+        The first two numbers define the beginning and the end of the
+        interval, and the third number, if present, defines the default
+        value. If there is a fourth number it specifies the minimum step
+        value. E.g. {0 100 50 5} specifies a range from 0 to 100, with
+        minimum steps of 5, and an initial value of 50. Numbers can be
+        positive or negative integers or bigintegers or decimals or
+        ddecimals, and the begging can be larger than the end, if
+        required. If the start and stepvalue are both integers, the
+        stored values are always rounded.
+
+    len, width
+        The length and base width of the pointer shaped like a sector of
+        a circle (almost a triangle). The units are relative to current
+        rc_graphic scales.
+
+    colour, bg
+        These two specify the pointer colour and the background
+        "dial-face' colour. They may be false, or strings, and "bg"
+        may be the word "background" representing the default background
+        colour of the window. If false the colours used will be
+        defaults, held in these two global variables, unless re-defined
+        for sub-classes.
+            rc_pointer_colour_def = 'grey30';
+            rc_pointer_bg_def = 'grey80';
+
+
+The optional arguments are interpreted as follows:
+
+    wid
+        A word or identifier, whose valof should be updated whenever
+        the pointer value is changed, either using the mouse or by a
+        program command
+
+    specs
+        A featurespec vector of the type described in HELP FEATURESPEC
+        If provided this can be used to over-ride some of the class
+        defaults in this individual.
+
+    typespec
+        This should be an objectclass class key, which is used to
+        determine the sort of instance to create. The default is
+        rc_constrained_pointer_key
+
+    win
+        This should be an instance of rc_window_object, and if not given
+        defaults to rc_current_window_object.
+
+    marks
+        A list starting with the word "MARKS" containing one or
+        more vectors specifying gradation marks to be drawn around the
+        dial, where each vector has four numbers and a string
+           {extra radius, angular gap, mark width, length, colour}
+        e.g.
+            {5            10             2           8    'red'}],
+
+    labels,
+        A list starting with the word "LABELS" containing one or
+        more vectors specifying numeric labels to be drawn around the
+        dial, where each vector has four numbers and two strings:
+
+          {extra radius, angular gap, initial value, increment,
+                                                        colour, font}
+        e.g.
+          {42           18              180             -18
+                                                        'red' '6x13'}
+
+        (Not to be confused with the "label" property of a field in
+        rc_control_panel specification.)
+
+    captions
+        A list starting with the word "CAPTIONS" containing one or
+        more vectors specifying strings to be printed somewhere
+        near the dial, where each vector has two numbers the string
+        to be printed, a string for colour and a string for font.
+            {relative location, string, colour, font}
+        e.g.
+            {-100 -20 'Degrees shown in red' 'red' '9x15'}
+
+
+-- Further examples of rc_dial ----------------------------------------
+
+;;; start a new window
+
+ved_win1();
+
+;;; Now try a range that goes in the reverse direction, from
+;;; 20 (on left) to 0 (on right), with default 5, and no step value,
+;;; using a blue pointer, with width (at its base) 15, and default
+;;; background
+
+;;; declare a variable to be associated with the value on the dial:
+;;; and give its name as an extra argument to rc_dial
+
+vars d2val;
+
+vars d2 =
+    rc_dial(
+        130, -130, 0, 180, {20 0 5}, 80, 15, 'blue', false,
+            ident d2val);
+
+;;; repeatedly check the value of d2val, after moving the pointer with
+;;; the mouse or assigning a new value to it.
+d2val =>
+
+rc_pointer_value(d2) =>
+12 -> rc_pointer_value(d2);
+
+
+;;; Now a dial tilted left, with a red background, using 270 degrees.
+;;; The coloured area occupies more than 270 degrees because when the
+;;; pointer is at the limits it covers a wider area. The red background
+;;; shown indicates the area swept over by the pointer as it moves.
+;;; Decimal values this time, instead of integers.
+
+;;; a variable to be associated with it
+
+vars d3val;
+
+vars d3 =
+    rc_dial(
+        -130, -130, -90, 270, {0.0 100 50 5.0},
+            80, 20, false, 'red', "d3val");
+
+rc_pointer_value(d3) =>
+d3val =>
+12 -> rc_pointer_value(d3);
+84 -> rc_pointer_value(d3);
+
+;;; try to increment values by 8 and see what happens when the resulting
+;;; stepped values are printed out
+vars x;
+for x from 0 by 8 to 110 do
+    x -> rc_pointer_value(d3);
+    d3val =>
+    syssleep(30)
+endfor;
+
+;;; Another with 270 degree sweep, with a range from -100 to 100, using
+;;; default pointer and background colours. Decimal values again.
+
+vars d4 =
+    rc_dial(
+        -130, 130, 0, 270, {-100.0 100 0 5.0}, 80, 20, false, false);
+
+rc_pointer_value(d4) =>
+12 -> rc_pointer_value(d4);
+84 -> rc_pointer_value(d4);
+-84 -> rc_pointer_value(d4);
+
+vars x;
+for x from -100 by 2 to 110 do
+    x -> rc_pointer_value(d4);
+    rc_pointer_value(d4) =>
+    syssleep(5)
+endfor;
+
+;;; note that the values printed do not go up in steps of 2.
+
+
+;;; Kill the window
+
+rc_kill_window_object(win1);
+
+-- WARNING: changing the sign of rc_yscale ----------------------------
+
+All the examples are designed to work with y increasing upwards. If
+you use ved_win2 and redo the examples you may  find some slightly
+surprising consequences of the change in rc_yscale. In particular
+the angle associated with the moving pointer (rc_axis(dial)) will
+increase counter-clockwise instead of clockwise. However rc_dial
+has been designed to use value converters which make the values go
+from start to end in the clockwise direction whether rc_yscale is
+positive or negative. This automatic reversal happens if the global
+variable rc_dial_counter_clockwise is set true (the default). If it
+is made false, then when rc_yscale switches sign the direction of
+increasing value in dials also switches from clockwise to counter
+clockwise.
+
+Another difference concerns the interpretation of the initial angle of a
+dial. When rc_yscale is negative the angle 0 points to the left, and
+the angular sweep is interpreted as counter_clockwise, as specified in
+REF XpwDrawArc, whereas when rc_yscale is positive 0 points to the
+right and the angular sweep goes in the opposite direction.
+
+Since by default rc_control_panel sets rc_yscale = 1, the arguments
+specified in the DIALS field list will not be the same as those
+required for an explicit call of rc_dials when rc_yscale = -1.
+However, a little experimentation, switching between 0 and 180, and
+changing the angular increment to be positive or negative, should
+suffice to produce required results.
+
+However it may turn out simpler to make the dials and pointer mechanism
+disregard rc_xscale and rc_yscale. Comments welcome.
+
+See also TEACH rc_constrained_pointer, and the following related
+libraries:
+
+    LIB rc_draw_arc_segment
+    LIB rc_rotate_vector
+    LIB rc_draw_blob_sector
+    LIB rc_draw_pointer
+    LIB rc_draw_semi_circle
+
+
+-- Future plans -------------------------------------------------------
+
+The panel description language for rc_control_panel may be extended to
+make it easier to include dials in a panel created by rc_control_panel.
+
+Comments criticisms and suggestions welcome.
+
+Aaron Sloman:   A.Sloman AT cs.bham.ac.uk
+
+--- $poplocal/local/rclib/teach/rc_dial
+--- Copyright University of Birmingham 2002. All rights reserved. ------

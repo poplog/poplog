@@ -1,0 +1,1620 @@
+TEACH POPRULEBASE                                Aaron Sloman Nov   1995
+                                 Updated to new ruleset format, Nov 1996
+                                                        Amended Aug 2000
+
+Note added October 1995:
+    There is now a simpler introduction to POPRULEBASE.
+    See TEACH * RULEBASE.
+    Please read that rather than this file if you are new to this topic.
+
+
+LIB POPRULEBASE
+
+Is a pop-11 library that defines a forward chaining production system
+interpreter which provides a host of powerful facilities for rule-based
+programming.
+
+It is described more completely in HELP * POPRULEBASE. This teach file
+gives an introductory overview and some examples.
+
+It is used in the Sim_agent library and some aspects of its use are
+described there, e.g. HELP SIM_AGENT, TEACH SIM_AGENT
+
+Poprulebase and Sim_agent are available from the Free Poplog web site:
+    http://www.cs.bham.ac.uk/research/poplog/freepoplog.html
+    ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/freepoplog.html
+
+NOTE: LIB NEWPSYS is now redundant.
+
+PRECONDITIONS:
+In order to understand this teach file you should be familiar with lists
+in Pop-11 (See TEACH * LISTS) and also with the Pop-11 pattern matcher
+described in TEACH * MATCHES, TEACH * MOREMATCH, TEACH * ARROW, and
+various other teach files.
+
+The matcher is summarised in HELP * MATCHES, and in Chapter 7 of the
+Pop-11 Primer (TEACH PRIMER).
+
+It would also be useful to have used the Pop-11 database to get some of
+the concepts used below. E.g TEACH * DATABASE, TEACH * INFECT, and
+TEACH * RIVER2. However the Poprulebase database operates in a different
+way.
+
+
+CONTENTS
+
+ -- Introduction
+ -- -- How to access the library
+ -- -- Using the "prb" saved image
+ -- What the Poprulebase package provides
+ -- -- What is a rule?
+ -- -- prb_run, the main interpreter
+ -- -- Format for a ruleset
+ -- -- Formats of rules
+ -- -- Example of a more complex rule
+ -- -- How the rule works
+ -- -- Example of a rule with pattern variables
+ -- Runnable rules
+ -- Rule instances
+ -- The main loop of prb_run
+ -- -- Sorting the possibilities list.
+ -- -- Getting access to the final values of prb_rules and prb_database
+ -- -- The main loop summarised
+ -- How instantiation is done
+ -- LVARS an alternative to POPVAL
+ -- Further information
+ -- -- Possible extensions
+ -- Types of complex conditions
+ -- Types of complex actions
+ -- . Tracing actions
+ -- . Actions that ask for or wait for user interaction
+ -- . Actions that run Pop-11 commands
+ -- . Action to stop execution of prb_run
+ -- . Actions that manipulate prb_database
+ -- . Stack manipulating actions
+ -- . Actions that create new rules
+ -- . Actions for use with FILTER conditions
+ -- . Actions for pushing and popping rulesets or prb_database
+ -- . Other actions
+ -- User interaction
+ -- User defined actions and conditions
+ -- Further reading
+ -- Tracing facilities
+ -- Controlling interaction at run time
+ -- Example: factorial
+ -- -- Start factorial code
+ -- -- Things to try when running the example
+ -- -- Exercise
+ -- Another example: Addup
+ -- An expert system for choosing wine
+ -- Identifying an animal
+ -- -- Exercise: extend the animals example
+ -- Possible more ambitious exercises
+ -- See Also
+
+-- Introduction -------------------------------------------------------
+
+LIB POPRULEBASE
+
+This library provides a sophisticated and flexible forward chaining
+production system interpreter for "rule-based" programming, such as is
+often used in expert systems. The key idea is that instead of writing
+conventional programs telling the computer what to do by calling other
+programs explicitly, you write what are called "condition-action rules".
+These rules are compared with a collection of information in a database.
+When a rule has its conditions satisfied its actions may be allowed to
+run (whether all such rules have their actions run, or only a selected
+"best" action is up to the user). The actions may include changing the
+database, by adding or removing items. As a result of the actions of one
+rule, the conditions of another rule may be satisfied. Thus one rule can
+cause another to be run without invoking it explicitly the way a
+procedure invokes another procedure in a normal program.
+
+The file TEACH RULEBASE gives a more detailed explanation with some
+simple examples.
+
+The use of condition-action rules can make a program much more flexible
+than normal procedural programs. However, it can also be more difficult
+to control to ensure that it does exactly what you intend, because the
+interactions between rules may be unexpected. Also it may be less
+efficient than explicitly invoking normal procedures. Nevertheless the
+extra flexibility and the division between facts in the database and the
+rules that are triggered by changes in the database can be very useful
+for knowledge-based systems.
+
+There are many different kinds of uses for condition-action rules,
+including:
+
+o Expert systems that do diagnosis, e.g. medical diagnosis, or diagnosis
+  of faults in machines
+
+o Expert systems that give advice
+
+o Systems that synthesise a plan or a design
+
+o Systems used for modelling certain cognitive processes.
+
+o Systems that help a user solve problems, e.g. mathematical problems
+  or decision-making problems.
+
+o Simulating causal interactions among parts of a system, e.g. a machine
+  or a brain!
+
+Poprulebase is at the heart of the Sim_agent toolkit for building
+simulated interacting agents.
+
+There are many different kinds of condition-action systems (often called
+production systems for historical reasons), which vary in the kinds of
+facilities they provide, their user interfaces, their flexibility and
+their efficiency. (Often the more flexible the system the less
+efficient.)
+
+Poprulebase is an unusually powerful rule-based system, defined in
+Pop-11. It allows arbitrary Pop-11 procedures to be invoked when needed,
+both during testing of conditions and when actions are run.
+
+It contains a number of unusual features, including mechanisms for
+combining rule-based mechanisms with other mechanisms, such as neural
+nets.
+
+-- -- How to access the library
+
+The POPRULEBASE package is normally installed in the directory:
+
+    $poplocal/local/prb/
+
+or possibly
+
+    $poplocal/local/newkit/prb/
+
+To make the library usable, you first need to give these commands:
+
+    uses prblib
+    uses poprulebase
+
+If that does not work, the library may not have been installed properly.
+You can try this instead:
+
+    load $poplocal/local/prb/prblib.p
+
+then
+    uses poprulebase
+
+If you merely wish to be able to examine the library files and
+documentation without running anything, you can give the command:
+
+    uses prblib
+        This adds all the search lists for the poprulebase package to
+        the standard VED and Pop-11 search lists. After that HELP,
+        and TEACH and SHOWLIB can be used to access files in the
+        package, without compiling the package.
+
+Compiling the main library file, lib poprulebase, does not compile
+everything. Several portions of the package will be compiled if needed
+from the autoloadable library files in:
+
+    $poplocal/local/prb/auto/
+
+There is an extra library, LIB PRB_EXTRA, providing facilities for
+pushing and popping databases or rule sets. This needs to be compiled
+explicitly with a "lib" or "uses" command. It is described in
+HELP PRB_EXTRA.
+
+-- -- Using the "prb" saved image
+
+If you wish to avoid compiling the library every time you want to use it
+then you can instead run the saved image (if it exists at your site), by
+giving the Unix command
+
+    pop11 +prb
+
+This runs a saved image which also includes objectclass. If the saved
+image has not yet been created ask the system administrator to run:
+
+    $poplocal/local/prb/mkprb
+
+You can see if the saved image exists by giving the the following Unix
+command to find out which local saved images there are:
+
+    ls $poplocalbin
+
+If it includes prb.psv then a saved image for poprulebase exists.
+
+Note: when there is a new version of poprulebase the saved image may
+include only the old version while the new version is being tested.
+
+Read on for more information.
+
+
+-- What the Poprulebase package provides ------------------------------
+
+Roughly speaking, a production system allows you to build a program that
+consists of two components:
+
+    (a) a database which can change over time, and
+
+    (b) a collection of rules for doing things, referred to below
+        as a "ruleset", where each rule has a set of conditions
+        and a set of actions to be run when the conditions are true.
+
+The database is not in the format of the ordinary Pop-11 database,
+described in TEACH * DATABASE, and more tersely in HELP * DATABASE.
+The simple Pop-11 database is just a list of lists. Therefore checking
+whether an item is in the database involves searching through that
+single list. This can be very slow if the list grows very big.
+
+In Poprulebase the database is not a single list of lists, but is stored
+in a Pop-11 property, where all the lists that start with the same item
+are in a list associated with that item. So instead of one long list
+there are many shorter lists.
+
+Using that fact can make your programs run much faster if you have a
+large database.
+
+So instead of the ordinary Pop-11 database procedures like add, flush,
+present, new versions are provided that start with the prefix 'prb_',
+e.g. prb_add, prb_in_database, and many more (described fully in the
+main documentation file HELP * POPRULEBASE). For information about
+differences between the Pop-11 database and Poprulebase see
+
+    HELP * PRB_DATABASE
+
+The package provides syntax (define :ruleset ... enddefine) for defining
+a rulesets, where each ruleset is a collection of condition-action
+rules.
+
+The rules may be separated into different rulesets, which is often more
+efficient than having a single list of rules and can also provide more
+flexible behaviour, as the system switches from one ruleset to another.
+It can also switch from one database to another while running.
+
+There is a main "top-level" procedure prb_run which takes a ruleset and
+a database and an optional integer for limiting how long the procedure
+runs.
+
+Prb_run repeatedly runs the rules with the initial database. Each run
+is called a "cycle" of the interpreter. It continues until one of the
+rules executes a STOP action or until the number of cycles exceeds the
+integer limit. It will also stop if there are no more runnable rules.
+More detailed information about prb_run is given below.
+
+
+-- -- What is a rule?
+
+Each rule is a Pop-11 structure which includes the following items:
+a name, an optional number used as a "weight", a ruleset that it belongs
+to and two additional components which are the main constituents of the
+rule:
+
+    a set of conditions
+    a set of actions
+
+The conditions and actions are usually separated by the symbol "==>".
+
+A very simple example of a rule in an expert system giving advice on how
+to dress might be
+
+    ;;; first initialise the set of dress_rules.
+    define :ruleset dress_rules;
+
+     RULE dress1
+        [NOT coat chosen]
+        [journey outdoors]
+        [weather raining]
+        [journey on foot]
+        ==>
+        [SAY 'you will need to wear a coat']
+        [SAY 'because it is raining']
+        [coat chosen]
+
+    enddefine;
+
+This ruleset has the name dress_rules. It includes only one rule which
+has the name "dress1".
+
+The rule has four conditions, given before the arrow "==>". The first is
+a "complex" condition, the others "simple" conditions.
+
+It also has three actions. The last action is used to prevent the rule
+being rune again, because it makes the first condition fail in future.
+
+Rules may have more complex conditions including patterns with
+variables, as described below.
+
+When checking whether the rule can be activated the interpreter checks
+each of the conditions in turn against items in the database.
+
+Where the database items come from depends on the program. They can have
+the following sources:
+
+o   The items may be be provided in advance by the programmer, when
+    prb_run is started.
+
+o   The items may be added by actions in the rules that are selected for
+    running.
+
+o   The items may be added as a result of a dialogue with the user, if
+    the user gives more information. Such dialogues may be started by
+    one of the actions in a rule, e.g. a medical expert system that asks
+    the user about symptoms and adds the information to the database for
+    other rules to refer to.
+
+o   New items might be inserted by some other program, e.g. a program
+    monitoring some equipment.
+
+
+-- -- prb_run, the main interpreter
+
+The top level procedure prb_run  can be given a set of rules
+and a database to start off with, and an optional number giving a
+maximum number of cycles of the interpreter.
+
+The procedure prb_run repeatedly finds which rules have their conditions
+satisfied by items in the database, and then it runs their actions,
+subject to various control parameters described below. On each cycle it
+may run all of the rules that have conditions satisfied, or only one of
+the rules, or some subset. These choices can be controlled by the user.
+
+Conditions may be simple database patterns or complex conditions which
+actually do some computation when they are checked.
+
+Actions may either be simple lists to be added to the database , items
+to be removed from the database, or more complex actions indicated by
+special keywords.
+
+It is possible for either the conditions or the actions to invoke
+arbitrary user-defined Pop-11 procedures, though many of the most
+frequently desired cases are handled by built in complex conditions and
+complex actions.
+
+While prb_run is interpreting rules it may run an action that causes
+a new set of rules to replace the old set, or a new database to replace
+the old database.
+
+Moreover, prb_run itself can be run with different rulesets or different
+databases.
+
+-- -- Format for a ruleset
+
+The basic format for a ruleset is as follows
+
+  define :ruleset <name>;
+
+    <optional initialisation information>
+
+     RULE <name>
+         <conditions>
+             ==>
+         <actions>
+
+
+     RULE <name>
+         <conditions>
+             ==>
+         <actions>
+
+     ....
+   enddefine;
+
+The
+    <optional initialisation information>
+
+is described in more detail in HELP poprulebase. It allows you to
+specify the conflict resolution strategy for the ruleset, and set
+various global variables for use while the rules are running.
+
+More complex formats are possible, described in HELP POPRULEBASE.
+But for most simple rule based systems the above will suffice.
+
+-- -- Formats of rules
+
+Every rule has the following basic format
+
+RULE <name>
+    <condition1>
+    <condition2>
+      ....
+
+      ==>
+
+    <action1>
+    <action2>
+      ....
+
+
+Some components are optional.
+
+A rule can be embellished in various ways, e.g. to specify a "weight",
+or locally redefine tracing control variables, as described in
+HELP POPRULEBASE
+
+-- -- Example of a more complex rule
+
+Here is an example of a very simple rule that might be part of an expert
+system that advises you on choice of colour of wine. A full example set
+of rules is given in TEACH * PRBWINE
+
+;;; First we start to define a ruleset called wine_rules
+
+define :ruleset wine_rules;
+
+;;; Now define a rule to be included in that ruleset
+;;; If the main dish is fish then the certainty that the colour of
+;;; the wine should be white is 0.9, and the certainty that it should be
+;;; red is 0.1
+
+  RULE colour1
+    [main_dish is fish]
+    ==>
+    [wine chosen_colour is white certainty 0.9]
+    [wine chosen_colour is red certainty 0.1]
+
+;;; Now finish the ruleset definition.
+enddefine;
+
+
+NOTE 1: an arrow "==>" is used to separate the conditions from the
+actions. You can, if you prefer, use a semi-colon or ";" or "-->".
+
+    See HELP * POPRULEBASE/prb_condition_terminators
+
+NOTE 2: The rule above has name colour1.
+
+NOTE 3: Although a ruleset definition may look like a procedure
+definition because it uses "define ... enddefine" it definitely does not
+create a Pop-11 procedure. Instead it creates a list of rules, where
+each rule is a structure of type prbrule, namely a record with six
+components. Beginners need not worry about the components of a rule.
+(For details, see LIB * POPRULEBASE)
+
+(This is an example of the use of a "define form" in pop-11 to extend
+the syntax of Pop-11. See HELP DEFINE_FORM)
+
+-- -- How the rule works
+
+The rule has one simple condition
+
+    [main_dish is fish]
+
+When the rule is considered this condition will be matched against items
+in the database, which in this package is called "prb_database", not
+just "database". (It is not a list, but a property associating lists
+with keywords.)
+
+If the condition matches something and no other applicable rule is
+selected as having higher priority, then the two actions will be obeyed,
+namely:
+
+    [wine chosen_colour is white certainty 0.9]
+    [wine chosen_colour is red certainty 0.1]
+
+These are simple actions, which do not start with a known keyword, so
+they are treated as assertions to be added to prb_database. This might
+cause different rules to be triggered on the next cycle of prb_run,
+because the new database entries may match conditions that previously
+did not match anything.
+
+More complex conditions and actions are described below, and some of
+them are illustrated in the examples at the end of the file.
+
+-- -- Example of a rule with pattern variables
+
+Here is another rule, which could have been included in the ruleset.
+
+It says that if a particular colour has been chosen with certainty cert1
+and is preferred with certainty cert2, then the information about chosen
+and preferred colour should be removed and the statement that that is
+the actual colour given a certainty computed by some arithmetical
+formula involving cert1 and cert2. (Whether this is a good way to
+combine certainty values is not relevant just now!)
+
+ RULE merge1
+    ;;; the conditions:
+    [wine chosen_colour is ?colour1 certainty ?cert1]
+    [wine preferred_colour is ?colour1 certainty ?cert2]
+
+    ==>
+    ;;; the actions:
+    ;;; remove the two facts that made the conditions true
+    [NOT wine chosen_colour is ?colour1 certainty ?cert1]
+    [NOT wine preferred_colour is ?colour1 certainty ?cert2]
+
+    ;;; Add a new fact, after recomputing the certainty, using
+    ;;; a new rule variable total_cert
+    [LVARS total_cert]
+    ;;; Run a POP11 instruction to give the variable a value
+    [POP11 0.6*cert1 + 0.4*cert2 -> total_cert]
+    [wine colour is ?colour1 certainty ?total_cert]]
+
+
+NOTE 1: the pattern matcher used by POPRULEBASE is the same as that
+described in HELP * MATCHES, TEACH * MATCHES TEACH * MATCHARROW
+TEACH * MOREMATCH. In particular both "?" and "??" may be used with
+pattern variables to represent single list items or arbitrary list
+segments. Also restriction procedures can be used, e.g.
+
+    ?x:isnumber
+
+to restrict the match to a number, or
+
+    ??children:3
+
+to restrict the match to a list of length 3.
+    (See HELP * MATCHES/RESTRICTIONS )
+
+It's worth noting that if a restriction procedure returns a result that
+is non-false and not true, then that result is assigned to be the value
+of the variable rather than the corresponding item from the other list.
+
+All pattern variables in rules are automatically declared as of type
+lvars, i.e. they are lexically scoped and their values cannot be
+accessed outside the rule. For exceptions to this see HELP RULESYSTEMS.
+
+NOTE 2: In other contexts, if a pattern variable is set by the matcher,
+then the prefix "^" or "^^" is used to access the value of the variable
+inside a list expression. For examples of this see TEACH * RESPOND. In
+most simple Poprulebase actions, this will not work. Instead the "?" and
+"??" prefixes should also be used in actions to USE the values of
+variables that have been SET in conditions in the same rule.
+
+(If you use POP11 actions, described in HELP POPRULEBASE, you do not
+need those prefixes.)
+
+When actions containing variables preceded by "?" or "??" are
+instantiated, the values of any variables set in the conditions will be
+used to replace the variables in the actions.
+
+
+NOTE 3: HELP POPRULEBASE explains that the occurrence of "popval" or
+"$$" in a list indicates that when the rule's actions are instantiated,
+just before execution, the contents of the list should be evaluated and
+the result should replace the whole list.
+
+However, it is often clearer and more efficient to introduce a new rule
+variable using a [LVARS ....] action, then use a [POP11 ...] action to
+compute its value, as was done above, in merge1.
+
+The  action
+
+    [POP11 0.6*cert1 + 0.4*cert2 -> total_cert]
+
+uses the values of the variables cert1 and cert2 to compute a value for
+total_cert. Then, in the final action
+
+    [wine colour is ?colour1 certainty ?total_cert]]
+
+the values of colour1 and total_cert are inserted, and the whole
+list added to the database. Thus the action will add something of
+the form:
+    [wine colour is C certainty N]
+ where N is a number, and where C is the value of colour1, i.e. the
+word "red" or the word "white".
+
+Note that using embedded popval (or $$) elements in an action list
+can also be used, e.g.
+
+    [wine colour is ?colour1 certainty [$$ 0.6*?cert1 + 0.4*?cert2]]
+
+NOTE 4: The two "NOT" actions removing database items were
+
+    [NOT wine chosen_colour is ?colour1 certainty ?cert1]
+    [NOT wine preferred_colour is ?colour1 certainty ?cert2]
+
+These are used to delete the two found database items matching the
+first two conditions of the rule. It is possible to
+specify more directly that the items matching the first and second
+conditions should be removed from  the database, using the actions:
+    [DEL 1]
+    [DEL 2]
+
+or even the single combined action:
+    [DEL 1 2]
+
+The last is the most efficient form. There are alternative notations
+that do not depend on counting conditions, described in HELP POPRULEBASE
+
+
+NOTE 5: Using initialised LVARS
+
+The two actions
+    [LVARS total_cert]
+    [POP11 0.6*cert1 + 0.4*cert2 -> total_cert]
+
+can be combined into one, by using the "initialised variable" syntax
+for the LVARS action, thus:
+
+    [LVARS [total_cert = 0.6*cert1 + 0.4*cert2 -> total_cert]]
+
+I.e. the format
+    [LVARS [<variable> = <expression>]]
+
+Means that the variable should be added to the current list of variables
+that can be used in patterns and actions (in the same rule), and the
+Pop-11 <expression> should be run and its value assigned to the
+variable.
+
+If several rules are to use the same LVARS variable, it can be
+declared and initialised in the same format at the beginning of the
+ruleset rather than in each rule. The full range of formats for
+conditions and actions using LVARS can be found in
+    HELP POPRULEBASE
+
+A more complete (toy) set of rules for choosing colour of wine
+can be found in TEACH PRBWINE
+
+
+-- Runnable rules -----------------------------------------------------
+
+A rule is runnable if all its conditions are satisfied. The conditions
+may be simple or complex. A simple condition is simply a pattern that
+can be matched against items in the database. A complex condition may be
+a disjunction of conditions or a negation of a condition, or may invoke
+additional mechanisms. Several types of complex conditions are described
+in HELP * POPRULEBASE.
+
+-- Rule instances -----------------------------------------------------
+
+When the set of conditions has been found to be satisfied an "instance"
+of the rule is created. This may include information about the values of
+the variables in the conditions, for example.
+
+The same rule may have several different instances if its conditions can
+be satisfied in different ways, e.g. by binding its variables to
+different values. For example, if you have a rule with conditions:
+
+    [above ?block1 ?block2] [above ?block2 ?block3]
+
+and the database contains
+
+    [above B1 B2] [above B2 B3] [above B2 B4]
+
+then there will be two sets of database items coherently matching those
+two conditions, namely
+
+    [above B1 B2] [above B2 B3]
+and
+    [above B1 B2] [above B2 B4]
+
+When this is found, poprulebase has two options. If the variable
+prb_allrules is false, then only the first set of matching items will be
+recorded. If it is true, then for each set of items matching the
+conditions a different rule instance will be created. Mechanisms are
+provided for selecting which rule-instance to run, or running all of
+them on every cycle of the interpreter.
+
+A rule instance is a record of class prbactivation, which has fields
+
+    {prb_ruleof prb_varsof prb_valsof prb_foundof prb_recof}
+
+Described in HELP POPRULEBASE
+
+-- The main loop of prb_run -------------------------------------------
+
+When you use POPRULEBASE, first you define some rules, and then you give
+the ruleset and an initial database (which may be empty) to the
+procedure called prb_run. It can also be given an optional third
+argument: an integer to limit the number of times it goes round its main
+loop. I.e. prb_run is invoked like this:
+
+    prb_run(ruleset, data, N);
+
+Where N is an optional integer specifying the "cycle limit". If N
+is omitted there is no cycle limit, and the interpreter runs until there
+are no more runnable rules, or a "STOP" action is executed.
+
+prb_run does a bit of setting up then goes into a loop in which it
+repeatedly checks the rules against the items in the database and then
+selects some rule instances to have their actions run.
+
+More precisely, in each loop, it finds one or more rules that can be
+instantiated because its conditions are satisfied, and makes a list of
+the instances of such runnable rules. This is called a "possibilities
+list". Users can specify that it should only find one instance on each
+loop, thus:
+
+    false -> prb_allrules;
+
+prb_allrules is just one among many control facilities in the package.
+(For full details see HELP * POPRULEBASE/prb_allrules )
+
+If prb_allrules is false, then the first found runnable rule will have
+its actions executed immediately. There is no need to make a list of
+runnable rules.
+
+-- -- Sorting the possibilities list.
+
+If prb_allrules is not false, then the possibilities list is given to
+the user definable procedure prb_sortrules, thus
+
+        prb_sortrules(possibles) -> possibles;
+
+Thus the user can specify that only some of the rule instances should
+have their actions run, or may specify the order in which they should be
+run. (In some expert system literature this is referred to as "conflict
+resolution". This is a bad name because it presupposes that only one
+rule should be run on every cycle. That restriction may or may not be
+desirable.) The remaining instances then have their actions run.
+
+If one of the selected rules invokes a "STOP" action, then prb_run will
+terminate. It will also terminate if there are no more runnable rules,
+or if it has been through a number of cycles equal to the limit set by
+its third argument.
+
+-- -- Getting access to the final values of prb_rules and prb_database
+
+The procedure prb_run does not produce any results. However it may
+internally alter the database it is given or the ruleset. So users may
+wish to have access to the final values of prb_rules and prb_database.
+This is achieved using the procedure prb_finish, which takes two
+arguments, and by default does nothing, but which can be made to store
+them somewhere, or even to leave them on the stack. If you redefine it
+remember that it is invoked in this form:
+
+     prb_finish(rules, database)
+
+For example, if you want it to print out the final database, you could
+define it thus:
+
+define prb_finish(rules, database);
+    lvars rules, database;
+
+    prb_print_table(database)
+
+enddefine;
+
+
+-- -- The main loop summarised
+
+The cycle is something like this, after the ruleset's initialising
+actions have been performed, if there are any:
+
+    1. Find runnable rules and for each one build a rule instance
+        (Stop after the first instance is found if prb_allrules is
+        false.)
+
+        1.a. If there are no more runnable rules, then terminate prb_run
+
+    2. Use the procedure prb_sortrules to reorder the rule instances,
+        and possibly eliminate some.
+
+    3. Then, depending on the selected strategy, run one, or all of the
+        remaining runnable rules.
+
+    4. If cycle limit has not been reached and no STOP action has been
+        performed, then go back to step 1.
+
+    5. Otherwise call prb_finish(prb_rules, prb_database)
+
+    6. Stop
+
+
+-- How instantiation is done ------------------------------------------
+
+The process of forming a rule instance requires detection of all places
+in the actions where a variable occurs that should have been set in the
+conditions (if the conditions included patterns).
+
+This is actually quite a complex process and since actions can include
+Pop-11 code it may be tricky to ensure that all the variables in the
+Pop-11 code that correspond to variables bound in conditions are dealt
+with properly.
+
+Moreover, during the process of instantiation you may want Pop-11
+actions run to determine the contents of embedded structures. This is
+enabled by the use of keywords "popval" and "apply" or shorthand
+versions "$$" and "$:". Thus embedded list elements in actions may
+have the form:
+
+    [popval <Pop-11 expression>]
+    [$$ <Pop-11 expression>]
+        Those two are equivalent
+
+    [apply <procedure name> <arg1> <arg2> .... ]
+    [$: <procedure name> <arg1> <arg2> .... ]
+        Those two are equivalent
+
+When these lists are evaluated, their results, if any, are spliced into
+the enclosing list. I.e. their list brackets are "removed".
+
+For full details see HELP * POPRULEBASE/popval
+                     HELP * POPRULEBASE/apply
+
+-- LVARS an alternative to POPVAL ---------------------------------
+
+Instead of using the "popval" expressions, you can declare some extra
+variables that were not in the actions conditions, and then use a POP11
+action to give those variables values, and then use those variables
+in other actions, preceded by "?" or "??".
+
+For example if the Pop-11 global variable "myself" is a pointer to some
+sort of record structure or objectclass structure, that has various
+"slots" and you wish to access those slots in order to construct
+database items, then you can use VARS. E.g. suppose that one of the
+slots is called "agent_age". Then if you wished to have an action that
+adds your age to the database you could have an action of the form:
+
+    [myage now [$$ agent_age(myself)] ]
+
+alternatively you could declare an extra variable, and assign it in a
+POP11 action, then use it, thus:
+
+    [LVARS [age = agent_age(myself)]]
+    [myage now ?age]
+
+The latter has the advantage that the variable can be used several times
+in the same rule.
+
+-- Further information ------------------------------------------------
+
+HELP * POPRULEBASE gives more information about the syntax of rule
+definitions and how to use them.
+
+There are many complications, partly because there are so many different
+kinds of conditions and different kinds of actions, and partly because
+many different strategies are possible for ordering or selecting among
+the runnable rule instances.
+
+Moreover there are many features of the behaviour of the system that are
+controllable by the user.
+
+Because a fairly simple representation is used for the database, without
+sophisticated indexing, it follows that if the database is allowed to
+grow very large or the set of rules is very large, then a lot of time
+may be taken up trying to decide which rules have their conditions
+satisfied, and moreover if there are a lot of additions and deletions to
+the database then this can cause garbage collections.
+
+For this reason, the package has special facilities for switching
+between databases and switching between rulesets. This means that at any
+one time the current database and current ruleset can be kept quite
+small, and therefore processing will be fast, without the complications
+of sophisticated indexing mechanisms.
+
+It also helps efficiency if you divide your database items up according
+to a fixed keyword (or other fixed item) that occurs at the beginning of
+the list. For example instead of
+    [block1 on block2]
+    [block3 on block4]
+    [block1 is red]
+    [block3 is green]
+    [block3 is big]
+
+It may prove useful to have property names and relation names at the
+beginning of the list, as in
+    [ison block1 block2]
+    [ison block3 block4]
+    [colour block1 red]
+    [colour block3 green]
+    [size block3 big]
+
+etc. However, which format is most efficient depends on the kinds of
+patterns used in rule conditions.
+
+
+-- -- Possible extensions
+Because the procedures for reading in rules can be changed by users it
+is possible to alter the syntax to be more readable.
+
+Another thing that might be desirable would be a facility for specifying
+permitted formats for database entries and for the patterns and actions
+that operate on them. Then the rule-reader could check to ensure that
+there are no mistakes in rule conditions or rule actions.
+
+The package deliberately does not do this, in order not to restrict its
+generality.
+
+If users wished to impose restrictions they could use the fact that the
+syntax of rules can easily be changed. There are two user-definable
+procedures, described in the help file
+
+    prb_readcondition() -> list;
+        The default version is defined in LIB * POPRULEBASE. If you wish
+        to change it copy that version and modify it as needed.
+
+    prb_readaction() -> list;
+        This is also defined in LIB * POPRULEBASE, and can be redefined.
+
+These are the procedures that are used to read in the conditions and the
+actions. By redefining them users can impose extra structure on the
+system, or change to a syntax that may be found more readable by some
+users.
+
+-- Types of complex conditions ----------------------------------------
+
+The HELP file explains the following types of conditions (among others)
+
+   OR conditions
+   NOT conditions
+   NOT_EXISTS and IMPLIES conditions
+   ALL conditions (for meta-rules)
+   WHERE conditions
+      These can invoke Pop-11 tests for whether variables bound
+      in other conditions have the desired relationships.
+   Various kinds of pseudo conditions, including POP11 conditions
+      and VARS conditions
+   Filter conditions
+        These are explained in more detail in HELP * PRB_FILTER
+        They can be used for combing rulebased programs with other
+        kinds, e.g. neural nets which help to control which rules
+        fire. (The extension was suggested by Riccardo Poli)
+
+-- Types of complex actions -------------------------------------------
+
+The help file also describes the following kinds of actions:
+
+-- . Tracing actions
+
+    [SAY <message>]
+    [SAYIF <keyword> <message>]
+    [EXPLAIN <message>]
+
+-- . Actions that ask for or wait for user interaction
+
+    [PAUSE]
+    [READ <question> <constraint> <data item> <explanation>]
+    [MENU <menu> <action list> <explanation>]
+
+-- . Actions that run Pop-11 commands
+
+    [POP11 <procedure>]
+    [POP11 <procedure name>]
+    [POP11 <pop11 instructions>]
+
+-- . Action to stop execution of prb_run
+
+    [STOP <message>]
+
+-- . Actions that manipulate prb_database
+
+Simple actions are merely lists that are added to the database. They
+cannot be lists that start with a known keyword. The following are more
+complex actions for changing the database.
+
+    [ADDALL [<data item>] [<data item>] ...]
+    [NOT <pattern>]
+        Removes everything that matches the pattern.
+    [DEL <integer> <integer> ...]
+    [DEL ?var1 ?var2 ...]
+    [DEL <pattern>
+    [REPLACE <integer> <data item>]
+    [REPLACE <pattern> <data item>]
+    [REPLACE ?var <data item>]
+    [MODIFY <integer> <key> <value> <key> <value> ...]
+    [MODIFY <pattern> <key> <value> <key> <value> ....]
+
+and many more.
+
+-- . Stack manipulating actions
+
+    [PUSH <item> <stackname>]
+    [POP <stackname>]
+        These manipulate database items of the form:
+            [<stackname> ....]
+        by adding and removing items from the tail of the list, which
+        is treated as a stack.
+
+Some examples of the use of stacks for building up a plan, or recording
+a history can be found in TEACH * PRBRIVER
+
+-- . Actions that create new rules
+
+    [RULE <name> [<conditions>] [<actions>]]
+    [RULE TYPE <ruletype> <name> [<conditions>] [<actions>]]
+        The last two enable the program to create new rules while
+        running.
+
+
+-- . Actions for use with FILTER conditions
+
+The following action types for use with filter conditions are described
+in HELP * PRB_FILTER:
+
+    [SELECT ?var A1 A2 ... An]
+    [MAP ?var MP A1 A2 ... An]
+
+-- . Actions for pushing and popping rulesets or prb_database
+
+Additional action types are described in HELP * PRB_EXTRA
+    [PUSHRULES <ruleset>]
+    [POPRULES]
+    [POPRULES <ruleset>]
+    [PUSHDATA <database>]
+    [PUSHDATA [<patternlist>] <database>]
+    [POPDATA]
+    [POPDATA [<patternlist>] ]
+    [POPDATA <database>]
+    [POPDATA [<patternlist>] <database>]
+
+More general actions for saving and restoring the database or ruleset
+are the following (not suitable for use with the SIM_AGENT library):
+
+    [SAVE RULES <name>]
+        Equivalent to:  prb_rules -> valof(<name>)
+
+    [SAVE DATA <name>]
+        Equivalent to:  prb_database -> valof(<name>)
+
+    [RESTORE RULES <name>]
+        Equivalent to:  valof(<name>) -> prb_rules
+
+    [RESTORE DATA <name>]
+        Equivalent to:  valof(<name>) -> prb_database
+
+    These actions can be combined, as follows:
+
+    [SAVE DATA <name1> RULES <name2>]
+
+    [RESTORE DATA <name1> RULES <name2>]
+
+If you are using the sim_agent library then instead of these methods of
+switching RULESETS, use the action types described in HELP * RULESYSTEMS
+
+
+-- . Other actions
+    [NULL .....]
+        Does nothing
+    [DOALL A1 A2 ... An]
+
+-- User interaction
+
+There are facilities provided for specifying in a rule's action that it
+should present the user with a question and then record something in the
+database. There are "menu" mechanisms that enable you to give the user a
+list of options and make it easy for the user to select one of the
+options, which can then be used by the rule in some way.
+
+-- User defined actions and conditions
+
+User-defined action keywords and condition keywords are also supported,
+and described in the help file. See LIB * POPRULEBASE for full details.
+
+
+-- Further reading ----------------------------------------------------
+
+TEACH * EXPERTS gives an introduction to expert systems and describes
+some simpler shells available in the Pop-11 library.
+
+Several examples are given below, most of which you can run. You can
+also experiment with changing or extending them.
+
+There's a more sophisticated example, namely a plan construction
+program, in TEACH * PRBRIVER
+
+The code for that is available on its own as TEACH * PRBRUNRIVER.P
+Simpler demonstration expert systems are described in
+    TEACH * PRBWINE A toy wine advisor
+    TEACH * PRBZOO A toy animal identifier
+    TEACH * PRBGROCERIES An expert system for packing groceries into
+        bags at a supermarket checkout.
+
+-- Tracing facilities
+
+Debugging expert systems can be quite difficult because the order in
+which rules are obeyed is not something you specify in the code: it is
+determined at run time by which conditions are true, and that can keep
+changing as the database changes.
+
+There are many tracing facilities, some of which help with debugging,
+and some of which are used for the interaction with users. They are
+described fully in HELP * POPRULEBASE
+
+In particular see
+
+    prb_chatty
+        This is false or a number. Which sorts of tracing are on is
+        controlled by which prime numbers divide it. The different
+        numbers and their effects can be found in
+            HELP * POPRULEBASE/prb_chatty
+        defaults.
+
+
+    prb_show_conditions
+        This can be a boolean(i.e. true or false) or a list of rule
+        names. If it is true then whenever a rule is about to be
+        tested, its name and all its conditions are printed out, then as
+        each condition in turn is checked the result is printed. If it
+        is a list of rule names, then this happens only for rules whose
+        names are in the list. If it is false, the tracing is turned
+        off.
+
+    prb_walk (boolean)
+        This controls tracing of rule activations. It makes things
+        very slow.
+
+    prb_pausing (boolean)
+        Controls "PAUSE" actions, which may be used for debugging.
+
+    prb_trace(<list of rule names>)
+    prb_untrace(<list of rule names>)
+        Turns detailed tracing of the named rules on or off.
+
+    SAYIF
+        This keyword can be used in certain actions, like:
+
+            [SAYIF verbose 'I am now turning the boiler off']
+
+        The message will be printed out if "verbose" is in the list
+        of words prb_sayif_trace.
+
+        See HELP * POPRULEBASE/SAYIF
+
+There are other sorts of actions that can be used for interaction with
+the user, including actions of the form
+
+    [EXPLAIN <message>]
+    [MENU <menu> <action list> <explanation>]
+    [READ <question> <constraint> <data item> <explanation>]
+
+These are all described in the help file.
+
+-- Controlling interaction at run time --------------------------------
+
+If prb_walking is true, and in the case of several of the other
+interactive facilities, you can get more information using certain
+interaction keywords.
+
+For example, when you get the "Walking>" prompt you can either press
+RETURN to go on, or use one of these keywords to get more information
+or modify the subsequent behaviour.
+
+    .why, .show, .data, .trace, .untrace, .chatty, .walk, .stop
+
+Please see details in the file HELP * POPRULEBASE.
+
+Alternatively you can type a colon followed by a POP-11 command, e.g.
+
+    :prb_print_database()
+
+is equivalent to
+
+    .data
+
+If you type anything else in response to the Walking prompt, you should
+be given a list of available commands.
+
+-- Example: factorial -------------------------------------------------
+
+The factorial of an integer is the product of all the numbers from 1 up
+to that integer. E.g. the factorial of 6 is
+
+    1*2*3*4*5*6 =>
+    ** 720
+
+The example that follows asks the user for a number, and then computes
+the factorial of that number, with help from the user.
+
+The following code, from "uses" up to the call of prb_run can be marked
+and executed.
+
+When it asks for a number, try typing in 2 or 3. (Larger numbers will
+produce a tedious lengthy interaction.)
+
+This example computes the factorial of a number typed in by the
+user. It can generate a lot of garbage if given a large number (e.g.
+1000), so it is best to set popmemlim and popminmemlim as high as
+possible if you use a large number. (See HELP *POPMEMLIM)
+
+Also note the settings of the control variables near the end of the
+example. If you try a larger number make prb_walk false for the sake of
+your sanity. If it is true prb_run keeps telling you what it is doing
+at almost every step. You can then interrogate the system with one of
+the above interaction commands, all beginning with "."
+
+-- -- Start factorial code
+
+uses prblib;
+uses poprulebase;
+
+;;; Start defining a ruleset
+define :ruleset prb_rules;
+
+    ;;; Make prb_allrules false while this ruleset is running
+    [DLOCAL [prb_allrules = false]];
+
+    ;;; The first rule detects the termination condition - when the counter
+    ;;; value in the database exceeds the number whose factorial is to
+    ;;; be computed, represented as [fact ?x]
+
+  RULE f1
+    [fact ?x] [counter ?c] [WHERE c > x] [total ?y]
+        ==>
+    [STOP the answer is ?y]
+
+    ;;; Rule f2 increments the counter and does the multiplication
+    ;;; to derive a new total from the old one. Note that the LVARS
+    ;;; action is used to declare and initialise two variables. This
+    ;;; could have been done in a POP-11 action.
+
+  RULE f2
+    [counter ?x] [total ?y]
+        ==>
+    [LVARS
+        [newcounter = x + 1]
+        [newtotal = y * x ]]
+    [MODIFY 1 counter ?newcounter]
+    [MODIFY 2 total ?newtotal]
+
+    ;;; Rule f3 starts the process by asking the user for the number
+    ;;; whose factorial is to be found, and stores it as [fact ANSWER].
+
+  RULE f3
+    ;;; No conditions, so it is always runnable, if no other rule fires
+    ;;; This must be last rule if prb_repeating is true
+
+        ==>
+
+    ;;; Start things off by getting the input to factorial.
+    ;;; restrict the input to be an integer. Add one to it and
+    ;;; add a list of the form [fact N] where N is the result of
+    ;;; adding 1 to the number the user typed in (ANSWER + 1).
+    [READ 'What number is the input?'
+        [:isinteger]
+        [fact  ANSWER ] ;;; Store the number read in
+        ;;; next bit printed out in response to "why"
+        {'I need a number to compute factorial'}]
+
+    ;;; Initialise the database with two "facts"
+    [total 1] [counter 1]
+
+    ;;; terminate the ruleset definition
+enddefine;
+
+;;; Show that prb_rules is now a list of rules
+
+prb_rules ==>
+
+;;; Set the values of poprulebase control variables.
+
+true-> prb_repeating;  ;;; OK because rule f3 is last.
+
+;;; By making prb_walk true, you make the program pause repeatedly
+;;; e.g. before each action. Press RETURN to continue.
+true -> prb_walk;      ;;; Make it false for a quicker answer!
+
+false -> prb_allrules; ;;; Prevent repeated firing of f3 if any
+                        ;;; other rule is applicable.
+                        ;;; Not needed because done in ruleset
+
+false-> prb_chatty;    ;;; Make this true for more tracing
+
+false -> prb_remember; ;;; Saves storage, but prevents "why" questions
+                        ;;; going back to earlier rule activations.
+
+true -> prb_copy_modify;   ;;; Reduces efficiency, but is safer
+
+
+;;; Now run the ruleset with an empty database
+prb_run(prb_rules, []);
+
+;;; Try getting factorial 500 computed - give 500 in response to the
+;;; prompt. You'll end up with a big number.
+;;; Make sure prb_walk is false otherwise it will take forever.
+
+false -> prb_walk;
+prb_run(prb_rules, []);
+
+;;; Try a smaller number (e.g. 3) wit prb_walk set true.
+
+;;; End of example
+
+-- -- Things to try when running the example
+
+When it asks you for a number try typing
+    .why
+
+If prb_walk is true, then during the pauses you can investigate the
+state of the program.
+
+Occasionally look at the database, by typing
+    .data
+
+If you type .show it will print out information about the current rule.
+
+-- -- Exercise
+
+By replacing the two separate database items [counter ?x] [total ?y]
+with a single item [counter ?x total ?y] it is possible to speed
+this program up significantly. Rule f2 could then be altered
+to use a single [MODIFY ....] action instead of two actions.
+
+Try that.
+
+-- Another example: Addup ---------------------------------------------
+
+This silly example asks the user for a number, and then adds up all the
+numbers up to that number. Thus if you give it 4, it should eventually
+produce the answer
+
+    1 + 2 + 3 + 4 = 10
+
+It can't do any arithmetic itself, so it keeps asking you for the
+answers to simple sums.
+
+[START addup example. Includes tests for DEL] ==>
+
+false -> prb_repeating;
+false -> prb_copy_modify;   ;;; should be set true when it runs
+
+define :ruleset addup_rules;
+
+RULE r1
+    [finish] [total ?x] [remember ?y]
+      ==>
+    [EXPLAIN Total of numbers up to ?y is ?x.]
+    [STOP Thank You]
+
+RULE r2
+    [target ?x][WHERE x == 1]
+    ==>
+    [finish]
+
+RULE r3
+    [target ?x] [NOT total =]
+      ==>
+    [remember ?x] [total 1] [SAY Starting with target = ?x total = 1]
+
+RULE r4
+    [target ?x] [total ?y] [WHERE x /== 1]
+      ==>
+    [DEL 1 2]       ;;; could be [NOT target =] [NOT total =]
+
+    ;;; Next READ action has built in explanation in vector
+    [READ [What is ?x + ?y] [:isinteger] [total ANSWER]
+        {'I need to get the next subtotal' x '+' y}]
+
+    [READ [What is ?x - 1] [:isinteger] [target ANSWER]]
+
+RULE r5
+    ;;; No conditions, so always runs by default
+    ==>
+    [SAY 'Hint - give a small number, e.g. 3 or 4']
+    ;;; Use READ action with a constraint
+    [READ 'What is the target number?' [?x:isinteger] [target ANSWER]]
+enddefine;
+
+;;; Print out the ruleset
+addup_rules ==>
+
+;;; set control variables
+false -> prb_show_conditions;
+false -> prb_pausing;
+false -> prb_chatty;
+false -> prb_walk;
+
+[] -> prb_remember;
+prb_run(addup_rules,[]);
+
+;;; See if you can work out what is going on when that runs.
+;;; Study the rules carefully.
+
+-- An expert system for choosing wine ---------------------------------
+
+TEACH * PRBWINE describes a draft, incomplete, expert system for
+choosing which wine to have with your meal, implemented in poprulebase.
+
+A possible exercise would be to debug and extend that example, e.g.
+including advice about food as well as wine.
+
+-- Identifying an animal ----------------------------------------------
+
+Now a set of rules to guess an animal by asking questions
+This uses the MENU action mechanism described in
+    HELP POPRULEBASE/MENU
+
+
+define :ruleset animal_rules;
+    ;;; Make it run only the first runnable rule
+    [DLOCAL [prb_allrules = false]];
+
+  RULE guess1
+    [class mammal] [legs 4] [milk no] [meat no]
+      ==>
+    [STOP Its a horse]
+
+  RULE guess2
+    [class mammal] [legs 4] [milk yes]
+      ==>
+    [STOP Its a cow]
+
+  RULE guess3
+    [class mammal] [meat no] [NOT milk =]
+      ==>
+    [MENU
+        {['Does it produce milk?']
+         [[1 'yes it does'] [2 'no it does not'][3 'dont know']]
+        }
+        [[1] [milk yes] [2] [milk no] [3] [milk unknown]]
+    ]
+
+  RULE guess4
+    [class mammal]
+    [NOT meat ==]
+      ==>
+    [READ 'does it eat meat' [OR yes no] [meat ANSWER]]
+
+  RULE guess5
+    [class reptile]
+      ==>
+    [STOP Its a crocodile]
+
+  RULE guess6
+    [category animal] [legs 2] [wings no]
+      ==>
+    [STOP Its a human]
+
+  RULE guess7
+    [category animal] [legs 2] [wings yes]
+      ==>
+    [STOP Its a  bird]
+
+  RULE guess8
+    [category animal] [legs 2]
+      ==>
+    [READ 'does it have wings' [OR yes no]  [wings ANSWER]]
+
+  RULE guess9
+    [category animal] [legs 4]
+
+      ==>
+
+    [MENU { 'Is it a mammal or a reptile?'  ;;; The question
+                [[1 mammal] [2 reptile]]    ;;; The options list
+                [1 mammal 2 reptile]}       ;;; The mappings list
+          [[class ANSWER]]                  ;;; Action to be done
+    ]                                       ;;;   after reply is
+                                            ;;;   assigned to ANSWER
+
+  RULE guess10
+    [category animal] [legs 6]
+      ==>
+    [STOP 'It\'s an insect']
+
+  RULE guess11
+    [category animal]
+      ==>
+    ;;; A READ action has a question, a restriction list, and an action
+    [READ 'how many legs' [OR 2 4 6]  [legs ANSWER]]
+
+  RULE guess12
+    [category vegetable]
+      ==>
+    [STOP 'sorry I only eat meat']
+
+  RULE guess13
+    [category mineral]
+      ==>
+    [STOP 'sorry I know only about life']
+
+
+  RULE guess14
+    [NOT category =]
+      ==>
+    [MENU
+        {'Is it animal vegetable or mineral?'
+         [[1 animal] [2 vegetable] [3 mineral]]
+         [1 animal 2 vegetable 3 mineral]}
+        [[category ANSWER]]
+    ]
+enddefine;
+
+
+false-> prb_walk; ;;; suppress pausing
+
+true -> prb_chatty; ;;; get a bit more trace information
+
+true -> prb_repeating; ;;; Allow the same rule to be re-used
+
+
+;;; Test the animal_rules
+prb_run(animal_rules, []);
+
+
+-- -- Exercise: extend the animals example
+
+1. Extend the example so that it asks more questions after deciding it
+is a bird.
+
+Change the rule guess7 so that it doesn't stop after deciding that it's
+a bird. It should instead say that the animal is a bird and carry on
+asking more questions to decide whether it is a duck, an eagle, or a
+penguin.
+
+To trigger the rules asking questions of that sort guess7 will probably
+have to insert something in the database.
+
+2. At least one of the rules (guess11) is capable of asking for some
+information when that information is already in the database. Change the
+rule so as to prevent that.
+
+There's a less interactive animal identification program described in
+TEACH PRBZOO
+
+-- Possible more ambitious exercises ----------------------------------
+
+1. Try to use poprulebase to implement a version of Eliza that remembers
+things you have said before, and behaves more intelligently than the
+version in TEACH * RESPOND. A simple example is in TEACH RULEBASE.
+
+2. Try using Poprulebase to implement a diary program that allows you to
+add information about appointments or to ask about existing
+appointments.
+
+3. Try to devise a set of rules for playing noughts and crosses
+(otherwise known as tic-tac-toe). Set the rules up so that they can
+interact with the user, showing the current board position if requested.
+
+4. Imagine you have to write the condition-action rules for a little
+robot. It has some number of touch sensors, e.g. four: front, back,
+left and right. It has a number of move options: change heading, start,
+stop. It is placed in an area where there is a rectangular grid, and
+some of the locations in the grid are occupied. Its objective is to keep
+moving as long as possible with minimal re-tracing of its steps. At any
+moment the sensors are recording that they are touching something or
+not.
+
+    [sensor left touch]
+    [sensor right free]
+
+Actions are performed by adding an assertion to the database, e.g.
+
+    [start]
+    [stop]
+    [turn 90 left]
+    [turn 90 right]
+    [forward]
+    etc.
+
+Try to invent a set of rules and a way of checking out the rules.
+
+
+
+-- See Also -----------------------------------------------------------
+
+TEACH * EXPERTS
+    gives an introduction to expert systems
+
+TEACH * RULEBASE
+    Gives a more elementary introduction to Lib poprulebase.
+
+TEACH * PRBWINE
+    A toy wine advisor
+TEACH * PRBZOO
+    A toy animal identifier
+TEACH * PRBGROCERIES
+    An expert system for packing groceries into bags at a supermarket
+    checkout.
+
+TEACH * PRBRIVER
+    An example planning system concerned with the "river" world.
+
+TEACH * DIAGNOSIS
+    An introduction to a medical expert system.
+
+HELP * POPRULEBASE
+    Giving a more comprehensive overview
+HELP * PRB_DATABASE
+    Further details of differences between Pop-11 database and
+    Poprulebase
+
+For some extensions to the core library, see
+HELP * PRB_EXTRA
+HELP * PRB_FILTER
+
+Further features are described in comments in the program library
+file. To examine it
+SHOWLIB * POPRULEBASE
+
+
+TEACH * PSYS        - a very primitive production system interpreter
+TEACH * PRODSYS     - a more complex one, though not as flexible is
+                      LIB POPRULEBASE.
+TEACH * EXPERTS     - an introduction to expert systems and expert
+                      system shells
+
+TEACH * SIM_AGENT
+    Describes an agent simulation toolkit that is based on
+    LIB POPRULEBASE and also Objectclass. See
+        http://www.cs.bham.ac.uk/~axs/cog_affect/sim_agent.html
+
+--- $poplocal/local/prb/teach/poprulebase
+--- Copyright University of Birmingham 2000. All rights reserved. ------

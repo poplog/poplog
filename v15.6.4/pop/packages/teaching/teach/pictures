@@ -1,0 +1,906 @@
+TEACH PICTURES                                            A. Sloman Jan 1983
+                                         Modified by Mike Sharples, Feb 1989
+
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- PROCESSING TURTLE PICTURES
+ -- CAN THE TURTLE SEE WHAT IT HAS DRAWN?
+ -- SUB-TASKS FOR A PROGRAM THAT CAN INTERPRET TURTLE PICTURES
+ -- FINDING DOTS IN A TURTLE PICTURE
+ -- PLANNING THE PROGRAM
+ -- EXAMINING A PICTURE POINT
+ -- RECORDING PAINTED LOCATIONS
+ -- SCANNING THE PICTURE
+ -- FINDING THE DIMENSIONS OF PICTURE
+ -- FINDING LINES
+ -- USING THE DATABASE TO RECORD LINE INFORMATION
+ -- ASSIGNING POINTS TO ROWS AND COLUMNS
+ -- DIAGONAL LINES (THIS SECTION IS OPTIONAL)
+ -- SHOULD LINES BE FOUND BY "TRACKING"?
+ -- FURTHER EXERCISES ON LINES AND JUNCTIONS
+
+-- PROCESSING TURTLE PICTURES -------------------------------------------
+
+This exercise provides a simple introduction to some of the problems of
+finding structures in artificial pictures. It does not address the
+problems of finding structure in 'grey-level' pictures produced by TV
+cameras. You should spend about a week on this exercise.
+
+Do as many of the exercises as you can in the time available. Choose a
+subset to hand in a report on. This should include descriptions of the
+programs, and some trace printout. What you hand in should not be more
+than 4 to 6 pages of (single spaced) text, PLUS programs and tracing.
+Don't include masses of trace output which nobody is going to read. (See
+TEACH REPORTS) Use the paper cutter in E202 to make your printout neat.
+
+You will not get through all the exercises in the time available. Some
+of them could be selected as projects, or parts of projects later on.
+
+Background
+If you have not yet learnt to use the POP-11 'turtle' try TEACH TURTLE.
+You should be able to draw simple pictures made of straight lines, using
+the commands: turtle(); newpicture(WIDTH,HEIGHT); jump(AMOUNT);
+jumpto(X,Y); draw(AMOUNT); drawto(X,Y); turn(AMOUNT); and display() to
+print out pictures. (If you load LIB ACTIVE before you draw pictures,
+you'll see the pictures being drawn without using display(); However,
+LIB ACTIVE can slow things down and may cause you problems when moving from
+ved to POP-11.)
+
+
+-- CAN THE TURTLE SEE WHAT IT HAS DRAWN? ------------------------------------
+
+For a preliminary answer, look at TEACH SEEPICTURE; and try out the
+procedure SEEPICTURE, after you've drawn a turtle picture. E.g.
+
+          turtle();
+          repeat 4 times draw(6); turn(90) close;
+          drawto(10,10); draw(-5); draw(9);
+          display();
+          seepicture();
+          display();
+          database ==>
+
+The SEEPICTURE program shows that the computer can to some extent
+examine pictures, analyse the shapes present, and describe what it sees.
+The exercises described below are intended to introduce you to the
+problems of writing such programs.
+
+What are the subtasks into which the process of seeing can be
+decomposed? Some of these sub-tasks correspond roughly to different
+kinds of structures that can be seen IN a picture, and different kinds
+of things that can be depicted BY a picture. (What's the difference.)
+
+The division of picture-interpretation into a number of sub-tasks is a
+bit like the division of language-understanding into sub-tasks.
+Understanding language involves being able to perceive and recognize
+letters, or phonemes, syllables, words, phrases, clauses, sentences,
+types of speech-acts, objects or events or processes referred to, and so
+on.
+
+Before reading on, try making a list of the sub-tasks involved in interpreting
+turtle pictures. Look at the picture below for inspiration! After you've read
+on, amend your list of sub-tasks.
+
+
+
+                  *****
+                 *   **
+                ***** *         *********
+                *   * *        *       **
+               **   * ****    *       * *
+              * *   **  **   *       *  *
+             *  *****  * *  *********   *
+            *         *  *  *       *   *
+           *         *   *  *       *   *
+          ***********    ********   *   *
+          *         *    *     **   *   *
+          *         *   *     * *   *  *
+          *         *  *******  *   * *
+          *         *  *     *  *   **
+          *         *  *     *  *****
+          *         *  *     *  *
+          *         *  *     * *
+          *         * **     **
+          *         ** *******
+          ***********
+
+    The command LIB EDGEPIC; will create that turtle picture for you, if you
+    are ambitious and you want to try some of the later exercises on it!
+
+EXERCISE 1
+How does computer interpretation of turtle-pictures differ from interpretation
+of real TV pictures?
+
+If you use the turtle to draw a picture of some blocks, then someone
+interpreting the picture has to be able to see the dots, groups of dots
+making lines, junctions where lines meet, groups of lines forming closed
+regions, and so on. She also needs to be able to think about surfaces of
+objects, edges where two surfaces meet, corners where edges meet,
+familiar types of blocks, like cubes and wedges, relations between
+blocks like "next to", "behind", "above", "supports", and so on. When
+the picture is a work of art, there may be a great deal more to it, like
+the "point" of the picture. Similarly, there is much more to ordinary
+vision, since retinal images are far more complex than pictures. But for
+the moment let's concentrate on some of the simpler sub-tasks. Notice
+the difference between finding what is there in the image and finding
+what is there in some scene depicted by the image. For instance, in the
+scene there may be three-dimensional structures, whereas in the image
+all are two-dimensional.
+
+We can therefore make the important distinction between: analysis of
+what's in the image and interpretation of the image as representing
+something else. People who study so-called 'pattern recognition' often
+fail to make that distinction. Did you make it in your list of sub-
+tasks?
+
+-- SUB-TASKS FOR A PROGRAM THAT CAN INTERPRET TURTLE PICTURES ---------------
+
+(Not all sub-tasks are relevant to all pictures!)
+ 1. Finding the dots in the picture, and recording their locations.
+ 2. Recognising collinear groups of dots
+ 3. Interpreting dots as lines with orientations (e.g. horizontal,
+    vertical)
+ 4. Finding significant types of junctions between lines (ELLs, TEEs,
+    etc)
+ 5. Grouping lines into closed regions.
+ 6. Describing relations between regions - e.g. which are adjacent, and
+    which are totally enclosed by others.
+ 7. Linking together those regions which represent surfaces of the same
+    body.
+ 8. Describing orientations of the surfaces in space (vertical,
+    horizontal,etc)
+ 9. Describing the edges where surfaces meet (concave, convex edges).
+10. Noticing which surfaces or objects are occluded.
+11. Recognising known shapes of surfaces (square, triangular, etc).
+12. Recognizing known shapes of objects (cubes, prisms, pyramids,
+    people, etc)
+13. Recognising relations between such objects... perhaps interpreting
+    their actions, etc.
+14. Noticing inconsistencies, ambiguities, oddities. For example,
+    detecting the impossibility of the "Penrose triangle", or the
+    ambiguity in the "Necker Cube".
+15. Making predictions about aspects of the scene not directly depicted
+    (e.g. inferring that there are invisible surfaces on the far side
+    of a block).
+16. Interpreting a series of pictures as telling a coherent story about
+    some process or sequence of events.
+17. Using the picture in planning and executing actions - e.g. using a
+    map, or a picture of the layout of a room, to plan movements, or to
+    form a strategy for solving a problem (getting to the bananas
+    suspended from the ceiling....).
+18. Recognising groups of objects which are in some sense similar, e.g.
+    rows of pyramids, a stack of cubes, a pile of wedges.
+19. Describing the depicted scene in good English, or producing some
+    other representation of it, such as a picture showing it from a
+    different viewpoint, or perhaps making a three-dimensional model.
+20. Learning new concepts if the picture presents things not previously
+    known about. I.e. remembering "significant" shapes, so that they can
+    be recognised if they turn up again later.
+
+These sub-tasks are not all independent of one another. For instance, if
+you have already begun to interpret a picture as representing a block,
+this may help you decide where to look for lines, so that you'll more
+easily see lines that are obscure. But seeing some lines might be a
+necessary condition for generating the block hypothesis in the first
+place. So the line-finding and block recognising processes may sometimes
+need to co-operate with each other.
+
+This interlocking program organisation is sometimes referred to as
+"HETERARCHY", and is contrasted with "HIERARCHY". A "hierarchic" system
+might have a structure represented as follows:
+
+    [find-dots] --> [find-lines] --> [find-junctions] -->
+
+            [find-bodies] --> [describe-bodies] -->
+
+                    [recognise-bodies] --> etc.
+
+
+This organisation assumes that finding lines, for example, can be done
+completely before any "higher-level" entities are recognised.This is
+analogous to assuming that in hearing speech we can recognise all the
+words prior to understanding what is being said, or assuming that in
+reading handwriting you can recognise all the letters prior to
+understanding anything.
+
+There whether such assumptions work in general is debatable, but for
+your initial programming exercises it is easiest to assume that sub-
+tasks can be broken down and tackled separately.
+
+The tasks listed above form only a subset of the things you might expect
+a program to be able to do with a picture. Thinking about human
+abilities will lead you to want to add things to this list. One
+important omission concerns the ability to deal with pictures which are
+in some sense "messy" or misleading because they contain lots of
+spurious fragments, or perhaps because some bits have been blanked out,
+or smudged, or otherwise corrupted. People are very good at dealing
+with various kinds of "messy" or "noisy" data, for example when they
+read my handwriting, or when they watch television when reception is
+bad. Objects occluding others, or put together in confusing, cluttered,
+groups, seem to provide similar problems of interpretation. There
+appears to be no reason in principle why programs should not be able to
+cope with these things as people do, and some current work in computer
+perception is concerned with enabling programs to cope with noisy
+pictures.
+
+-- FINDING DOTS IN A TURTLE PICTURE -----------------------------------------
+
+For now, we'll concentrate on a relatively simple subset of the above
+tasks, namely finding dots and lines, and grouping lines into two-
+dimensional shapes. The finding of lines and junctions between lines is
+essentially all that the SEEPICTURE program does. Make sure you have
+played with it before going on. It will give you some idea of what you
+are aiming for.
+
+What follows is an introduction to a subset of the techniques used in
+the library programs. This will give you some insight into the problems
+of the larger programs, and help you to know what is going on if you use
+the programs. All the programs are restricted to horizontal, vertical
+and diagonal lines.
+
+Before reading on look back at the list of sub-tasks and see if you can
+work out the sorts of things you'd have to include in a program to find
+lines in a turtle picture. Distinguish the case where you 'break' lines
+which cross from the case where you don't.
+
+
+-- PLANNING THE PROGRAM -----------------------------------------------------
+
+We are going to make a program composed of a collection of modules. We shall
+define a controlling module called SCAN which examines every point of the
+picture, using a procedure called TESTAT. If the point has "paint" (i.e.
+doesn't just have a space) then some action is to be taken, by a procedure
+we'll call RECORDPOINT.
+We start with a very simple strategy where RECORDPOINT does nothing but make
+record the co-ordinates of the point in a list called POINTLIST. This simple
+program can be used to test SCAN and TESTAT. Later RECORDPOINT can be
+re-defined to do something more sophisticated, i.e. feed information about
+lines to the database. This information will later need tidying up to get rid
+of lines which are 'too short', and to break up line segments which are
+separated by gaps, as in
+        **************  *******   **********
+which you'd probably want to treat as three lines, not one.
+Later we discuss alternative strategies for finding lines, and strategies for
+finding junctions.
+
+-- EXAMINING A PICTURE POINT ------------------------------------------------
+
+The procedure SCAN will be defined later to examine all locations within
+the picture bounds. It will do that by making the variable Y range
+through numbers representing all the ROWS in the picture, and for each
+value of Y, making the variable X range through all the COLUMNS. So for
+each pair of values X,Y we have to examine the picture at that location.
+
+How can the computer decide whether the location contains "paint"? We
+use the fact that the picture is represented by a two-dimensional array
+called PICTURE, and the contents of the picture at location X Y can be
+found by applying PICTURE to X and Y.
+
+Try this out:
+          turtle();
+          drawto(10,10);
+          display();
+          picture(2,3) =>
+          picture(4,4) =>
+          picture(2,3) = space =>
+          picture(5,5) = "*" =>
+          picture(5,5) = paint =>
+
+Note that the variables SPACE and PAINT are predeclared (global) variables
+(try typing: space =>   paint =>  ).
+
+So to find the contents of the picture at location X, Y (where X and Y are
+integers) we can type:
+
+          picture(X, Y) =>
+
+At locations where the picture is empty, the result will be a space,
+represented by the value of the variable SPACE (which prints as a
+space). At other locations, the result is the same as the value of the
+variable PAINT, assuming the paint has not been changed since the
+picture was drawn.
+
+So now we can define a procedure to check whether there is paint at
+location X,Y. It will return TRUE or FALSE.
+
+          define paintat(x,y);
+           picture(x,y) = paint
+          enddefine;
+
+This procedure can be used in "conditional" commands, of the form:
+
+          if paintat(X,Y) then............endif;
+
+
+-- RECORDING PAINTED LOCATIONS ----------------------------------------------
+
+Remember, we are going to make a list of all the points containing
+paint. The most obvious way to represent a point is to make a list of
+its co-ordinates, thus:
+
+         [ ^X ^Y]
+
+If a point has paint we can add the point to the global list POINTLIST,
+which can be made empty to start with:
+
+          vars pointlist;
+          [] -> pointlist;
+
+We need a procedure called RECORDPOINT which adds a point to this list.
+If POINTLIST is
+
+        [[3 4] [3 3]]
+Then
+
+        recordpoint(3,5);
+
+should change POINTLIST to: [[3 5] [3 4] [3 3]]
+
+So we want RECORDPOINT to take two arguments, X, Y and change POINTLIST
+to include a new list containing the new point as well as all the old
+ones. Something of the following form would do:
+
+          define recordpoint(X,Y);
+                [......] -> pointlist
+          enddefine;
+
+What should go in place of the dots? Complete that procedure, and test
+it thoroughly. E.g.
+
+          [] -> pointlist;
+          recordpoint(3,5); pointlist=>
+          recordpoint(4,5); pointlist=>
+          recordpoint(5,10); pointlist=>
+
+MAKE SURE THE RESULT IS ALWAYS A LIST OF TWO-ELEMENT LISTS. When the
+list gets long, you may prefer to use ==> to print it.
+
+We can now define a procedure which will look at a location and only
+call RECORDPOINT when paint is present, thus:
+
+          define testat(x,y);
+            if .....
+            then .....
+            endif
+          enddefine;
+
+Fill in the missing bits, using PAINTAT and RECORDPOINT.
+
+Define these procedures then try them out. Draw some simple pictures,
+then try TESTAT at different locations (different values of X and Y),
+seeing what effect it has on POINTLIST. E.G.
+
+          turtle(); drawto(5,5); display();
+          [] -> pointlist;
+          testat(3,4); pointlist =>
+          testat(3,3); pointlist =>
+          testat(4,3); pointlist =>
+          testat(4,3); pointlist =>
+
+Notice that we have defined RECORDPOINT to alter the global variable
+POINTLIST. This is something like the way ADD and REMOVE alter the
+global variable DATABASE. For a procedure to alter a variable which is
+not local to it can often cause difficulties. However, if you have a
+clear design, and you give the variable a name which is not likely to be
+used accidentally for a different purpose, then this technique can be
+useful. In other cases, instead of altering the global variable you
+should define the procedure to take in the old value and return the new
+value. (E.g. RECORDPOINT could have been defined to take the old
+POINTLIST as its third argument, and it could have returned a new list
+as its result. SCAN and TESTAT would have done the same.)
+
+-- SCANNING THE PICTURE -----------------------------------------------------
+
+Having defined and tested the lowest level modules of the program we can
+now define the controlling module, SCAN, which will use TESTAT at every
+point in the picture so that eventually POINTLIST will have a record of
+all the places in the picture where there are dots.
+
+Later we can improve RECORDPOINT. Notice this design strategy: instead
+of pondering the whole complex problem all at once, it is often useful,
+sometimes even essential, to start off by thinking about simplified
+versions. It is usually easier to extend or re-design an oversimple
+program, than to start designing one which is perfect.
+
+There are always several possible ways of defining SCAN. What follows is
+one suggestion. You may be able to think of something different.
+
+Our problem is to ensure that we look at every point in the picture. We
+can do this scanning every row, moving from left to right. Do do this we
+need to know how many rows there are and how long they are. So SCAN must
+start by finding out how big the picture is. Suppose we use the
+variables XMAX and YMAX to hold the width and the height of the picture,
+respectively. We then have the following rough outline for a definition.
+
+Plan for procedure SCAN:
+
+     Find width and height of PICTURE and assign to XMAX and YMAX
+     For each value of Y from 1 to YMAX do
+           For each value of X from 1 to XMAX do
+                   testat(X,Y)
+
+With that rough outline, we can begin to work on details.
+
+-- FINDING THE DIMENSIONS OF PICTURE ----------------------------------------
+
+When you type something like newpicture(25,20); this creates a picture
+which is represented in the computer as an "array" of two dimensions,
+the first going from 1 to 25, the second from 1 to 20. If you want a
+program to discover the bounds of the picture, you can use the procedure
+BOUNDSLIST, by applying it to PICTURE. It will return a list containing the
+bounds. Try the following:
+
+          turtle();
+          newpicture(25,30);
+          boundslist(picture) =>
+          newpicture(35,27);
+          boundslist(picture) =>
+
+The last command should have printed out a list of four elements, namely
+[1 35 1 27].
+
+So SCAN can find the width and height of the picture by examining the
+second and fourth elements of the list. So the first three lines of SCAN
+might go:
+
+          vars x,y,xmax,ymax,bounds;
+          boundslist(picture)->bounds;
+          bounds(2)-> xmax;
+          bounds(4)-> ymax;
+
+To get the rows we have a loop in which Y ranges from 1 to YMAX, each
+value of Y corresponding to a row. We set an initial value for Y, and we
+say that each time round the loop it is to increase by 1, and that it
+should stope when it has exceeded YMAX
+
+        for y from 1 by 1 to ymax do
+                ??????
+        endfor;
+
+Actually POP-11 allows you to omit ('BY 1').
+
+What should go in place of the question marks?
+You need to scan a row, i.e. different values of X for each value of Y,
+so the asterisks need to be replaced by a similar 'nested' loop for X.
+And within the loop for X you can use the value of X and Y in TESTAT.
+Put all that together in a procedure called SCAN. Use indentation (or
+<ENTER> JCP (which automatically adds spaces to present the procedure neatly
+on the screen)) to show the structure of the procedure.
+
+Remember that you will have to initialise POINTLIST before calling SCAN.
+You can then test the procedure to see what results it produces. Make a
+picture and draw some lines on it, then
+
+          [] -> pointlist;
+          scan();
+          pointlist ==>
+
+Test your procedure on more than one picture.
+
+EXERCISE 2
+    Define the procedures RECORDPOINT, TESTAT, and SCAN, and try them
+    out on a few pictures. Write a little report describing how they
+    work, showing the lists of points found for various pictures.
+    Include program listings and comments.
+
+-- FINDING LINES ------------------------------------------------------------
+
+One way to find lines in a picture is to search for a point, then start
+tracking from that point along a certain direction, to see how far you
+go before running out of points. Then you start somewhere else, and
+track in some direction, following points with neighbours. One problem
+with that approach is what to do when you get to the end of one of the
+lines you are tracking. This is a bit like searching a maze when you
+wish to ensure that you follow all possible paths. You could use a
+breadth-first or a depth-first strategy. (See the TOWER demo.) E.g.
+think how it would work with the following picture:
+
+
+        ************
+        *         *
+        *        *
+        *   *************************
+        *      *        *     *
+        *     *         *    *
+        *    *          *   *
+        *               *  *
+        *               * *
+        *****************
+
+
+Keeping track of which points you have and have not scanned from, and in
+which directions, is a complex task. Instead we shall explore an
+alternative approach in which all the lines are found in parallel,
+during a single scan of the picture.
+
+-- USING THE DATABASE TO RECORD LINE INFORMATION ----------------------------
+
+You now have a procedure SCAN which makes a list recording all the
+painted picture locations. This list is a very simple "database", a
+store of information, which could be used to answer questions about what
+is in the picture. For instance, you could write procedures to search
+through the list for points in the same row and for points in the same
+column, and for points in the same diagonal, and group those points into
+lines.
+
+But that would be rather pointless (sorry!), since you might as well go
+back and search the original picture. If POINTLIST is very long (i.e if
+there are lots of points in the picture) then constantly searching down
+the list for neighbours of a given point would take much more time than
+looking in the picture at the eight neighbours of the point. (The
+picture is an "analogical" or "iconic" representation with useful
+addressing properties.)
+
+We can make the program behave more sensibly while scanning, by using a
+better structured database. Instead of putting all the points into a
+single list, let us make a list for each row, column or diagonal
+containing points. But how could we know in advance how many lists to
+create? Should we declare a whole lot of variables for them, e.g.
+
+          vars col1 col2 col3....row1 row2 row3...diag1 diag2 diag3....;
+
+and assign [] to them, then alter TESTAT so that as it finds a point it
+stores it in the appropriate lists? (How many lists would each point go
+into?)
+
+Instead of doing this, we can use the POP11 DATABASE, which is ideal for
+the situation when you cannot tell in advance how many items will have
+to be stored. Suppose we store a pattern in the database for every row
+and column containing points. For instance, if there are points on
+column 3, and L is a list of all those points, we want the database to
+contain the entry:
+
+         [column 3 ^l]
+
+E.g. it might look like:
+
+        [column 3 [[3 9] [3 8] [3 4] [3 3] [3 2]] ]
+
+if L is a list of five points. Such lists can be stored in the database.
+If L is a list of three points in row Y, we can use the command
+
+        add([row ^y ^l])
+
+which will add to the database a list something like:
+
+        [row 5 [[5 5] [6 5][7 5]]]
+
+How can we achieve this for every row and column containing points?
+There are several sub-problems:
+   (a) Given a point, how do we decide which row and which column it
+   belongs to?
+   (b) When we know the number of the appropriate row or column how do
+   we get the point added to the appropriate list in the database?
+   (c) How do we make this happen at all places in the picture where
+   there is paint? Can we alter the procedure RECORDPOINT so that when
+   it is called by TESTAT, inside SCAN, it will do what is needed?
+
+-- ASSIGNING POINTS TO ROWS AND COLUMNS -------------------------------------
+
+Problem (a) is probably the easiest. We are representing a point as a
+two element list, containing two numbers, one for the column (X value)
+and one for the row (Y value). So we can easily define a procedure
+which takes a point as argument and returns its column number, thus:
+
+          define columnof (point);
+                point(1);
+          enddefine;
+
+Now define a procedure called ROWOF, which produces the row number of a
+point.
+
+The next task, (b) requires a procedure ADDTOLIST, which can be used as
+follows to ensure that a point is recorded in the appropriate column:
+
+          addtolist("column", columnof(point), point);
+
+If the point is [4 8] that should store in the datbase:
+
+        [column 4 [[4 8]] ]
+
+Doing the same with point [4 9] should change this to:
+
+        [column 4 [[4 9] [4 8]] ]
+
+A similar command would work for the row. If the column or row already
+has entries, the new point should be added to the list. If not, a new
+entry should be created. Here is a possible schema:
+
+          define addtolist(type,number,point);
+                vars list;
+                if present([^type ^number ?list])
+                then remove(it);
+                        [^point ^^list] -> list;
+                        add([????? ^list])
+                else
+                        add([ ??????  ])
+                endif
+          enddefine;
+
+Try defining that procedure, replacing the question marks with appropriate
+POP11. Notice the use of 'IT' in line 4. If PRESENT has found something
+in the database, it not only returns it as its result, it also assigns
+the thing found to the variable IT. (FOREACH, ADD and REMOVE do the
+same. See POPNOTES.)
+
+Test ADDTOLIST by doing things like:
+
+          trace present add remove;
+          addtolist("column", 3, [3 5]);
+          database ==>
+          addtolist("column", 3, [3 8]);
+          database ==>
+
+(The SEEPICTURE program uses "VRT" rather than "COLUMN".)
+
+Construct a new definition for the procedure RECORDPOINT so that it
+stores the point in the database in the appropriate way, using
+ADDTOLIST, COLUMNOF and ROWOF. Then TESTAT, which calls RECORDPOINT, and
+SCAN, which calls TESTAT, need not be redefined. (This is an
+illustration of modular program design. The interface between SCAN and
+RECORDPOINT is clearly defined by saying that RECORDPOINT gets two
+inputs, X and Y, and can then take appropriate action. RECORDPOINT does
+not interfere with any variables used in SCAN or TESTAT, so changing
+RECORDPOINT will not alter their behaviour.)
+
+Try out your procedures by drawing a simple picture, then jumping to
+various points in the picture, executing RECORDPOINT and TESTAT, and
+then examining the contents of the database. You may find it helpful to
+trace the various procedures used, including ADDTOLIST, PRESENT, REMOVE,
+ADD.
+
+Then see if using SCAN, as before, gets everything in the picture
+recorded appropriately. Tracing ADDTOLIST can cause a lot of printing,
+so make sure the picture is simple!
+
+-- DIAGONAL LINES (THIS SECTION IS OPTIONAL) --------------------------------
+
+What about pictures including diamonds, triangles, and other shapes,
+like letters, where there may be diagonal lines? You may like to try
+modifying the procedure RECORDPOINT so that it builds up entries of the
+form
+
+          [leftdiag ^n ^l]
+          [rightdiag ^n ^l]
+
+where N is a number indicating which diagonal, and L is a list of the
+points in that diagonal. You'll need two procedures which, when applied
+to a point, produce numbers corresponding to the diagonals they are in.
+E.g. LEFTDIAGOF when applied to a point should produce the number of the
+diagonal sloping up to the left through that point, and RIGHTDIAGOF
+should produce the number corresponding to the diagonal sloping up to
+the right.
+
+A useful trick is to notice that if you take a group of points all on
+the same line sloping up to the right, then as you go up the line you
+keep increasing the x-coordinate and the y-coordinate by the same
+amount. So the difference between X and Y is the same for all points on
+that diagonal. So the procedure to give a number for that diagonal can
+just take any point on it and, say, subtract its y-coordinate from its
+x-coordinate. Check that this procedure avoids giving the same number to
+two different diagonals.
+
+A similar trick deals with diagonals sloping up to the left. As you
+start at the top left, moving down to the right, you are gradually
+decreasing the y value of points and increasing the x value. The two
+changes are equal in magnitude, but opposite in sign, so that the sum of
+X and Y must be the same for all points on the same line sloping down to
+the right, or up to the left. Use this as a basis for defining
+LEFTDIAGOF.
+
+Try defining these procedures, and modify RECORDPOINT so that it uses
+them to store points in lists correspoinding to diagonals. Then test all
+this again, using SCAN, on a simple picture with a couple of diagonal
+lines.
+
+NOTE
+If ADDTOLIST is traced you'll notice that all the points in any one row,
+column or diagonal are found in an order which corresponds to their
+order in the line. This is a result of the fact that we scan the picture
+in an orderly fashion. This is very useful, since it means that by
+examining the lists of points stored in the database, we can find out
+where lines begin and end without having to re-order the points.
+
+Notice that we are making our system gradually more and more complex by
+making alterations to individual procedures. If a system is well
+designed, you should be able to redefine a part of it and still find
+that the whole thing works, though perhaps in a new way. ("Modular" or
+"structured" programming).
+
+EXERCISE 3
+    Define ADDTOLIST and try out SCAN with different pictures, showing
+    how the database is altered. Write a brief description of how the
+    program works, with trace printing. (Use RECORD. See TEACH RECORD)
+
+-- SHOULD LINES BE FOUND BY "TRACKING"? -------------------------------------
+
+It is worth noticing that there are many other ways we could have
+designed a program to find lines of points in the picture. For example,
+we could have had a procedure to search the picture for all the
+horizontal lines, another to search for all the vertical lines, and two
+more for each of the two lots of diagonal lines. Instead, we have a
+single procedure which can be thought of as finding the lines in all
+these different orientations in parallel. Another possibility, already
+mentioned, would have been to scan the picture until a painted location
+is found, and then to try tracking from there along whatever line the
+point belongs to. (This is called "line-following"). This would have
+raised a lot of nasty problems. If two lines pass through the same
+point, how could we choose which one to follow first? How could we
+record all the lines we have not yet tracked, and make sure we come back
+to them later to track them to see where they end? When we reach dead
+ends should we continue scanning the picture to see if there are more
+points from which to start tracking? Then how can we ensure that we
+don't track the same line more than once? Would marking picture points
+with a different paint as we track along them help? Or would it make us
+miss some lines.
+
+EXERCISE 4 (Optional)
+    Write a discussion of the different ways of finding all the lines.
+    Compare their strengths and weaknesses.
+
+You might like to explore these problems, and perhaps design a program
+which finds lines by tracking along neighbouring points.
+
+One of the problems with the "parallel" line-finding method described
+previously is that every point gets stored in several line lists no
+matter whether there is really a line of dots or not. So the database
+ends up with a very large number of lines recorded in it, but very many
+of them have only one point, or perhaps two isolated points in them.
+
+EXERCISE 5 (Optional)
+    Try defining a procedure which will remove all such entries from the
+    database. The simplest strategy is to remove all the lists of length
+    1. But you could do better by looking at all the lists to make sure
+    that they don't contain isolated points. Given a list of points in
+    the same row column or diagonal, how do you decide which of them are
+    isolated points?
+
+    Could you change TESTAT or RECORDPOINT to stop line fragments with
+    only one point being stored? This might be better than removing them
+    later. It would keep the database much smaller, and would therefore
+    speed up database access.
+
+EXERCISE 6 (Optional)
+    A big gap in our discussion is what to do about lines with gaps in
+    them. A picture might contain a row like this:
+
+
+            *****  *** * * ************    **   ********
+
+    Our programs would put all the points marked into a list for the
+    corresponding row. Presumably you'd like the list to be broken into
+    several chunks, and maybe the very short lines removed. (The
+    seepicture program uses a variable MINLINELENGTH to control this.
+    Can you see why the default value is set to 4, so that three
+    consecutive dots will be ignored if not part of a larger consecutive
+    run?
+    As a step towards solving this problem, try writing a program which
+    takes a list of numbers, like
+        [1 2 3 4 8 9 10 13 15 17 18 19 20 21 24 25 29 30 31 32 33 34]
+    and breaks it up into lists of consecutive numbers, leaving out all
+    consecutive runs which are shorter than MINLINELENGTH. You can then
+    try out your program with different values for MINLINELENGTH. The
+    same technique can then be used with the slightly harder problem of
+    breaking up lists of points.
+
+Could procedures of the sorts described here be used in a program to
+play noughts and crosses (tic-tac-toe)? You'd need to modify the program
+so that it can look for lines of "O"s and lines of "X"s. How could you
+make it ignore all the diagonals except the two long ones in a 3 by 3
+picture?
+
+An (optional) exercise would be to write a program which can examine a
+noughts and crosses board (a 3 by 3 turtle picture), and answer
+questions like (a) has either side won? (b) Does one of the sides have a
+winning move (i.e. are there two of the same marks in a row column or
+diagonal with a vacant square completing the line)?
+
+What about a program which could tell whether anybody had won, or was
+about to win a game of GO-MOKU? (This is a game of noughts and crosses
+on a 19 by 19 board, and the first to get five in a line wins.)
+
+-- FURTHER EXERCISES ON LINES AND JUNCTIONS ---------------------------------
+
+(Don't expect to get through more than a subset.)
+There are many things you could do with the "line-finding" procedures
+described so far. Try one or more of the following:
+1. Write a program which looks at a turtle picture and for each line it
+   finds (with three or more consecutive points?) it prints out
+   information of the form:
+           Line from .... to .... with orientation ....
+   where the blanks are filled with the two end points and one of the
+   four words "vertical", "horizontal", "leftdiagonal", "rightdiagonal".
+   Perhaps it could also print out the length of the line?
+2. Write a program which deletes all the information stored by SCAN and
+   instead replaces it with patterns of the form
+
+           [line from ^end1 to ^end2 orientation ^orient]
+
+3. Design a program to find all the points which are ends of two or more
+   lines (i.e. junctions where lines meet). For each such point make a
+   list of the lines ending at that point and then store a pattern of
+   the form
+
+           [junction ^point ^linelist]
+
+   How should the lines in LINELIST be represented? You could use
+   PRESENT to retrieve patterns of the forms mentioned in 2 and use each
+   pattern to represent a line. Could you make sure that the lines in
+   LINELIST are ordered in some useful way, e.g. clockwise from the
+   point of view of the junction? (Difficult)
+4. Now make a program which prints out for each junction all the lines
+   which meet at that junction.
+5. Instead of merely printing out and storing information about each
+   line and junction, make your program count the number of lines and
+   junctions. Could it use this to decide whether it has a picture of a
+   square or a triangle? How could your program tell the difference
+   between a picture of a square and a picture of a rectangle? How could
+   it tell the difference between a picture of two squares and a picture
+   of an eight-sided figure? How do you tell the difference? How could
+   it distinguish a square from a diamond?
+6. Modify your program so as to recognise and store information about
+   "free" ends of lines, in patterns of the form
+
+           [freeend ^point ^line]
+
+   Extend it so that when given a picture of any one of the following:
+      square, diamond, rectangle, triangle, single line, group of lines,
+   it prints out a description of what is in the picture, using those
+   terms.
+7. What if the end of one line lies somewhere on another, forming a
+   "TEE" junction, as in a "T"? To make your program recognise this you
+   may need to write a procedure to tell whether a point lies on a line.
+   One way is to mark every point on the picture with a list of the
+   lines which go through that point. How?
+8. Try making your program recognise "X" junctions, where two lines
+   cross. A possible way of recognising all sorts of junctions is to
+   take the list of all points on a line and a list of all the points on
+   another line, and see whether the two lists have a non-empty
+   intersection, i.e. a common subset. (For exercises on this sort of
+   thing see the SETS demos). Try extending your program so that
+   besides the descriptions given previously, it can also recognise and
+   describe a "TEE" and a "CROSS".
+9. Ensure that if the picture is composed of two or more disconnected
+   parts (e.g. two separate squares, or a square and a triangle, or a
+   tee a cross and a square) it can find them all and describe them
+   correctly.
+10. Design a program which can deal with pictures of squares and
+   triangles which occlude other squares and triangles. It will need to
+   be able to recognise an incomplete square as forming part of a
+   square, not a triangle.
+11. Consider a turtle picture of a cube. It will have nine lines, seven
+   junctions and three closed regions. Try designing a program which
+   will find the three regions. It will have to use the information
+   about junctions, and look for "closed chains" of lines. Should it
+   also find the chain consisting of the outer boundary of the picture?
+   (You could say there are four regions in the picture, counting the
+   background, and that the outer boundary of the picture is the
+   boundary of that region.) For each region you could make a list of
+   the lines bounding that region, and a list of the corners of that
+   region, and store a pattern of the form
+
+           [region ^linelist ^junctionlist]
+
+12. Could you design a program to produce descriptions in English of a
+   picture?
+13. What about a program to take the information in the database and use
+   it to draw a new picture, which is a copy of the original? What
+   kinds of database information would make this possible? Can you
+   imagine ways in which the information stored in the database might
+   lead the program to draw a copy which is not exactly like the
+   original? Could this be an explanation of some of the mistakes people
+   make when they copy pictures?
+
+There are many possible extensions of these exercises. You could easily
+generate a project from them. Some of the tasks are quite difficult.
+
+The REGIONS demo indicates some ways of going beyond finding lines and
+junctions.
+
+The LABELLING demo illustrates some of the problems of interpreting a
+turtle picture as representing overlapping plates.
+
+--- $poplocal/local/teach/pictures
+--- Copyright University of Sussex 1989. All rights reserved. ----------

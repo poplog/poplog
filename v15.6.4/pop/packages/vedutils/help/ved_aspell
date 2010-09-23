@@ -1,0 +1,317 @@
+HELP VED_ASPELL                                    Aaron Sloman Jan 2003
+                                                        Revised Jan 2005
+
+On linux systems, aspell has superseded ispell. So the library
+ved_ispell has been modified and the result is ved_aspell, described
+below.
+
+LIB VED_ASPELL
+
+There are two main modes for using this. One runs aspell interactively
+on the current ved file, enabling you to make changes to your file, and
+also to add new words to your private list of words. The second runs
+aspell non-interactively (with the -l flag) and produces an
+alphabetically sorted list of words that aspell did not like. You then
+have various options available in the form of VED ENTER commands,
+described below. I personally prefer the non-interactive mode. I can
+then quickly skim over various things that aspell does not like, but
+which I don't wish to put into my private dictionary (e.g. names of
+authors, some latex commands and some technical terms that I don't use
+often).
+
+
+ENTER aspell
+    This command enables you to run the Unix interactive spelling
+    checker, "aspell", on the current file. The full behaviour of
+    aspell is described in the documentation directory which may
+    be available somewhere like this on your linux system:
+
+        /usr/share/doc/aspell-0.33.7.1/
+        This is where it is on RedHat 8.0
+        Note that the documentation states that aspell is being
+        subsumed under the more generic pspell. For more information
+        see:
+            http://pspell.sourceforge.net/
+
+
+ENTER aspell -l
+    Runs it non-interactively, in the same way as the old ENTER spell
+    command did (See HELP VED_SPELL), giving you a Ved buffer containing
+    words that aspell does not recognize. Some of the commands below
+    enable you to process those words.
+
+The remainder of this help file is mainly based on HELP VED_ISPELL (now
+obsolete) which was based on HELP VED_SPELL (also obsolete), which used
+ideas in an early version written by Ben du Boulay.
+
+
+CONTENTS
+
+ -- Interactive and non-interactive execution
+ -- Running interactively
+ -- The user's dictionary
+ -- User-assignable global variables
+ -- Ved commands after non-interactive use of aspell
+ -- ENTER find
+ -- ENTER storeit
+ -- ENTER storethem
+ -- ENTER findit
+ -- ENTER fixit
+ -- ENTER gfixit
+ -- Additional ENTER commands
+ -- ENTER spellflags
+ -- ENTER spellflags <string>
+ -- ENTER userswords
+ -- ENTER userswords <string>
+ -- ENTER readuserswords
+ -- An older non-interactive spelling checker
+ -- Getting more information
+
+-- Interactive and non-interactive execution --------------------------
+
+When you give the "ENTER aspell" command with or without arguments the
+current file is written to disc, if it has been changed, and then aspell
+is run on that file.
+
+If not run with "-l" it will be run interactively. In that case, if you
+are running XVED, a new xterm window will startup up, and aspell will
+run in that window. If you are not running XVED but ordinary VED e.g. in
+an xterm window, the current VED process will be suspended and aspell
+will be run in the current xterm window. When you finish, Ved will
+regain control of the window.
+
+When aspell has finished, VED will check whether the file has been
+changed, and if so it will read it in again, and take you to the same
+location as before.
+
+If run non-interactively, i.e. with the "-l" (for "list") argument, it
+will read in a list of words which aspell thinks may be wrongly spelled.
+It will be confused by names written without spaces, e.g. B.Bloggs and
+many other things, but you can ignore those cases.
+
+-- Running interactively ----------------------------------------------
+
+While aspell is running interactively, it repeatedly presents you with
+items it thinks may have been mis-spelled, checking its own dictionary
+and your private list of words stored in the file ~/.aspell_words (which
+can contain names, technical terms, and other things you don't want
+aspell to treat as spelled wrongly.)
+
+Each time aspell finds a word it thinks may be incorrect it gives you a
+display showing the context, with the word high-lighted, and if it can
+it gives you some numbered alternative replacement spellings at the
+bottom of the screen, and a menu of letters that indicate options
+available. For example if you accidentally wrote 'egggs' instead
+of 'eggs' in your file, you may be given these options:
+
+1) egg gs                                                 6) egos
+2) egg-gs                                                 7) ergs
+3) eggs                                                   8) gags
+4) egg's                                                  9) gigs
+5) eggnogs                                                0) EGA's
+
+typing the number '4' will insert 'eggs' in place of 'egggs'
+
+Below the numbered options it also shows you a meny of commands:
+i) Ignore                                                 I) Ignore all
+r) Replace                                                R) Replace all
+a) Add                                                    x) Exit
+
+If you want one of them, type the letter.
+
+If you want the word to be accepted, but only in this document, press
+the "i" key. To ignore it in all occurrences pres "I"
+
+If you want the word to be Added your private aspell dictionary (see
+below) so that it will not be treated as incorrect in future, press the
+"a" key.
+
+If you wish to Replace the word with a different one press the "r" key.
+You will be prompted for the replacement spelling. If you press "R" it
+will replace all occurrences in this document. Press "x" to exit.
+Type CTRL C to abort.
+
+-- The user's dictionary ----------------------------------------------
+
+As explained in the "aspell" documentation, it is possible to specify a
+file containing words that you don't want to be reported as
+unrecognised, which defaults to
+    .aspell.english.per,
+
+or (for more recent versions of aspell)
+    .aspell.english.pws
+
+You can also have dictionaries for different languages.
+
+See the section on global variables, below.
+
+-- Updating the aspell dictionary from the .spellwords file -----------
+
+If you run aspell interactively and you add any new words, it will
+change your file:
+
+        ~/.aspell.english.pws
+
+a new version of the file is created and the old one saved with the
+'.bak' suffix added.
+
+However the 'ENTER storeit' command below assumes that you have a
+different file (by default ~/.spellwords) which contains all your
+additions to the general dictionary. Then after using storeit you can
+later create a personal word file fpr aspell e.g.
+        .aspell.english.per
+
+by using a shell command of the form
+
+    aspell --lang=english create personal ./.aspell.english.per < .spellwords
+
+(after removing or renaming your old file .aspell.english.per).
+
+If you don't use the above command to create a new aspell personal word
+file, aspell will not notice the words that you have stored.
+
+Later on I'll add a Ved command to automate all that, but aspell is
+changing, and I am not sure of the differences between the .pws and the
+.per suffixes.
+
+-- User-assignable global variables -----------------------------------
+
+There are two global variables that play important roles in LIB ved_aspell.
+
+    veduserswords
+        A string, the name of a file containing user's dictionary.
+        The default is '$HOME/.aspell_words'
+        If ever you add words to this manually, you must ensure that
+        they are sorted into into alphabetical order, using either the
+        unix "sort" command (see 'man sort') or Ved's * ved_smr
+        (sort marked range) procedure.
+
+
+    vedspellflags
+        A string, the set of flags to be given to "spell" (see 'man spell'),
+        if no argument is provided for ENTER aspell.
+
+        The default value is
+                ' -p  ~/.aspell.english.per '
+
+        This can be changed (during the current session) by
+            ENTER spellflags,
+        and can be over-ridden by the "flags" argument to ENTER aspell
+
+The contents of these two variables can either be set in advance, e.g.
+in your vedinit.p file, or changed interactively using the two commands
+
+    ENTER spellwords
+    ENTER spellflags
+
+as explained below.
+
+
+-- Ved commands after non-interactive use of aspell -----------------
+
+When aspell has been run with the "-l" argument Ved produces a temporary
+buffer containing the words aspell treats as incorrect.
+
+There are various things you can do in VED if the cursor is in that
+file.
+
+The following commands assume you are currently editing the output file
+produced by spell and the "other" VED file is your original file. (I.e.
+it must be the last file accessed by you in VED before going to the
+output file, so that ESC x switches between the two files.
+
+If you put the cursor on a word in the output file that interests you
+you can then give one of the following commands.
+
+
+-- ENTER find
+    Find the next word not in your dictionary. Starting from the current
+    line this searches the output file for the first occurrence of a
+    word that is not in the file specified by -veduserswords-. The
+    next few commands provide actions that you can perform on such a
+    word if found. To make things easier, the ENTER find commands gives
+    you a menu of these commands. Type the number of the required
+    option, or press RETURN to do nothing.
+
+
+-- ENTER storeit
+    Store the current word in the current user's dictionary file
+    (-veduserswords-). The file is then sorted automatically, and
+    duplicates removed. This command can be used to prevent the word
+    being reported as misspelled later. However, you first have to run
+    the aspell command to use the list created by Ved in order to
+    create a personal list that can be used by aspell, as explained
+    above.
+
+-- ENTER storethem
+    Store the words in marked range in your dictionary. If there is no
+    marked range, you'll get an error message. Like the previous command
+    this sorts the file and removes duplicates. As with the previous
+    command you must update your aspell personal world list separately.
+
+-- ENTER findit
+    Find the next occurrence of this word in the original file. It also
+    sets up an ENTER search command so that you can press the REDO key
+    to search for another occurrence.
+
+-- ENTER fixit
+    Start an interactive search and replace command. If the word was
+    e.g. "prgram", the fixit command will prepare an incomplete VED
+    search and replace command on the status line in the original file,
+    i.e. s"prgram"
+
+    You can then type in the replacement word, with the correct
+    spelling and then press RETURN, to start an interactive search and
+    replace command, as described in HELP * VEDSEARCH
+
+-- ENTER gfixit
+    Start a global search and replace command. This is analogous to
+    ENTER fixit, except that instead of "ENTER s", this starts an
+    "ENTER gs" command, as described in HELP * VEDSEARCH
+
+
+-- Additional ENTER commands ------------------------------------------
+
+-- ENTER spellflags
+    Shows you the current flags used by ENTER spell
+
+-- ENTER spellflags <string>
+    assign <string> to be the default flags argument for ENTER spell
+
+-- ENTER userswords
+    Shows you the name of the current file used for -veduserswords-
+
+-- ENTER userswords <string>
+    Assign <string> to veduserswords
+
+-- ENTER readuserswords
+    Read the words in your dictionary (Done by ved_spell if necessary)
+    [Users should never need to use this command]
+
+
+
+-- Getting more information -------------------------------------------
+
+There are more options for the use of aspell summarised by the shell
+command
+    aspell help
+
+readable in Ved using
+    ENTER aspell help
+
+For some of those options it is probably best to run aspell directly as
+a shell command
+
+    aspell [options] <command>
+
+For more detailed information look in
+    /usr/share/doc/aspell*
+    /usr/share/doc/pspell*
+
+See also
+
+        http://pspell.sourceforge.net/
+        http://aspell.sourceforge.net/
+
+--- $poplocal/local/help/ved_aspell
+--- Copyright University of Birmingham 2005.

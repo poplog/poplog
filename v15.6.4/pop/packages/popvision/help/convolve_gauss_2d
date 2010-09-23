@@ -1,0 +1,110 @@
+HELP CONVOLVE_GAUSS_2D                          David Young
+                                                November 1992
+
+LIB *CONVOLVE_GAUSS_2D provides simple but reasonably efficient
+procedures for convolving images with Gaussian masks. See *GAUSSMASK for
+details of the masks that are used. See *CONVOLVE_2D for a definition of
+convolution.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- convolve_gauss_2d
+ -- convolve_gauss_2d_sizeout and convolve_gauss_2d_sizein
+ -- convolve_dog_2d
+ -- convolve_dog_2d_sizeout and convolve_dog_2d_sizein
+
+-- convolve_gauss_2d --------------------------------------------------
+
+convolve_gauss_2d(ARRIN, SIGMA, ARROUT) -> ARROUT
+    This first form, where SIGMA is a real number, convolves a 2-D array
+    ARRIN with a circular 2-D Gaussian mask of width SIGMA. The equation
+    of the mask used is:
+
+                                 2    2              2
+                    A * exp ( -(x  + y )  / 2 * SIGMA )
+
+    where A is chosen so that the elements of the mask sum to unity, and
+    x and y are the offsets from the array element being processed.
+    ARRIN should if possible be a packed array of single precision
+    floats, as returned by *newsfloatarray, but other arrays may be
+    used. ARROUT may be an array to receive the results, preferably
+    created using *newsfloatarray. If ARROUT is <false>, a new array is
+    created and returned. This will be smaller than ARRIN by an amount
+    depending on SIGMA - see *GAUSSMASK for how to predict this amount.
+    ARROUT may also be a tag for oldsfloatarray (see *newsfloatarray).
+    (ARROUT may be omitted, which is equivalent to giving <false>.)
+
+convolve_gauss_2d(ARRIN, OPERATIONS, ARROUT) -> ARROUT
+    The second argument can be a list of operations. This must have an
+    even length, and consist of an operation name followed by a sigma
+    value. Possible operations are:
+
+        smoothx
+        smoothy
+        diffx
+        diffy.
+
+    A "smooth.." entry means smooth the array with a 1-D Gaussian mask
+    oriented along the x- or y-axis. A "diff.." entry means convolve the
+    array with the first derivative of a 1-D Gaussian mask oriented
+    along the relevant axis. For example, if OPERATIONS is [smoothx 2.0
+    diffy 2.0] the array is smoothed along x with a Gaussian of width
+    parameter 2.0, and convolved along y with the derivative of a
+    Gaussian of the same width. (This is equivalent to smoothing the
+    array with a circular Gaussian and then differentiating it along y.)
+    ARROUT is is above.
+
+-- convolve_gauss_2d_sizeout and convolve_gauss_2d_sizein -------------
+
+convolve_gauss_2d_sizeout(BOUNDS, SIGMA) -> NEWBOUNDS
+convolve_gauss_2d_sizeout(BOUNDS, OPERATIONS) -> NEWBOUNDS
+    This allows the size of the output array produced by
+    convolve_gauss_2d to be predicted without doing the convolution.
+    BOUNDS is an array or a boundslist, giving the size of the input
+    array. SIGMA or OPERATIONS is as for convolve_gauss_2d. NEWBOUNDS is
+    the size of the output array produced by a call to convolve_gauss_2d
+    with the specified arguments (and no output array supplied).
+
+convolve_gauss_2d_sizein(SIGMA, BOUNDS) -> NEWBOUNDS
+convolve_gauss_2d_sizein(OPERATIONS, BOUNDS) -> NEWBOUNDS
+    This allows the size of the input array needed by convolve_gauss_2d
+    to be predicted. SIGMA or OPERATIONS is as for convolve_gauss_2d.
+    BOUNDS is an array or a boundslist, giving the size of the output
+    array that is to be produced. NEWBOUNDS is the size of the input
+    array needed by a call to convolve_gauss_2d with the specified
+    arguments if enough data is to be produced to exactly fill the
+    output array specified.
+
+-- convolve_dog_2d ----------------------------------------------------
+
+convolve_dog_2d(ARRIN, SIGMA, ARROUT) -> ARROUT
+    This convolves ARRIN with a difference-of-Gaussians mask. The width
+    of the positive mask is given by SIGMA. The width of the negative
+    mask is given by
+
+        convolve_dog_ratio * SIGMA
+
+    where convolve_dog_ratio is a user-assignable variable which
+    defaults to 1.6. ARRIN and ARROUT are as above.
+
+-- convolve_dog_2d_sizeout and convolve_dog_2d_sizein -----------------
+
+convolve_dog_2d_sizeout(BOUNDS, SIGMA) -> NEWBOUNDS
+    This allows the size of the output array produced by convolve_dog_2d
+    to be predicted without doing the convolution. BOUNDS is an array or
+    a boundslist, giving the size of the input array.NEWBOUNDS is the
+    size of the output array produced by a call to convolve_dog_2d with
+    the specified SIGMA (and no output array supplied), provided
+    convolve_dog_ratio remains unchanged.
+
+convolve_dog_2d_sizein(SIGMA, BOUNDS) -> NEWBOUNDS
+    This allows the size of the input array needed by convolve_dog_2d to
+    be predicted. BOUNDS is an array or a boundslist, giving the size of
+    the output array that is to be produced. NEWBOUNDS is the size of
+    the input array needed by a call to convolve_dog_2d with the
+    specified SIGMA if enough data is to be produced to exactly fill the
+    output array specified, provided convolve_dog_ratio remains
+    unchanged.
+
+--- $popvision/help/convolve_gauss_2d
+--- Copyright University of Sussex 1994. All rights reserved. ----------

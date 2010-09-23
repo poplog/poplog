@@ -1,0 +1,124 @@
+#!/bin/sh
+
+## $local/com/install_package
+## http://www.cs.bham.ac.uk/research/poplog/com/install_package
+## Install a linux poplog local package to simulate the Birmingham setup
+## Aaron Sloman ( 20 Sep 1999 )
+## 3 Jan 2005
+##      Changed
+##          to use bash,
+##          to allow full file name,  (including .tar.gz)
+##      and to allow a list of files to be installed
+##
+## 31 Oct 2003
+##      Changed to assume that $poplocal already set so that it can be
+##      used with different locations for poplog.
+## 12 Feb 2003
+##      Changed to give a warning if run without an argument
+##      or with '-help' argument
+## 17 Nov 2002
+##      altered header to be more accurate. Now mentioned in
+##      http://www.cs.bham.ac.uk/research/poplog/freepoplog.html
+## 23 Aug 2001 altered to use gunzip -c instead of zcat, because
+##             some sun sites have a zcat that only handles .Z files
+##             Also altered to check if poplocal exists, and abort otherwise
+##             Creates $poplocal/local if necessary
+
+
+if [[ ! ${1}  ||  "x$1" == "x-help"  ]]; then
+
+    echo ""
+    echo "To install foo.tar.gz give the command:"
+    echo ""
+    echo "   install_package foo"
+    echo ""
+
+    exit
+fi
+
+tardir=`pwd`
+
+if [[ ! ${poplocal} ]]; then
+    echo ""
+    echo "CANNOT INSTALL $1: the poplocal environment variable is not set"
+    echo ""
+
+    exit 0
+else
+    echo "Installing $1 in $poplocal/local"
+fi
+
+if [ -d $poplocal/local ]; then
+
+    echo "$poplocal/local exists"
+
+else
+    echo "creating $poplocal/local"
+    mkdir -p $poplocal/local
+    # make sure others can read it
+    chmod 755 $poplocal/local
+fi
+
+
+cd $poplocal/local
+
+if [ ! -d lib ]; then
+    echo "creating local/lib directory"
+    mkdir lib
+    # making it world readable
+    chmod 755 lib
+fi
+
+echo ""
+
+while [[ ${1} ]] ;
+do
+    nosuffix="unknown"
+
+    if [ -f $tardir/$1 ]; then
+
+        nosuffix="false"
+
+        echo "Unpacking $1"
+        gunzip -c $tardir/$1 | tar xf -
+
+    elif [ -f $tardir/$1.tar.gz ] ; then
+
+        nosuffix="true"
+        echo "Unpacking $1.tar.gz"
+        gunzip -c $tardir/$1.tar.gz | tar xf -
+
+    else
+        echo ""
+        echo "No such file as $1.tar.gz"
+        echo ""
+        exit 0
+    fi
+
+    ## Should now check if $poplocal/local/$1/*.p exists, and if so
+    ## link the file(s) to $poplocal/local/lib/
+
+    if [ $nosuffix == "true" ]; then
+        echo 'contents of $poplocal/local/'$1
+
+        ls -l $1
+
+        if [ -e $1/$1.p ]; then
+            echo ""
+            echo linking "$1/$1.p to local/lib directory (links may already exist)"
+
+            ln -s ../$1/$1.p lib
+
+            echo ""
+        fi
+    fi
+
+    echo "$1 installed"
+    echo ""
+
+    shift
+done
+
+
+echo "======= install_package finished ======="
+echo ""

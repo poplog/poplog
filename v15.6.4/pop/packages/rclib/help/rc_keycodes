@@ -1,0 +1,248 @@
+HELP RC_KEYCODES                                   Aaron Sloman Jan 1997
+                                                     Revised 25 Aug 2002
+
+Key codes for recognizing which key has been pressed when a keyboard
+event occurs. This is relevant to the rc_handle_keypress method defined
+for rc_selectable instances in LIB * RC_MOUSEPIC
+
+For the context see
+    HELP * RCLIB,
+    HELP * RC_TEXT_INPUT
+    HELP * RC_LINEPIC, TEACH * RC_LINEPIC
+
+CONTENTS
+
+ -- Keyboard sensitive windows and picture objects
+ -- rc_interpret_key(code) -> key
+ -- Checking the mappings on your keyboard
+ -- List of key code mappings
+ -- -- Main Control Keys
+ -- -- Additional keypad keys (on right)
+ -- -- Arrow keys
+ -- -- Function keys F1-F12 and L1 to L10
+ -- -- Other keys to left and right of Space bar
+ -- -- Upper central keypad keys
+ -- -- Additional 7 keys on Sun type5 keyboard (Top right)
+
+-- Keyboard sensitive windows and picture objects ---------------------
+
+The following mixin is defined in LIB * RC_WINDOW_OBJECT
+
+    define :mixin rc_keysensitive;
+        slot rc_keypress_handler = "rc_handle_keypress";
+    enddefine;
+
+Both windows and picture objects within windows can be made sensitive to
+keyboard key events by making them instances of this class.
+
+In the case of a new window object it is necessary also to run the
+procedure rc_mousepic to make it sensitive.
+
+    rc_mousepic(win_obj, [keyboard])
+
+will make win_obj keyboard sensitive if it is not already. Picture
+objects which are to be keyboard sensitive must be explicitly added to
+the list of objects known to the window, i.e.
+
+    rc_add_pic_to_window(pic, win_obj, atfront);
+
+See HELP * RC_LINEPIC/rc_add_pic_to_window
+
+The event handling mechanisms defined in LIB * RC_MOUSEPIC react to
+key down and key up events by finding the window, or picture object
+which should handle the event, as described in the sections following:
+    HELP * RC_LINEPIC/'event handlers'
+
+They then get the value of the rc_keypress_handler slot in the window
+object or picture object. This may be a method (or procedure) or a word
+whose value is a method or procedure. Using a word simplifies debugging.
+Going via this slot makes it possible to use methods with different
+names in connection with different classes. By default the name of the
+method is "rc_handle_keypress" as indicated by this line in the mixin
+definition:
+
+        slot rc_keypress_handler = "rc_handle_keypress";
+
+Its use in a window object is illustrated in
+
+    TEACH * RC_LINEPIC/rc_handle_keypress
+
+For the rc_text_input mixin, defined in LIB RC_TEXT_INPPUT, the
+default method is rc_handle_text_input.
+
+-- rc_interpret_key(code) -> key --------------------------------------
+
+A user re-definable procedure which interprets keycodes is in
+
+    LIB * RC_INTERPRET_KEY
+
+To examine it do
+    ENTER showlib rc_interpret_key
+
+
+Its definition starts thus
+
+    define vars rc_interpret_key(code) -> key;
+        if code /== 0 and code < 127 then code
+        elseif code == 65505 then "SHIFT" ;;; left
+        elseif code == 65506 then "SHIFT" ;;; right
+        elseif code == 65507 then "CONTROL"
+        ....
+
+A complete list of mappings found experimentally an a variety of
+keyboards by the author is listed below. If the mappings given by the
+default definition of the procedure rc_interpret_key do not fit what you
+expect from your keyboard (e.g. because key mappings have been changed
+at a lower level) you can easily copy and edit the definition of the
+procedure. Make sure you always compile it to prevent autoloading of the
+default version.
+
+It is possible to use a property instead of a procedure if faster
+translation is required.
+
+-- Checking the mappings on your keyboard -----------------------------
+
+To find out which codes are transmitted by which buttons on your
+terminal do something like the following:
+
+uses rclib
+uses rc_window_object
+uses rc_mousepic
+
+vars win1 = rc_new_window_object(700, 40, 300, 250, true);
+
+rc_mousepic(win1, [keyboard]);
+
+define :method rc_handle_keypress(w:rc_window_object, x, y, modifier, key);
+    ;;; select Ved's output file for printing, but prevent the
+    ;;; file being writeable
+    vededit('output.p', vedhelpdefaults);
+
+    ;;; get ready to print at end of file
+    vedendfile();
+
+    ;;; Make printing go into the output buffer
+    dlocal cucharout = vedcharinsert;
+
+    ;;; Find out key code and location, and whether modifier
+    ;;; key is down at the time
+    [
+        %if key >= 0 then 'Key pressed at'
+         else 'key released at'
+         endif% ^x ^y : key ^key
+        %if modifier = nullstring then 'no modifier'
+            else 'modifier: ', modifier
+        endif%
+    ] ==>
+    ;;; See how rc_interpret_key translates the key
+    [Translated as key: %rc_interpret_key(abs(key))%]=>
+
+enddefine;
+
+Then put the mouse pointer into the window, and press various keys to
+see what codes they produce when pressed and released, with and without
+modifier keys, such as SHIFT, CONTROL, META.
+
+The output will go into a VED buffer making it easy to transcribe
+any of the codes into a revised or extended definition of
+rc_interpret_key
+
+
+-- List of key code mappings ------------------------------------------
+
+The actual mappings between the keys pressed and the key codes given as
+final argument to rc_handle_keypress may vary from one system to
+another. By defining a procedure like the above you can experiment to
+find out the actual mappings.
+
+On a Sun running SunOS 4.1.3, with the MIT X11R5 system, and a Sun4 type
+keyboad, and a Sun running Solaris 2.4 with a Sun Type5 keyboard, I
+found the following mappings between numbers and keys. Some of these
+mappings, but not all have also been checked on a Digital Alphastation.
+
+Negative values for the numbers indicate key release (or caps lock
+release):
+
+-- -- Main Control Keys
+
+    65505 Shift(left)   65506 Shift(right)
+    65507 Control       65509 CAPS LOCK
+    65511 Meta (left)   65512 Meta (right)
+    65307 ESC           65535 delete(Del)
+
+    65288 Backspace     65289 TAB
+    65290 Linefeed (Or alt Graph?)
+    65293 Return
+
+    65386 Help          65421 Enter
+
+NOTE:
+    On a PC running linux, additional combiations were found
+    You may need to test the system you are using and alter
+    LIB rc_interpret_key
+
+-- -- Additional keypad keys (on right)
+
+    65451 KP +          65453 KP -
+    65494 KP /          65495 KP *
+
+    65407 Num Lock
+
+    65456 Ins (KP0)     65454 Del (KP .)
+
+    65496 KP7 R7        65498 KP9 R9
+    65500 KP5 R11       65502 KP1 R13
+    65504 KP3 R15
+
+-- -- Arrow keys
+
+On type 5 keyboard these are the keypad keys 4,8,6,2
+    65497 KP8 UP        65499 KP4 LEFT
+    65501 KP6 RIGHT     65503 KP2 DOWN
+
+On type 5 keyboard the following are CENTRAL arrow keys, in the arrow
+keypad. On the type 4 (Sun4), they are the keypad keys 4,8,6,2:
+
+    65361 KP4 LEFT      65362 KP8 UP
+    65363 KP6 RIGHT     65364 KP2 DOWN
+
+-- -- Function keys F1-F12 and L1 to L10
+
+Function keys F1-F12 (top) and L1 to L10 (left)
+    65470 F1            65471 F2
+    65472 F3            65473 F4
+    65474 F5            65475 F6
+    65476 F7            65477 F8
+    65478 F9            65479 F10
+    65480 F11(L1)(stop) 65481 F12(L2)(again)
+    65482 L3(Props)     65483 L4(Undo)
+    65484 L5(Front)     65485 L6(Copy)
+    65486 L7(Open)      65487 L8(Paste)
+    65488 L9(Find)      65489 L10(Cut)
+
+-- -- Other keys to left and right of Space bar
+
+    65513 Alt               65312 Compose
+
+-- -- Upper central keypad keys
+
+    65379   Insert      65535 Delete
+    65360   Home        65367 End
+    65365   PageUp      65366 PageDown
+
+-- -- Additional 7 keys on Sun type5 keyboard (Top right)
+
+    65491 PrintScreen
+    65492 Scroll Lock
+    65490 Pause
+
+Keys with pictures on Sun type 5 keyboard (my interpretation)
+
+    65493 SpeakerOff
+    65492 SpeakerLow
+    65491 Speaker High
+    65494 Power (Top Right)
+
+
+--- $poplocal/local/rclib/help/rc_keycodes
+--- Copyright University of Birmingham 2002. All rights reserved. ------

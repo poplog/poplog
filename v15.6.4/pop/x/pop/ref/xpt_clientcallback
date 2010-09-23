@@ -1,0 +1,104 @@
+REF XPT_CLIENTCALLBACK                          Jonathan Meyer, Aug 1991
+
+       COPYRIGHT University of Sussex 1993. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<   MANAGEMENT OF CLIENT      >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<         CALLBACKS           >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This  REF  file     describes     the     procedures     supplied     by
+LIB * XPT_CLIENTCALLBACK  which  provides  a   way  of  adding   "client
+callbacks" to a widget.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   Client Callback Procedures
+
+
+
+---------------
+1  Introduction
+---------------
+
+Client  callbacks  bear  no  relation   to  X  Toolkit  callbacks   (see
+REF * XT_CALLBACK), except  insofar  as they  share  the same  style  of
+application programming interface.
+
+Client callbacks are  useful in  situations where  applications want  to
+adopt a  callback-style interface  to widgets,  but wish  to extend  the
+number of  callback  list  names  known to  a  widget,  rather  than  be
+restricted to the list of  names (and their associated semantics)  known
+internally by  a  widget. Client  callbacks  provide a  modular  way  of
+extending the concept of a callback.
+
+Client callback  procedures have  the  same calling  form as  X  Toolkit
+callbacks:
+
+            P(widget, client_data, call_data)
+
+
+
+
+-----------------------------
+2  Client Callback Procedures
+-----------------------------
+
+XptAddClientCallback(widget, name, widentproc, client_data)  [procedure]
+        Add a client callback procedure widentproc to the callback  list
+        named  name   of  the   widget  widget,   passing  client   data
+        client_data. widentproc is  a Pop11 word,  ident, or  procedure.
+        name and client_data are arbritrary Pop11 objects.
+
+        Note that client callback lists are identified by testing for an
+        exact equality (ie. ==) for the name argument. Thus, if you  use
+        an  lconstant  or   sectionised  strings  for   name,  you   can
+        effectively create `private' callback lists which.
+
+        If widget did not previously have a client callback list  called
+        name, a new callback list for name is created.
+
+
+XptRemoveClientCallback(widget, name, widentproc,            [procedure]
+                                       client_data)
+        Remove the callback  instance specified by  widentproc and  DATA
+        from the callback list  named name of  widget widget. Note  that
+        the first client  callback with  the same  (ie. class_=)  client
+        data and identical (ie. ==) widentproc is removed.
+
+
+XptRemoveAllClientCallbacks(widget, name)                    [procedure]
+        Removes all callbacks in the  callback list named name from  the
+        widget widget.
+
+
+XptCallClientCallbacks(widget, name, call_data)              [procedure]
+XptCallClientCallbacks(widget, name, call_data, defer)
+        Call all the callback procedures in the callback list named name
+        of the  widget widget,  passing  call_data (an  arbitrary  Pop11
+        object) as the call argument to the callback procedures. If  the
+        optional argument defer is true, * external_defer_apply is  used
+        to call  the  callback list  outside  of the  context  of  any X
+        toolkit callbacks.
+
+
+XptCallAllClientCallbacks(name, call_data)                   [procedure]
+        A special convenience procedure that calls all client  callbacks
+        on client callback lists  named name on  all widgets which  have
+        registered client  callbacks. Then  calls  XFlush to  flush  the
+        output buffers after calling the callback routines.
+
+
+XptHasClientCallbacks(widget, name) -> bool                  [procedure]
+        Returns true  if the  widget has  some client  callbacks in  the
+        callback list named name, and false otherwise.
+
+
+
+
+--- C.x/x/pop/ref/xpt_clientcallback
+--- Copyright University of Sussex 1993. All rights reserved.

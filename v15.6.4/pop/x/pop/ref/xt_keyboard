@@ -1,0 +1,966 @@
+REF XT_KEYBOARD                                   Adrian Howard Jan 1992
+
+       COPYRIGHT University of Sussex 1990. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<     X KEYBOARD HANDLING     >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This REF file deals with  how X interacts with  the key boards and  also
+gives details of  the Pop-11  interface to  various Intrinsics  routines
+which deal with this interaction.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   Format Of KeyProc Procedures
+
+  3   Format Of CaseProc Procedures
+
+  4   External Callback
+
+  5   The XptKeySymTable Structure
+
+  6   The XptKeyCodePtr Shadowclass
+
+  7   The XptKeyCodeList Shadowclass
+
+  8   The XptKeyCodeListPtr Shadowclass
+
+  9   The XptKeySymPtr Shadowclass
+
+ 10   The XptModifiersPtr Shadowclass
+
+ 11   Keyboard Handling Procedures
+
+ 12   Non-checking Keyboard Handling Procedures
+
+ 13   Coercion of Pop-11 KeyProc and CaseProc Procedures
+
+
+
+---------------
+1  Introduction
+---------------
+
+One of the more complex areas of X is the use of the keyboard. Each  key
+on the  keyboard has  an associated  "KeyCode" number  which is  machine
+specific. KeyCodes are associated  with keys, not  the symbols on  them.
+The same KeyCode would be produced by pressing either "x" or "X" on most
+keyboards.
+
+Each symbol on  the keyboard has  a different KeySym.  The mapping  from
+KeyCodes to KeySyms is done with  the aid of "modifiers". Modifiers  are
+associated with special keys, such as <Shift> and <Ctrl>, being pressed.
+A certain KeyCode with no modifier  might produce the "x" KeySym,  while
+the same KeyCode with the <Shift> modifier would produce the "X"  KeySym
+instead.
+
+The separation of KeyCodes  and modifiers from  KeySyms supplies a  very
+flexible, if more complex, keyboard interface to the application writer.
+Instead of having to cater  individually for several different  keyboard
+types, you use a KeySym name which remains constant even if KeyCode  and
+KeySym values change over various implementations of X. For example  the
+KeySym XK_Tab might be triggered by  a "Tab" key on some keyboards,  and
+on others by the "i" key in combination with the <Ctrl> modifier.
+
+The include  file INCLUDE * X_KEYSYMS.PH  provides  macros for  all  the
+basic KeySyms. The macros  all begin with the  "XK_" prefix followed  by
+the key name, eg XK_space, XK_A, and  XK_a. Two things need to be  noted
+about KeySym names. Firstly, punctuation  keys are spelled out, you  use
+XK_question rather than -XK_?-. Second, the KeySym names for some of the
+keys on  the  keyboard  are  not always  obvious.  For  example  on  Sun
+keyboards the KeySym for the "Left" key (the diamond to the left of  the
+space bar on  Sun4 keyboards) is  named XK_Meta_L. For  details see  the
+include file INCLUDE * X_KEYSYMS.PH
+
+KeyCodes and  KeySyms  are actually  represented  in Pop11  as  unsigned
+integers.  The   typespecs  for   KeyCodes  (XptKeyCode)   and   KeySyms
+(XptKeySym) are given in INCLUDE * XPT_XTYPES.PH.
+
+The library LIB * XT_KEYBOARD  provides the Pop11  interface to  various
+Intrinsics routines related to the mapping between KeyCodes and KeySyms.
+The library LIB * FAST_XT_KEYBOARD provides non-checking versions of the
+same procedures,  in addition  to support  for the  conversion of  Pop11
+CaseProc and KeyProc procedures  into forms suitable to  be used by  the
+Intrinsics.
+
+For more information on  the types of the  arguments and results of  the
+procedures in the libraries, see REF * XPT_TYPES.
+
+For more details of keyboard mappings, see chapter 10 in:
+
+               X Toolkit Intrinsics - C Language Interface
+                             X Window System
+                         X Version 11, Release 4
+
+        Copyright (C)  1985,  1986,  1987,  1988,  Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+
+
+-------------------------------
+2  Format Of KeyProc Procedures
+-------------------------------
+
+KeyProc procedures convert KeyCodes to  KeySyms. A KeyProc should be  an
+appropriate external  procedure,  or a  Pop11  procedure that  has  been
+coerced with one of  the XptExportKeyProc(Cached) procedures. A  KeyProc
+procedure  is  registered  with   the  intrinsics  with  the   procedure
+XtSetKeyTranslator.
+
+It is not very  likely that you  will need to  specify your own  KeyProc
+procedures since the  default translation between  KeyCodes and  KeySyms
+will nearly always do what you want.
+
+External procedures should  be external function  closures (for  details
+see  REF * EXTERNAL),  or  of   the  type  XptProcedure.  The   external
+procedures should  expect  to  be  called in  the  same  format  as  the
+following C function prototype:
+
+    typedef void (*XtKeyProc)
+        (Display *, KeyCode, Modifiers, Modifiers *, KeySym *);
+
+As with all handling of external objects in  Pop-11, care must be  taken
+with garbage collection (see REF * EXTERNAL_DATA).
+
+A Pop-11 KeyProc procedure P should expect to be called as follows:
+
+    P(DISPLAYPTR, KEYCODE, MODIFIERS, MODIFIERS_USED, KEYSYMPTR);
+
+The display  pointer DISPLAYPTR  specifies  the server  connection  with
+which the given KeyCode is associated. In Pop11 it is passed as a normal
+display pointer descriptor as returned by XptImportDisplayPtr.
+
+KEYCODE
+    specifies the KeyCode to be translated.
+
+MODIFIERS
+    is an  XptModifiers structure  specifying  which modifier  keys  are
+    pressed. An  XptModifiers structure  is an  unsigned integer  formed
+    from the  logical  inclusive "or"  of  the following  integer  masks
+    (defined in INCLUDE * XPT_XEVENT.PH):
+
+        ShiftMask     Shift key was depressed.
+        LockMask      Caps Lock key was depressed.
+        ControlMask   Control key was depressed.
+        Mod1Mask      The key defined as Mod1 was depressed.
+        Mod2Mask      The key defined as Mod2 was depressed.
+        Mod3Mask      The key defined as Mod3 was depressed.
+        Mod4Mask      The key defined as Mod4 was depressed.
+        Mod5Mask      The key defined as Mod5 was depressed.
+        StandardMask  (ShiftMask || LockMask)
+
+MODIFIERS_USED
+    is an external  pointer which points  to an XptModifiers  structure.
+    This can  be  converted  into an  XptModifiersPtr  shadowclass  with
+    importXptModifiersPtr  (see  the  section  on  the   XptModifiersPtr
+    shadowclass). When  the  KeyProc procedure  exits  the  XptModifiers
+    structure pointed to by  MODIFIERS_USED should contain the  modifier
+    keys that were used  in calculating the  KeySym associated with  the
+    given KeyCode.
+
+KEYSYMPTR
+    is an external  pointer to a  KeySym. When the  KeyProc exits,  this
+    KeySym should be the result of translating KEYCODE with the modifier
+    keys MODIFIERS.
+
+Care must  be taken  when using  Pop11 KeyProc  procedures. It  must  be
+remembered that the Pop11 procedure is  NOT what is registered with  the
+Intrinsics,  the  COERCED  procedure  is.  If  you  are  coercing  Pop11
+procedures yourself, you must ensure that the COERCED procedure does not
+become garbage during the lifetime of the KeyProc procedure. This can be
+done by  explicitly  keeping track  of  the external  function  closures
+returned by  the  coercion  procedures  XptExportKeyProc(Cached)  or  by
+supplying a true HOLD argument to them.
+
+IMPORTANT NOTE:  It is  an error  for a  KeyProc procedure  to  return a
+result on the stack.
+
+
+
+
+--------------------------------
+3  Format Of CaseProc Procedures
+--------------------------------
+
+To handle case  conversion of nonstandard  KeySyms the Intrinsics  allow
+CaseProc procedures to  be registered  with the  XtRegisterCaseConverter
+procedure. A CaseProc should be an appropriate external procedure,  or a
+Pop11   procedure   that   has   been   coerced   with   one   of    the
+XptExportCaseProc(Cached) procedures.
+
+It is  not very  likely that  you will  need to  specify your  own  case
+conversion procedures  since  the  default case  converter  will  nearly
+always do what you want.
+
+External procedures should  be external function  closures (for  details
+see  REF * EXTERNAL),  or  of   the  type  XptProcedure.  The   external
+procedures should  expect  to  be  called in  the  same  format  as  the
+following C function prototype:
+
+    typedef void (*XtCaseProc) (Display *, KeySym, KeySym *, KeySym *);
+
+As with all handling  of external objects in  Pop11, care must be  taken
+with garbage collection (see REF * EXTERNAL_DATA).
+
+A Pop11 CaseProc procedure P should expect to be called as follows:
+
+    P(DISPLAYPTR, KEYSYM, LOWER_RETURN, UPPER_RETURN);
+
+The display  pointer DISPLAYPTR  specifies  the server  connection  with
+which the given KeySym is associated. In Pop11 it is passed as a  normal
+display pointer descriptor as returned by XptImportDisplayPtr.
+
+KEYSYM
+    is an XptKeySym specifying the KeySym to convert.
+
+LOWER_RETURN
+    will be an external pointer to an XptKeySym. When the CaseProc exits
+    the XptKeySym LOWER_RETURN points to should  be set to be the  lower
+    case version of  KEYSYM (or  KEYSYM itself  if it  is already  lower
+    case). LOWER_RETURN can be converted into a XptKeySymPtr shadowclass
+    with importXptKeySymPtr.
+
+UPPER_RETURN
+    is also an external pointer to an XptKeySym. When the CaseProc exits
+    the XptKeySym UPPER_RETURN points to should  be set to be the  upper
+    case version of  KEYSYM (or  KEYSYM itself  if it  is already  upper
+    case). UPPER_RETURN can be converted into a XptKeySymPtr shadowclass
+    with importXptKeySymPtr.
+
+If KEYSYM has no case distinction  the procedure should store KEYSYM  in
+both LOWER_RETURN and UPPER_RETURN.
+
+Care must be  taken when  using Pop11  CaseProc procedures.  It must  be
+remembered that the Pop11 procedure is  NOT what is registered with  the
+Intrinsics,  the  COERCED  procedure  is.  If  you  are  coercing  Pop11
+procedures yourself, you must ensure that the COERCED procedure does not
+become garbage during the lifetime  of the CaseProc procedure. This  can
+be done by explicitly  keeping track of  the external function  closures
+returned by  the  coercion procedures  XptExportCaseProc(Cached)  or  by
+supplying a true HOLD argument to them.
+
+IMPORTANT NOTE: It  is an  error for  a CaseProc  procedure to  return a
+result on the stack.
+
+
+
+
+--------------------
+4  External Callback
+--------------------
+
+Since Pop-11 CaseProc and  KeyProc procedures  are called  from  outside
+Poplog they  use  a  special  "external  callback"  mechanism.  This  is
+explained in REF * XT_CALLBACK. You  should read the following  sections
+from REF * XT_CALLBACK if you have not done so already:
+
+     #  Overview - External Callbacks
+     #  Generic External Callbacks Under The POPLOG X Interface
+     #  Possible Problems With Default External Callback Coercion
+
+
+
+
+-------------------------------
+5  The XptKeySymTable Structure
+-------------------------------
+
+XptKeySymTable records  are  used  to  represent  the  KeySym-to-KeyCode
+tables used by  the Intrinsics.  All XptKeySymTable  records have  their
+external_ptr_props set to the constant XDT_KEYSYMTABLE to enable  "weak"
+type checking. See REF * XptDescriptor & * XPT_CONSTANTS for details.
+
+The  procedure  XtGetKeysymTable  will  get  the  XptKeySymTable   for a
+particular    display.    Poplog    also    provides    the    procedure
+XptImportKeySymTable,    see    REF * XPT_COERCE,    for    constructing
+XptKeySymTables from external pointers.
+
+An XptKeySymTable  is basically  a pointer  to a  list of  KeySyms.  The
+KeySyms relating to  a given  KeyCode KEYCODE  start at  the Nth  KeySym
+where:
+
+    N = ((KEYCODE - MIN_KEYCODE) * KEYSYMS_PER_KEYCODE) + 1
+
+Where:
+
+MIN_KEYCODE
+    is the minimum valid KeyCode for the display.
+
+KEYSYMS_PER_KEYCODE
+    is the number of KeySyms stored for each KeyCode in the
+    XptKeySymTable.
+
+Both   MIN_KEYCODE    and    KEYSYMS_PER_KEYCODE   are    returned    by
+XtGetKeysymTable. Any entries  that have no  KeySyms associated  contain
+the constant XNoSymbol as defined in INCLUDE * X_KEYSYMS.
+
+In most cases the internal structure of XptKeySymTables can be forgotten
+since the  procedure  XptStackKeycodeKeysyms  provides an  easy  way  of
+getting the KeySyms associated with a given KeyCode.
+
+
+
+
+--------------------------------
+6  The XptKeyCodePtr Shadowclass
+--------------------------------
+
+LIB * XT_KEYBOARD defines the  XptKeyCodePtr shadowclass which  provides
+support for  pointers  to  XptKeyCodes.  All  XptKeyCodePtr  shadowclass
+records have their external_ptr_props set to the constant XDT_KEYCODEPTR
+(see  REF * XPT_CONSTANTS)   to  enable   "weak"  type   checking.   See
+REF * XptDescriptor for more details.
+
+
+initXptKeyCodePtr() -> keycodeptr                            [procedure]
+        Creates a new  instance of an  XptKeyCodePtr shadowclass  record
+        pointing to an XptKeyCode with a value of zero.
+
+
+fillXptKeyCodePtr(keycode, keycodeptr) -> keycodeptr         [procedure]
+        Sets the value of the XptKeyCode pointed to by the XptKeyCodePtr
+        keycodeptr  to  the  integer  keycode,  returning  the   updated
+        keycodeptr.
+
+
+consXptKeyCodePtr(keycode) -> keycodeptr                     [procedure]
+        Constructs an instance  of an  XptKeyCodePtr shadowclass  record
+        that points to an XptKeyCode of value keycode.
+
+
+destXptKeyCodePtr(keycodeptr) -> keycode                     [procedure]
+        Given an  XptKeyCodePtr shadowclass  record keycodeptr,  returns
+        the integer value of the XptKeyCode it points to.
+
+
+isXptKeyCodePtr(item) -> bool                                [procedure]
+        Returns true  if item  is an  XptKeyCodePtr shadowclass  record,
+        false otherwise.
+
+
+refreshXptKeyCodePtr(keycodeptr) -> keycodeptr               [procedure]
+        "Refreshes" the XptKeyCodePtr shadowclass record keycodeptr from
+        its external representation, returning the refreshed record. See
+        REF * SHADOWCLASS for details of refreshing shadowclass records.
+
+
+importXptKeyCodePtr(exptrclass) -> keycodeptr                [procedure]
+        Takes an  external  pointer  class  record  that  points  to  an
+        XptKeyCode, and returns  the shadowclass  instance referring  to
+        that KeyCode (creating it if necessary).
+
+
+XptKeyCodePtr_shadowkey -> shkey                              [constant]
+        The shadowkey for  XptKeyCodePtr shadowclass  records. For  more
+        details of shadowkeys, see REF * SHADOWCLASS.
+
+
+
+
+---------------------------------
+7  The XptKeyCodeList Shadowclass
+---------------------------------
+
+LIB * XT_KEYBOARD defines the XptKeyCodeList shadowclass which  provides
+support for pointers to series of XptKeyCodes.
+
+
+initXptKeyCodeList(n) -> keycodelist                         [procedure]
+        Construct an  n  element XptKeyCodeList  shadowclass  structure,
+        consisting of n XptKeyCode records with zero values.
+
+
+fillXptKeyCodeList(keycode_1, ..., keycode_n,                [procedure]
+                keycodelist) -> keycodelist
+        Takes  an   N  element   XptKeyCodeList  shadowclass   structure
+        keycodelist, fills it  with the  top N elements  from the  stack
+        (which all must be XptKeyCodes)  and returns keycodelist as  the
+        result.
+
+
+consXptKeyCodeList(keycode_1, ..., keycode_n, n)             [procedure]
+                -> keycodelist
+        Construct an XptKeyCodeList shadowclass structure from the top n
+        elements of the stack, which all must be XptKeyCodes.
+
+
+destXptKeyCodeList(keycodelist)                              [procedure]
+                -> (keycode_1, ..., keycode_n, n)
+        Puts all the XptKeyCodes in the XptKeyCodeList keycodelist  onto
+        the stack, together with its length n.
+
+
+subscrxptkeycodelist(n, keycodelist) -> keycode              [procedure]
+keycode -> subscrxptkeycodelist(n, keycodelist)
+        Return  or   update   the   Nth  XptKeyCode   keycode   of   the
+        XptKeyCodeList shadowclass structure keycodelist.
+
+
+isXptKeyCodeList(item) -> bool                               [procedure]
+        Returns true  if  item  is  an  instance  of  an  XptKeyCodeList
+        shadowclass structure.
+
+
+importXptKeyCodeList(exptrclass, n) -> keycodelist           [procedure]
+        Takes an external pointer class record pointing to a series of n
+        XptKeyCodes, and returns the  XptKeyCodeList referring to  those
+        same structures (creating it if necessary).
+
+
+refreshXptKeyCodeList(keycodelist) -> keycodelist            [procedure]
+        "Refreshes" the XptKeyCodeList shadowclass structure keycodelist
+        from  its  external  representation,  returning  the   refreshed
+        structure. See REF * SHADOWCLASS for details of refreshing Pop11
+        representations from external representations.
+
+
+XptKeyCodeList_shadowkey -> shkey                             [constant]
+        The shadowkey  for  XptKeyCodeList shadowclass  structures.  See
+        REF * SHADOWCLASS for more details.
+
+
+
+
+------------------------------------
+8  The XptKeyCodeListPtr Shadowclass
+------------------------------------
+
+LIB * XT_KEYBOARD  defines  the   XptKeyCodeListPtr  shadowclass   which
+provides  support  for  pointers  to  XptKeyCodeList  structures.   Each
+XptKeyCodeListPtr shadowclass record has  its external_ptr_props set  to
+the constant  XDT_KEYCODELISTPTR  (see  REF * XPT_CONSTANTS)  to  enable
+"weak" type checking. See REF * XptDescriptor for more details.
+
+
+initXptKeyCodeListPtr() -> keycodelistptr                    [procedure]
+        Creates a  new  instance  of  an  XptKeyCodeListPtr  shadowclass
+        record which points to a null external pointer.
+
+
+fillXptKeyCodeListPtr(keycodelist, keycodelistptr)           [procedure]
+        -> keycodelistptr Takes an XptKeyCodeListPtr keycodelistptr, and
+        sets it to point to the XptKeyCodeList keycodelist. The  updated
+        keycodelistptr is returned.
+
+
+consXptKeyCodeListPtr(keycodelist) -> keycodelistptr         [procedure]
+        Constructs  an  instance  of  an  XptKeyCodeListPtr  shadowclass
+        record  keycodelistptr   that  points   to  the   XptKeyCodeList
+        keycodelist.
+
+
+destXptKeyCodeListPtr(keycodelistptr) -> keycodelist         [procedure]
+        Given an  XptKeyCodeListPtr shadowclass  record  keycodelistptr,
+        returns the XptKeyCodeList keycodelist which it points to.
+
+
+isXptKeyCodeListPtr(item) -> bool                            [procedure]
+        Returns true if item is an XptKeyCodeListPtr shadowclass record,
+        false otherwise.
+
+
+refreshXptKeyCodeListPtr(keycodelistptr) -> keycodelistptr   [procedure]
+        "Refreshes"    the    XptKeyCodeListPtr    shadowclass    record
+        keycodelistptr from its  external representation, returning  the
+        refreshed  record.   See   REF * SHADOWCLASS  for   details   of
+        refreshing shadowclass records.
+
+        IMPORTANT NOTE: Refreshing keycodelistptr will cause it to  lose
+        reference to any Pop11  object it contains. Separate  references
+        will need to be kept if Pop11 objects are not to become garbage.
+
+
+importXptKeyCodeListPtr(exptrclass) -> keycodelistptr        [procedure]
+        Takes  an  external  pointer  class  record  that  points   to a
+        XptKeyCodeList, and returns an XptKeyCodeListPtr instance  which
+        refers to the same pointer, creating it if necessary.
+
+
+XptKeyCodeListPtr_shadowkey -> shkey                          [constant]
+        The shadowkey  for  XptKeyCodeListPtr shadowclass  records.  For
+        more details of shadowkeys, see REF * SHADOWCLASS.
+
+
+
+
+-------------------------------
+9  The XptKeySymPtr Shadowclass
+-------------------------------
+
+LIB * XT_KEYBOARD defines  the XptKeySymPtr  shadowclass which  provides
+support for pointers to XptKeySyms. All XptKeySymPtr shadowclass records
+have their  external_ptr_props  set  to the  constant  XDT_KEYSYMPTR  to
+enable "weak" type checking.  See REF * XptDescriptor &  * XPT_CONSTANTS
+for more details.
+
+
+initXptKeySymPtr() -> keysymptr                              [procedure]
+        Creates a  new instance  of an  XptKeySymPtr shadowclass  record
+        pointing to an XptKeySym with a value of zero.
+
+
+fillXptKeySymPtr(keysym,  keysymptr)  ->  keysymptr          [procedure]
+        Sets the value of the  XptKeySym pointed to by the  XptKeySymPtr
+        keysymptr  to  the   integer  keysym,   returning  the   updated
+        keysymptr.
+
+
+consXptKeySymPtr(keysym) -> keysymptr                        [procedure]
+        Constructs an  instance of  an XptKeySymPtr  shadowclass  record
+        that points to an XptKeySym of value keysym.
+
+
+destXptKeySymPtr(keysymptr) -> keysym                        [procedure]
+        Given an XptKeySymPtr shadowclass record keysymptr, returns  the
+        integer value of the XptKeySym it points to.
+
+
+isXptKeySymPtr(item) -> bool                                 [procedure]
+        Returns true  if item  is  an XptKeySymPtr  shadowclass  record,
+        false otherwise.
+
+
+refreshXptKeySymPtr(keysymptr) -> keysymptr                  [procedure]
+        "Refreshes" the XptKeySymPtr  shadowclass record keysymptr  from
+        its external representation, returning the refreshed record. See
+        REF * SHADOWCLASS for details of refreshing shadowclass records.
+
+
+importXptKeySymPtr(exptrclass) -> keysymptr                  [procedure]
+        Takes an  external  pointer  class  record  that  points  to  an
+        XptKeySym, and  returns the  shadowclass instance  referring  to
+        that KeySym (creating it if necessary).
+
+
+XptKeySymPtr_shadowkey -> shkey                               [constant]
+        The shadowkey  for XptKeySymPtr  shadowclass records.  For  more
+        details of shadowkeys, see REF * SHADOWCLASS.
+
+
+
+
+-----------------------------------
+10  The XptModifiersPtr Shadowclass
+-----------------------------------
+
+LIB * XT_KEYBOARD  defines   the  -XptModifiersPtr   shadowclass   which
+provides support  for  pointers  to  XptModifiers.  All  XptModifiersPtr
+shadowclass records have  their external_ptr_props set  to the  constant
+XDT_MODIFIERSPTR to enable "weak" type checking. See REF * XptDescriptor
+and REF * XPT_CONSTANTS for more details.
+
+
+initXptModifiersPtr() -> modifiersptr                        [procedure]
+        Creates a new instance of an XptModifiersPtr shadowclass  record
+        pointing to an XptModifiers with a value of zero.
+
+
+fillXptModifiersPtr(modifiers, modifiersptr) -> modifiersptr [procedure]
+        Sets  the  value   of  the  XptModifiers   pointed  to  by   the
+        XptModifiersPtr modifiersptr to the integer modifiers, returning
+        the updated modifiersptr.
+
+
+consXptModifiersPtr(modifiers) -> modifiersptr               [procedure]
+        Constructs an instance of an XptModifiersPtr shadowclass  record
+        that points to an XptModifiers of value modifiers.
+
+
+destXptModifiersPtr(modifiersptr) -> modifiers               [procedure]
+        Given  an  XptModifiersPtr   shadowclass  record   modifiersptr,
+        returns the integer value of the XptModifiers it points to.
+
+
+isXptModifiersPtr(item) -> bool                              [procedure]
+        Returns true if item  is an XptModifiersPtr shadowclass  record,
+        false otherwise.
+
+
+refreshXptModifiersPtr(modifiersptr) -> modifiersptr         [procedure]
+        "Refreshes" the XptModifiersPtr shadowclass record  modifiersptr
+        from  its  external  representation,  returning  the   refreshed
+        record.  See   REF * SHADOWCLASS  for   details  of   refreshing
+        shadowclass records.
+
+
+importXptModifiersPtr(exptrclass) -> modifiersptr            [procedure]
+        Takes an  external  pointer  class  record  that  points  to  an
+        XptModifiers, and returns  a shadowclass  instance referring  to
+        the same location.
+
+
+XptModifiersPtr_shadowkey -> shkey                            [constant]
+        The shadowkey for XptModifiersPtr shadowclass records. For  more
+        details of shadowkeys, see REF * SHADOWCLASS.
+
+
+
+
+--------------------------------
+11  Keyboard Handling Procedures
+--------------------------------
+
+The following procedures are provided in LIB * XT_KEYBOARD.
+
+
+XptConvertCase(displayptr, keysym) -> (lower, upper)         [procedure]
+        Takes a KeySym keysym which originated from the display referred
+        to by displayptr, and returns the lower- and upper-case  KeySyms
+        lower and upper.
+
+        If keysym has no case distinction then lower and upper will both
+        contain copies of keysym.
+
+        The procedure calls the currently registered case converter  for
+        the  specified   KeySym  (see   XtRegisterCaseConverter).   This
+        procedure may be useful in user-defined KeyProc procedures.
+
+
+XtConvertCase(displayptr, keysym, lower, upper)              [procedure]
+        As  for  XptConvertCase,  except   lower  and  upper  are   both
+        XptKeySymPtr   shadowclass   records.   After   the   call    to
+        XtConvertCase the  KeySym  pointed  to  by  lower  will  be  the
+        lower-case version  of keysym,  while upper  will point  to  the
+        upper-case version.
+
+
+XtRegisterCaseConverter(displayptr, widentproc, start, stop) [procedure]
+        Registers  the  case  converter  procedure  widentproc  for  the
+        KeySyms between KeySym start and stop (inclusive) on the display
+        referred to  by  displayptr.  widentproc should  be  a  CaseProc
+        procedure as outlined in a previous section.
+
+        The  new  case  converter   procedure  overrides  any   previous
+        converters for KeySyms between start and stop.
+
+        If widentproc  is  a Pop11  word,  procedure, or  ident,  it  is
+        coerced automatically into an external function closure with the
+        XptExportCaseProcCached procedure. The coerced procedure is also
+        added to  the fixed  hold  list to  prevent it  getting  garbage
+        collected. If you  ever wish  to remove the  procedure from  the
+        fixed hold list (eg, after destroying the display connection the
+        CaseProc was  registered  on),  use  free_fixed_hold.  For  more
+        details of the fixed hold list, see REF * EXTERNAL.
+
+
+XptDefaultCaseConverter(displayptr, start, stop)             [procedure]
+        Reinstalls the  default case  conversion  procedure on  all  the
+        KeySyms from start to stop inclusive.
+
+
+XptTranslateKeycode(displayptr, keycode, modifiers)          [procedure]
+                -> (keysym, modifiers_used)
+        Translates the KeyCode keycode that originated from the  display
+        referred to by displayptr, with the modifiers modifiers.  keysym
+        is  the  resultant  KeySym   and  modifiers_used  contains   the
+        modifiers that were examined in generating keysym.
+
+        This  procedure  calls  the  currently  register  KeyProc   (see
+        XtSetKeyTranslator).  The  default  KeyProc  is  equivalent   to
+        fast_XtTranslateKey.
+
+
+XtTranslateKeycode(displayptr, keycode, modifiers,           [procedure]
+                modifiersptr, keysymptr)
+        As  for   XptTranslateKeycode,  except   MODIFIERS_USED  is   an
+        XptModifiersPtr record, and keysymptr is a XptKeySymPtr  record.
+        After the call to XtTranslateKeycode keysymptr will point to the
+        translated KeySym, and modifiersptr will point to the  modifiers
+        used in the translation.
+
+
+XptTranslateKey(displayptr, keycode, modifiers)              [procedure]
+                -> (keysym, modifiers_used)
+        As for  XptTranslateKeycode, but  uses the  default  KeyCode-to-
+        KeySym translator, rather than the one currently installed.
+
+        This procedure can be useful in user defined KeyProc translation
+        procedures.
+
+
+XtTranslateKey(displayptr, keycode, modifiers,               [procedure]
+                modifiersptr, keysymptr)
+        As   for    XtTranslateKeycode,    but    uses    the    default
+        KeyCode-to-KeySym translator,  rather  than  the  one  currently
+        installed.
+
+
+XtSetKeyTranslator(displayptr, widentproc)                   [procedure]
+        Set the KeyCode-to-KeySym translator on the display referred  to
+        by displayptr to be widentproc.  widentproc should be a  KeyProc
+        procedure as outlined in a previous section.
+
+        If widentproc  is  a Pop11  word,  procedure, or  ident,  it  is
+        coerced automatically into an external function closure with the
+        XptExportKeyProcCached procedure. The coerced procedure is  also
+        added to  the fixed  hold  list to  prevent it  getting  garbage
+        collected. If you  ever wish  to remove the  procedure from  the
+        fixed hold list (eg, after destroying the display connection the
+        KeyProc  was  registered  on),  use  free_fixed_hold.  For  more
+        details of the fixed hold list, see REF * EXTERNAL.
+
+
+XptDefaultKeyTranslator(displayptr)                          [procedure]
+        Reinstalls  the  default  KeyCode-to-KeySym  translator  on  the
+        display referred  to  by  displayptr. Equivalent  to,  but  more
+        efficient than:
+
+            XtSetKeyTranslator(displayptr, fast_XtTranslateKey);
+
+
+XtKeysymToKeycodeList(displayptr, keysym, keycodelistptr,    [procedure]
+                cardinalptr)
+        Returns  the  list  of  KeyCodes  that  the  KeySym  keysym   is
+        associated with. The display keysym originated from is specified
+        by displayptr. When  the procedure  exits the  XptKeyCodeListPtr
+        structure  keycodelistptr  will   point  to  an   XptKeyCodeList
+        structure containing the  KeyCodes associated  with keysym.  The
+        XptCardinalPtr structure cardinalptr will point to the number of
+        KeyCodes in that list.
+
+        IMPORTANT NOTE: The  storage pointed to  by keycodelistptr  will
+        need to be freed  with XtFree once it  is no longer useful.  See
+        REF * XT_UTIL for details.
+
+
+XtGetKeysymTable(displayptr, keycodeptr, intptr)             [procedure]
+            -> keysymtable
+        This  procedure  fetches  the  KeySym-to-KeyCode  mapping  table
+        keysymtable for the display referred to by displayptr. When  the
+        procedure exits  the  XptKeyCodePtr  structure  keycodeptr  will
+        contain the value of the minimum valid KeyCode for  keysymtable.
+        The XptIntPtr  structure  will  contain the  number  of  KeySyms
+        stored for each KeyCode in keysymtable.
+
+        keysymtable should not be cached  as the table may change  prior
+        to event dispatch. The procedure XptStackKeycodeKeysyms provides
+        a  nicer   interface   to   the  information   stored   in   the
+        XptKeySymTable.
+
+        IMPORTANT NOTE: The  returned XptKeySymTable will  point to  the
+        Intrinsics copy of the KeySym-to-KeyCode table. This MUST NOT be
+        altered in any way.
+
+
+XptStackKeycodeKeysyms(displayptr, keycode, refresh)         [procedure]
+                -> keysym_1, ..., keysym_n
+XptStackKeycodeKeysyms(displayptr, keycode)                  [procedure]
+                -> keysym_1, ..., keysym_n
+        This procedure places  the KeySyms associated  with the  KeyCode
+        keycode on the stack.  displayptr specifies the display  keycode
+        originated from.
+
+        If the boolean argument refresh is true, then the XptKeySymTable
+        associated with  displayptr is  re-read using  XtGetKeysymTable,
+        otherwise the  XptKeySymTable  used in  the  last call  to  this
+        procedure with the same display is used.
+
+        The first call to the procedure  with a given display is  always
+        treated as if refresh is present, and true.
+
+        IMPORTANT NOTE:  The  XptKeySymTable may  change  between  event
+        dispatches. refresh should be used with care.
+
+
+XptGetActionKeysym(xeventptr) -> (keysym, modifiers_used)    [procedure]
+        This procedure,  when  used  from within  an  action  procedure,
+        returns the KeySym keysym which caused the action to be  called.
+        xeventptr specifies the  event pointer  that was  passed to  the
+        action procedure. The  XptModifiers modifiers_used will  specify
+        any modifiers that were used in matching keysym. For details  of
+        action procedures see REF * XT_ACTION.
+
+        If xeventptr is not a KeyPress or KeyRelease event, then  keysym
+        will  be  false,  and  the  value  of  modifiers_used  will   be
+        undefined.
+
+
+XtGetActionKeysym(xeventptr, modifiers_used) -> keysym       [procedure]
+        As  for   XptGetActionKeysym,   except  modifiers_used   is   an
+        XptModifiersPtr structure  that  will,  on exit,  point  to  any
+        modifiers that were used in matching keysym.
+
+        If xeventptr is not a KeyPress or KeyRelease event, then  keysym
+        will  be  false,  and  the  value  of  modifiers_used  will   be
+        undefined.
+
+
+
+
+---------------------------------------------
+12  Non-checking Keyboard Handling Procedures
+---------------------------------------------
+
+LIB * FAST_XT_KEYBOARD provides the  following non-checking versions  of
+the procedures provided in LIB * XT_KEYBOARD.
+
+
+fast_XptConvertCase(displayptr, keysym) -> (lower, upper)    [procedure]
+fast_XtConvertCase(displayptr, keysym, lower, upper)         [procedure]
+fast_XtRegisterCaseConverter(displayptr, widentproc, start,  [procedure]
+                stop)
+fast_XptDefaultCaseConverter(displayptr, start, stop)        [procedure]
+fast_XptTranslateKeycode(displayptr, keycode, modifiers)     [procedure]
+                -> (keysym, modifiers_used)
+fast_XtTranslateKeycode(displayptr, keycode, modifiers,      [procedure]
+                modifiersptr, keysymptr)
+fast_XptTranslateKey(displayptr, keycode, modifiers)         [procedure]
+                -> (keysym, modifiers_used)
+fast_XtTranslateKey(displayptr, keycode, modifiers,          [procedure]
+                modifiersptr, keysymptr)
+fast_XtSetKeyTranslator(displayptr, widentproc)              [procedure]
+fast_XptDefaultKeyTranslator(displayptr)                     [procedure]
+fast_XtKeysymToKeycodeList(displayptr, keysym,               [procedure]
+                keycodelistptr, cardinalptr)
+fast_XtGetKeysymTable(displayptr, keycodeptr, intptr)        [procedure]
+            -> keysymtable
+fast_XptStackKeycodeKeysyms(displayptr, keycode, refresh)    [procedure]
+                -> keysym_1, ..., keysym_n
+fast_XptStackKeycodeKeysyms(displayptr, keycode)             [procedure]
+                -> keysym_1, ..., keysym_n
+fast_XptGetActionKeysym(xeventptr) -> (keysym,               [procedure]
+                modifiers_used)
+fast_XtGetActionKeysym(xeventptr, modifiers_used) -> keysym  [procedure]
+        Non-checking versions  of the  procedures in  LIB * XT_KEYBOARD.
+        Their operation is the same except that:
+
+          # There is no checking for valid arguments.
+
+          # NO coercion of Pop11 procedures is performed.
+
+          # The shadowclass structures used in in the procedures are not
+            automatically "refreshed". The appropriate -refreshXpt...-
+            procedures have to be used if any of the shadowclass records
+            are to be refreshed. See REF * SHADOWCLASS for more details.
+
+        These procedures should only be used in fully debugged programs.
+        See REF * XTOOLKIT  for  full details  of  the Poplog  X  naming
+        conventions for non-checking and checking procedures.
+
+
+
+
+------------------------------------------------------
+13  Coercion of Pop-11 KeyProc and CaseProc Procedures
+------------------------------------------------------
+
+LIB * FAST_XT_KEYBOARD  provides  the   following  procedures  for   the
+coercion of Pop11 CaseProc and KeyProc procedures.
+
+
+XptExportCaseProc(widentproc, hold) -> efc                   [procedure]
+        This procedure  coerces a  Pop11 CaseProc  procedure  widentproc
+        into an external  function closure  efc that is  suitable to  be
+        passed as  a  CaseProc procedure  to  the Intrinsics.  NOTE:  If
+        XptExportCaseProc is called on different occasions with the same
+        widentproc it will return  DIFFERENT external function  closures
+        which perform the same operation.
+
+        The procedure operates by creating an external function  closure
+        of the procedure XptCaseProcWrapper. The  value of efc is  given
+        by:
+
+            exfunc_export(
+                XptCaseProcWrapper(%widentproc%),
+                XptCallbackFlags,
+                hold
+            );
+
+        If the Boolean argument hold is true then a reference to efc  is
+        added to  the fixed  hold  list to  prevent it  getting  garbage
+        collected. To remove the efc from the list, use free_fixed_hold.
+        See REF * EXTERNAL_DATA for more details.
+
+
+XptExportKeyProc(widentproc, hold) -> efc                    [procedure]
+        This procedure coerces a Pop11 KeyProc procedure widentproc into
+        an external function closure efc  that is suitable to be  passed
+        as a KeyProc procedure to  the Intrinsics. Its operation is  the
+        same   as   XptExportCaseProc,   except   that   the   procedure
+        XptKeyProcWrapper, instead  of  XptCaseProcWrapper, is  used  to
+        create efc.
+
+
+XptExportCaseProcCached(widentproc, hold) -> efc             [procedure]
+        This procedure coerces  a Pop11  CaseProc procedure  widentproc,
+        into an  external  function closure  efc  that is  suitable  for
+        passing to the Intrinsics.
+
+        The   arguments   and   results   are   as   for   a   call   to
+        XptExportCaseProc,  the  difference  being  that  the  resultant
+        external  function  closure  efc  is  cached.  This  means  that
+        different calls to XptExportCaseProcCached WILL return the  same
+        external function closure  efc; if the  same widentproc is  used
+        (the cache considers  the arguments  to be the  same if  -sys_=-
+        returns true when applied to them).
+
+        The entry in the cache for efc becomes garbage when efc  becomes
+        garbage.
+
+        XptExportCaseProcCached with a true hold argument is the default
+        procedure for coercing CaseProc procedures.
+
+
+XptExportKeyProcCached(widentproc, hold) -> efc              [procedure]
+        As for XptExportCaseProcCached, except  that it coerces  between
+        Pop11 KeyProc procedures and external function closures.
+
+        XptExportKeyProcCached with a true hold argument is the  default
+        procedure for coercing KeyProc procedures.
+
+
+XptCaseProcWrapper(exptrclass, widentproc)                   [procedure]
+        Closures of  the procedure  XptCaseProcWrapper are  used by  the
+        XptExportCaseProc(Cached) procedures to create external function
+        closures that can be used as Intrinsics CaseProc procedures. For
+        more details of external function closures see REF * EXTERNAL.
+
+        exptrclass should be an  external pointer class record  pointing
+        to an instance of the following structure:
+
+            l_typespec extdata {
+                display :XptDisplayPtr,
+                keysym :XptKeySym,
+                lower :exptr,
+                upper :exptr
+            };
+
+        Each field of the above structure is pushed onto the stack.  The
+        procedure referred to  by widentproc,  which should  be a  Pop11
+        CaseProc  procedure,   is   then   executed   by   a   call   to
+        XptCallbackHandler with a TYPE of "case_proc".
+
+
+XptKeyProcWrapper(exptrclass, widentproc)                    [procedure]
+        Closures of  the procedure  XptKeyProcWrapper  are used  by  the
+        XptExportKeyProc(Cached) procedures to create external  function
+        closures that can be used as Intrinsics KeyProc procedures.  For
+        more details of external function closures see REF * EXTERNAL.
+
+        exptrclass should be an  external pointer class record  pointing
+        to an instance of the following structure:
+
+            l_typespec extdata {
+                display :XptDisplayPtr,
+                keycode :XptKeyCode,
+                mod :XptModifiers,
+                mod_ret :exptr,
+                keysym_ret :exptr
+            };
+
+        Each field of the above structure is pushed onto the stack.  The
+        procedure referred to  by widentproc,  which should  be a  Pop11
+        KeyProc   procedure,   is   then   executed   by   a   call   to
+        XptCallbackHandler with a TYPE of "key_proc".
+
+
+
+--- C.x/x/pop/ref/xt_keyboard
+--- Copyright University of Sussex 1992. All rights reserved.

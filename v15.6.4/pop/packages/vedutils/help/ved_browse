@@ -1,0 +1,270 @@
+[help file to go in $poplocal/local/help/ved_browse or in main system]
+
+DRAFT HELP VED_BROWSE  (Unix Poplog only)         Aaron Sloman, Feb 1993
+
+LIB VED_BROWSE
+
+This utility provides an extension to the Poplog Ved-based mechanisms
+for browsing online documentation and libraries. The library makes
+available the command "ENTER browse", which makes it easy to browse
+online documentation and libraries in Poplog.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- (a) ENTER browse (Building an index)
+ -- (b) ENTER browse (Selecting from a browse index)
+ -- How an index is built
+ -- The structure of the browse index files
+ -- WARNINGS
+ -- Changing search lists: the browse_search_lists property
+ -- SEE ALSO
+
+-- Introduction -------------------------------------------------------
+The procedure ved_browse has two forms of behaviour, depending on whether
+the current file is already a browse index file created by a previous
+call of ved_browse. In that case the name where the cursor is, is used
+to read the relevant file into the editor. If the current file is not a
+browse index file, then ved_browse will create one.
+
+In order to do this it first asks you to select the language, and then
+it asks you which type of file is required, For both of these it
+provides a simple menu on the VED status line. More detailed
+explanations follow.
+
+
+-- (a) ENTER browse (Selecting from a browse index) -------------------
+
+If invoked in an index of files previously created as described below by
+"ENTER browse", the command fetches the file whose name the cursor is
+above or to the left of.
+
+(See the WARNING below)
+
+
+-- (b) ENTER browse (Building an index) -------------------------------
+
+If the command is not invoked in a browse-produced index of available
+files, it gets you an index of available files in a category, using the
+name of the category and the directory searchlist for the category.
+
+When you give the command "ENTER browse" it first asks you which
+language subsystem, by presenting the following menu:
+
+    0:current 1:pop11 2:prolog 3:lisp 4:ml
+
+Select the language by typing the appropriate key. Pressing "0" implies
+that you want the language that is currently the default. (There's no
+need to press RETURN after making your selection.)
+
+It then prompts you on the status line to specify which category of
+files to look at. You select from the following menu, by typing a
+number:
+
+    1:help 2:teach 3:ref 4:doc 5:lib 6:auto 7:src 8:include
+
+Select the category by pressing the appropriate number key.
+
+When the language is Pop11, the 8 category options correspond to
+searching through directories in
+
+    vedhelplist
+    vedteachlist
+    vedreflist
+    veddoclist
+    popuseslist
+    popautolist
+    popsrclist
+    popincludelist
+
+except that overlaps between help, teach, ref, and doc lists are
+eliminated. (By default they have a lot of overlap, for convenience.)
+
+For other languages only a subset of categories may have corresponding
+directories. (It would be possible, but a bit tedious to have the
+program automatically modify the second menu depending on which language
+you have chosen. I may do that later.)
+
+Ideally documentation and libraries associated with VED should be dealt
+with separately from Pop-11 information, but that would require major
+reorganisation of the Pop-11 directory structure. So information
+about VED is obtained by selecting the Pop-11 option first, and then
+teach, help, ref, or lib second.
+
+
+-- How an index is built ----------------------------------------------
+
+Once you have selected a category and a language, ved_browse traverses
+directories in that category and lists their contents in a VED buffer,
+grouped by directory. It does this by spawning a sub-shell with a
+command of one of the following forms, depending on the operating system
+
+SunOS
+    /usr/5bin/ls -xL dir1 dir2 dir3 ....
+HP-UX
+    /bin/ls -xL dir1 dir2 dir3 ....
+Others
+    /bin/ls -CL dir1 dir2 dir3 ....
+
+where the directory names come from the appropriate search list.
+
+If you prefer to vary the format of the index you can alter the string
+browse_ls_command, defined in LIB VED_BROWSE. E.g. to have single column
+output try
+
+    'ls -L' -> browse_ls_command;
+
+You can keep the index and at any time later on move the VED cursor to
+the name of the desired file and again give the command
+
+    ENTER browse
+
+in order to read that file. Alternatively, simply press the REDO key if
+that command is still on the command line.
+
+NOTE: it should be possible to tailor this program to work on VMS, but
+I am not sufficiently familiar with VMS or VMS Poplog.
+
+
+-- The structure of the browse index files -----------------------------
+
+A different index file is created for each combination of language and
+file category.
+
+The top two lines in the file are used by subsequent calls of ved_browse
+to recognise that this is a browse index file, and to determine the
+language and category, so they should not be edited after creation.
+
+The first line is an instruction to the user and also identifies the
+file as a browse index file. The second line gives language name and
+index category. The third line is a reminder not to edit the first two.
+
+After that a table of contents is provided listing the directories
+found, in the standard format of Poplog online documentation files so
+that you can select a group using the normal "ENTER g" command, as
+described in HELP * VED_INDEXIFY
+
+Files in a directory are grouped together.
+
+
+-- WARNINGS -----------------------------------------------------------
+
+1. SUBDIRECTORIES
+If there are any sub-directories in the directories included in
+search lists they will be listed as ordinary files, and attepts to
+access them in mode (b) may produce mysterious failure messages.
+
+Some of those sub-directories will in any case be included in search
+lists (e.g. $popvedlib and $popvedlib/term are both in popautolist
+and popuseslist), but not all sub-directories are.
+
+If you wish to have sub-directories indicated as directories in the
+browse index add the "F" flag to browse_ls_command (See MAN * LS).
+However, this will slow down creation of indexes considerably.
+
+2. UNREADABLE FILES
+In "src" directories some unreadable binary files will be listed, in
+particular files called safepop11 or files with the suffixes
+    .o .obj .olb .wlb
+
+
+3. CATEGORIES NOT INCLUDED
+There are some X source files provided with Poplog that are not in
+any standard search list. These will not be found by ved_browse, but
+can be explored (e.g. using ved_dired -- see HELP * DIRED) in the
+following directory
+    $usepop/pop/x/Xpw
+
+There are also some useful command files in $popcom, and possibly
+$poplocal/local/com $popsys/popenv which are not included. There
+should be something like a vedcomlist category.
+
+Also $popcontrib is not included at present (unless you add some
+$popcontrib directories to your search lists). That should be remedied,
+though ved_dired can easily be used to browse $popcontrib.
+
+
+4. USER-DEFINED CATEGORIES
+HELP * VEDGETSYSFILE and REF * VEDGETSYSFILEPDR describe mechanisms by
+which users can define new browseable file categories that can then be
+integrated with the standard Poplog cross reference (hypertext)
+mechanism. At present ved_browse does not cope with these, but it is
+easy to extend, by modifying the values of the following global
+variables from LIB VED_BROWSE
+
+    browse_type_menu        browse_types
+    browse_subsystem_menu   browse_subsystems
+
+and then adding extra keys to the property described below, where
+a key is a word composed of a subsystem (language) name and a type
+name.
+
+
+-- Changing search lists: the browse_search_lists property ------------
+
+The search lists are stored in a pop-11 property (see * newproperty)
+called browse_search_lists. The lists are accessed and updated via
+keys that are words composed from the language name and the file
+category. The following keys are used:
+
+For Lisp:      lisphelp lisplib lispref lispsrc lispteach
+
+For Poplog ML: mlhelp mllib mlsrc mlteach
+
+For Pop11:     pop11auto pop11doc pop11help pop11include pop11lib
+               pop11ref pop11src pop11teach
+    (This includes all the main X documentation and libraries)
+
+For Prolog:    prologhelp prologlib prologsrc prologteach
+
+The value associated with each key can either be a word whose valof
+normally holds the search lists, or a list in the standard form of
+Poplog search lists. (See HELP * SEARCH_LISTS). The procedure
+flatten_searchlist is used to remove extraneous information before the
+list is used by ved_browse.
+
+Examples:
+
+    browse_search_lists("lisplib") =>
+    ** [$poplocal/local/lisp/modules/ $usepop/pop/lisp/modules/]
+
+    browse_search_lists("pop11help") =>
+    ** vedhelplist
+
+Note however, that the default vedhelplist will include "ref" "doc" and
+"teach" directories, whereas ved_browse will ignore those if the
+category chosen is "help".
+
+You can modify a search list for a particular category by associating a
+new variable name, or a list with the key. e.g.
+
+    "prologliblist" -> browse_search_lists("prologlib");
+
+    [...some list ...] -> browse_search_lists("lisplib");
+
+NOTE: this mechanism should be better integrated with LIB SUBSYSTEM.
+However, it was intended that ved_browse should be usable to look
+at documentation and programme libraries for a poplog language that
+is not included in the current process, and LIB SUBSYSTEM does not
+yet provide an appropriate mechanism.
+
+
+-- SEE ALSO -----------------------------------------------------------
+
+The following additional files may be relevant.
+
+HELP * DOCUMENTATION
+HELP * SHOWLIB
+HELP * VEDSYSFILE
+HELP * VEDGETSYSFILE
+HELP * DIRED
+DOC  * SYSSPEC
+HELP * SUBSYSTEMS
+REF  * SUBSYSTEM
+    (including entries for
+        * ved_lisp * ved_pml * ved_pop11 * ved_prolog)
+
+LIB * VED_BROWSE
+
+--- $poplocal/local/help/ved_browse
+--- Copyright University of Birmingham 1993. All rights reserved. ------

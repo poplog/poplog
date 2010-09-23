@@ -1,0 +1,74 @@
+HELP CORNERS_HS                                     David Young
+                                                    October 2003
+
+LIB * CORNERS_HS implements the Harris-Stephens (also known as the
+"Harris" or "Plessey") corner detector. Harris, C. and Stephens, M.
+(1988) A combined corner and edge detector, ACV88 Proceedings of the
+Fourth Alvey Vision Conference, pp 147-151.
+
+corner_response_hs(I, sigma, k, R) -> R
+corner_response_hs(I, region, sigma, k, R) -> R
+        Computes the corner response R for the image and parameters
+        given. This is defined by the following equations:
+
+                              2
+                R = Det - k Tr
+
+        where
+                            2
+                Det = AB - C
+                Tr = A + B
+
+                     2
+                A = X  * G(sigma)
+                     2
+                B = Y  * G(sigma)
+                C = (XY) * G(sigma)
+
+                X = I * Dx
+                Y = I * Dy
+
+        and where "*" means the convolution operation, Dx means the
+        [-1 0 1] mask and Dy its vertical equivalent, and G(sigma) means
+        the Gaussian smoothing mask with width parameter sigma.
+
+        The arguments are:
+
+        I: the input image, an array containing numbers
+
+        region: if present, a 4-element list specifying the region of
+        the image from which to take data, in *boundslist style. If
+        absent, the whole of the array is used.
+
+        sigma: a positive number, the smoothing parameter
+
+        k: a positive number, which controls sensitivity to edges or
+        corners. The best value for an application should be found
+        empirically - a reasonable starting point appears to be 0.04 for
+        images with grey levels in the range 0 to 1, but Harris and
+        Stephens fail to discuss this.
+
+        R: on entry to the procedure this may be:
+
+            * an array, which will be filled with the results and
+            returned. Its boundslist must be the same as region, if
+            given; otherwise its boundslist must be the same as that of
+            I;
+
+            * <false> - a new array will be created and returned;
+
+            * anything else - an array will be created using
+            oldsfloatarray (see *newsfloatarray) using the input
+            argument as the tag. This will be returned.
+
+
+corners_hs(I, sigma, k, thr) -> list
+        Returns a list of corner positions. I, sigma and k are as for
+        corner_response_hs above. thr is a number giving a threshold in
+        R for local maximum detection. list is a list of possible corner
+        positions, taken to be those local maxima of the response array
+        that exceed the threshold, in the format used by *array_peaks.
+
+
+--- $popvision/help/corners_hs
+--- Copyright University of Sussex 2003. All rights reserved.

@@ -1,0 +1,2247 @@
+TEACH BRAIT2                                    Duncan Fewkes Sept 2000
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Intro
+ -- Introduction to Pop-11 programs
+ -- -- Two simple programs
+ -- -- How to run programs
+ -- -- Changing programs that have been compiled
+ -- More about Braitenberg simulator
+ -- -- Stimulus-specific sensors
+ -- -- Compass and Odometer sensors
+ -- Objects
+ -- Controller programs
+ -- -- EXAMPLE 1 - a simple controller method
+ -- -- EXAMPLE 1 - Creating a vehicle that uses a controller program
+ -- EXERCISE 1
+ -- EXERCISE 2 - Multiple vehicles using the same controller program
+ -- Simulated time
+ -- Introduction to programming elements
+ -- LISTS and list-processing
+ -- -- The 'sensor_data' list
+ -- -- EXAMPLE 2 - The sensor_data list
+ -- EXERCISE 3
+ -- -- Accessing values in lists - retrieving information
+ -- -- Examples
+ -- -- Accessing values in lists - inserting information
+ -- -- EXAMPLE 3 - a controller using the sensor_data list
+ -- EXERCISE 4
+ -- VARIABLES
+ -- -- EXAMPLE 4 - a controller program using local variables
+ -- EXERCISE 5
+ -- EXERCISE 6
+ -- -- EXAMPLE 5 - a controller program using global variables
+ -- -- EXAMPLE 6 - a controller program using global variables
+ -- MATH FUNCTIONS
+ -- -- Arithmetical operators
+ -- -- Examples
+ -- EXERCISE 7
+ -- "Nesting" commands using brackets - ()
+ -- -- Trigonometry procedures
+ -- -- Examples
+ -- -- Miscellaneous operators
+ -- EXERCISE 8
+ -- RELATIONAL operators and relational expressions
+ -- Logical operators
+ -- -- "and" operator
+ -- -- "or" operator
+ -- -- "not" commands
+ -- -- Examples
+ -- Conditional statements
+ -- -- "if ... then ..." statements
+ -- -- "if .. then .. else .." commands
+ -- -- EXAMPLE 7 - Using an "if .. then .. else" command
+ -- EXERCISE 9
+ -- -- "if ... then ... elseif ..." commands
+ -- -- EXAMPLE 8 - Using an "if .. then .. elseif .. else" command
+ -- EXERCISE 10
+ -- Including logical operators in conditional statements
+ -- -- EXAMPLE 9 - Using logic expressions in "if" statements
+ -- EXERCISE 11
+ -- Nesting conditional statements
+ -- -- EXAMPLE 10 - Using nested conditional statements
+ -- EXERCISE 12
+ -- EXERCISE 13
+ -- EXERCISE 14
+
+/*
+include ~msc38dkf/working.dir/brait/lib/braitenberg_sim.p
+
+TODO
+
+Put proper headers and intro at start of examples and exercises
+
+Put more guidance notes for running and using examples
+
+Make example modification "suggestions" into proper numbered exercises.
+Also, make earlier exercises easier.
+
+Read through terminology in Pop-11 primer.
+
+conditional = control-flow statement
+
+
+NOTES TO ME
+
+NB - nested (not embedded)
+
+NB - relational operators + data items = expression.
+
+NB - remember to do time-slices/ processing loop diagram
+
+NB - need section on nesting and role of brackets ()
+
+NB - MUST DESCRIBE DIFFERENT POP-11 DATA TYPES - PUT in brait1
+    i.e.
+    describe what a data type IS. - different types of information/
+different ways of formatting/presenting information.
+
+    There are 23 data types in Pop-11, but we only need to use 5 basic
+types. 3 of which you will already have encountered in everyday life.
+      = words
+        numbers - NB - Ints and Floats.
+        lists
+        boolean - true or false
+
+NB - put a summary at the end of BRAIT1 and BRAIT2
+
+NB - point out indenting/formatting code for readability. Also
+commenting? (e.g. procheader etc.)
+
+NB - refer to controllers as 'programs'. BUT introduce as "you will be
+writing programs that are more specifically known as "methods" (as they
+act on objects?) but don't worry about that now."
+
+NB - "Introduction to programming elements"
+
+NB - include 'error' examples - where compiling it will produce an
+error, to show them how NOT to do things, and get them used to Pop-11
+error messages/debugging.
+    - include an example/exercise where they have to find out what is
+wrong with the code given (i.e. miss out a comma or semi-colon and mess
+with some syntax)
+
+NB - remind them that this is only introducing them to lists etc.
+ALSO, at start of complex bits "you might not understand this
+explanation. If you want more help or to go more in depth into the area,
+you can look here (put link to teach file)"
+
+*/
+
+/*
+-- Intro --------------------------------------------------------------
+What this file is about
+Recap Tutorial1
+
+Contents
+
+(warning about maths content of file?)
+
+
+-- Introduction to Pop-11 programs
+
+Most Pop-11 programs will be of the form,
+
+    define <program name> ( <arguments> );
+
+        <commands to be carried out>
+
+    enddefine;
+
+The "define" and "enddefine" commands tell Pop-11 that the set of
+commands contained between those lines are to be remembered and run
+whenever <program name> is compiled.
+
+Every "define" command must be accompanied by two things: the <program
+name> and a set of brackets containing <arguments>.
+
+The <program name> must always be one continuous word, but we can use
+the underscore symbol "_" to split it up and make it a bit more
+readable.
+
+The <arguments> are a list of items of information that the program will
+need when it is run. They are the "inputs" to the program. The
+<arguments> vary from program to program, depending on what the program
+does. Some programs take no input (e.g. "simple_program_1" below) but
+many programs process information and this needs to be included in the
+<arguments> (e.g. "simple_program_2" below). Whichever is the case, the
+brackets are required.
+
+The <arguments> in the program definition can be thought of as
+variables. In the program code (i.e. the commands to be carried out when
+it is run), the arguments are used as if they held information. See how
+"simple_program_2" below takes two inputs, "first_number" and
+"second_number", adds them together and prints out the result.
+
+-- -- Two simple programs
+
+    define simple_program_1();
+
+        'Hello world!' =>
+
+    enddefine;
+
+
+    define simple_program_2(first_number, second_number);
+
+        first_number + second_number =>
+
+    enddefine;
+
+
+-- -- How to run programs
+
+In order to use a program, it must be compiled. Mark the two programs
+above (using the <F1> and <F2> keys to mark the start and end of the
+range text) and then compile them by pressing <enter>, type "lmr" and
+then press <return>. Compiling a program will not actually run it, but
+will pass it to the Pop-11 compiler that will convert it into
+instructions that the computer can understand. It will also put these
+instructions into the computer's memory, so that it is ready to be run.
+
+To run a program that is in the computer's memory, you must compile the
+<program name> along with brackets containing any inputs that the
+program needs.
+
+Simple_program_1 above takes no inputs and prints "** Hello world!" in
+your output window. The brackets are still needed, but they should be
+left empty. Compiling the line below will run the program. As the
+program is in the computer memory, it can be run as many times as you
+like. Put the cursor on the line and press <ESC> then <D> to compile it.
+
+    simple_program_1();
+
+Simple_program_2 takes two input numbers which must be included in the
+brackets when running the program, e.g.
+
+    simple_program_2( 30, 27 );
+    simple_program_2( 15, 0.783 );
+
+If you do not include the required number of input values for the
+program, it will produce an error. Compile the line below and Pop-11
+will print an error message (about a missing argument or missing result)
+in your output window.
+
+    simple_program_2( 20 );
+
+
+-- -- Changing programs that have been compiled
+
+When you compile a program it is put into the computer's memory. If you
+then alter a program, the changes will not be made to the program in the
+computer's memory unless you copmile the program again. To see this,
+change the line  "'Hello World !' =>" in  "simple_program_1" above so
+that the program will print out something different (simply change the
+text between the speech marks - ''). Do not compile the program again,
+but compile the line
+
+    simple_program_1();
+
+to run it. It should use the version of the program that is in the
+computer's memory, printing out "** Hello World!". If you now mark and
+compile the altered program, it will put the NEW version into the memory
+and compiling the line
+
+    simple_program_1();
+
+should now run the NEW version that you made.
+
+
+However, wasn't that boring?! Wouldn't you prefer to write programs that
+do something a little more interesting? That's where the Braitenberg
+simulator comes in - it provides you with the facilities to create
+vehicles and environments, and then write very simple programs to
+control the vehicles.
+
+In this teach file, you will be writing some simple programs to control
+Braitenberg vehicles. But first, lets have another look at the
+simulator.
+
+-- More about Braitenberg simulator -----------------------------------
+
+-- -- Stimulus-specific sensors
+
+In the first tutorial, most of the vehicles had proximity sensors. There
+are four other types of sensor that detect four different stimuli:
+light, heat, sound and smell. If you have an environment that contains
+light, heat and sound sources, a vehicle equipped with light sensors
+will only respond to a light source. e.g.
+
+    sensor_example();
+
+You may have already noticed that the colour scheme used in the
+simulator can help identify source and sensor types. Sensors are blobs
+located on the vehicles and are coloured according to the stimulus that
+they detect, whilst sources are coloured according to the stimulus that
+they emit. Thus, sensors will react to sources of the same colour.
+
+Proximity sensors appear as purple blobs on the vehicle and react to any
+object that comes near. Light sensors are orange and only react to light
+sources (that are also orange). Heat sensors and sources are red, smell
+sensors and sources are brown and sound sensors and sources are blue.
+
+Box objects are coloured purple to help distinguish them from vehicles.
+
+You have yet to be shown that vehicles can act as sources themselves,
+i.e. they can give off stimuli in the same way that the source objects
+do. If a vehicle is giving off a stimulus, it will be the appropriate
+colour. This ability can lead to some interesting behaviour
+e.g.
+
+    vehicle_chase_example();
+
+    Can you see what is happening here? One vehicle has proximity
+    sensors and is giving out light. The second vehicle has light
+    sensors and is chasing the first.
+
+To create a vehicle that gives off a stimulus, you must include a list
+of the stimulus information when creating the vehicle. This list is
+exactly the same as used when creating source objects - it has four
+items: stimulus type, source strength, stimulus decay function and a
+value that configures this function.
+e.g.
+
+    create_vehicle(
+    200.0 , 120.0,
+    500, 500, 0,
+   [[0 0 -0.1 1]                            ;;; Matrix of links
+    [0 0 1 -0.1]
+    [0 0 0 0]
+    [0 0 0 0]],
+    [],                                     ;;; Unit types
+   [[light 'left' 1][light 'right' 1]],     ;;; Sensors
+    []                                      ;;; Source information
+    )->vehicle1;
+
+
+    create_vehicle(
+    200.0 , 120.0,
+    1200, 1300, 0,
+   [[0 0 1 0]                                           ;;; Matrix
+    [0 0 0 1]
+    [0 0 0 0]
+    [0 0 0 0]],
+   [],                                                  ;;; Unit types
+   [[proximity 'left' 0.6][proximity 'right' 0.6]],     ;;; Sensors
+
+   [[light 100.00 %exponential_decay% 180.00]]          ;;; Source
+                                                        ;;; information
+    )->vehicle2;
+
+    create_box([[100 100] [1900 100] [1900 1900] [100 1900]])->box1;
+    control_panel();
+
+Notice that it is not strictly necessary to include the list of unit
+types - the simulator will fill it in if you leave an empty list - But
+beware, it will fill it with [basic_unit]s. If you want an
+[internal_energy] unit you will have to fill it in properly.
+
+-- -- Compass and Odometer sensors
+
+In addition to the stimulus-specific sensors introduced above, there are
+two more unusual types of sensor available - the compass and the
+odometer.
+
+The compass is included in the list of sensors as [compass], and appears
+as a dark green dot in the centre of the vehicle. It gives an output
+between 0 and 100 according to the current heading of the vehicle (i.e.
+heading in degrees /3.6). Remember, in this simulator, heading is
+measured anti-clockwise from the x-axis (or due East). Thus, if a
+vehicle is heading to the right (East), the compass will read 0. If it
+is heading up (North) it will read 25, left (West) will give 50, down
+(South) will give 75.
+
+An odometer keeps track of how many times a wheel has fully rotated.
+They are included in the list of sensors as either [odometer left] or
+[odometer right], depending on which wheel you wish to keep track of.
+They appear as dark green dots in the centre of the wheel that they are
+monitoring.
+
+e.g.
+    create_vehicle(
+    200.0 , 150.0,
+    1000, 1000, 90,
+    [[0 0 0 0 0 0]
+     [0 0 0 0 0 0]
+     [0 0 0 0 0 0]
+     [0 0 0 0 0.1 0.2]
+     [0 0 0 0 0 0]
+     [0 0 0 0 0 0]],
+    [[basic_unit]
+    [basic_unit]
+    [basic_unit]
+    [internal_energy]
+    [basic_unit]
+    [basic_unit]],
+    [[compass][odometer left][odometer right]],
+    [])->vehicle3;
+
+    control_panel();
+    make_dial_panel(vehicle3);
+
+
+If you compile the commands above you will find a further feature of the
+simulator. A panel is created containing several dials that show the
+output from each unit in the vehicle and the speeds that the motors
+are running.
+
+When you run the simulator (by clicking on the start button), you will
+see that the vehicle turns around and around in a circle. This is due to
+the internal energy unit feeding the two motors different voltages. The
+dials panel should show you how the compass reading (on dial labelled
+"Sensor1") changes as the vehicle faces in different directions. The
+dials labelled "Sensor2" and "Sensor3" show the readings for the
+odometers on the left and right wheels respectively. The right odometer
+should always read twice that of the left odometer, as the right motor
+is running twice as fast. The dial labelled "Unit4" is showing the
+output from the vehicle's internal energy unit, which is always 100.
+
+-- Objects ------------------------------------------------------------
+
+Before we get started making programs to control our vehicles, we need
+to know a few things about how they work in the simulator.
+
+Most importantly, we need to know a little about OBJECTS. You have
+probably noticed that the vehicles are all very similar - in fact, they
+are all individual INSTANCES of the vehicle "object". The "object" can
+be seen as a generic template, not actually the individual vehicles
+themselves. An "object" is like a species, it is a class of entities
+that have many common attributes, e.g. the species "human" could be seen
+as an "object", with individual humans being "instances" of the object.
+
+
+Within the vehicle object are defined SLOTS, where information can be
+stored and later changed. These slots have names that allow you to
+access the data stored in them, in the same way that variable names
+allow you to access the data stored in the computer's memory. However,
+one important and useful difference between slots and variables is that
+data stored in slots is specific to individual instances of vehicles.
+Thus, the data in one vehicle's "link_weight_matrix" slot can be
+different to the data stored in another vehicle's "link_weight_matrix"
+slot.
+
+It may help to think of slots like attributes - e.g. hair-colour. If you
+have the object "human" and two INSTANCES of the "human" object, we'll
+call them Bob and Carl, they can have different "hair-colour".
+    i.e.
+
+    Instance of "human" = BOB
+        ATTRIBUTES:
+        hair-colour = Ginger
+        ...
+
+    Instance of "human" = Carl
+        ATTRIBUTES:
+        hair-colour = Grey
+        ...
+
+However, if you want to find out what Bob's hair-colour is, you must
+specifically refer to Bob. It does no good to simply ask "what
+hair-colour?", you must ask "what is Bob's hair-colour?".
+
+In the same way, to access information in any SLOT. you must refer to
+a slot in a specific vehicle.
+e.g.
+    link_weight_matrix is the name of the slot where each vehicle's
+    matrix is stored. The commands below will find the value stored in
+    the link_weight_matrix slot in the vehicle in the brackets (as have
+    been defined in the examples above) and then print them out in the
+    output.p window:
+
+    link_weight_matrix(vehicle1)=>
+    link_weight_matrix(vehicle2)=>
+    link_weight_matrix(vehicle3)=>
+
+This is important we are going to be writing porgrams that control
+vehicles by assigning numbers to the slots "left_motor_speed" and
+"right_motor_speed". In Example 1 below, you will see the number 1 being
+assigned to the left_motor_speed slot and the number 20 being assigned
+to the right_motor_speed slot. When a program is being used to control a
+vehicle, the simulator will check these slots to find out what each
+vehicle should be doing.
+
+-- Controller programs ------------------------------------------------
+
+When dealing with objects, we have to use special types of program
+called METHODS. You need not know very much about these except that they
+act on individual instances of objects. An example of a method can be
+seen below.
+
+The only difference between standard Pop-11 program layout and the
+layout of "methods" is all in the "define" command. You will see that it
+is of the form "define:method", which identifies the program as a
+method. Also, in the argument is "me:vehicle", which identifies the
+method as one that should only be used on instances of the vehicle
+object (it also assigns the individual vehicle to the variable "me").
+
+-- -- EXAMPLE 1 - a simple controller method
+
+    define:method simple_controller(me:vehicle, sensor_data);
+        1-> left_motor_speed(me);
+        20-> right_motor_speed(me);
+    enddefine;
+
+
+Immediately after "define:method" is the METHOD NAME. In this case, it
+is "simple_controller". In the brackets following the method name are
+the arguments or INPUTS to the method.
+The first item is the vehicle that the simulator is examining. If there
+is more than one vehicle in the simulator, they are dealt with one at a
+time. The second item is a list of the values for each sensor on the
+vehicle, but we will look at this later.
+
+You can tell the simulator to use a method to control a vehicle by
+including the METHOD NAME instead of the matrix of links. Have a look at
+the code in example 1 below to see how it is done.
+
+
+For now, all you need to know is that the controller programs are run on
+individual vehicles, which are assigned to the variable "me" and
+information can be put into their slots by using,
+
+    1-> left_motor_speed(me);
+    20-> right_motor_speed(me);
+
+The two slots used above (left_motor_speed and right_motor_speed) makes
+the vehicles motors run at the speed given (between 0 and 100).
+
+
+If you mark the range of text in the example below and then compile it
+using <enter>, typing "lmr" and then pressing <return>, the controller
+method will be compiled, the vehicle will be created and the control
+panel will be brought up.
+If you then start the simulator, the vehicle's left motor will run at a
+speed of 1 and the right motor will run at a speed of 20, making the
+vehicle turn around and around in a circle to its left.
+
+
+-- -- EXAMPLE 1 - Creating a vehicle that uses a controller program
+
+;;; Start of range to mark and compile
+
+
+  ;;; Controller program definition
+    define:method simple_controller(me:vehicle, sensor_data);
+
+        ;;; Insert values into vehicle's slots.
+        1-> left_motor_speed(me);
+        20-> right_motor_speed(me);
+
+    enddefine;
+
+
+  ;;; Create vehicle command (arguments define vehicle attributes)
+    create_vehicle(
+    200.0 , 120.0,
+    1000, 1000, 90,
+    simple_controller,              ;;; -Controller program name (instead
+                                    ;;;     of matrix of links)
+    [],                             ;;; -List of unit types - should be
+                                    ;;;     left empty
+    [],                             ;;; -Sensors
+    []                              ;;; -Stimulus that the vehicle emits
+    )->vehicle1;
+
+
+  ;;; Create control panel command
+    control_panel();
+
+
+;;; End of range to mark and compile
+
+The simulator knows to use the "simple_controller" program because it was
+specified instead of a matrix of links. The next list would usually be
+the list of unit types and this should be left blank. You can include
+sensors and stimuli for the vehicle to give out by filling in the last
+two lists in exactly the same way as before, but these have been left
+out for clarity in this example.
+
+Don't worry if you don't fully understand all of the above as all you
+will be asked to do is to change the lines of code between lines
+starting with "define..." and "enddefine;".
+
+
+-- EXERCISE 1 ---------------------------------------------------------
+
+Stop the simulator with the "Stop" button on the control panel and change
+the values that are given to the two motors in the controller program
+definition. COMPILE THE PROGRAM AGAIN and start the simulator. Try different
+values and
+see how this affects the vehicle's movement.
+
+
+-- EXERCISE 2 - Multiple vehicles using the same controller program ----
+
+Once we have compiled a method or any other program, the computer will
+remember it. This allows us to use it again and again and, because
+methods are used specifically on individual instances of objects, you
+can use the same method as a controller for several vehicles at the same
+time. Compile the lines below to create two new vehicles. They should
+appear in the same window as the first vehicle and when you start the
+simulator, they will all run around in circles.
+
+    create_vehicle(
+    160.0 , 100.0,
+    300, 300, 90,
+    simple_controller,
+    [],
+    [],
+    []
+    )->vehicle2;
+
+    create_vehicle(
+    100.0 , 80.0,
+    1500, 1600, 90,
+    simple_controller,
+    [],
+    [],
+    []
+    )->vehicle3;
+
+What is happening here is the simulator is checking the vehicles one at
+a time. It takes the first vehicle, finds out which controller program to
+use, labels that vehicle as "me" and finds out the sensor values for
+that vehicle. The commands in the vehicle's controller program (in this
+case, they all use "simple_controller") are then carried out for that
+vehicle. The simulator then goes on to do the same for the other
+vehicles.
+
+NB - processing loop diagram here
+
+-- Simulated time -----------------------------------------------------
+
+One important concept to understand is that the simulator represents
+time in a specific way. This is done because Pop-11 cannot easily
+perform calculations for multiple objects at the same time. Also, these
+calculations take a certain amount of time to complete. Thus, the
+calculations have to be done for each object in turn, then the actions
+carried out.
+
+The simulator works by calculating what each object should do in the
+next 0.02 seconds and then carries the actions out. This affects the
+programs you will be creating because the simulator only "runs" the
+program (carries out the commands contained in the program) every so
+often; it is not being ran continuously.
+
+
+-- Introduction to programming elements -------------------------------
+
+The next few sections will introduce some elements of Pop-11 that you
+may find useful when writing programs. First of all, I will give a brief
+introduction to each one, going into further detail later, so don't
+worry if you don't understand these summaries - all will be explained!
+
+
+1) Lists and list-processing
+    - Pop-11 is very efficient at using lists and they are often very
+useful in programs. In this simulator, your controller programs
+will accept sensor information in the form of a list; so to use sensory
+information in your controllers, you must learn how to access items in
+lists.
+
+2) Variables
+    - As we saw in TEACH BRAIT1, variables are widely used. You will
+probably be using them to store and manipulate sensor information and
+other pieces of data.
+
+3) Math functions
+    - You have seen some simple examples of Pop-11 mathematical
+functions in TEACH BRAIT1. However, they have not been formally
+introduced and there is a wide range of functions  available. These
+range from arithmetical (adding, subtracting, multiplying etc.),
+trigonometric (sin, cos, tan etc.), relational (predicates such as =,
+>, < etc.) and other useful procedures to round numbers, create random
+numbers and many more. In your controller programs you may need to use
+mathematical functions to calculate appropriate output values for motor
+speeds.
+
+4) Relational operators
+    - As mentioned in the section above, these are useful ways of
+comparing/ analysing values of two items. For instance, if we want to
+perform a certain task only when the value of a certain sensor is
+GREATER THAN a value such as 70, we will first need a way to compare the
+sensor's value to the number 70. We can do this using "relational
+operators" such as <, > and =. These, combined with two items of data,
+form "relational expressions", that Pop-11 will evaluate as either TRUE
+or FALSE.
+
+5) Conditional statement - IF ... THEN ... commands
+    - In the above paragraph, we wanted to perform a certain task
+according to the value of a certain sensor. Relational expressions allow
+us to analyse the value, but do not in themselves perform any actions.
+In order to do so, we must use a special command that tells Pop-11 that
+IF a relational expression is TRUE, THEN perform a certain task.
+
+These will probably form the most important and useful part of your
+controller programs. They are also the most complex command you
+will have to learn in this file as they are "control-flow statements"
+that determine how a program is run. They also involve other commands.
+
+
+In the next few section, we will look at each of the elements introduced
+above in more detail. There will be explanations, examples and then
+exercises for each element.
+
+-- LISTS and list-processing ------------------------------------------
+
+-- -- The 'sensor_data' list
+
+As mentioned previously, lists will form an important part of your
+controllers.
+
+Information from vehicle's sensors is passed to the controller program
+in a list. Thus, if the vehicle has four sensors, the controller will be
+given a list of four values every time it is ran (remember, simulated
+time means that controller programs are run every 0.02 seconds).
+
+The list of sensor values is in a specific order, according to the unit
+number of the sensors on the vehicle. Thus, if a vehicle is created with
+a list of sensors that has a light sensor, a sound sensor and then
+another light sensor, unit 1 will be the first light sensor, unit 2 will
+be the sound sensor and unit 3 will be the second light sensor. The
+"sensor_data" list will contain three values in order from left to right
+- i.e.
+
+    [ unit1  unit2  unit3 ]
+
+This can be seen if you compile the following controller program and
+vehicle, then run the simulator whilst examining the output.p window.
+
+-- -- EXAMPLE 2 - The sensor_data list
+
+The following controller will print the list of sensor values in the
+output window every time it is run.
+
+
+    define:method print_sensor_list(me:vehicle, sensor_data);
+        sensor_data ==>
+    enddefine;
+
+
+    create_vehicle(
+    200.0 , 120.0,
+    1000, 1000, 90,
+    print_sensor_list,
+    [],
+
+  ;;; List of sensors - the order in which they appear in this list
+  ;;; determines their unit number (counting from 1, from left to right)
+    [[light 'left' 1][sound 'centre' 1][light 'right' 1]],
+
+    []
+    )->vehicle2;
+
+
+    create_simple_source(200, 200, light)-> source1;
+    create_simple_source(400, 200, sound)-> source2;
+
+    control_panel();
+    make_dial_panel(vehicle2);
+
+
+You will see that the list of sensor values is printed out repeatedly,
+scrolling down your output window. If you move the sources around using
+the mouse, you should see the values change in the list being printed
+out and also on the panel with dials.
+
+Remember, the unit number of each sensor is defined by its position in
+the list of sensors when you create the vehicle. Thus, the left light
+sensor is only unit 1 because it is first in the list above.
+
+-- EXERCISE 3 ---------------------------------------------------------
+
+Try swapping around the order of the sensors in the arguments in the
+"create_vehicle" command in example 2 above. This will change the unit
+numbers of the sensors and the dials and the list being printed will
+show the activations of the sensors according to the new order. The
+actual positions of the sensors on the vehicle will not change.
+
+NB - to clear your output window, put the mouse cursor over it and then
+press <ENTER>, type "clear" and press <RETURN>.
+
+
+-- -- Accessing values in lists - retrieving information
+
+If you want your controller program to be able to examine the activation
+of specific sensors, you will need to be able to access values in the
+"sensor_data" list. This is very simple in Pop-11; to access the nth
+value in a list called "my_list" you use "my_list(n)".
+
+-- -- Examples
+
+Compile these lines one by one (using <ESC> d). The first command sets
+up the variable "my_list", the second assigns the list "[a b c d e]" to
+"my_list" and the other commands print out the values in the appropriate
+positions in the list.
+
+    vars my_list;
+
+    [ a b c d e ] -> my_list;
+
+    my_list(1) =>          ;;; Print the first item
+    my_list(2) =>          ;;; Print the second item etc.
+    my_list(3) =>
+    my_list(4) =>
+    my_list(5) =>
+
+    my_list(6) =>
+
+Compiling the last command will produce an error message in the output
+window and a warning beep. This is because "my_list" does not have a
+sixth element, so Pop-11 is being told to do something that it cannot do
+(i.e. to print out something that does not exist).
+
+
+-- -- Accessing values in lists - inserting information
+
+It is possible to use the commands above to insert information into a
+list.
+
+    my_list =>
+
+    'Moo' -> my_list(1);
+    25 -> my_list(4);
+
+    my_list =>
+
+This time, we will declare a variable, assign a number to it and then
+use the variable to insert the number into the list. Remember, whenever
+Pop-11 is given a variable name it will replace it with the value stored
+in that variable.
+
+    vars add_me;
+    50 -> add_me;
+    add_me -> my_list(2);
+
+    my_list =>
+
+
+-- -- EXAMPLE 3 - a controller using the sensor_data list
+
+This controller program will access data from the sensor_data list and
+assign the values to the motor slots. It will assign the value of
+sensor1 (the left light sensor) the left motor and sensor3 (the right
+light sensor) to the right motor, causing the vehicle to turn away from
+the light source.
+
+
+    define:method controller3(me:vehicle, sensor_data);
+        sensor_data(1) -> left_motor_speed(me);
+        sensor_data(3) -> right_motor_speed(me);
+    enddefine;
+
+    create_vehicle(
+    200.0 , 120.0,
+    1000, 1000, 90,
+    controller3,
+    [],
+    [[light 'left' 1][sound 'centre' 1][light 'right' 1]],
+    []
+    )->vehicle3;
+
+    create_simple_source(200, 200, light)-> source1;
+    create_simple_source(400, 200, sound)-> source2;
+
+    control_panel();
+
+
+-- EXERCISE 4 ---------------------------------------------------------
+
+Alter "controller3" in the example above to make the vehicle follow the
+light source rather than avoiding it.
+
+HINTS - assigning a sensor value to a motor on the SAME side as the
+sensor will make the vehicle turn AWAY from the source (as in the
+example above). Assigning a sensor value to a motor on the OPPOSITE side
+as the sensor will make the vehicle turn TOWARDS the source; so alter
+controller5 so the left sensor value is given to the right motor and the
+right sensor value is given to the left motor.
+
+- remember about the unit numbers of the sensors.
+
+-- VARIABLES ----------------------------------------------------------
+
+We were briefly introduced to variables in TEACH BRAIT1, but we will
+need to go into some more depth.
+
+Most importantly, there are two different types of variable: GLOBAL and
+LOCAL. Global variables can be used outside procedures and can be "seen"
+and accessed by all procedures. Local variables can only be used within
+procedures and cannot be "seen" or accessed by other procedures.
+
+Global variables are created/declared using "vars" commands, e.g.
+
+    vars test1, test2;
+
+However, Pop-11 allows you to declare and assign values to variables in
+the same command, e.g.
+
+    vars test3 = 100, test4 = 'string';
+
+A global variable will retain the value that it is assigned (until you
+quit xved). This value can be accessed by any procedure, i.e. it can be
+read and/or altered by any procedures.
+
+Local variables are declared within procedures using "lvars commands",
+e.g.
+
+    lvars test5, test6;
+    lvars test7 = [1 2 3], test8 = test3;
+
+Local variables are only valid and used within one "run" of the
+procedure. They are declared, used and then destroyed when the procedure
+finishes. Thus, the values given to them will not be retained and they
+cannot be accessed (read or altered) by other procedures.
+
+In most procedures (including your controller programs), it is
+preferable to use "lvars" wherever possible. This prevents global
+variables from building up and helps prevent confusion.
+
+-- -- EXAMPLE 4 - a controller program using local variables
+
+This program uses two local variables, "temp1" and "temp2", to store
+information and use it to calculate how the vehicle should react. Try
+moving the sound source (the blue circle) around whilst the vehicle is
+moving near the light source (the orange circle).
+
+    define:method controller6(me:vehicle, sensor_data);
+        lvars temp1, temp2;
+
+        sensor_data(1) - sensor_data(3) -> temp1;
+
+        temp1*sensor_data(2) -> temp2;
+
+        temp1 -> left_motor_speed(me);
+        temp2 -> right_motor_speed(me);
+
+    enddefine;
+
+    create_vehicle(
+    200.0 , 120.0,
+    1000, 1000, 90,
+    controller4,
+    [],
+    [[light 'left' 1][sound 'centre' 1][light 'right' 1]],
+    []
+    )->vehicle4;
+
+    create_simple_source(400, 1000, light)-> source1;
+    create_simple_source(1500,1000, sound)-> source2;
+
+    control_panel();
+
+-- EXERCISE 5 ---------------------------------------------------------
+
+NB - is this too hard?
+
+Add the following lines of code to the controller program below.
+
+- Declare two local variables using the "lvars variable1, variable2;"
+command. Use your own variable names.
+
+- Access the two sensor values and assign them to the two local
+variables, using "sensor_data(1) -> variable1" and "sensor_data(2)->
+variable2".
+
+- Assign the value of the variables to the motor slots, using
+"variable1 -> left_motor_speed(me);" and "variable2 ->
+right_motor_speed(me);
+
+This will create a controller that will make the vehicle turn away from
+the light source.
+
+
+    define:method controller(me:vehicle, sensor_data);
+
+    enddefine;
+
+    create_vehicle(
+    200.0 , 120.0,
+    1000, 1000, 90,
+    controller,
+    [],
+    [[light 'left' 1][light 'right' 1]],
+    []
+    )->vehicle;
+
+    create_simple_source(400, 1000, light)-> source1;
+    control_panel();
+
+
+-- EXERCISE 6 ---------------------------------------------------------
+
+Alter your program above so that BEFORE you assign the value of the
+variables to the motors, you perform a simple calculation on them,
+multiplying each value by "0.8".
+
+This calculation could be done in one of three ways:
+
+1) When you access the information from the sensor_data list, you could
+use  "sensor_data(1) * 0.8 -> variable1" instead.
+
+2) You could insert new lines of code that multiply the value stored in
+the variables, e.g.  "variable1 * 0.8 -> variable1".
+
+3) When the variable values are being assigned to the motor slots, you
+could use  "variable1 * 0.8 -> left_motor_speed(me);" instead.
+
+
+As you can see, there are many different ways to perform the same task.
+In the controllers from exercises 4 and 5, you don't even need the local
+variables, they were included to get you used to using them. Can you see
+how you could remove the variables from the controller program in this
+exercise but still achieve the same behaviour?
+
+HINT - it is possible to take a sensor value straight from the list,
+multiply it by 0.8 and assign it to a motor slot all in one command!
+Don't worry if you can't figure out how to do this, as you will be shown
+in a later section.
+
+
+-- -- EXAMPLE 5 - a controller program using global variables
+
+Global variables are useful when you want to keep information between
+seperate runs of controller programs, or when you want information to be
+available to all of the programs that are being run. This controller
+uses a global variable "previous_speed" to remember what speed the
+left motor was running at. Every time the controller program is run, it
+subtracts 1 from the value of "previous_speed" and then reassigns this
+new value to the variable. The value of "previous_speed" is then
+assigned to the left motor speed and 10 is assigned to the right motor
+speed. This will mean that the left motor will start off running very
+fast and gradually slow down, whilst the right motor will always run at
+a constant speed.
+
+Note that we declare the variable OUTSIDE the controller definition.
+This is because we want it to have an initial value which is changed
+every time the controller program is run. If the following line were
+inside the program, it would declare the variable and assign 100 to it
+EVERY time the program is run, which is not what we want.
+
+    vars previous_speed = 100;
+
+    define:method controller5(me:vehicle, sensor_data);
+
+        ;;; Find the value of the global variable "previous_speed",
+        ;;; minus 1 from it and insert this value back into the
+        ;;; variable.
+        previous_speed -1 -> previous_speed;
+
+        previous_speed -> left_motor_speed(me);
+        10 -> right_motor_speed(me);
+
+    enddefine;
+
+    create_vehicle(
+    200.0 , 120.0,
+    1000, 1000, 90,
+    controller5,
+    [],
+    [],
+    []
+    )->vehicle5;
+
+    control_panel();
+    make_dial_panel(vehicle5);
+
+
+-- -- EXAMPLE 6 - a controller program using global variables
+
+Both of these controllers will look at the list stored in the global
+variable "motor_speeds" and assign the two values to the motor speeds.
+However, "controller6" halves the values then assigns the first value in
+the list to the left motor and the second value to the right motor,
+
+The other controller program, "another_controller6", will assign the
+first value in the list to the right motor and the second value to the
+left motor. This means that they will turn in opposite directions to
+each other and the vehicle using "controller6" should move at half the
+speed of the other vehicle..
+
+Running both the vehicles together will show how two different
+controller programs can access the same global variable.
+
+Compile the section below and click on the start button. Did the two
+vehicles move how you thought they would?
+Click on the stop button, change the values in the "motor_speeds" list,
+recompile that line (using <ESC> d) to assign this new value and click
+on the start button again. Notice how BOTH vehicles are affectes by this
+change, as they both use the same global variable.
+
+
+    vars motor_speeds = [4 2];
+
+
+    define:method controller6(me:vehicle, sensor_data);
+
+        motor_speeds(1) / 2 -> left_motor_speed(me);
+        motor_speeds(2) / 2 -> right_motor_speed(me);
+
+    enddefine;
+
+
+    define:method another_controller6(me:vehicle, sensor_data);
+
+        motor_speeds(2) -> left_motor_speed(me);
+        motor_speeds(1) -> right_motor_speed(me);
+
+    enddefine;
+
+
+    create_vehicle(
+    200.0 , 120.0,
+    800, 1000, 90,
+    controller6,
+    [],
+    [],
+    []
+    )->vehicle6;
+
+    create_vehicle(
+    200.0 , 120.0,
+    1200, 1000, 90,
+    another_controller6,
+    [],
+    [],
+    []
+    )->vehicle7;
+
+    control_panel();
+
+
+NB - exercise
+
+
+-- MATH FUNCTIONS -----------------------------------------------------
+
+Whilst variables can be very useful, they are only "stores" for
+information. Unless we can somehow manipulate and change this
+information, variables are almost useless.
+
+To this end, Pop-11 has many functions (built-in commands) for
+manipulating data. An important set of these are the math functions that
+operate on numbers. They allow us to calculate the results of
+mathematical formulae.
+
+The mathematical operators fall into 4 broad categories:
+
+1)  Arithmetic
+    - e.g. "+" (add), "-" (subtract), "/" (divide), "*" (multiply).
+2)  Trigonometry
+    - e.g. "sin", "cos", "tan".
+3)  Miscellaneous
+    - "sqrt", "exp", "log"
+    - "round", "intof", "abs".
+    - "max", "min"
+    - "random", "random0".
+4)  Relational operators
+    - e.g.  "=" (equal to), "<" (less than), ">" (greater than), "<="
+(less than or equal to). etc.
+
+
+The operators all act on numbers, but remember that whenever Pop-11 is
+given a command containing a variable name, it will replace it with the
+value stored in that variable. Thus all of the operators will also act
+on variables, as long as the value stored in the variable is a number.
+
+The next few sections will go into more detail for each of the four
+categories. The section on "relational operators" will be quite large
+and more in depth as they are very important and useful.
+
+
+-- -- Arithmetical operators
+
+These operators make Pop-11 return the results of the sum.
+
+    X + Y   add two numbers
+    X - Y   subtract two numbers
+    - X     negate one number
+    X * Y   multiply two numbers
+    X ** Y  raise X to the power Y
+    X / Y   divide X number by Y
+
+-- -- Examples
+
+The operators "return" the answer to the sum. This means that you have
+to issue further commands if you want Pop-11 to do something with this
+result, i.e. compiling the line below will only make Pop-11 calculate
+the result (which will appear in the command line at the top of this
+window).
+
+    35 + 35;
+
+If you want Pop-11 to print the result out in the output window, the
+command "35 + 35" must be followed by the print command "=>",
+
+    35 + 35 =>
+
+    vars example_number=7;
+
+    example_number / 10.0   =>
+    example_number * 2      =>
+    example_number ** 2     =>
+
+
+-- EXERCISE 7 ---------------------------------------------------------
+
+The controller below makes the vehicle avoid a light source. We are
+going to add to it so that it makes the vehicle's movement slow down
+when close to a sound source.
+
+HINTS:
+
+- The closer a sensor is to a source giving out the right stimulus, the
+higher the sensor's value will be - the closer the vehicle gets to the
+light source, the higher the values of the light sensors and the faster
+the motors turn.
+
+- To slow down this movement, we will have to REDUCE the values given to
+the motors. We can do this using the "divide" ("/") or "minus" ("-")
+operators with the sensor values BEFORE they are assigned to the motors.
+
+- Try running the the controller as it is below, then stopping the
+simulator and altering the controller program. Try subtracting or
+dividing the sensor values by an arbitrary amount ("controller8" in
+example 8 shows how to divide the sensor values before giving them to
+the motors).
+
+- Remember to recompile the controller program!
+
+- When you have run your new version, try altering the arbitrary value
+and see how greater or smaller values affect the movement of the
+vehicle. You should find that larger values inhibit the movement MORE.
+
+- Now, to make the vehicle slow down more WHEN CLOSER TO A SOUND SOURCE,
+we will have to use the value of the sound sensor on the vehicle (using
+"sound_sensor(2)"). The value of this sensor will be GREATER the CLOSER
+it is to the sound source. So if we replace the arbitrary value that you
+subtract or divide the light sensor values by with the sound sensor's
+value, it will inhibit the movement MORE when the sound source gets
+CLOSER.
+
+
+    define:method controller(me:vehicle, sensor_data);
+
+        ;;; Insert your commands before the arrow.
+        sensor_data(1) -> left_motor_speed(me);
+        sensor_data(3) -> right_motor_speed(me);
+
+    enddefine;
+
+    create_vehicle(
+    200.0 , 120.0,
+    1000, 1000, 90,
+    controller,
+    [],
+    [[light 'left' 1][sound 'centre' 1][light 'right' 1]],
+    []
+    )->vehicle;
+
+    create_simple_source(200, 200, light)-> source1;
+    create_simple_source(400, 200, sound)-> source2;
+
+    control_panel();
+
+
+-- "Nesting" commands using brackets - ()
+
+Pop-11 allows commands to be "nested" inside one another. The most
+obvjous example of nesting can be seen in arithmetic such as:
+
+    (35 + 35) / 7 =>
+
+The command tells Pop-11 to first calculate 35 + 35, divide this result
+by 7 and then print out the final result. Without the brackets, the
+results are very different
+
+    35 + 35 / 7 =>
+
+This is because certain arithmetical operators have precedence over
+others; multiply and divide have higher precedence than plus and minus.
+In cases of ambiguity (as in above), the higher precedence operators are
+carried out first. The calculation thus becomes 35 + (35/7).
+
+To avoid confusion, brackets should always be used to
+indicate which part of the command Pop-11 should carry out first.
+
+NB - describe stack?
+
+
+-- -- Trigonometry procedures
+
+These procedures calculate angles and values accordingly.
+
+    sin(angle) -> number
+    cos(angle) -> number
+    tan(angle) -> number
+    arcsin(number) -> angle
+    arccos(number) -> angle
+    arctan(number) -> angle
+
+    pi -> number
+        This constant  is the  best  decimal approximation  to  "pi", =
+        3.14159....
+
+-- -- Examples
+
+NB - may not be of much use in this file.
+
+-- -- Miscellaneous operators
+
+These procedures perform a variety of actions.
+
+    sqrt(number) -> sqrt
+        - Find the square root of "number"
+    exp(number) -> exponent
+        - Find the exponent of "number"
+    log(number) -> log
+        - Find the log of "number"
+
+    round(number) -> integer
+        - Round "number" to the nearest whole number (integer)
+    intof(number) -> integer
+        - Get the whole number part (integer) of "number"
+
+    max(number1, number2) -> greatest
+        - Compare the two numbers and return the largest
+    min(number1, number2) -> least
+        - Compare the two numbers and return the smallest
+
+    random(number) -> random
+        - Generate a random number between 0 and "number"
+        - NB if "number" is an integer, the function will return a
+random integer. If it is a floating point number, it will return a
+random floating point number.
+
+----  Examples
+
+    sqrt(4) =>
+    exp(2) =>
+    log(16) =>
+    log(exp(16)) =>
+    round(12.324) =>
+    round(7.5) =>
+    intof(7.8) =>
+    intof(7.2) =>
+    intof(-3.34) =>
+    max(9, 5) =>
+    min(9, 5) =>
+    random(10) =>
+    random(10.0) =>
+
+;;; The next few examples show that these operators can also be nested.
+
+    sqrt(2+2) =>
+    round(12/3.5) =>
+    round(sqrt(5)) =>
+
+;;; Can you see what is happening in these next two?
+
+    max( sqrt(5), random(5) ) =>
+    random(max( sqrt(5), random(5) )) =>
+
+
+-- EXERCISE 8 ---------------------------------------------------------
+
+Make a controller that assigns the greatest of the two sensor values to
+the left motor speed, and the least of the two sensor values to the
+right motor speed.
+
+HINT - See the section on lists to find out how to access the sensor
+values.
+
+- See previous controllers to find out how to insert values into the
+vehicle's slots.
+
+- Use the "max" and "min" procedures from above.
+
+
+    define:method controller(me:vehicle, sensor_data);
+
+        ;;; Fill in your code here.
+
+    enddefine;
+
+    create_vehicle(
+    200.0 , 120.0,
+    1000, 1000, 90,
+    controller,
+    [],
+    [[sound 'left' 1][sound 'right' 1]],
+    [])->vehicle;
+
+    control_panel();
+
+
+-- RELATIONAL operators and relational expressions --------------------
+
+So far, you have seen a few ways of manipulating information stored in
+variables, but you have not yet seen how to analyse this information.
+Pop-11 allows you to do this by using relational operators such as "<"
+(less than), ">" (greater than) and "=" (equal to).
+
+These, combined with two items of data, form a "relational expression"
+(e.g. X > Y), that Pop-11 will evaluate as either TRUE or FALSE.
+
+For instance, the number 5 is bigger than the number 3, so compiling the
+command,
+
+    5 > 3  =>
+
+will make Pop-11 evaluate the expression and then print out the result
+"** <true>" in your output window. If you try,
+
+    3 > 5 =>
+
+it will print out "** <false>" in your output window.
+
+The main Pop-11 relational operators that you will come across are
+
+    X >  Y   TRUE if X greater than Y
+    X <  Y   TRUE if X less than Y
+    X >= Y   TRUE if X greater than or equal to Y
+    X <= Y   TRUE if X less than or equal to Y
+    X =  Y   TRUE if X is equal in value to Y
+    X /= Y   TRUE if X is not equal in value to Y
+
+We can use these to examine the value stored in a variables, e.g.
+
+    vars x = 20;
+
+    x > 10    =>
+    x < 10    =>
+    x = 20.0  =>
+    x < 20    =>
+    x <= 20   =>
+
+    vars y = 10;
+
+    x > y   =>
+    x < y   =>
+    x = y   =>
+
+We can also combine them with other operators, e.g.
+
+    (x - 15) < y    =>
+    (x / 2) < y     =>
+    (x / 2) = y     =>
+    (x + y) > 25    =>
+
+    (x-5) > (y+4)   =>
+
+    max(x, y) > min(x, y) =>
+    max(x, y) < min(x, y) =>
+
+In these examples, the parts on either side of the relational operator
+are evaluated first, so the brackets are not strictly necessary, but it
+is good practice to include them as it will help avoid confusion when
+things get more complicated.
+
+
+NB - exercise? not much scope for one.
+
+-- Logical operators --------------------------------------------------
+
+These operators allow you to build up more complicated "logic"
+expressions. For instance, using "and" will form a "conjunction" between
+two or more expressions. This "conjunction" is an expression itself and
+will be TRUE only if ALL of its constituent expressions are TRUE.
+
+-- -- "and" operator
+
+    X and Y     TRUE if X is TRUE and Y is TRUE
+
+-- -- "or" operator
+
+Using "or" will form a "disjunction" expression, which is TRUE if ANY of
+its constituent expressions is TRUE.
+
+    X or Y      TRUE if either X or Y are TRUE
+
+-- -- "not" commands
+
+Using the "not" operator will negate the truth value of an item.
+
+   not(X)      TRUE if X is FALSE, FALSE if X is TRUE
+
+
+-- -- Examples
+
+    (x-5)>(y+4) and (x/2)<y     =>
+    (x-5)>(y+4) and x>y         =>
+
+    (x-5)>(y+4) or (x/2)<y      =>
+    x>y or (x-y)>y              =>
+
+    not((x-5)>(y+4))            =>
+
+When commands begin to get more complex, it becomes more important to
+use brackets to avoid confusing results.
+It is also possible to use more than one logical operator to form a
+logic expression.
+
+    (x-5)>(y+4) and x>y  and (x-2)>y    =>
+        true    and true and  true      =>
+
+    (x-5)>(y+4) and x>y  and (x/2)>y    =>
+        true    and true and  false     =>
+
+    (x/y)=2 or  x=y  or y=(x-4)     =>
+      true  or false or  false      =>
+
+    not( (x-5)>(y+4) or x>y )   =>
+    not(    true     or true )  =>
+
+    not( (x-5)>(y+4) ) or x>y   =>
+    not(    true     ) or true  =>
+
+    (x-5)>(y+4) or  x>y and (x/2)>y     =>
+        true    or true and  false      =>
+
+    ((x-5)>(y+4) or  x>y) and (x/2)>y   =>
+    (   true     or true) and  false    =>
+
+
+-- Conditional statements --------------------------------------------
+
+-- -- "if ... then ..." statements -----------------------------------
+
+The previous section shows how you can use relational expressions to
+examine the value of variables. However, these expressions can only
+return the answers TRUE or FALSE. What would be very useful is a way of
+making Pop-11 perform a certain action if one of these expressions is
+TRUE and not do anything if it is FALSE, i.e.,
+
+    IF (CONDITION is true) THEN (carry out ACTIONS)
+
+Pop-11 allows you to do just this through the use of "if ... then"
+commands, also known as "conditional statements". If the condition is
+true, the list of actions are carried out. The end of the list of
+actions is identified by the position of "endif;", e.g.
+
+    if <condition> then
+        <action>
+        <action>
+          ...
+    endif;
+
+-- -- "if .. then .. else .." commands --------------------------------
+
+In the above, Pop-11 carries out the actions if the <conditon> is TRUE.
+If the <condition> is FALSE, Pop-11 does nothing. However, we can get it
+to carry out a different set of actions when the <condition> is FALSE by
+using a variation on the "if .. then" statement.
+
+    if <condition> then
+        <actions1>
+    else
+        <actions2>
+    endif;
+
+If the <condition> is TRUE, Pop-11 will carry out <actions1>, but if the
+<condition> is FALSE, Pop-11 will carry out <actions2>. <actions1> and
+<actions2> can be any list of Pop-11 commands.
+
+
+-- -- EXAMPLE 7 - Using an "if .. then .. else" command
+
+This controller will only make the motors turn when the sum of the
+sensor values is greater than 30. If this is not the case (i.e. the sum
+of the values is less than 30), the motors will be told not to turn.
+
+
+    define:method controller7(me:vehicle, sensor_data);
+
+        if (sensor_data(1) + sensor_data(2)) > 30 then
+        ;;; (left sensor value + right sensor value) greater than 30
+
+            50 -> left_motor_speed(me);
+            50 -> right_motor_speed(me);
+        else
+            0 -> left_motor_speed(me);
+            0 -> right_motor_speed(me);
+        endif;
+
+    enddefine;
+
+    create_vehicle(
+    200.0 , 120.0,
+    1400, 1400, 90,
+    controller7,
+    [],
+    [[sound 'left' 1][sound 'right' 1]],
+    [])->vehicle7;
+
+    control_panel();
+
+
+-- EXERCISE 9 ---------------------------------------------------------
+
+Fill out the skeleton code below to create a controller that will make
+the vehicle turn in a circle to the left if the sound source is close,
+but turn in a circle to the right if the source is far away.
+
+
+HINTS - The vehicle has only one sound sensor, so <condition> should
+check "sensor_data(1)" to see if it is above a certain value. Replace
+<condition> with a relational expression that will check to see if
+the sensor value is above 70.
+
+- If the <condition> is true, <actions1> will be carried out, so replace
+this with a couple of commands that will make the vehicle turn in a
+circle to the left.
+
+- If the <condition> is false, <actions2> will be carried out, so this
+should be replaced with commands to make the vehicle turn to the right.
+
+
+    define:method controller(me:vehicle, sensor_data);
+
+        if <condition> then
+            <actions1>
+        else
+            <actions2>
+        endif;
+
+    enddefine;
+
+    create_vehicle(
+    200.0 , 120.0,
+    1000, 1000, 90,
+    controller,
+    [],
+    [[sound 'centre' 1]],
+    [])->vehicle;
+
+    create_simple_source(300, 300, sound) -> source;
+    control_panel();
+
+
+-- -- "if ... then ... elseif ..." commands ---------------------------
+
+Additional "elseif" clauses add further possible actions to an "if"
+statement. They are used as shown below; the two different layouts show
+how you could use "elseif" clauses with or without a final "else"
+clause.
+
+    if <condition> then
+        <actions>
+    elseif <condition> then
+        <actions>
+          ...
+    [any number of additional -elseif-...-then-.... clauses]
+          ...
+    else
+        <actions>
+    endif;
+
+
+    if <condition> then
+        <actions>
+    elseif <condition> then
+        <actions>
+          ...
+    [any number of additional -elseif-...-then-.... clauses]
+          ...
+    endif;
+
+
+When Pop-11 is given a command such as above, it will evaluate the
+condition in the first "if" clause. If the condition is TRUE, the
+subsequent actions are carried out and the if command is quit. If the
+condition is FALSE, Pop-11 goes on to evaluate the condition in the
+first "elseif" clause. If this is TRUE, the subsequent actions are
+carried out, if it is FALSE, Pop-11 moves on to the next clause. If none
+of the conditions evaluate to TRUE, the actions from the "else" clause
+are carried out (if an "else" clause is present).
+
+
+-- -- EXAMPLE 8 - Using an "if .. then .. elseif .. else" command
+
+This controller compares two sensor values. First it checks to see if
+the right sensor value is greater than the left. If this is TRUE, the
+vehicle is made to turn to the left. If it is FALSE, Pop-11 goes on to
+examine the "elseif" clause. This checks to see if the left sensor value
+is greater than the right. If this is TRUE, the vehicle is made to turn
+to the right, If it is FALSE, Pop-11 carries out the actions in the
+"else" clause, which make the vehicle remain still.
+
+The conditions in the "if" and "elseif" clauses use the "round"
+operator. This is so that the controller only makes the vehicle turn if
+one sensor value is significantly greater than the other.
+
+
+    define:method obstacle_avoider(me:vehicle, sensor_data);
+
+    if round(sensor_data(2)) > round(sensor_data(1)) then
+
+        ;;; Actions: Turn to the left
+        0 -> left_motor_speed(me);
+        100 ->right_motor_speed(me);
+
+    elseif round(sensor_data(1)) > round(sensor_data(2)) then
+
+        ;;; Actions: Turn to the right
+        0 -> right_motor_speed(me);
+        100->left_motor_speed(me);
+    else
+        ;;; Actions = stay still
+        0->left_motor_speed(me);
+        0->right_motor_speed(me);
+    endif;
+
+    enddefine;
+
+    create_vehicle(
+    200.0 , 120.0,
+    1000, 1000, 90,
+    obstacle_avoider,
+    [],
+    [[proximity 'left' 1][proximity 'right' 1] ],
+    [])->vehicle8;
+
+    create_simple_source(200,200,light)-> source;
+    create_simple_source(700,700,light)-> source;
+    create_box([[100 100] [1900 100] [1900 1900] [100 1900]])->box1;
+
+    control_panel();
+
+
+-- EXERCISE 10 --------------------------------------------------------
+
+Below, you will find the bare-bones of an obstacle-avoiding vehicle and
+controller program.
+
+The controller program uses two local variables and consists of two "if
+... elseif ... " statements. Every time the controller is run by the
+simulator, it initialises the variables and gives them a value of zero.
+If certain conditions are true, values are added to the variables until,
+at the end of the controller program, the final values of the variables
+are given to the vehicle's motors.
+
+You will be replacing text written between <> signs in the controller
+program to create an obstacle-avoiding controller that makes the vehicle
+drive in a smoother fashion. The text between the <> signs is written in
+capitals and describes the command that you should be inserted in that
+position.
+
+HINTS - Replace the sections between <> signs with relational
+expressions (as in examples 9 and 10) or commands calculating the
+DIFFERENCE between the two sensor values (i.e. the larger sensor value
+minus the smaller sensor value).
+
+    - Take a look at the order of the sensors in the "create_vehicle"
+command below to find out their unit number. This will be useful when
+trying to access a sensor's value from the "sensor_data" list.
+
+
+   define:method obstacle_avoider(me:vehicle, sensor_data);
+
+        lvars left = 0, right = 0;
+
+        if <RIGHT SENSOR GREATER THAN LEFT SENSOR> then
+            <DIFFERENCE> + right -> right;
+
+        elseif <LEFT SENSOR GREATER THAN RIGHT SENSOR> then
+            <DIFFERENCE> + left -> left;
+
+        endif;
+
+        if <CENTRE SENSOR GREATER THAN REAR SENSOR> then
+            <DIFFERENCE> + left -> left;
+
+        elseif <REAR SENSOR GREATER THAN CENTRE SENSOR> then
+            <DIFFERENCE> + left -> left;
+            <DIFFERENCE> + right -> right;
+        endif;
+
+        left -> left_motor_speed(me);
+        right -> right_motor_speed(me);
+
+    enddefine;
+
+    create_vehicle(
+    200.0 , 120.0,
+    1000, 1000, 90,
+    obstacle_avoider,
+    [],
+    [[proximity 'left' 1][proximity 'centre' 1]
+    [proximity 'right' 1][proximity 'rear' 1]],
+    [])->vehicle;
+
+    create_simple_source(200,200,light)-> source;
+    create_simple_source(700,700,light)-> source;
+    create_box([[100 100] [1900 100] [1900 1900] [100 1900]])->box1;
+
+    control_panel();
+
+
+-- Including logical operators in conditional statements -------------
+
+The <condition> in an "if" statement can be any expression that
+evaluates as either TRUE or FALSE. This means that we can include logic
+expressions (using "and", "or" and "not" operators) as a <condition>,
+e.g.
+
+    if (x-5)>(y+4) and x>y then
+        'actions1' =>
+    else
+        'actions2' =>
+    endif;
+
+Try marking and compiling the "if" statement above. It should print "**
+actions1" in your output window because the logic expression evaluates
+as TRUE ( x-5 is bigger than y+4 AND x is bigger than y). Try changing
+the <condition> to a logic expression that will evaluate as FALSE and
+compiling it again. This time it should print "** actions2".
+
+
+-- -- EXAMPLE 9 - Using logic expressions in "if" statements ----------
+
+This controller consists of one "if ... elseif ... else ..." statement.
+Each of the two conditions consists of a conjunction (using the "and"
+operator) between two relational expressions. This means that if BOTH
+relational expressions are TRUE, the subsequent actions are carried out.
+
+The controller will make the vehicle turn away from the sound source,
+but only if the light source is to the left of the vehicle. Can you see
+how this is done? Have a look at the list of sensors on the vehicle and
+then at the conditions in the "if" statement.
+
+
+    define:method controller9(me:vehicle, sensor_data);
+
+        if sensor_data(2)>sensor_data(1) and
+        sensor_data(3)>sensor_data(4) then
+
+            1 -> left_motor_speed(me);
+            6 -> right_motor_speed(me);
+
+        elseif sensor_data(1)>sensor_data(2) and
+        sensor_data(3)>sensor_data(4) then
+
+            6 -> left_motor_speed(me);
+            1 -> right_motor_speed(me);
+
+        else
+            0 -> left_motor_speed(me);
+            0 -> right_motor_speed(me);
+        endif;
+
+    enddefine;
+
+    create_vehicle(
+    200.0 , 120.0,
+    1000, 1000, 90,
+    controller9,
+    [],
+    [[sound 'left' 1][sound 'right' 1]
+     [light 'left' 1][light 'right' 1]],
+    [])->vehicle9;
+
+    create_simple_source(600,1000,light)-> source;
+    create_simple_source(1600,1000,sound)-> source;
+    create_box([[100 100] [1900 100] [1900 1900] [100 1900]])->box1;
+
+    control_panel();
+
+
+-- EXERCISE 11 --------------------------------------------------------
+
+Create a vehicle with sound sensors on the front-left and front-right
+corners and light sensors at the front-centre and rear positions. Create
+a controller that will make the vehicle turn towards a sound source but
+ONLY if the light source is BEHIND the vehicle.
+
+HINTS - Change and use the code in example 9 above.
+
+    - Change the positions of the light sensors by altering the
+information in the list of sensors in the "create_vehicle" command.
+
+    - Change the conditions in the "if" statement so that: if the sound
+source is to the left AND the light source is behind, turn to the left.
+Else, if the sound source is to the right AND the light source is
+behind, turn to the right. If neither of these is true, stay still.
+
+
+-- Nesting conditional statements ----------------------------------
+
+As seen previously, Pop-11 allows you to "nest" commands inside one
+another, e.g.
+
+    round( sqrt(15) ) =>
+
+In the above example, the "sqrt(15)" command is carried out first, then
+the "round" command is applied to the results. (The final results are
+then printed out by the "=>" command.)
+
+In a similar way, conditional statements can be "nested". Either of the
+two sets of actions in the example below can include another conditional
+statement, e.g.
+
+    if <condition1> then
+        <actions1>
+    else
+        <actions2>
+    endif;
+
+could become:
+
+    if <condition1> then
+
+        if <condition2> then
+            <actions3>
+        else
+            <actions4>
+        endif;
+
+    else
+        <actions2>
+    endif;
+
+Pop-11 would process this by evaluating <condition1>; if it is FALSE,
+then <actions2> are carried out.
+If it is TRUE, then Pop-11 goes on to examine the "nested" conditional
+statement. Pop-11 evaluates <condition2>; If it is TRUE, then <actions3>
+are carried out and if it is FALSE, <actions4> are carried out.
+
+Remember, both <actions1> and <actions2> could have been replaced with
+another "if" statement, and the <actions> in the nested "if" statement
+could also involve even further nested "if" statements.
+
+Also remember that the <actions> are lists of things for Pop-11 to do,
+so the <actions> could be a list of commands, a nested "if" statement or
+a combination of both.
+
+-- -- EXAMPLE 10 - Using nested conditional statements ----------------
+
+This controller program will make the vehicle behave in exactly the same
+way as in example 9, but it is quite different from that controller
+program. Can you see how this is possible?
+
+
+    define:method controller10(me:vehicle, sensor_data);
+
+        if sensor_data(3)>sensor_data(4) then
+
+            if sensor_data(2)>sensor_data(1) then
+                1 -> left_motor_speed(me);
+                6 -> right_motor_speed(me);
+            elseif sensor_data(1)>sensor_data(2) then
+                6 -> left_motor_speed(me);
+                1 -> right_motor_speed(me);
+            endif;
+
+        else
+            0 -> left_motor_speed(me);
+            0 -> right_motor_speed(me);
+        endif;
+
+    enddefine;
+
+    create_vehicle(
+    200.0 , 120.0,
+    1000, 1000, 90,
+    controller10,
+    [],
+    [[sound 'left' 1][sound 'right' 1]
+     [light 'left' 1][light 'right' 1]],
+    [])->vehicle10;
+
+    create_simple_source(600,1000,light)-> source;
+    create_simple_source(1600,1000,sound)-> source;
+    create_box([[100 100] [1900 100] [1900 1900] [100 1900]])->box1;
+
+    control_panel();
+
+
+-- EXERCISE 12 --------------------------------------------------------
+
+In this exercise, you will be repeating exercise 11, but this time using
+a nested conditional statement instead of logic expressions.
+
+Have a look at example 10 above then change and use the code to create a
+vehicle with sound sensors on the front-left and front-right corners and
+light sensors at the front-centre and rear positions. Create a
+controller that will make the vehicle turn towards a sound source but
+ONLY if the light source is BEHIND the vehicle.
+
+HINTS - Change and use the code in example 10.
+
+    - Change the positions of the light sensors by altering the
+information in the list of sensors in the "create_vehicle" command.
+
+    - Change the conditions in the first "if" statement so that: if the
+light source is behind, then process a second "if" statement. If the
+light source is not behind, stay still.
+
+    - Change the conditions and actions in the second, nested "if"
+statement so that: the controller finds out which side the sound source
+is on and turns towards it.
+
+
+
+-- EXERCISE 13 --------------------------------------------------------
+
+NB -warn them that this is a big, difficult exercise.
+
+Create a vehicle with four light sensors: one at the rear and the other
+three at the front left, right and centre positions.
+
+Create a controller program that will produce a faster light following
+behaviour in the vehicle. For example, if the light source is behind,
+the vehicle should quickly turn towards it. If the light source is in
+front, the vehicle should move towards it as fast as possible.
+
+HINTS - The controller could consist of one "if ... else ... "
+statement where each of the actions is a nested "if ... elseif ...
+else" statement. I.e.
+
+    if <condition1> then
+        if <condition2> then
+            <actions1>
+        elseif <condition3> then
+            <actions2>
+        else
+            <actions3>
+        endif;
+    else
+        if <condition4> then
+            <actions4>
+        elseif <condition5> then
+            <actions5>
+        else
+            <actions6>
+        endif;
+    endif;
+
+<condition1> should check to see if the light is behind the vehicle.
+<condition2> and <condition4> should check to see if the light is to the
+right of the vehicle.
+<condition3> and <condition5> should check to see if the light is to the
+left of the vehicle
+
+<actions1> should sharply turn the vehicle to the right.
+<actions2> should sharply turn the vehicle to the left.
+<actions3> should turn the vehicle a little to the left. This is in case
+the source is ever directly behind the vehicle and the controller cannot
+decide which way to turn around.
+
+<actions4> should turn the vehicle to the right and move it towards the
+light source.
+<actions5> should turn the vehicle to the left and move it towards the
+light source.
+<actions6> should move the vehicle straight forwards.
+
+
+- <actions4> and <actions5> are the most important parts of the program.
+If they are effective at turning and moving the vehicle towards the
+source, the program will work well.
+
+
+- <actions4> should assign 100 to the LEFT motor, then calculate
+
+    100 - ((right sensor value - left sensor value) *20 )
+
+and assign this value to the RIGHT motor. This will will give fast
+movement but also greater turning when the difference between sensor
+values is larger.
+
+
+- Similarly, <actions5> should assign 100 to the RIGHT motor, then
+calculate
+
+    100 - ((left sensor value - right sensor value) *20 )
+
+and assign this value to the LEFT motor.
+
+
+Once you have made and tested your controller program and vehicle, try
+comparing it's behaviour and speed with this simple light-following
+vehicle - create your vehicle and then create this one to get them both
+running at the same time.
+
+    create_vehicle(
+    200.0 , 120.0,
+    1000, 1000, 90,
+   [[0 0 -0.2 1]
+    [0 0 1 -0.2]
+    [0 0 0 0]
+    [0 0 0 0]],
+    [],
+   [[light 'left' 1][light 'right' 1] ],
+    [])->vehicle;
+
+
+-- EXERCISE 14 --------------------------------------------------------
+
+NB - warn them this is complicated exercise. warning about the
+"problems" sections - designed to guide them through the types of
+problem that will arise when writing programs and how to use their
+knowledge to get round the problem.
+
+NB - include hints on the general structure of the program - i.e. one
+large "if elseif elseif else" to find out the current target and then
+nested "if else" loops to check if close enough to current target
+source to go looking for next one, else turn and move towards it (i.e.
+left sensor act. -> right motor, right sensor act. -> left motor).
+
+
+Create a vehicle that has: a pair of sound sensors, a pair of light
+sensors and a pair of smell sensors. Each pair should have one sensor on
+the front-left corner and one on the front-right.
+
+Create a controller program that looks at a list of source types, e.g.
+[sound smell light], and visits sources in the order shown in the list.
+
+
+HINTS:
+
+- The controller should check to see which type of source is the current
+target, then the vehicle should turn and move towards a source of that
+type.
+
+- If the vehicle gets close to the target source, it should go on to
+look for the next source in the list.
+
+
+PROBLEM 1: How can the controller keep track of the current source type
+to chase?
+
+HINT - You will need to use TWO global variables, one to hold the list
+of sources to visit and the other to hold information about which source
+in the list is currently being chased, e.g.
+
+    vars list_of_sources = [sound smell light sound smell light],
+         current_target =1;
+
+- The "current_target" global variable will always be a number
+indicating which element of the list the vehicle is looking for; thus,
+it should start with a value of 1.
+The controller can then find out what the current target is by using
+"list_of_sources(current_target)".
+Whenever the vehicle reaches the source it is looking for, the value of
+"current_target" should be increased by 1 to make the vehicle search for
+the next source in the list.
+
+
+PROBLEM 2: How does the controller know when it has reached the end of
+the list of sources?
+
+- If the vehicle has visited the last source in the list, the value of
+"current_target" will be 1 greater than there are values in the list.
+This will cause the "list(current_target)" command to fail and produce
+an error.
+
+One way to avoid this is to use a local variable and an "if" statement
+at the beginning of the controller program to set the vehicle's target
+properly, e.g.,
+
+    lvars target;
+
+    if current_target <= length(list_of_sources) then
+        list_of_sources(current_target) -> target;
+    else
+        false -> target;
+    endif;
+
+- The command "length(list)" finds the number of items in the list in
+brackets.
+
+- This conditional statement will set the value of the local variable
+"target" to the correct item in the list or FALSE, if the end of the
+list has been reached.
+
+
+
+/* NB - CROP OUT THIS ANSWER!!
+
+    vars list_of_sources = [sound smell light sound smell light],
+         current_source =1;
+
+
+
+    define:method controller(me:vehicle, sensor_data);
+
+        lvars target;
+
+        if current_source <= length(list_of_sources) then
+            list_of_sources(current_source) -> target;
+        else
+            false -> target;
+        endif;
+
+        if target = sound then
+            if sensor_data(1) + sensor_data(2) > 170 then
+                current_source + 1 -> current_source;
+            else
+                sensor_data(1) - 0.1 * sensor_data(2) ->
+                right_motor_speed(me);
+                sensor_data(2) - 0.1 * sensor_data(1)->
+                left_motor_speed(me);
+            endif;
+        elseif target = light then
+            if sensor_data(3) + sensor_data(4) > 170 then
+                current_source + 1 -> current_source;
+            else
+                sensor_data(3) - 0.1 * sensor_data(4)->
+                right_motor_speed(me);
+                sensor_data(4) - 0.1 * sensor_data(3)->
+                left_motor_speed(me);
+            endif;
+        elseif target = smell then
+            if sensor_data(5) + sensor_data(6) > 170 then
+                current_source + 1 -> current_source;
+            else
+                sensor_data(5) - 0.1 * sensor_data(6) ->
+                right_motor_speed(me);
+                sensor_data(6) - 0.1 * sensor_data(5)->
+                left_motor_speed(me);
+            endif;
+        else
+            0 -> left_motor_speed(me);
+            0 -> right_motor_speed(me);
+        endif;
+
+    enddefine;
+
+    create_vehicle(
+    200.0 , 120.0,
+    1700, 1000, 180,
+    controller,
+    [],
+    [[sound 'left' 1][sound 'right' 1]
+     [light 'left' 1][light 'right' 1]
+     [smell 'left' 1][smell 'right' 1]],
+    [])->vehicle;
+
+    create_source(200,1000,[[light 100 exponential_decay 200]])->
+    source;
+    create_source(850,1600,[[sound 100 exponential_decay 200]])->
+    source;
+    create_source(850,400,[[smell 100 exponential_decay 200]])-> source;
+
+    control_panel();
+
+*/
+
+
+
+/*
+REMOVED STUFF
+
+
+
+NB - notice that the controller program name can be anything you want it
+to be, as long as it matches in the definition and when you create the
+vehicle. Try changing both occurrences of "print_sensor_list" to a word
+of your own and then recompiling it all. The vehicle will behave in
+exactly the same way as it did before.
+
+
+*/
+
+--- $poplocal/local/brait/teach/brait2
+--- Copyright University of Birmingham 2000. All rights reserved. ------

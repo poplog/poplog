@@ -1,0 +1,919 @@
+REF XT_CALLBACK                                     Adrian Howard Sep 92
+
+       COPYRIGHT University of Sussex 1991. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<   MANAGEMENT OF CALLBACK    >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<         PROCEDURES          >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+External callbacks occur  when functions outside  Poplog "call back"  to
+Poplog procedures. How such situations are handled by Pop-11 in  general
+is fully explained in REF * EXTERNAL and REF * EXTERNAL_DATA.
+    This file describes the generic procedures provided by the  Poplog X
+interface for  handling  external  callbacks in  the  toolkit.  It  also
+details the  Pop-11  interface to  the  toolkit intrinsics  relating  to
+toolkit "callback" procedures.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   Generic External Callbacks Under The Poplog X Interface
+
+  3   The Poplog Interface to X Toolkit Callback Management
+
+  4   The Format Of Toolkit Callback Procedures
+
+  5   LIB XT_CALLBACK
+      5.1   The XptCallbackRec Structure
+      5.2   The XptCallbackPtr Shadowclass
+      5.3   The XptCallbackList Shadowclass
+      5.4   Procedures For Toolkit Callback Management
+
+  6   LIB FAST_XT_CALLBACK
+
+  7   Possible Problems With Default External Callback Coercion
+
+
+
+---------------
+1  Introduction
+---------------
+
+Many X toolkit intrinsics take, as  one of their arguments, a  procedure
+which will be called  by the toolkit  at a later  date. Among these  are
+"callback" procedures, "action  hook" procedures,  and "type  converter"
+procedures. If the user  wishes to pass a  Pop-11 procedure, it must  be
+converted into a suitable "external" form first.
+
+The Poplog X Interface tries to make these coercions as easy as possible
+and provides  many convenience  procedures  for the  different  external
+callback types in the toolkit. These procedures operate via the external
+callback mechanisms explained in REF * EXTERNAL and REF * EXTERNAL_DATA.
+
+For details of the  other libraries in the  Poplog X interface that  use
+external     callbacks      see     REF * XT_UTIL,      REF * XT_ACTION,
+REF * XT_CONVERTER, REF * XT_KEYBOARD, and REF * XT_EVENT.
+
+
+
+
+----------------------------------------------------------
+2  Generic External Callbacks Under The Poplog X Interface
+----------------------------------------------------------
+
+To enable easier debugging  and tracing, all  the external callbacks  to
+Pop-11 procedures used in  the Poplog interface to  the X toolkit  use a
+single  calling  mechanism.  The   default  calling  mechanism  can   be
+summarised as follows.
+
+                          X INTRINSICS
+                               ||
+                               \/
+                    EXTERNAL FUNCTION CLOSURE
+                   A  procedure  created   by
+                   Pop-11 that can be directly
+                   executed by the intrinsics
+                               ||
+                               \/
+                 CLOSURE OF A WRAPPER PROCEDURE
+                   Each callback type has its
+                   own wrapper procedure,  eg
+                      XptCallbackWrapper
+                               ||
+                               \/
+                      XptCallbackHandler
+                               ||
+         (Possible tracing calls via XptTraceCallback)
+                               \/
+                       XptApplyCallback
+                               ||
+                               \/
+                         Pop-11 PROCEDURE
+
+The external function closures are created by procedures with the prefix
+"XptExport"  (eg,  XptExportTypedCallback).   The  above  mechanism   is
+explained in more detail below.
+
+
+XptCallbackHandler(widentproc, type)                [variable procedure]
+        All external callback procedures used in the Poplog X  interface
+        call this  procedure to  execute user  supplied Pop-11  callback
+        procedures.  By  default  this  procedure  prints  the   tracing
+        information indicated  by  XptTraceCallback,  and  then  applies
+        XptApplyCallback to the procedure referred to by widentproc.
+
+        When XptCallbackHandler is called widentproc should either  be a
+        Pop-11 procedure, an ident whose idval is a procedure, or a word
+        whose valof is a procedure. type  should be a Pop-11 item  which
+        indicates  the   type   of  external   callback   which   caused
+        XptCallbackHandler to be executed. Currently type is one of  the
+        following words:
+
+         Word               Procedure Type
+         ----               --------------
+         action             Action procedures (REF * XT_ACTION)
+
+         actionhook         ActionHook procedures (REF * XT_ACTION)
+
+         callback           Callback procedures, detailed in this file.
+
+         case_proc          CaseProc procedures (REF * XT_KEYBOARD)
+
+         convert_arg_proc   ConvertArgProc procedures (REF * XT_EVENT)
+
+         destructor         Destructor procedures (REF * XT_CONVERTER)
+
+         event              EventHandler procedures (REF * XT_EVENT)
+
+         file_predicate     FilePredicate procedures (REF * XT_UTIL)
+
+         input              Input procedures. see REF * XT_EVENT)
+
+         key_proc           KeyProc procedures (REF * XT_KEYBOARD)
+
+         timeout            TimeOut procedures (REF * XT_EVENT)
+
+         type_converter     TypeConverter procedures (REF *XT_CONVERTER)
+
+        The value of type is currently only used for trace information.
+
+        Care should be taken when altering this procedure to ensure that
+        widentproc is appropriately handled in all cases.
+
+        It is an error for XptCallbackHandler to leave items on the user
+        stack when it returns.
+
+
+XptTraceCallback -> bool_or_list_or_p                         [variable]
+bool_or_list_or_p -> XptTraceCallback
+        The value  of this  variable  controls the  tracing  information
+        displayed by XptCallbackHandler.
+
+        If its value is false (the default) then no tracing  information
+        is displayed. If its value  is true than tracing information  is
+        displayed for all callbacks.
+
+        If the variable is a list, then tracing information is displayed
+        on all callbacks whose type (as passed to XptCallbackHandler) is
+        a member of that list. For example:
+
+            [callback action] -> XptTraceCallback;
+
+        would only  print  trace  information  on  callback  and  action
+        procedures.
+
+        The default  trace procedure  produces a  trace message  of  the
+        following form:
+
+            ;;; type: p(arg1, ..., argn)
+
+        where type is the value of  the type argument, p is the  pdprops
+        of the procedure about to be called, and arg1, ..., argn are the
+        arguments to be passed to it. If the pdprops of the procedure is
+        <false>,  no  trace  output   is  generated.  If  the   variable
+        cuchartrace contains a  procedure, it is  used as the  character
+        consumer for the trace output  (that is, it is locally  assigned
+        to cucharout). See REF * cuchartrace for more details.
+
+        If the  variable is  not a  boolean or  a list,  it should  be a
+        procedure of the form:
+
+            procedure(item_1, item_2, ..., item_n, n, p, type)
+
+        This procedure should print trace information in an  appropriate
+        manner, overriding the default  output described above. type  is
+        the type of callback which caused the call to XptCallbackHandler
+        (see XptCallbackHandler for possible values). p is the procedure
+        that will be called  by XptCallbackHandler, n  is the number  of
+        arguments p will take,  and item_1 to  item_n are the  arguments
+        themselves. It is an  error for the  tracing procedure to  leave
+        items on the user stack.
+
+
+XptApplyCallback -> false_or_p                                [variable]
+false_or_p -> XptApplyCallback
+        The value  of this  variable is  used by  XptCallbackHandler  to
+        actually invoke the Pop-11 callback procedures specified by  the
+        user (after  tracing if  enabled), and  so allows  a  localising
+        context for all calls to be established.
+
+        If XptApplyCallback is a procedure p, it is called as:
+
+            p(arg_1, arg2, ..., arg_n, procedure)
+
+        A value  of  false  (the default)  is  equivalent  to  assigning
+        fast_apply to the variable. It is an error for  XptApplyCallback
+        to leave items on the stack.
+
+
+XptCallbackFlags -> pef_return_abexit_next                       [macro]
+        This holds  a  bit mask  of  status  flags that  is  or-ed  with
+        pop_external_flags (see  REF * EXTERNAL)  before  an  X  toolkit
+        external   callback   procedure    is   executed.   The    value
+        pef_return_abexit_next  (see  REF * EXTERNAL)  will  cause   the
+        callback to return after an abnormal exit.
+
+        The value of this macro is  used as the flags argument when  the
+        XptExport- procedures  create external  function closures  using
+        exfunc_export.
+
+
+
+
+--------------------------------------------------------
+3  The Poplog Interface to X Toolkit Callback Management
+--------------------------------------------------------
+
+Applications have the ability to register procedures with a widget  that
+get  called  under  certain  conditions.  These  procedures  are  called
+"callback" procedures, and they are added to different "callback lists".
+For example,  every procedure  on a  widgets 'destroyCallback'  callback
+list is called  when that  widget is destroyed.  Different widgets  have
+different callback  lists depending  on  their function.  For  example a
+scrollbar widget could have callback list whose procedures are  executed
+when the scrollbar is moved.
+
+Different callback lists are identified with strings. The XtN macro  can
+be used to express these strings in a  similar way to the C code in  the
+toolkit intrinsics, eg, doing:
+
+        XtN destroyCallback
+
+would be the same as using the macro "XtNdestroyCallback" in C.
+
+When a callback procedure is added  to a widgets callback list, a  piece
+of "client data" is  also added which can  be anything the user  wishes.
+This is passed to the callback procedure every time it is executed.
+
+In addition to the client data, some  "call data" is also passed to  the
+callback procedure when it is  executed. What this call data  represents
+is dependent  on the  type of  callback. With  a scrollbar  callback  it
+might,  for  example,  represent  the  position  of  the  thumb  on  the
+scrollbar.
+
+The library  LIB * XT_CALLBACK  provides  the Pop-11  interface  to  the
+various X Toolkit  Intrinsics related  to the  management of  callbacks,
+plus support for related data structures. LIB * FAST_XT_CALLBACK (loaded
+automatically by  LIB * XT_CALLBACK)  provides the  non-checking  Pop-11
+interface to the same procedures.
+
+These libraries  give the  user  the ability  to perform  the  following
+functions:
+
+  o Adding callback procedures to a widgets callback list.
+
+  o Removing callback procedures from a widgets callback list.
+
+  o Explicit execution of a callback procedure.
+
+  o Testing the status of a widgets callback list.
+
+For full details of the exact structure of arguments and results for the
+following procedures, see REF * XPT_TYPES and the following sections.
+
+For more details of callbacks see chapter 8 of:
+
+               X Toolkit Intrinsics - C Language Interface
+                             X Window System
+                         X Version 11, Release 4
+
+        Copyright (C)  1985,  1986,  1987,  1988,  Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+
+
+--------------------------------------------
+4  The Format Of Toolkit Callback Procedures
+--------------------------------------------
+
+Many of the procedures in LIB * XT_CALLBACK and * FAST_XT_CALLBACK  take
+callback  procedure/client-data  pairs.  These  are  either  appropriate
+external procedure/client-data  pairs, or  Pop-11  procedure/client-data
+pairs  that  are   coerced  with  the   XptExport(Typed)Callback(Cached)
+procedures.
+
+External procedures should  be external function  closures (for  details
+see  REF * EXTERNAL),  or  of   the  type  XptProcedure.  The   external
+procedures should  expect  to  be  called in  the  same  format  as  the
+following C function prototype:
+
+         typedef void (*XtCallbackProc)(Widget, XtPointer, XtPointer);
+
+When the procedure is executed "Widget" will be the widget the  callback
+was registered on, the first "XtPointer"  will refer to the client  data
+the callback was registered with, and the second "XtPointer" will  refer
+to the call data the callback was executed with. As with all handling of
+external objects in Pop-11, care  must be taken with garbage  collection
+(see REF * EXTERNAL_DATA).
+
+A Pop-11 callback procedure should expect to be called as follows:
+
+         p(widget, client_data, call_data)
+
+Where widget is the widget  the callback was registered on,  client_data
+is the arbitrary  Pop-11 object  the callback was  registered with,  and
+call_data is an  external pointer  that contains  the call  data as  its
+pointer value  (unless this  has already  been converted  to the  actual
+data by specifying a conversion procedure, see XptAddCallback below).
+
+It is an error  for toolkit callback procedures  to return items on  the
+stack.
+
+Care must be  taken when using  Pop-11 callback procedures.  It must  be
+remembered that the Pop-11 procedure is NOT what is registered with  the
+intrinsics, the COERCED  procedure is. Thus,  when you want  to add  and
+then remove  a callback,  you must  ensure that  you refer  to the  same
+COERCED procedure, not merely the same  Pop procedure. This can be  done
+by explicitly keeping track  of the external  procedure returned by  the
+procedures XptExportCallback and XptExportTypedCallback, or by using the
+caching     coercion     procedures     XptExportCallbackCached      and
+XptExportTypedCallbackCached. This is done for  you in most cases  since
+the default coercion  done by the  procedures in LIB * XT_CALLBACK  uses
+the caching coercion procedures.
+
+
+
+
+------------------
+5  LIB XT_CALLBACK
+------------------
+
+The following sections describe the  facilities provided by the  library
+LIB * XT_CALLBACK.
+
+
+5.1  The XptCallbackRec Structure
+---------------------------------
+LIB * XT_CALLBACK provides support for the XptCallbackRec structure with
+the  two   shadowclasses  XptCallbackPtr   and  XptCallbackList.   These
+represent pointers to  single and multiple  instances of  XptCallbackRec
+structures.
+
+Each XptCallbackRec  structure consists  of a  callback procedure  and a
+pointer to some client data.  See REF * XPT_GENERALTYPES for details  of
+the XptCallbackRec typespec.
+
+
+
+5.2  The XptCallbackPtr Shadowclass
+-----------------------------------
+initXptCallbackPtr() -> callbackptr                          [procedure]
+        Initialise a new XptCallbackPtr  shadowclass record pointing  to
+        an  XptCallbackRec  structure  with  a  false  (null)   callback
+        procedure and a null external pointer as client data.
+
+
+fillXptCallbackPtr(xptprocedure, xptpointer, callbackptr)    [procedure]
+                -> callbackptr
+        Takes  an  instance  of  an  XptCallbackPtr  shadowclass  record
+        callbackptr, updates the  XptCallbackRec it points  to with  the
+        given  callback   procedure   xptprocedure   and   client   data
+        xptpointer. The updated callbackptr is then returned.
+
+
+consXptCallbackPtr(xptprocedure, xptpointer) -> callbackptr  [procedure]
+        Constructs an instance of  an XptCallbackPtr shadowclass  record
+        pointing  to   an   XptCallbackRec   with   callback   procedure
+        xptprocedure and client data xptpointer.
+
+
+destXptCallbackPtr(callbackptr) -> (xptprocedure,xptpointer) [procedure]
+        Given an XptCallbackPtr shadowclass record, returns the callback
+        procedure and client data of the XptCallbackRec it points to.
+
+
+XptCRCallback(callbackptr) -> xptprocedure                   [procedure]
+xptprocedure -> XptCRCallback(callbackptr)
+        Returns or updates the callback procedure of the  XptCallbackRec
+        pointed to by the XptCallbackPtr callbackptr.
+
+
+XptCRClosure(callbackptr) -> xptpointer                      [procedure]
+xptpointer -> XptCRClosure(callbackptr)
+        Returns or updates the client data of the XptCallbackRec pointed
+        to by the XptCallbackPtr callbackptr.
+
+
+isXptCallbackPtr(item) -> bool                               [procedure]
+        Returns true  if item  is a  XptCallbackPtr shadowclass  record,
+        false otherwise.
+
+
+refreshXptCallbackPtr(callbackptr) -> callbackptr            [procedure]
+        "Refreshes" the  XptCallbackPtr shadowclass  record  callbackptr
+        from  its  external  representation,  returning  the   refreshed
+        record.  See   REF * SHADOWCLASS  for   details  of   refreshing
+        shadowclass records.
+
+        IMPORTANT NOTE: Refreshing callbackptr will cause it to lose any
+        references to Poplog objects contained in its callback procedure
+        and client data  fields. A  separate reference will  have to  be
+        kept to  any  Poplog  objects  to  prevent  them  being  garbage
+        collected during the lifetime of callbackptr.
+
+
+importXptCallbackPtr(exptrclass) -> callbackptr              [procedure]
+        Takes an  external  pointer  class  record  that  points  to  an
+        XptCallbackRec structure, and  returns the shadowclass  instance
+        referring to that structure (creating it if necessary).
+
+
+XptCallbackPtr_shadowkey -> shkey                            [shadowkey]
+        The  shadowkey  for  XptCallbackPtr  shadowclass  records.   For
+        details on shadowkeys see REF * SHADOWCLASS.
+
+
+
+5.3  The XptCallbackList Shadowclass
+------------------------------------
+All XptCallbackList  shadowclass records  have their  external_ptr_props
+set to the constant XDT_CALLBACKLIST to enable "weak" type checking. See
+REF * XptDescriptor and * XPT_CONSTANTS for more details.
+
+
+initXptCallbackList(n) -> callbacklist                       [procedure]
+        Construct an  XptCallbackList  consisting  of  n  XptCallbackRec
+        structures. Each  XptCallbackRec  will contain  a  false  (null)
+        callback procedure and a null external pointer as client data.
+
+
+fillXptCallbackList(callbackptr_1, ..., callbackptr_n,       [procedure]
+                callbacklist) -> callbacklist
+        Copies the contents of the XptCallbackRec structures, pointed to
+        by   the   N   XptCallbackPtr   records,   into    callbacklist.
+        callbacklist, with its new contents, is returned as the  result.
+        callbacklist must be  an N  element XptCallbackList  shadowclass
+        structure. Callback  lists  are normally  null-terminated  which
+        means that callbackptr_n should  point to a null  XptCallbackRec
+        structure  (such   as  the   XptCallbackRec  pointed   to   by a
+        XptCallbackPtr returned by initXptCallbackPtr).
+
+
+consXptCallbackList(callbackptr_1, ..., callbackptr_n, n)    [procedure]
+                -> callbacklist
+        Construct an n element XptCallbackList shadowclass structure  by
+        copying the contents of the XptCallbackRec structures pointed to
+        by  the  top  n  elements  of  the  stack  (which  all  must  be
+        XptCallbackPtr shadowclass records). Callback lists are normally
+        null-terminated which means that callbackptr_n should point to a
+        null  XptCallbackRec  structure  (such  as  the   XptCallbackRec
+        structure  pointed   to   by  a   XptCallbackPtr   returned   by
+        initXptCallbackPtr).
+
+
+destXptCallbackList(callbacklist)                            [procedure]
+                -> (callbackptr_1, ..., callbackptr_n, n)
+        This  procedure  returns  an  XptCallbackPtr  record  for  every
+        XptCallbackRec structure  in callbacklist,  plus the  number  of
+        structures  n  in  that  list.  callbacklist  is  an  n  element
+        XptCallbackList structure.
+
+        NOTE: The XptCallbackPtr structures returned refer to COPIES  of
+        the items in  callbacklist, not the  items themselves.  Changing
+        CALLBACKPTR_X will NOT alter callbacklist. See REF * SHADOWCLASS
+        for a more detailed explanation.
+
+
+subscrXptCallbackList(n, callbacklist) -> callbackptr        [procedure]
+callbackptr -> subscrXptCallbackList(n, callbacklist)
+        Returns  an  XptCallbackPtr  record  callbackptr  for  the   Nth
+        XptCallbackRec structure in the XptCallbackList callbacklist.
+
+        NOTE: callbackptr  refers to  a COPY  of the  XptCallbackRec  in
+        callbacklist. Changing callbackptr will NOT alter  callbacklist.
+        See REF * SHADOWCLASS for a more detailed explanation.
+
+
+isXptCallbackList(item) -> bool                              [procedure]
+        Returns true  if  item  is  an  instance  of  an  XptCallbackPtr
+        shadowclass vector.
+
+
+refreshXptCallbackList(callbacklist) -> callbacklist         [procedure]
+        "Refreshes"   the    XptCallbackList    shadowclass    structure
+        callbacklist from  its  external representation,  returning  the
+        refreshed  structure.  See  REF * SHADOWCLASS  for  details   of
+        refreshing Pop-11 representations from external representations.
+
+        IMPORTANT NOTE: Refreshing  callbacklist will cause  it to  lose
+        reference to any Pop-11 objects it contains. Separate references
+        will need to be kept if the objects are not to become garbage.
+
+
+importXptCallbackList(exptrclass, n) -> callbacklist         [procedure]
+        Takes an external pointer class record pointing to a series of n
+        XptCallbackRec  structures,  and  returns  the   XptCallbackList
+        referring to those same structures (creating it if necessary).
+
+
+XptCallbackList_shadowkey -> shkey                           [shadowkey]
+        The  shadowkey  for  XptCallbackPtr  shadowclass  vectors.   For
+        details see REF * SHADOWCLASS.
+
+
+
+5.4  Procedures For Toolkit Callback Management
+-----------------------------------------------
+
+XptAddCallback(widget, string, widentproc, client_data,      [procedure]
+                                          conversion_p)
+        Add a callback procedure widentproc  to the callback list  named
+        string of the widget widget, passing client data client_data. If
+        widentproc is  a  Pop-11  word, ident,  or  procedure,  it,  and
+        client_data, are coerced automatically into a suitable  external
+        form with XptExportCallbackCached. A reference to the  (possible
+        coerced) callback procedure is kept  by the widget widget so  it
+        cannot become garbage during the lifetime of the widget.
+
+        If conversion_p is not false, it  must be a procedure, and  this
+        will be run  on the  external pointer  containing the  call_data
+        value to  the callback.  For  example, if  the call_data  is  an
+        integer,  a  suitable  conversion_p  would  be  int_from_ptr  as
+        defined by
+
+            defexacc int_from_ptr ^int;
+
+        (Note that the call_data external  pointer doesn't POINT to  the
+        value,  it  CONTAINS   it.  Thus  the   correct  type-spec   for
+        int_from_ptr is ^int, not :int.)
+
+        Note also that  without a conversion  procedure, a new  external
+        pointer will  be  constructed  for  each  callback,  whereas  if
+        conversion_p is supplied,  it is given  a fixed (i.e.  constant)
+        external pointer record (see * XptCallbackWrapper below).
+
+        Unless the call_data value is  actually a pointer to  something,
+        it is always preferable to supply a conversion_p, since then  no
+        new  pointer  is  constructed,  and  tracing  a  callback   with
+        XptTraceCallback will show the actual value. (Specifying identfn
+        for conversion_p is a way to stop new pointers being constructed
+        without actually doing any conversion.)
+
+
+XtAddCallback(widget, string, widentproc, client_data)       [procedure]
+        This procedure is just
+
+            XptAddCallback(% false %)
+
+        that is, XptAddCallback with a false conversion_p argument.
+
+
+XtAddCallbacks(widget, string, callbacklist)                 [procedure]
+        Adds the  list  of callback  procedure/data  pairs held  in  the
+        XptCallbackList callbacklist to the  callback list named  string
+        of the  widget  widget.  IMPORTANT NOTE:  the  system  will  NOT
+        automatically coerce  Pop-11 structures  into an  external  form
+        when this routine is used.  It is also the USERS  RESPONSIBILITY
+        to prevent callbacklist becoming garbage.
+
+
+XptAddCallbackList(widget, string, list)                     [procedure]
+        Adds a list of callback  procedure/data pairs, specified by  the
+        Pop-11 list  list, to  the  callback list  named string  of  the
+        widget widget. list is of the form:
+
+                [ [widentproc1 data1] [widentproc2 data2] ...]
+
+        Pop-11 words,  idents, and  procedures are  coerced to  external
+        forms where necessary, along  with their associated data,  using
+        XptExportCallbackCached. A reference  to the (possible  coerced)
+        callback procedures are kept by the widget widget so they cannot
+        become garbage during the lifetime of the widget.
+
+        Each element of list may also be of the form
+
+               [widentproc data conversion_p]
+
+        to specify a conversion procedure for the call_data argument  to
+        the callback.
+
+
+XtRemoveAllCallbacks(widget, string)                         [procedure]
+        Removes all callbacks in the callback list named string from the
+        widget widget. It  is not  an error for  the specified  callback
+        list to be empty when XtRemoveAllCallbacks is called.
+
+
+XtRemoveCallback(widget, string, widentproc, client_data)    [procedure]
+        Remove  the  callback  instance  specified  by  widentproc   and
+        client_data from  the  callback  list  named  string  of  widget
+        widget. If widentproc is a Pop-11 word, ident, or procedure,  it
+        (and client_data  are  coerced  automatically  into  a  suitable
+        external form  with XptExportCallbackCached.  No error  will  be
+        given if the widentproc/client_data pair  does not exist in  the
+        callback list.
+
+
+XtRemoveCallbacks(widget, string, callbacklist)              [procedure]
+        Removes a list  of callbacks, specified  by the  XptCallbackList
+        shadowclass structure callbacklist, from the callback list named
+        string of the widget widget. No  errors will be given if any  of
+        the specified  callback/client-data pairs  do not  exist in  the
+        callback list. IMPORTANT NOTE: the system will NOT automatically
+        coerce Pop-11 structures into an appropriate external form  when
+        this routine is used.
+
+
+XptRemoveCallbackList(widget, string, list)                  [procedure]
+        Removes the callbacks specified by the Pop-11 list list from the
+        callback list named string of the widget widget. list is in  the
+        same formats as  for XptAddCallbackList.  Pop-11 words,  idents,
+        and procedures are  coerced to external  forms where  necessary,
+        along with their associated  DATA, using the coercion  procedure
+        XptExportCallbackCached.  No  errors  will   be  given  if   the
+        callbacks in list  are not  present in the  callback list  named
+        string.
+
+
+XtCallCallbacks(widget, string, call_data)                   [procedure]
+        Call all  the callback  procedures in  the callback  list  named
+        string of  the widget  widget, passing  call_data (an  arbitrary
+        Pop-11 object) as the call argument to the callback procedures.
+
+
+XtHasCallbacks(widget, string) -> int                        [procedure]
+        Returns the  status of  the callback  list named  string of  the
+        widget widget. Possible values  for int are XtCallbackNoList  if
+        the callback  list does  not  exists, XtCallbackHasNone  if  the
+        callback list exists but is  empty, and XtCallbackHasSome if  at
+        least one  callback  is registered  on  the list.  The  constant
+        macros      XtCallbackNoList,       XtCallbackHasNone,       and
+        XtCallbackHasSome are  defined  in  INCLUDE * XT_CONSTANTS,  see
+        REF * XT_CONSTANTS for details.
+
+
+
+
+-----------------------
+6  LIB FAST_XT_CALLBACK
+-----------------------
+
+fast_XtAddCallback(widget, string, widentproc, client_data)  [procedure]
+fast_XtAddCallbacks(widget, string, callbacklist)            [procedure]
+fast_XptAddCallbackList(widget, string, list)                [procedure]
+fast_XtRemoveCallback(widget,string,widentproc,client_data)  [procedure]
+fast_XtRemoveCallbacks(widget, string, callbacklist)         [procedure]
+fast_XptRemoveCallbackList(widget, string, list)             [procedure]
+fast_XtRemoveAllCallbacks(widget, string)                    [procedure]
+fast_XtCallCallbacks(widget, string, call_data)              [procedure]
+fast_XtHasCallbacks(widget, string) -> int                   [procedure]
+        Non-checking versions  of the  procedures in  LIB * XT_CALLBACK.
+        There operation is the same except that:
+
+            o There is no checking for valid arguments.
+
+            o NO coercion of Pop-11 procedures is performed.
+
+        These procedures should only be used in fully debugged programs.
+        See REF * XTOOLKIT  for  full details  of  the Poplog  X  naming
+        conventions for non-checking and checking procedures.
+
+
+XptExportTypedCallback(widentproc, client_data,              [procedure]
+                         conversion_p, hold) -> (efc, item)
+        This procedure coerces a  Pop-11 callback procedure  widentproc,
+        and an  arbitrary Pop-11  object client_data,  into an  external
+        function closure efc and a  Pop-11 item item, that are  suitable
+        to be passed as a  callback procedure/arg pair. IMPORTANT  NOTE:
+        If the procedure is called on different occasions with the  same
+        widentproc,  client_data,  and   conversion_p  it  will   return
+        DIFFERENT external  function  closures which  perform  the  same
+        operation. If you wish to use  the same efc twice (for  example,
+        when you want to add and then remove a callback) you must keep a
+        reference to the same  efc in your program,  or use the  caching
+        export     procedures      XptExportTypedCallbackCached      and
+        XptExportCallbackCached.
+
+        If conversion_p is non false then it should contain a conversion
+        procedure (see  REF * DEFSTRUCT).  When  the  external  function
+        closure efc is executed this conversion procedure will be run on
+        the call data of the callback before widentproc is executed.
+
+        If the Boolean argument hold is true then a reference to efc  is
+        added to  the fixed  hold  list to  prevent it  getting  garbage
+        collected. To remove the efc from the list, use free_fixed_hold.
+        See REF * EXTERNAL_DATA  for more  details. It  should be  noted
+        that widget  records  attempt  to  keep  a  reference  to  their
+        callback procedures (see REF * XptDescriptor)  so the user  does
+        not have to have hold true, or keep a reference to the efc, when
+        the efc is added  as a toolkit  callback using XtAddCallback  or
+        XptAddCallbackList.
+
+        The procedure operates by creating an external function  closure
+        of the procedure XptCallbackWrapper. The  value of efc is  given
+        by:
+
+            exfunc_export(
+                XptCallbackWrapper(%
+                    widentproc,
+                    client_data,
+                    conversion_p
+                %),
+                XptCallbackFlags,
+                hold
+            );
+
+        Since the client_data  is passed  to widentproc by  the call  to
+        XptCallbackWrapper the callback argument  item has no effect  in
+        the  toolkit  callbacks.  item  is  therefore  always   returned
+        containing a value of false.
+
+
+XptExportCallback(widentproc, client_data, hold)             [procedure]
+                -> (efc, item)
+        This procedure coerces a  Pop-11 callback procedure  widentproc,
+        and an  arbitrary Pop-11  object client_data,  into an  external
+        function closure efc and a  Pop-11 item item, that are  suitable
+        to be passed as a callback procedure/arg pair.
+
+        widentproc, client_data, hold, efc, and item are as for calls to
+        XptExportTypedCallback.   A   call   to   XptExportCallback   is
+        equivalent to  a call  to  XptExportTypedCallback with  a  false
+        CONVERSION_P argument.
+
+
+XptExportTypedCallbackCached(widentproc, client_data,        [procedure]
+                conversion_p, hold) -> (efc, item)
+        This procedure coerces a  Pop-11 callback procedure  widentproc,
+        and an  arbitrary Pop-11  object client_data,  into an  external
+        function closure efc and a  Pop-11 item item, that are  suitable
+        to be passed as a callback procedure/arg pair.
+
+        The   arguments   and   results   are   as   for   a   call   to
+        XptExportTypedCallback, the difference being that the  resultant
+        external  function  closure  efc  is  cached.  This  means  that
+        different calls to XptExportTypedCallbackCached WILL return  the
+        same external  function closure  efc;  if the  same  widentproc,
+        client_data and conversion_p are  used (the cache considers  the
+        arguments to be the same if -sys_=- returns true when applied to
+        them). This is important when you need to make two references to
+        the same procedure, for example when adding and later removing a
+        single callback.
+
+        The entry in  the cache  for the external  function closure  efc
+        becomes garbage when  efc becomes  garbage. It  should be  noted
+        that widget  records  attempt  to  keep  a  reference  to  their
+        callback procedures (see REF * XptDescriptor)  so the user  does
+        not have to have hold true, or keep a reference to the efc, when
+        the efc is added  as a toolkit  callback using XtAddCallback  or
+        XptAddCallbackList.
+
+
+XptExportCallbackCached(widentproc, client_data, hold)       [procedure]
+                -> (efc, item)
+        This procedure coerces a  Pop-11 callback procedure  widentproc,
+        and an  arbitrary Pop-11  object client_data,  into an  external
+        function closure efc and a  Pop-11 item item, that are  suitable
+        to be  passed as  a callback  procedure/arg pair.  The  external
+        function closure efc is cached in  the same way as the  external
+        function closure returned by XptExportCallbackCached.
+
+        widentproc, client_data, hold, efc, and item are as for calls to
+        XptExportTypedCallback. A  call  to  XptExportCallbackCached  is
+        equivalent to  a  call  to  XptExportTypedCallbackCached  with a
+        false CONVERSION_P argument.
+
+
+XptCallbackWrapper(exptrclass, widentproc, client_data,      [procedure]
+                                            conversion_p)
+        Closures of  the procedure  XptCallbackWrapper are  used by  the
+        XptExport(Typed)Callback(Cached) procedures  to create  external
+        function  closures  that  can   be  used  as  toolkit   callback
+        procedures. For more details  of external function closures  see
+        REF * EXTERNAL.
+
+        exptrclass should be an  external pointer class record  pointing
+        to an instance of the following structure:
+
+            l_typespec extdata {
+                widget      :XptWidget,
+                client_data :XptPointer,    ;;; ignored
+                call_data   :exval
+            };
+
+        The "widget"  field  of  the above  structure,  the  client_data
+        passed to XptCallbackWrapper, and  the "call_data" field of  the
+        above structure are then  pushed onto the  stack, ready for  the
+        call of the  procedure referred to  by widentproc.
+
+        client_data, which can be any Pop-11 object, is used instead  of
+        whatever is in the "client_data" field of the structure referred
+        to by exptrclass.
+
+        The "call_data" field is accessed to produce an external pointer
+        containing the data as its pointer value, that is
+
+            exacc exptrclass.call_data  -> call_data
+
+        If conversion_p is non false then it should contain a conversion
+        procedure to be run on the pointer, i.e.
+
+          conversion_p( exacc[nc] exptrclass.call_data ) -> call_data
+
+        Note that in this case,  the "call_data" field is accessed  with
+        exacc[nc], which  produces  a  fixed  (i.e.  constant)  external
+        pointer  record.  This  is  done  on  the  assumption  that  the
+        conversion procedure will  either immediately  extract the  data
+        from the pointer,  or copy  it otherwise.  Without a  conversion
+        procedure, a new external pointer is constructed each time.
+
+        Finally widentproc,  which  should  refer to  a  Pop-11  toolkit
+        callback procedure, is executed by a call to  XptCallbackHandler
+        with a type of "callback".
+
+
+
+
+------------------------------------------------------------
+7  Possible Problems With Default External Callback Coercion
+------------------------------------------------------------
+
+The following  discusses  possible  problems related  to  using  caching
+coercion procedures to produce X  toolkit callback procedures. The  same
+comments apply to other caching coercion procedures used in the Poplog X
+interface (for example,  those used  by "action  hook" procedures).  The
+following comments  should  be  kept  in mind  when  using  any  caching
+coercion procedures for external callbacks.
+
+As   previously    stated,    the   libraries    use    the    procedure
+XptCoerceCallbackCached  to   coerce  the   Pop-11  procedures   to   an
+appropriate external form.  This means that  the coerced procedures  are
+cached in memory. The upshot of  this is that two separate coercions  on
+the same callback  procedure and data  will refer to  the same  external
+callback, thus:
+
+        XtAddCallback(widget, XtN buttonEvent, callback, 'foo');
+
+and
+
+        XtRemoveCallback(widget, XtN buttonEvent, callback, 'foo');
+
+will both refer to the same callback procedure.
+
+For most normal callback usage this is the behaviour you will want,  but
+in some situations problems may arise. This is because sys_= is used  to
+check when  two  Pop-11  procedure/argument  pairs  refer  to  the  same
+external function  closure.  For example,  if  you wanted  to  have  two
+references, ref1 and ref2, which would  always contain the call data  of
+the last buttonEvent in, respectively, widgets wig1 and wig2, you  might
+expect to be able to do something like this:
+
+        vars ref1 = consref(false);
+        vars ref2 = consref(false);
+
+         define a_callback(widget, reference, call_data);
+            lvars widget, reference, call_data;
+            call_data -> cont(reference);
+         enddefine;
+
+        XtAddCallback(wig1, XtN buttonEvent, a_callback, ref1);
+        XtAddCallback(wig1, XtN buttonEvent, a_callback, ref2);
+
+This will NOT work. The procedure call
+
+        XtAddCallback(wig1, XtN buttonEvent, a_callback, ref1);
+
+will cause a_callback and ref1 to be coerced into an external  procedure
+(lets call it EXTPROC)  which is cached in  memory. This means that  the
+procedure call
+
+        XtAddCallback(wig1, XtN buttonEvent, a_callback, ref2);
+
+instead of adding a new callback procedure to widget wig1, will add  the
+cached callback EXTPROC, because the Pop-11 procedures and the  callback
+client data are  SINGLE equals equivalent  (a_callback = a_callback  and
+ref1 = ref2).  In situations  like this  you must  perform the  coercion
+yourself,   using   the   non-caching   callback   coercion   procedures
+XptExportCallback and XptExportTypedCallback. A  correct version of  the
+above example would be as follows.
+
+        vars ref1 = consref(false);
+        vars ref2 = consref(false);
+
+        define a_callback(widget, reference, call_data);
+            lvars widget, reference, call_data;
+            call_data -> cont(reference);
+        enddefine;
+
+        XtAddCallback(
+            wig1,
+            XtN buttonEvent,
+            XptExportCallback(a_callback, ref1, false)
+        );
+
+        XtAddCallback(
+            wig1,
+            XtN buttonEvent,
+            XptExportCallback(a_callback, ref2, false)
+        );
+
+
+
+--- C.x/x/pop/ref/xt_callback
+--- Copyright University of Sussex 1992. All rights reserved.

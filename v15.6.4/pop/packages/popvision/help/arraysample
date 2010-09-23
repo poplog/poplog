@@ -1,0 +1,100 @@
+HELP ARRAYSAMPLE                                David Young
+                                                June 1992
+
+Resamples an array, of any number of dimensions, allowing linear
+stretching and translation along the axes. A region of one array can be
+resampled into a region of another array or of the same array. Three
+strategies are implemented:
+
+1. Nearest point
+2. Linear interpolation between nearest neighbours
+3. Averaging over near neighbours
+
+The main procedure is
+
+arraysample(ARRIN, REGIONIN, ARROUT, REGIONOUT,             [procedure]
+                    OPT) -> ARROUT
+
+        The arguments are:
+
+        ARRIN
+            The input array. Must be ordered by row (the default).
+
+        REGIONIN
+            The region of ARRIN from which to take data. E.g. if ARRIN
+            is a 2-D array, and REGIONIN is [5 10 3 12] then data will
+            be taken from the rectangle whose opposite corners are
+            at (5,3) and (10,12). REGIONIN has the same format as
+            a boundslist (see *ARRAYS).
+
+        ARROUT
+            The output array, into which data will be placed. Must be
+            ordered by row (the default).
+            This array is returned as the procedure's result.
+            Alternatively, the value <false> may be given, in which case
+            a new array is created and returned. This new array will
+            have the bounds specified by REGIONOUT and its arrayvector
+            will be of the same type as that of ARRIN.
+            ARROUT can safely be the same array as ARRIN, and it is
+            also safe for them to be different arrays sharing an
+            arrayvector.
+
+        REGIONOUT
+            The region of ARROUT in which the data is to be stored,
+            again specified as a boundslist-type list. If <false>,
+            then the whole of ARROUT is taken as the target region.
+            If both REGIONOUT and ARROUT are false, then REGIONIN is
+            taken as the target region.
+
+        OPT
+            A word specifying the sampling strategy to use. Depending on
+            OPT, an element of ARROUT receives a value as follows:
+
+            "nearest":  One element of ARRIN, chosen to be as near
+                        as possible to the corresponding position.
+
+            "average":  The average of several values from ARRIN,
+                        the number of values on each axis being
+                        equal to the size ratio between REGIONIN and
+                        REGIONOUT along the axis. (Only useful when
+                        shrinking a region of the array.)
+
+            "interpolate": A linear interpolation between nearest
+                        neighbours in ARRIN.
+
+            "smooth":   For each dimension, same as "average" if
+                        shrinking by more than a factor of 3, otherwise
+                        same as "interpolate".
+
+
+Notes:
+
+1. It is OK to flip one or more axes: e.g. if for a 2-D array REGIONIN
+is [1 10 1 10] and REGIONOUT is [1 5 5 1], the array is flipped along
+its second axis (i.e. top and bottom are swapped in an image, left and
+right in a matrix), as well as being shrunk to half size on both
+dimensions.
+
+2. If ARRIN and ARROUT are both packed arrays of single precision floats
+or of bytes (e.g. as created by *NEWSFLOATARRAY and *NEWBYTEARRAY
+respectively), or if ARRIN is one of these and ARROUT is <false>, then
+external C procedures are used and the computation is far faster.
+
+3. This procedure can sometimes create a certain amount of garbage. To
+make sure that the output does not overwrite the input while it is still
+needed, work arrays are created for intermediate steps when the array
+has 2 or more dimensions. These arrays are reused on subsequent calls to
+arraysample provided there has been no garbage collection in the
+meantime. If large multidimensional arrays are being processed, and
+garbage collections are taking place more often than calls to
+arraysample, then this procedure may be making a significant
+contribution to garbage production.
+
+4. If ARROUT can only take a limited range of data values (e.g. if it is
+a packed array of bytes), then ARRIN (or at least the region of it used)
+must not contain any values outside the legal range, as for efficiency
+there is no test for such values. This possibility only arises when
+ARRIN and ARROUT are different types.
+
+--- $popvision/help/arraysample
+--- Copyright University of Sussex 1992. All rights reserved. ----------

@@ -1,0 +1,133 @@
+#!/bin/csh -f
+# --- Copyright Integral Solutions Ltd 1990. All rights reserved. -------
+# File:				$popneural/bin/neural
+# Purpose:			Poplog-Neural build/invoke script
+# Author:			Julian Clinton, Jan 1990
+# Documentation:	$popneural/help
+# Related Files:	$popneural/bin/mkneural, $popneural/bin/mkneural.p
+
+if (! $?popneural) then
+	echo "neural: environment variable 'popneural' not defined"
+	exit 1
+endif
+
+# Default environment variables for invocation of Poplog-Neural
+setenv NEURAL_PWM_REQUEST no
+setenv NEURAL_X_REQUEST no
+setenv NEURAL_HELP no
+setenv NEURAL_INDEXES no
+setenv NEURAL_MAKE no
+setenv NEURAL_ALL no
+setenv NEURAL_SAFE no
+
+# Process the command line, resetting the environment variables as
+# appropriate ...
+# Note: The -xol and -xm options are here for compatability with options
+# for Poplog-Flex and Poplog-Rules only and don't actually select the
+# widget set being used.
+while ("$argv" != "")
+	switch ($1)
+		case "-pwm":
+			setenv NEURAL_PWM_REQUEST yes
+			breaksw
+		case "-x":
+		case "-xol":
+		case "-xm":
+			setenv NEURAL_X_REQUEST yes
+			breaksw
+		case "-h":
+			setenv NEURAL_HELP yes
+			breaksw
+		case "-m":
+			setenv NEURAL_MAKE yes
+			breaksw
+		case "-indexes":
+			setenv NEURAL_INDEXES yes
+			breaksw
+		case "-safe":
+			setenv NEURAL_SAFE yes
+			breaksw
+		case "-dir":
+			shift
+			setenv NEURAL_IMAGEDIR $1
+			breaksw
+		case "-host":
+			shift
+			setenv HOST_TYPE $1
+			breaksw
+		case "-all":
+			setenv NEURAL_ALL yes
+			breaksw
+		case "-f77":
+			setenv NEURAL_F77 yes
+			breaksw
+		default:
+			echo "neural: illegal argument $1"
+			echo "Usage: neural [-x] [-pwm] [-dir <directory>] [-host <host-type>]"
+			echo "              [-m] [-indexes] [-f77] [-h]"
+			exit 1
+	endsw
+	shift
+end
+
+if (! $?NEURAL_F77) then
+	setenv NEURAL_F77 no
+endif
+
+if (! $?HOST_TYPE) then
+	echo "neural: cannot determine host (HOST_TYPE not defined)."
+	echo "Use '-host <host-type>' option or set HOST_TYPE."
+	exit 1
+endif
+
+if (! $?NEURAL_IMAGEDIR) then
+	setenv NEURAL_IMAGEDIR $popneural/bin/${HOST_TYPE}
+endif
+
+# Having parsed the command line, invoke the necessary processes ...
+if ("$NEURAL_MAKE" == "yes") then
+	if ("$NEURAL_ALL" == "yes") then
+			cd $popneural/src/fortran
+			compall
+			if ("$NEURAL_SAFE" == "yes") then
+				safecomp
+			endif
+	endif
+	if ("$NEURAL_INDEXES" == "yes") then
+		echo "Poplog-Neural: building index files"
+		$popsys/pop11 mkrefindex '$popneural/ref'
+		echo "Poplog-Neural: index files built"
+	endif
+	pushd $popneural/bin
+	mkneural $NEURAL_IMAGEDIR
+	if ($status == 0) then
+		echo "Poplog-Neural: Make completed"
+		popd
+		exit 0
+	else
+		echo "Poplog-Neural: error during build"
+		popd
+		exit 1
+	endif
+	else
+		if ("$NEURAL_HELP" == "yes") then
+			echo "neural accepts the following optional switches:-"
+			echo "-x:                           use the X graphical interface"
+			echo "-pwm (Sun only):              use the PWM graphical interface"
+			echo "-dir <directory>:             define saved image directory"
+			echo "-host <host-type>:            define host platform"
+			echo "-m:                           re-build Poplog-Neural"
+			echo "-indexes (with -m):           re-build Poplog-Neural index files"
+			echo "-f77 (with -m):               re-build using host Fortran-77 libraries"
+			echo "-h:                           display this information"
+		else
+			if ("$NEURAL_X_REQUEST" == "yes") then
+				pop11 +$NEURAL_IMAGEDIR/neural.psv %x
+			else if ("$NEURAL_PWM_REQUEST" == "yes") then
+				pwmtool pop11 +$NEURAL_IMAGEDIR/neural.psv
+			else
+			pop11 +$NEURAL_IMAGEDIR/neural.psv
+			endif
+		endif
+	endif
+exit 0

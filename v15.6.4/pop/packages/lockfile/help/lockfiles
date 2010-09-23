@@ -1,0 +1,114 @@
+HELP LOCKFILES                               Mark Rubinstein, April 1985
+                                                John Williams, Sept 1990
+
+LIB LOCKFILES provides a small set of procedures for operating a locking
+mechanism on files.
+
+A file is locked by having an associated 'lock' file created in a
+special directory (/csuna/pop/locks on CRN; /tsuna/pop/locks on CTN;
+$poplocal/local/locks anywhere else).
+
+Six main operations are provided:
+
+    TRYLOCKFILE     - lock a given file.
+    TRYUNLOCKFILE   - relinquish a file.
+    ISLOCKED        - check on the status of a file.
+    LOCKKEY_OF      - find the locker of the file.
+    LOCKCOMMENT_OF  - get the comment associated with a lock.
+    LOCKOF          - get the name of a file's lock
+
+These are described in more detail below.
+
+
+-- Locks, Keys, and Comments -------------------------------------------
+
+Whenever a file is locked it must be given a key.  A key can be either a
+word or an integer.  This key can be considered to be the pseudo-owner
+of the file - in order to unlock the file the key must be provided.  If
+a file is to be locked for a short while and be released from within the
+same process then it makes sense to use the poppid as the key,
+preventing any other process from gaining access to the file.  If
+however a file is to be locked over a longer period of time then it
+makes sense to use something made from, say the user name - e.g.
+consword(popusername) or the user's id code (popuserid).
+
+The locking operation may also be given an optional comment (a string).
+This is stored in the lock file. The comment string is only retrieved as
+far as the first new line so if the comment or any of its components
+includes a newline the rest of the comment will be lost.
+
+
+-- TRYLOCKFILE ---------------------------------------------------------
+
+    TRYLOCKFILE(filename, key) -> boolean or comment;
+or  TRYLOCKFILE(filename, key, comment) -> boolean or comment;
+
+This is the main locking procedure.  If all goes well it creates the
+lockfile containing the key and the comment. The procedure will mishap
+if the file doesn't exist.
+
+The procedure returns:
+    true        if the file has been successfully locked.
+    false       if the file cannot be locked as it already belongs to a
+                    different key.
+    a comment   (which is either a string or a list of strings and
+                 numbers as explained above), if the file was already
+                 locked by the same pseudo-owner (or key).
+
+
+-- TRYUNLOCKFILE -------------------------------------------------------
+
+    TRYUNLOCKFILE(filename, key) -> boolean
+
+This procedure is for unlocking a file.  It removes the lockfile.
+
+The procedure returns:
+    true        if the lock file was successfully deleted
+    undef       if either the file or the lock file doesn't exist.
+    false       if the lock file was not deleted, but it had tried to
+             OR if the file is locked by a different key (pseudo-owner).
+
+
+-- TRYUNLOCKFILE -------------------------------------------------------
+
+    ISLOCKED(filename) -> boolean
+
+For checking on the lock status of a file - returns true only if the
+file and its associate lockfile exists (tested with readable).
+
+
+-- LOCKKEY_OF ----------------------------------------------------------
+
+    LOCKKEY_OF(filename) -> false or key
+
+For getting the pseudo-owner of a file.  Returns false if the file is
+not locked (tested with ISLOCKED), otherwise it returns the key item
+that locked the file.
+
+
+-- LOCKCOMMENT_OF ------------------------------------------------------
+
+    LOCKCOMMENT_OF(filename) -> false or comment.
+
+For getting the comment associated with a lock.  Returns false if the
+file is not locked (tested with ISLOCKED), otherwise it returns the
+comment that was used when locking the file.  This is either a string or
+a list of strings and numbers.
+
+
+-- LOCKOF --------------------------------------------------------------
+
+    LOCKOF(filename) -> string;
+
+This returns the name of the appropriate lock file for filename.
+
+
+-- SHELL COMMANDS ------------------------------------------------------
+
+Three shell commands are provided to perform the same operations from
+outside of POP.  These are LOCKFILE, UNLOCKFILE and WHOSE.  Giving these
+commands with no arguments will provide a usage comment to help you.
+
+
+--- $poplocal/local/help/lockfiles
+--- Copyright University of Sussex 1990. All rights reserved. ----------

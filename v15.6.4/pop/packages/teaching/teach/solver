@@ -1,0 +1,306 @@
+TEACH SOLVER                                     Steven Hardy, June 1982
+
+[Note 17 Jun 2008: the library had to be changed to replace "instance" with
+"pattern_instance" because the former is used in objectclass as a syntax
+word.
+Slightly expanded and reformatted this teach file.
+Aaron Sloman]
+
+
+CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- Controlling speed of execution
+ -- What the program does
+ -- Representation of the actions in schemalist
+ -- Running the program to watch it planning
+ -- How it works
+ -- Running additional examples
+ -- A hard problem
+ -- Using Astar search
+ -- SEE ALSO
+
+-- Introduction -------------------------------------------------------
+
+This file describes a demonstration program to illustrate means-end
+analysis and the A* (A-STAR) heuristic search algorithm. To use the
+program, first do this to compile the library package:
+
+    lib solver
+
+E.g. Mark and compile it, or, in Ved/XVed do:
+
+    ENTER lib solver
+
+-- Controlling speed of execution -------------------------------------
+
+When the program was originally created it ran so slowly that you could
+see all the intermediate steps displayed. On modern computers (2008) it
+runs too fast for that, so the library has been enhanced with a global
+variable solverdelay, declared thus:
+
+    global vars solverdelay;
+
+    unless isinteger(solverdelay) then
+        50 -> solverdelay;
+    endunless;
+
+The number 50 represents a delay of 50 hundredths of a second, i.e. half
+a second, on each cycle of the planning process. If this is your first
+use of the program, you may wish to make it pause longer so that you can
+see what is happening as it runs, e.g. try one of these to make it pause
+for two seconds or four seconds at a time.
+
+    200 -> solverdelay;
+    400 -> solverdelay;
+
+
+-- What the program does ----------------------------------------------
+
+The problem solver is set up to work on a blocks world. In this world
+there are five blocks on a table top. The blocks are named B1, B2, B3,
+B4 and B5.
+
+Blocks B1, B4 and B5 are on the table. Block B2 is on B1 and block B3 is
+being held in a robot hand.
+
+This world is described with in a DATABASE, thus:
+
+    database ==>
+    ** [[ontable b1]
+        [b2 on b1]
+        [cleartop b2]
+        [holding b3]
+        [cleartop b3]
+        [ontable b4]
+        [cleartop b4]
+        [ontable b5]
+        [cleartop b5]]
+
+Four actions are known to the problem solver, they are:
+
+    take ?X off table
+    place ?X on table
+    pick up ?X from ?Y
+    put ?X on ?Y
+
+Each of these actions has various preconditions and effects. For
+example, the action TAKE ?X OFF TABLE can only be done if the robot has
+an empty hand, if the block X has a clear top (ie nothing is on it) and
+if the block X is on the table. After the action is performed, certain
+things will no longer be true (X will no longer be on the table and the
+robot will no longer have an empty hand) and certain things will have
+become true (the robot will be holding X).
+
+-- Representation of the actions in schemalist ------------------------
+
+The four actions are described by lists in a list in the variable
+SCHEMALIST, thus:
+
+    schemalist ==>
+    ** [[[take ?x off table]
+             [[emptyhand] [cleartop ?x] [ontable ?x]]
+             [[emptyhand] [ontable ?x]]
+             [[holding ?x]]]
+        [[place ?x on table]
+             [[holding ?x]]
+             [[holding ?x]]
+             [[ontable ?x] [emptyhand]]]
+        [[pick up ?x from ?y]
+             [[emptyhand] [?x on ?y] [cleartop ?x]]
+             [[emptyhand] [?x on ?y]]
+             [[holding ?x] [cleartop ?y]]]
+        [[put ?x on ?y]
+             [[holding ?x] [cleartop ?y]]
+             [[holding ?x] [cleartop ?y]]
+             [[emptyhand] [?x on ?y]]]]
+
+(You can later try altering the available actions.)
+
+
+Each action is described by one element on the list.
+
+Each action is described by a four element sub-list whose components
+are:
+
+    The 'name' of the action,
+
+    The preconditions of the action,
+
+    The things made false by the action,
+        (sometimes referred to as the 'delete list')
+
+    The things made true by the action.
+        (sometimes referred to as the 'add list')
+
+For example, the first action has these components:
+
+    The 'name' of the action:
+        [take ?x off table]
+
+    The preconditions of the action:
+        [[emptyhand] [cleartop ?x] [ontable ?x]]
+
+    The things made false by the action (delete list):
+        [[emptyhand] [ontable ?x]]
+
+    The things made true by the action (add list):
+        [[holding ?x]]
+
+
+-- Running the program to watch it planning ---------------------------
+
+If you wish to know what the problem solver would do to be holding block
+B1, then give the command:
+
+    strips [holding b1]
+
+You can either type that command to the pop11 prompt if you are not
+running the editor, or else, if you are using Ved or XVed, mark and load
+that line or give this command:
+
+    ENTER strips [holding b1]
+
+The problem solver uses VED to display a 'picture' of its 'state of
+mind' as it solves the problem.
+
+Use the variable 'solverdelay' to control the speed of the program, as
+described above.
+
+Seeing the program display its 'thinking' in the editor is especially
+convenient when using the problem solver and simultaneously reading this
+TEACH file!
+
+Don't worry if you don't understand everything that happens - just
+watch and when the problem solver has finished, return to this file by
+giving an <ENTER> TEACH command.
+
+-- How it works -------------------------------------------------------
+
+The STRIPS problem solver uses means-end analysis. This means that when
+it is given a number of goals to ACHIEVE it first determines which of
+the goals that is not already true is (in its opinion) the hardest and
+then decides to REDUCE the task by achieving that one goal. When that
+has been done it reconsiders the goals and if they are not yet all
+achieved it selects a new one to REDUCE.
+
+To REDUCE a goal it decides which action would achieve that one goal and
+decides to PERFORM it. Before it can PERFORM that action, it must,
+however, ACHIEVES its preconditions.
+
+This recursive call of ACHIEVE might involve its own calls of REDUCE and
+PERFORM.
+
+The picture that is shown shows 'goal hierarchy' being considered by the
+problem solver. The parts of the tree actively being considered by the
+problem solver are shown in capital letters.
+
+-- Running additional examples ----------------------------------------
+
+Run the problem solver again, this time on a different problem, by
+pressing <ENTER> and typing
+
+    strips [b1 on b2]
+
+This asks the problem solver how it would get block B1 onto block B2.
+
+The problem solver doesn't actually do anything (it merely makes plans)
+so the plan produced will be from the intial state as described earlier.
+
+Try the problem solver on all the following problems, one at a time,
+trying to understand what is going on.
+
+    strips [b1 on b4]
+    strips [emptyhand]
+    strips [cleartop b1]
+    strips [ontable b2]
+    strips [b1 on b2] [b3 on b4] [holding b5]
+    strips [b1 on b4] [holding b2]
+    strips [cleartop b1]
+    strips [ontable b2]
+    strips [b1 on b2] [b2 on b3]
+
+You will notice that the problem solver is not very smart about the last
+problem.
+
+-- A hard problem -----------------------------------------------------
+
+Try the problem solver on a really hard problem:
+
+    strips [b1 on b2] [b2 on b3] [b3 on b4] [b4 on b5]
+
+The problem solver can be made a bit cleverer by assigning true to the
+variable clever, ie:
+
+    true -> clever;
+
+This can be done in VED if you first press the <ENTER> button.
+
+Try the following problem again:
+
+    strips [b1 on b2] [b2 on b3]
+
+It will take much longer this time.
+
+What is happening is that when STRIPS realises that is it doing
+something stupid (like producing a plan with a loop in it) then it
+backtracks to its most recent decision. This will have been either to
+select a particular action to PERFORM to REDUCE a goal or else it will
+have been to select a particular goal to REDUCE first out of a list of
+goals it is trying to ACHIEVE.
+
+-- Using Astar search -------------------------------------------------
+
+The problem solver will also illustrate a forward chaining search if
+the command ASTAR is used instead of STRIPS. Try the preceding examples
+again. The currently 'active' branch of the search tree is shown in
+capitals.
+
+    astar [b1 on b4]
+    astar [emptyhand]
+    astar [cleartop b1]
+    astar [ontable b2]
+    astar [b1 on b2] [b3 on b4] [holding b5]
+    astar [b1 on b4] [holding b2]
+    astar [cleartop b1]
+    astar [ontable b2]
+    astar [b1 on b2] [b2 on b3]
+
+The performance of ASTAR (and STRIPS to a lesser extent) is partially
+determined by the value of the variable LOOKAHEAD. This is initially 2;
+if set higher then ASTAR performs better; if set lower (but not less
+than zero) then ASTAR becomes more breadth-first.
+
+The package can be made to work on any problem domain by merely altering
+the values of DATABASE and SCHEMALIST. When providing your own
+SCHEMALIST the following rules must be obeyed:
+
+  o Any variable in a schema must occur in the name
+
+  o No two schema names must 'match' one another.
+
+The system checks the domain specification.
+
+
+-- SEE ALSO -----------------------------------------------------------
+
+SOLVER is a complex, sophisticated program, which you may find hard to
+understand. However it is not as sophisticated as modern planners.
+
+You can get alternative introductions to searching, e.g. try
+
+    TEACH * SOLVEMS
+    TEACH * SEARCHING
+        Has some references at end.
+
+To see how you might write your own problem solver in PROLOG, see
+    TEACH * PSTRIPS
+
+
+
+--- C.all/teach/solver
+--- Copyright University of Sussex 1995. All rights reserved.
+
+
+--- $poplocal/local/ftp/v15.61/v15.61/pop/packages/teaching/teach/solver
+--- Copyright University of Birmingham 2008. All rights reserved.

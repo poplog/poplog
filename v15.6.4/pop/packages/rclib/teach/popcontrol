@@ -1,0 +1,267 @@
+/*
+TEACH POPCONTROL                                            Aaron Sloman
+                                                             16 Apr 1999
+                                                     Revised 21 Jul 2000
+                                              Suggested by Riccardo Poli
+
+
+CONTENTS
+
+ -- Introduction
+ -- Background reading
+ -- Linking panel elements to one another and to pop-11 variables
+ -- Compile required libraries
+ -- Some utilities and global variables used by the panel
+ -- Panel specifications
+
+-- Introduction -------------------------------------------------------
+
+This file is a mixture of commented out textual explanations and
+Pop-11 program commands. It can be compiled from Ved using the command
+    ENTER l1
+
+The file indicates how LIB rc_control_panel, one of the main libraries
+of the RCLIB package, can be used to create a control panel to manage
+the status of Pop-11, Ved/Xved or other aspects of your program
+development environment.
+
+You can copy and edit this file to make your own version.
+
+First try it out as follows. Compile the file (ENTER l1).
+It will create a control panel with an array of buttons that can be used
+to modify values of global variables, e.g. popmemlim, and many others.
+
+It also shows a panel that can be used to browse help files concerned
+with RCLIB.
+
+-- Background reading -------------------------------------------------
+
+Find out about relevant Poplog/Pop-11/Ved control variables in
+these online documentation files:
+
+    HELP POPVARS
+    REF VEDVARS
+    REF SYSTEM
+
+Read a tutorial introduction to RCLIB facilities in
+    TEACH RCLIB_DEMO.P
+
+A full explanation of rc_control_panel is found in these two files:
+    TEACH RC_CONTROL_PANEL
+    HELP RC_CONTROL_PANEL
+
+An overview of RCLIB and a list of the main procedures can be found
+in
+    HELP RCLIB
+
+-- Linking panel elements to one another and to pop-11 variables ------
+
+The example below uses the {reactor ...} format to link a counter button
+to a slider, for specifying ranseed.
+
+For more details, see HELP RC_CONTROL_PANEL/reactor
+
+If you play with the SCROLLTEXT panel at the bottom, try examining the
+value of this variable after making a selection or scrolling:
+
+selected_text =>
+*/
+
+/*
+-- Compile required libraries -----------------------------------------
+*/
+
+uses rclib
+uses rc_buttons
+uses rc_slider
+uses rc_control_panel
+uses ved_autosave
+
+/*
+-- Some utilities and global variables used by the panel --------------
+*/
+
+;;; Make sure ranseed is a number
+(ranseed or sys_real_time()) mod 1000000 -> ranseed;
+
+;;; Set one of Ved's global variables
+2 -> vedversions;
+
+;;; Define a procedure to be invoked by the "Exit Poplog" button.
+define exit_gracefully();
+    ;;; Cycle through open files, checking. But first put a dummy file
+    ;;; on the end of the list. You don't want to know why....
+    vedopen(systmpfile('/tmp', 'quitting', ''),vedhelpdefaults, true);
+
+    ;;; Now quit each of the non-dummy files. If some are writable and
+    ;;; changed you'll be asked whether you really want to quit.
+    while length(vedbufferlist) > 1 do
+        ;;; This may help in Xved
+        vedputmessage('LEAVING ' >< vedcurrent);
+        ved_q();
+    endwhile;
+    ;;; Only the dummy file is left, so exit Poplog.
+    sysexit();
+enddefine;
+
+define rc_refresh();
+    rc_redraw_panel(rc_active_window_object);
+enddefine;
+
+/*
+-- Panel specifications -----------------------------------------------
+*/
+
+lvars
+    buttonspec =
+    ;;; Create a featurespec descriptor to override the defaults
+    ;;; for the first three buttons (Refresh, Dismiss and Exit)
+        {rc_button_font '-adobe-helvetica-bold-r-normal-*-10-*-*-*-p-*-*-*'
+            rc_button_stringcolour 'yellow'
+            rc_button_blobcolour 'yellow'
+            rc_button_labelground 'brown'},
+    textfont =   {font '-adobe-helvetica-bold-r-normal-*-12-*-*-*-p-*-*-*'},
+    actionfont = {font '-adobe-helvetica-bold-r-normal-*-10-*-*-*-p-*-*-*'},
+
+    ;;; width for toggle and counter buttons
+    buttonwidth =175,
+    buttonheight = 20,
+;
+
+;;; variable associated with selection from SCROLLTEXT field
+vars selected_text;
+
+vars popcontrol =
+rc_control_panel("right", "top",
+    [
+        ;;; buttons for refresh, dismissing panel and exiting
+        [ACTIONS {spacing 2}{width 115} {height 28} {cols 3}
+            {spec ^buttonspec}:
+            {blob 'Refresh' rc_refresh}
+            {blob 'Dismiss' rc_kill_menu}
+            {blob 'EXIT POPLOG' exit_gracefully}
+        ]
+
+        ;;; buttons for getting information in Ved
+        [ACTIONS {width ^buttonwidth} {cols 2} ^actionfont:
+            'HELP POPVARS'
+            'REF VEDVARS'
+            'REF DOCUMENTATION'
+            ['Print Popversion' [POP11 popversion =>]]
+        ]
+
+        ;;; Toggle buttons to control some boolean variables
+        [TEXT ^textfont:
+            'Pop-11 and VED boolean control variables']
+
+        [ACTIONS {width ^buttonwidth} {height ^buttonheight}
+            {cols 2} ^actionfont:
+            {toggle pop_pr_quotes pop_pr_quotes ^pop_pr_quotes}
+            {toggle pop_pr_ratios pop_pr_ratios ^pop_pr_ratios}
+            {toggle popradians popradians ^popradians}
+            {toggle popdprecision popdprecision ^popdprecision}
+            {toggle popgctrace popgctrace ^popgctrace}
+            {toggle pop_process_trace pop_process_trace ^pop_process_trace}
+            {toggle tracing tracing ^tracing}
+            {toggle vedhardtabs vedhardtabs ^vedhardtabs}
+            {toggle vedwriteoutplain vedwriteoutplain ^vedwriteoutplain}
+            {toggle vedstatusshowcols vedstatusshowcols ^vedstatusshowcols}
+            {toggle vedstatic vedstatic ^vedstatic}
+            {toggle vedbreak vedbreak ^vedbreak}
+        ]
+
+        ;;; Counter buttons to control numeric variables
+        [TEXT ^textfont : 'Pop-11 and VED numeric variables'
+            'Left button decrement'
+            'Right button increment'
+        ]
+        [ACTIONS {width ^buttonwidth} {height ^buttonheight}
+            {cols 2} ^actionfont:
+            {counter popmemlim ^popmemlim {500000 600000 8000000}}
+            {counter popgcratio ^popgcratio 1}
+            {counter popminmemlim ^popminmemlim {500000 0}}
+            {counter 'callstack_lim' ^pop_callstack_lim {1000 0}}
+            {counter pop_prolog_lim ^pop_prolog_lim {10000 0}}
+            {counter pop_pr_places ^pop_pr_places {1 0}}
+            {counter pop_pr_radix ^pop_pr_radix {1 2 36}}
+            {counter pop_pr_level ^pop_pr_level 100}
+            {counter vedversions ^vedversions {1 0}}
+            {counter poplinemax ^poplinemax {1 10}}
+            {counter poplinewidth ^poplinewidth {1 1}}
+            {counter vedstatusbufferlimit ^vedstatusbufferlimit {10 0}}
+            {counter vedindentstep ^vedindentstep {1 0}}
+            {counter vedlinemax ^vedlinemax {1 1}}
+            {counter vedwiggletimes ^vedwiggletimes {5 0}}
+            {counter vedautosave_minutes ^vedautosave_minutes {1 1}}
+        ]
+
+        ;;; An increment button and slider for "ranseed", linked to
+        ;;; each other using the "reactor" feature.
+
+        ;;; First an increment button placed centrally above the slider.
+        [ACTIONS {gap 0}{width 140}
+                {fieldbg 'grey75'}
+                {label ranseed_counter}
+                ;;; Make this counter button update the slider
+                {reactor [{. ranseed_slider 1}]} :
+            {counter ranseed ^ranseed {1 0}}
+        ]
+        ;;; Now the slider field
+        [SLIDERS {width 320} {offset 10}
+                {label ranseed_slider}
+                {ident ranseed}
+                ;;; Make this slider update the counter button
+                {reactor [{. ranseed_counter 1}]}
+                {constrain round}
+                {framecol 'black'} {height 20}
+                {fieldbg 'grey75'}
+                {barcol 'white'}:
+                [{0 1000000 ^ranseed 1} []]
+            ]
+
+        ;;; A scrolling text panel with RCLIB help files
+        [TEXT ^textfont:
+            'Select RCLIB help then click button below']
+        [SCROLLTEXT {cols 20}{rows 8} {font '8x13'}
+            ;;; try some alternative fonts
+            ;;; {font '9x15bold'}
+            ;;; {font '10x20'}
+            ;;; {font '12x24'}
+            ;;; try commenting out and uncommenting the next line
+            {blobrad 6}
+            {fieldbg 'grey75'} {blobcol 'blue'}
+            ;;; {slidercol 'grey91'}
+            {margin 0} {align left} {offset 30} :
+            ;;; associated selection with variable "selected_text"
+            [selected_text
+                {%
+                    applist(
+                        pdtolist(
+                            sys_file_match('$local/rclib/help/*',
+                                nullstring, false, false)),
+                        sys_fname_name)
+                  %}]
+        ]
+
+        ;;; An action button to get the selected help file
+        ;;; Use a negative gap to raise the button into the
+        ;;; preceding field.
+        [ACTIONS {align right} {gap -40}
+             ;;; {fieldbg 'blue'}
+            {width 100} :
+            ['GETHELP' [POP11 veddo('help ' <> selected_text)]]]
+    ],
+    'PopControl');
+
+/*
+
+;;; Test the selection
+selected_text=>
+
+*/
+
+
+/*
+--- $poplocal/local/rclib/teach/popcontrol
+--- Copyright University of Birmingham 2000. All rights reserved. ------
+*/

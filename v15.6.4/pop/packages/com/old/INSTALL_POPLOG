@@ -1,0 +1,182 @@
+#!/bin/sh
+##
+## $local/com/INSTALL_POPLOG
+## http://www.cs.bham.ac.uk/research/poplog/com/INSTALL_POPLOG
+## Install poplog with or without motif then run INSTALL_LIKE_BHAM
+##
+## Run this with one or two arguments.
+##      One is
+##          LINK_MOTIF_POPLOG or LINK_NOMOTIF_POPLOG
+##
+##      The second, optional one, is the directory in which to locate poplog
+##
+## Aaron Sloman (http://www.cs.bham.ac.uk/~axs/)
+## Revised
+##       3 Jan 2005
+##          removed references to poplog.orig and poplog.sh.orig
+##      24 Dec 2004
+##          Changed to use 15.53f
+##      17 Apr 2004
+##          Changed to use LINK command in same directory
+##          Fixed 'echo' failure/success report after
+##              Check for success of LINK command
+##          Also print out what is being run
+##
+##      16 Mar 2004
+##          Changed to v15.53e
+##      28 3 Nov 2003
+##          Made to install poplog and poplog.sh scripts in running system
+##      28 Oct 2003
+##          Unified INSTALL_MOTIF_POPLOG and INSTALL_NOMOTIF
+##          Changed to use SETUPDIRS and to
+##          pass on rootdir and link-type argument
+##      24 Jul 2003
+##          Changed to use LINK_POPLOG_POPLOG, and to use sh, not csh
+##      3 May 2003
+##          Added -norsv to newpop command
+##      10 Mar 2003
+##          Use new name for Core linux poplog tar file
+## Based on INSTALL_MOTIF_POPLOG
+## This script relinks poplog to remove dependence on motif
+
+## If the following does not work it may be necessary to run the script
+##     relinking-linux-poplog
+## available from
+##      http://www.cs.bham.ac.uk/research/poplog/tools/relinking.linux.poplog
+## if not included in your tar file
+
+## Run this in the directory in which the poplog tar file
+## has been unpacked
+
+tardir=`pwd`
+## Create Poplog directory and define some environment variables
+## Assumes that either a directory has been passed in as argument or
+## the default should be used
+
+if [ "$2x" == "x" ]
+then
+    # Optional second argument not supplied
+
+    ## EDIT THIS LINE IF NECESSARY:
+    ##      defaultlocation for $usepop $poplocal, etc.
+    rootdir=/usr/local/poplog
+
+else
+
+    rootdir=$2
+fi
+
+export rootdir
+
+echo "set rootdir to " $rootdir
+echo "creating directories for poplog and local extensions in $rootdir"
+
+##. SETUPDIRS
+    # 'source' this script to get $usepop etc
+    # It also runs startup/CREATE_SCRIPTS
+
+## Change this for new version of Poplog
+mkdir $rootdir $rootdir/v15.53f $rootdir/local
+
+chmod 755 $rootdir $rootdir/v15.53f $rootdir/local
+
+export usepop=$rootdir/v15.53f
+
+## Location for local saved images
+## Version specific
+export poplocalbin=$usepop/poplocalbin
+
+mkdir $poplocalbin
+
+export poplocal=$rootdir
+
+export local=$poplocal/local
+
+echo "poplocal $poplocal ; local $local"
+
+cd startup
+echo "Creating startup scripts"
+./CREATE_SCRIPTS $rootdir
+ls -l poplog*
+echo "poplog and poplog.sh startup scripts Done"
+
+cd $rootdir
+# create some useful symbolic links
+ln -s v15.53f current.poplog
+ln -s v15.53f v15.53
+
+cd $usepop
+
+echo "Unpacking poplog+motif. May take some time"
+
+# Install linux poplog with motif
+zcat $tardir/linux-pc-1553.tar.gz | tar xf -
+
+echo "UNPACKING POPLOG TAR FILE COMPLETE"
+
+echo "main poplog system installed in $usepop"
+
+echo "======================================================"
+
+echo "directories in $usepop/pop "
+ls -l $usepop/pop/
+
+echo "======================================================"
+echo "Now rebuilding system images"
+
+. $usepop/pop/com/poplog.sh
+
+export popsrc=$usepop/pop/src
+export popsys=$usepop/pop/pop
+
+## Now link poplog.
+##Either LINK_MOTIF_POPLOG
+##OR     LINK_NOMOTIF_POPLOG
+##
+echo 'RUNNING:' $tardir/$1
+$tardir/$1
+
+## Check for success of LINK command
+if [ -f $usepop/pop/lib/psv/startup.psv ]
+then
+    echo "$1 worked OK"
+else
+    echo "$1 did not work"
+    exit 1
+fi
+
+## Needed for later items
+export pop_pop11="-$popsavelib/startup.psv"
+
+echo "======================================================"
+
+echo "Now installing packages in $local"
+
+cd $tardir
+
+echo "Run INSTALL_LIKE_BHAM"
+
+./INSTALL_LIKE_BHAM
+
+## Check for success of INSTALL_LIKE_BHAM command
+if [ -f $poplocalbin/startup.psv ]
+then
+    echo "INSTALL_LIKE_BHAM worked OK"
+else
+    echo "INSTALL_LIKE_BHAM did not work"
+    echo "Ask for help via comp.lang.pop or pop-forum AT cs.bham.ac.uk"
+    exit 1
+fi
+
+echo ""
+echo "Installing user startup scripts in $poplocal/local/setup/bin"
+
+cd startup
+cp -fp poplog poplog.sh  $usepop/man/bin
+cp -fp poplog poplog.sh  $poplocal/local/setup/bin
+cp -fp poplog poplog.sh  $poplocal/local/com/startup
+
+echo "======================================================"
+echo "Finished INSTALL_LIKE_BHAM"
+
+echo "done INSTALL POPLOG FOR LINUX + PC using $1"

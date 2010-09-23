@@ -1,0 +1,569 @@
+REF XlibMacros                                      A. Schoter, Aug 1991
+                                        Revised: Adrian Howard, Jul 1993
+
+        COPYRIGHT University of Sussex 1991. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<< ACCESSING INFORMATION FROM  >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<  THE X DISPLAY AND SCREEN   >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<         STRUCTURES          >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+The following details various functions which can be used to access  the
+information held in * Display and * Screen structures.
+    IMPORTANT NOTE:  The Display  and Screen  structures used  by X  are
+opaque to the  user and their  contents should only  be accessed by  the
+functions detailed here,  not by  direct access into  the structure  via
+exacc or similar functions.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   LIB XlibMacros
+      1.1   Accessing Information From Display Structures
+            ... The Server Connection
+            ... The Screens Of A Display
+            ... Root Windows
+            ... The X Protocol Version
+            ... Information On The Vendor
+            ... Default Colormaps and Pixels
+            ... The Default Graphic Contexts
+            ... Image Format Information
+            ... Querying Screen Sizes
+            ... Allocating Resource Identifiers
+      1.2   Accessing Information From Screen Structures
+            ... Miscellaneous Screen Information
+            ... The Root Window
+            ... The Default Colormap and Pixels
+            ... The Default Graphic Context
+            ... Querying The Screen Size
+
+
+
+-----------------
+1  LIB XlibMacros
+-----------------
+
+To load LIB * XlibMacros do:
+
+        uses xlib, XlibMacros;
+
+The contents  of  the  library  are direct  equivalents  of  the  Xlib C
+functions and macros. For information on the C functions and macros  see
+chapter 2 "Display Functions" and Appendix C "Extensions" in:
+
+                      Xlib - C Language X Interface
+                        MIT X Consortium Standard
+                         X Version 11, Release 4
+
+        Copyright (C) 1985, 1986, 1987, 1988, 1989 Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+
+1.1  Accessing Information From Display Structures
+--------------------------------------------------
+The   following   details   the    various   procedures   provided    by
+LIB * XlibMacros for accessing information from Display structures:
+
+
+
+...  The Server Connection
+--------------------------
+The following provide information on the current server connection.
+
+
+XConnectionNumber(displayptr) -> int                         [procedure]
+ConnectionNumber(displayptr) -> int                          [procedure]
+        XConnectionNumber returns  the  connection  number  int  of  the
+        display referred to by displayptr.  On Unix systems this is  the
+        integer file descriptor of the connection.
+
+        ConnectionNumber is a synonym for XConnectionNumber.
+
+
+XDisplayString(displayptr) -> string                         [procedure]
+DisplayString(displayptr) -> string                          [procedure]
+        XDisplayString returns the string  name of the display  referred
+        to by displayptr  (as passed  to * XOpenDisplay or  held in  the
+        Unix $DISPLAY environment variable.)
+
+        This can  be useful  in programs  which use  the Unix  * sysfork
+        procedure and wish to open a connection in the child process  to
+        the same display used in the parent. XDisplayString can be  used
+        by the parent to get the name of the display, which can then  be
+        used in a call to * XOpenDisplay by the child.
+
+        DisplayString is a synonym for XDisplayString.
+
+
+XLastKnownRequestProcessed(displayptr) -> int                [procedure]
+LastKnownRequestProcessed(displayptr) -> int                 [procedure]
+        XLastKnownRequestProcessed returns the integer serial number  of
+        the last request known by Xlib  to have been processed by  the X
+        server on the display referred to by displayptr. Xlib sets  this
+        number  whenever  replies,  events,  and  errors  are  received.
+        Compare with * XNextRequest.
+
+        The  procedure  LastKnownRequestProcessed   is  a  synonym   for
+        XLastKnownRequestProcessed.
+
+
+XNextRequest(displayptr) -> int                              [procedure]
+NextRequest(displayptr) -> int                               [procedure]
+        XNextRequest returns the integer serial number that will be used
+        for the next request to be sent  to the X server on the  display
+        referred  to  by  displayptr.  Serial  numbers  are   maintained
+        separately for each display connection.
+
+        NextRequest is a synonym for XNextRequest.
+
+
+XQLength(displayptr) -> int                                  [procedure]
+QLength(displayptr) -> int                                   [procedure]
+        XQLength returns the length  of the input  queue on the  display
+        connection referred to  by displayptr. It  should be noted  that
+        there may be more  events that have not  yet been read into  the
+        queue (see * XEventsQueued.)
+
+        This may be useful  to make sure you  have processed all  events
+        already read in. Compare with * XPending.
+
+        QLength is a synonym for XQLength.
+
+
+
+...  The Screens Of A Display
+-----------------------------
+The following provide information  on the screens  available on a  given
+display.
+
+
+XScreenCount(displayptr) -> int                              [procedure]
+ScreenCount(displayptr) -> int                               [procedure]
+        XScreenCount returns  the number  of  available screens  on  the
+        display referred to by displayptr.
+
+        ScreenCount is a synonym for XScreenCount.
+
+
+XDefaultScreenOfDisplay(displayptr) -> screenptr             [procedure]
+DefaultScreenOfDisplay(displayptr) -> screenptr              [procedure]
+        XDefaultScreenOfDisplay returns the default screen screenptr  of
+        the  display   referred   to   by   displayptr.   Compare   with
+        * XDisplayOfScreen and * XScreenOfDisplay.
+
+        DefaultScreenOfDisplay is a synonym for XDefaultScreenOfDisplay.
+
+
+XScreenOfDisplay(displayptr, screen_num) -> screenptr        [procedure]
+ScreenOfDisplay(displayptr, screen_num) -> screenptr         [procedure]
+        XScreenOfDisplay returns the screen_numth screen of the  display
+        referred to by displayptr.  Compare with * XDisplayOfScreen  and
+        * XDefaultScreenOfDisplay.
+
+        ScreenOfDisplay is a synonym for XScreenOfDisplay.
+
+
+XDefaultScreen(displayptr) -> screen_num                     [procedure]
+DefaultScreen(displayptr) -> screen_num                      [procedure]
+        XDefaultScreen returns the number of  the default screen of  the
+        display referred to by  displayptr. See * XOpenDisplay for  more
+        details.
+
+        DefaultScreen is a synonym for XDefaultScreen.
+
+
+XDefaultVisual(displayptr, screen_num) -> visual             [procedure]
+DefaultVisual(displayptr, screen_num) -> visual              [procedure]
+        XDefaultVisual  returns  the  default   visual  visual  of   the
+        screen_numth screen of  the display referred  to by  displayptr.
+        Compare with * XDefaultVisualOfScreen.  For more information  on
+        visual types see REF * XVisuals.
+
+        DefaultVisual is a synonym for XDefaultVisual.
+
+
+
+...  Root Windows
+-----------------
+The following provide  information on  the root windows  of the  various
+screens of a display.
+
+
+XRootWindow(displayptr, screen_num) -> window                [procedure]
+RootWindow(displayptr, screen_num) -> window                 [procedure]
+        XRootWindow returns the root  window of the screen_numth  screen
+        of the display  referred to  by displayptr. This  can be  useful
+        with functions that need a drawable of a particular screen  (eg.
+        * XReadBitmapFile), and for creating top-level windows.
+
+        RootWindow is a synonym for XRootWindow.
+
+
+XDefaultRootWindow(displayptr) -> window                     [procedure]
+DefaultRootWindow(displayptr) -> window                      [procedure]
+        XDefaultRootWindow returns the  XID of  the root  window of  the
+        default screen of the display  referred to by displayptr.  Could
+        be implemented as:
+
+            define XDefaultRootWindow(dp);
+                lvars dp;
+                XRootWindowOfScreen(XDefaultScreen(dp));
+            enddefine;
+
+        Compare with * XRootWindowOfScreen.
+
+        DefaultRootWindow is a synonym for XDefaultRootWindow.
+
+
+XDefaultDepth(displayptr, screen_num) -> int                 [procedure]
+DefaultDepth(displayptr, screen_num) -> int                  [procedure]
+XDisplayPlanes(displayptr, screen_num) -> int                [procedure]
+DisplayPlanes(displayptr, screen_num) -> int                 [procedure]
+        XDefaultDepth returns the  depth (or  number of  planes) of  the
+        default root window  of the screen_numth  screen of the  display
+        referred to by displayptr. Compare with * XDefaultDepthOfScreen.
+
+        DefaultDepth, XDisplayPlanes, and DisplayPlanes are synonyms for
+        XDefaultDepth.
+
+
+AllPlanes -> plane                                     [active variable]
+XAllPlanes() -> plane                                        [procedure]
+        Both return a plane mask with all bits set to 1 suitable for use
+        in a plane argument to a procedure.
+
+
+
+...  The X Protocol Version
+---------------------------
+The following provide information on the version of the X Protocol being
+used by the X server.
+
+
+XProtocolVersion(displayptr) -> int                          [procedure]
+ProtocolVersion(displayptr) -> int                           [procedure]
+        XProtocolVersion returns the  major version number  (eg. 11  for
+        X11) of the X protocol  associated with the display referred  to
+        by displayptr.
+
+        ProtocolVersion is a synonym for XProtocolVersion.
+
+
+XProtocolRevision(displayptr) -> int                         [procedure]
+ProtocolRevision(displayptr) -> int                          [procedure]
+        XProtocolRevision returns the minor protocol revision number  of
+        the the X protocol  associated with the  display referred to  by
+        displayptr.
+
+        ProtocolRevision is a synonym for XProtocolRevision.
+
+
+
+...  Information On The Vendor
+------------------------------
+The following provide  information on the  vendor who implemented  the X
+server being used.
+
+
+XServerVendor(displayptr) -> string                          [procedure]
+ServerVendor(displayptr) -> string                           [procedure]
+        XServerVendor returns a string that provides some implementation
+        dependent information on  the vendor who  supplied the X  server
+        implementation.
+
+        ServerVendor is synonym for XServerVendor.
+
+
+XVendorRelease(displayptr) -> int                            [procedure]
+VendorRelease(displayptr) -> int                             [procedure]
+        XVendorRelease returns a number which is related to the vendor's
+        release of the X server.
+
+        VendorRelease is a synonym for XVendorRelease.
+
+
+
+...  Default Colormaps and Pixels
+---------------------------------
+The following provide information on the default colormaps of a display,
+and the  default "white"  and  "black" pixels  in these  colormaps.  See
+REF * XColormaps for more information on colormaps.
+
+
+XDefaultColormap(displayptr, screen_num) -> colormap         [procedure]
+DefaultColormap(displayptr, screen_num) -> colormap          [procedure]
+        XDefaultColormap returns the  default colormap  colormap of  the
+        screen_numth screen of  the display referred  to by  displayptr.
+        Compare with * XDefaultColormapOfScreen.
+
+        DefaultColormap is a synonym for XDefaultColormap.
+
+
+XDisplayCells(displayptr, screen_num) -> int                 [procedure]
+DisplayCells(displayptr, screen_num) -> int                  [procedure]
+        XDisplayCells returns the number of  color cells in the  default
+        colormap of the screen_numth screen  of the display referred  to
+        by displayptr. Compare with * XCellsOfScreen.
+
+        DisplayCells is a synonym for XDisplayCells.
+
+
+XBlackPixel(displayptr, screen_num) -> pixel                 [procedure]
+BlackPixel(displayptr, screen_num) -> pixel                  [procedure]
+        XBlackPixel returns the black  pixel value for the  screen_numth
+        screen of  the display  referred to  by displayptr.  The  actual
+        color referred to by  pixel is guaranteed  to contrast with  the
+        color referred to  by the pixel  returned by * XWhitePixel,  but
+        may not actually be "black". Compare with * XBlackPixelOfScreen.
+
+        BlackPixel is a synonym for XBlackPixel.
+
+
+XWhitePixel(displayptr, screen_num) -> pixel                 [procedure]
+WhitePixel(displayptr, screen_num) -> pixel                  [procedure]
+        XWhitePixel return the  white pixel value  for the  screen_numth
+        screen of  the display  referred to  by displayptr.  The  actual
+        color referred to by  pixel is guaranteed  to contrast with  the
+        color referred to  by the pixel  returned by * XBlackPixel,  but
+        may not actually be "white". Compare with * XWhitePixelOfScreen.
+
+        WhitePixel is a synonym for XWhitePixel.
+
+
+
+...  The Default Graphic Contexts
+---------------------------------
+XDefaultGC(displayptr, screen_num) -> gc                     [procedure]
+DefaultGC(displayptr, screen_num) -> gc                      [procedure]
+        XDefaultGC returns the default graphic  context gc for the  root
+        window of the screen_numth screen of the display referred to  by
+        displayptr.
+
+        This GC is  created for the  convenience of simple  applications
+        and contains the default GC  components with the foreground  and
+        background pixels set  to the pixels  returned by  * XBlackPixel
+        and * XWhitePixel respectively. The returned  GC is not used  in
+        any Xlib functions and can be modified freely.
+
+        IMPORTANT NOTE: This GC should never be freed.
+
+        See REF * XGraphicsContext for more details on handling  graphic
+        contexts in Xlib. Compare with * XDefaultGCOfScreen.
+
+        DefaultGC is a synonym for XDefaultGC.
+
+
+
+...  Image Format Information
+-----------------------------
+Applications must  present  data  to  the X  server  in  the  format  it
+requests. Fortunately this  is usually  done by  higher level  functions
+(see  REF * XImages.)  The  following   detail  various  functions   for
+accessing how image data is represented.
+
+
+XImageByteOrder(displayptr) -> int                           [procedure]
+ImageByteOrder(displayptr) -> int                            [procedure]
+        XImageByteOrder specifies  the  byte  order for  images  on  the
+        display referred  to  by displayptr.  For  single plane  XY  (or
+        bitmap) images this relates to the byte order of each  scanline.
+        For Z format (or pixmap) images  this relates to the byte  order
+        of each pixel value. int is either * LSBFirst or * MSBFirst.
+
+        ImageByteOrder is a synonym for XImageByteOrder.
+
+
+XBitmapUnit(displayptr) -> int                               [procedure]
+BitmapUnit(displayptr) -> int                                [procedure]
+        XBitmapUnit returns the size of a bitmap's scanline unit in bits
+        on the display referred to by displayptr. Each scanline of an XY
+        bitmap is calculated in multiples of this number.
+
+        BitmapUnit is a synonym for XBitmapUnit.
+
+
+XBitmapBitOrder(displayptr) -> int                           [procedure]
+BitmapBitOrder(displayptr) -> int                            [procedure]
+        XBitmapBitOrder returns  * LSBFirst or  * MSBFirst depending  on
+        whether within each bitmap unit (for the display displayptr) the
+        left-most bit in the  displayed bitmap is the  least-significant
+        or the most-significant bit in the unit.
+
+        BitmapBitOrder is a synonym for XBitmapBitOrder.
+
+
+XBitmapPad(displayptr) -> int                                [procedure]
+BitmapPad(displayptr) -> int                                 [procedure]
+        Each scanline  in  an  image  on  the  display  referred  to  by
+        displayptr must be padded to a multiple of int bits, as returned
+        by XBitmapPad.
+
+        BitmapPad is a synonym for XBitmapPad.
+
+
+
+...  Querying Screen Sizes
+--------------------------
+The following provide information on the  size of a displays screens  in
+pixels and millimetres.
+
+
+XDisplayHeight(displayptr, screen_num) -> int                [procedure]
+DisplayHeight(displayptr, screen_num) -> int                 [procedure]
+        Returns the height (in pixels) of the screen_numth screen of the
+        display referred to by displayptr. Compare with * XDisplayWidth,
+        * XHeightOfScreen and * XDisplayHeightMM.
+
+        DisplayHeight is a synonym for XDisplayHeight.
+
+
+XDisplayHeightMM(displayptr, screen_num) -> int              [procedure]
+DisplayHeightMM(displayptr, screen_num) -> int               [procedure]
+        Returns the height (in  millimetres) of the screen_numth  screen
+        of  the  display  referred   to  by  displayptr.  Compare   with
+        * XDisplayWidthMM, * XHeightMMOfScreen and * XDisplayHeight.
+
+        DisplayHeightMM is a synonym for XDisplayHeightMM.
+
+
+XDisplayWidth(displayptr, screen_num) -> INT                 [procedure]
+DisplayWidth(displayptr, screen_num) -> INT                  [procedure]
+        Returns the width (in pixels) of the screen_numth screen of  the
+        display   referred    to    by    displayptr.    Compare    with
+        * XDisplayHeight, * XWidthOfScreen and * XDisplayWidthMM.
+
+        DisplayWidth is a synonym for XDisplayWidth.
+
+
+XDisplayWidthMM(displayptr, screen_num) -> INT               [procedure]
+DisplayWidthMM(displayptr, screen_num) -> INT                [procedure]
+        Returns the width (in millimetres) of the screen_numth screen of
+        the  display   referred   to   by   displayptr.   Compare   with
+        * XDisplayHeightMM, * XWidthMMOfScreen and * XDisplayWidth.
+
+        DisplayWidthMM is a synonym for XDisplayWidthMM.
+
+
+
+...  Allocating Resource Identifiers
+------------------------------------
+XAllocID(displayptr) -> xid                                  [procedure]
+        Returns a new resource identifier that you can use when creating
+        new resources.
+
+
+
+1.2  Accessing Information From Screen Structures
+-------------------------------------------------
+The   following   details   the    various   procedures   provided    by
+LIB * XlibMacros for  accessing the  information in  Screen  structures.
+They are all based on  the procedures supplied in  LIB * XPT_SCREENINFO,
+see REF * XPT_SCREENINFO for full details.
+
+
+
+...  Miscellaneous Screen Information
+-------------------------------------
+DoesBackingStore(screenptr) -> int                           [procedure]
+        Synonym for * fast_XDoesBackingStore, see * XDoesBackingStore.
+
+
+DoesSaveUnders(screenptr) -> bool                            [procedure]
+        Synonym for * fast_XDoesSaveUnders, see * XDoesSaveUnders.
+
+
+DefaultVisualOfScreen(screenptr) -> visual                   [procedure]
+        Synonym  for  * fast_XDefaultVisualOfScreen,  for  details   see
+        * XDefaultVisualOfScreen.
+
+
+DisplayOfScreen(screenptr) -> displayptr                     [procedure]
+        Synonym for * fast_XDisplayOfScreen, see * XDisplayOfScreen.
+
+
+EventMaskOfScreen(screenptr) -> int                          [procedure]
+        Synonym for * fast_XEventMaskOfScreen, see * XEventMaskOfScreen.
+
+
+
+...  The Root Window
+--------------------
+The following provide information on the root window of a screen:
+
+
+RootWindowOfScreen(screenptr) -> window                      [procedure]
+        Synonym  for   * fast_XRootWindowOfScreen,   for   details   see
+        * XRootWindowOfScreen.
+
+
+DefaultDepthOfScreen(screenptr) -> int                       [procedure]
+PlanesOfScreen(screenptr) -> int                             [procedure]
+        Synonyms  for  * fast_XDefaultDepthOfScreen,  for  details   see
+        * XDefaultDepthOfScreen
+
+
+
+...  The Default Colormap and Pixels
+------------------------------------
+The following provide information on  the default colormap of a  screen,
+and the default "white" and "black" pixels of that colormap:
+
+
+BlackPixelOfScreen(screenptr) -> pixel                       [procedure]
+WhitePixelOfScreen(screenptr) -> pixel                       [procedure]
+        Synonyms  for  the  procedures  * fast_XBlackPixelOfScreen   and
+        * fast_XWhitePixelOfScreen.   See   * XBlackPixelOfScreen    and
+        * XWhitePixelOfScreen.
+
+
+CellsOfOfScreen(screenptr) -> int                            [procedure]
+        Synonym for * fast_XCellsOfOfScreen, see * XCellsOfOfScreen.
+
+
+DefaultColormapOfScreen(screenptr) -> colormap               [procedure]
+        Synonym for  * fast_XDefaultColormapOfScreen,  for  details  see
+        * XDefaultColormapOfScreen.
+
+
+MaxCmapsOfScreen(screenptr) -> int                           [procedure]
+MinCmapsOfScreen(screenptr) -> int                           [procedure]
+        Synonyms  for   the  procedures   * fast_XMinCmapsOfScreen   and
+        * fast_XMaxCmapsOfScreen.    See     * XMaxCmapsOfScreen     and
+        * XMinCmapsOfScreen for details.
+
+
+
+...  The Default Graphic Context
+--------------------------------
+DefaultGCOfScreen(screenptr) -> gc                           [procedure]
+        Synonym for * fast_XDefaultGCOfScreen, see * XDefaultGCOfScreen.
+
+
+
+...  Querying The Screen Size
+-----------------------------
+The following provide information  on the size of  the screen in  pixels
+and millimetres.
+
+
+WidthOfScreen(screenptr) -> int                              [procedure]
+HeightOfScreen(screenptr) -> int                             [procedure]
+        Synonym for  * fast_XWidthOfScreen  and  * fast_XHeightOfScreen,
+        see * XWidthOfScreen and * XHeightOfScreen for details.
+
+
+WidthMMOfScreen(screenptr) -> int                            [procedure]
+HeightMMOfScreen(screenptr) -> int                           [procedure]
+        Synonyms  for   the   procedures   * fast_XWidthMMOfScreen   and
+        * fast_XHeightMMOfScreen.     See     * XWidthMMOfScreen     and
+        * XHeightMMOfScreen for details.
+
+
+
+
+--- C.x/x/pop/ref/XlibMacros
+--- Copyright University of Sussex 1991. All rights reserved.

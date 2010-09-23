@@ -1,0 +1,706 @@
+HELP NEWS.V10                                             A.Sloman Jan 1986
+
+For most recent news see HELP * NEWS
+
+1985
+Aug 18 (John Williams)
+    --- Two VED utilities whose names were changed long ago, and subsequently
+        only advised users to type something else, have now been withdrawn.
+        They are:
+            VED_DEF     (renamed VED_DEOF)
+            VED_PR      (renamed VEDCOMPILEVEDARGUMENT i.e. <ENTER> :)
+Aug 16 (John Williams)
+    --- Autoloadable VED procedure VEDCHARNEXT added.
+        See HELP *VEDPROCS /vedcharnext for details.
+
+Aug  5 (Mark Rubinstein)
+    --- Several libraries that only worked on VMS have been removed from UNIX
+    machines.  These include DCL, DELV, SYSCOMMANDS.  Others have been
+    rewritten so that they should now work on UNIX machines (e.g. GREP) Still
+    others have been deleted altogther (e.g. PURGE (which did a SYSOBEY) and
+    EDT).
+
+Aug  5 (Chris Slymon)
+    --- VEDPUTCOMMAND now inserts a COPY of it's argument into the command
+    buffer.
+
+    --- VEDDOINTERRUPT clears stack before returning to VEDPROCESS. T
+
+Aug  1 (Mark Rubinstein)
+    --- LIB * GINREAD, *GRAPHIC, *POLY and DOC * TEKTRONIX have been issued
+    with notices warning that they might be removed or substantially altered
+    in future versions of POPLOG.
+
+Aug  1 (Mark Rubinstein)
+    --- LIB OUTASCII has been removed.  It could be simply defined as:
+        vars outascii = charout;
+    --- LIB BUFFIO has been removed as output is now buffered in any case. The
+    definition of it could be:
+        vars inascii = rawcharin, ttyflush = rawoutflush;
+
+        define outascii(c);
+        lvars c;
+            if c == termin then rawoutflush() else rawcharout(c); endif;
+        enddefine;
+
+Aug  1 (Mark Rubinstein)
+    --- SYSISDIRECTORY(string) -> boolean;
+    This has been moved into the public library.  See HELP * POPPROCS.
+
+Jul 30 (John Williams)
+    --- A couple of minor bugs in LIB *GEOM3D fixed.
+
+Jul 30 (A.Sloman)
+    LIB NEWOBJ - bug in |--> fixed. It did not assign the target
+        to 'self'
+
+Jul 29 (John Williams)
+    --- POPLOG now includes a Common Lisp subsystem. See HELP *CLISP for more
+        details.
+
+Jul 29 (John Williams)
+    --- HELP * LISPNEWS is now only for news items relevant to Common Lisp.
+        News concerning the old POPLOG Lisp system is in HELP *LISPNEWS.OLD
+
+Jul 26 (John Williams)
+    --- VED_QSHOWLIB added (analogous to VED_QHELP).
+        See HELP *VEDCOMMS /ved_qshowlib
+
+Jul 26 (John Williams)
+    --- Non-copying version of *MAPLIST, *NCMAPLIST, added to the auto-loadable
+        library.
+
+Jul 26 (Mark Rubinstein)
+    --- MAPDATA altered to work on words.
+        NCMAPDATA (a non-copying version of MAPDATA) installed.  This won't
+        work on words.  See HELP * MAPDATA.
+
+Jul 22
+    NEW PROLOG - SEE HELP * PLOGNEWS  HELP * PROLOGBUGS
+      (New core implementation and more compatible with DEC-10 Prolog)
+
+Jul 22 (John Gibson)
+    --- The concatenate operation "<>" has been changed so that it does not
+    produce a copy of one argument when the other is empty, e.g. list <> []
+    will just return list, '' <> string will just return string, etc. On lists
+    it is now also faster.
+
+Jul 20 (A.Sloman)
+    LIB PRODSYS - new production-system interpreter by Allan Ramsay
+       and Mike Sharples, and TEACH PRODSYS replace LIB PSYS and
+       TEACH PSYS which will be withdrawn
+
+Jul 19 (John Gibson)
+    --- The procedure sysopen now accepts the word "line" as a third argument
+    as an alternative to "record". In VMS Poplog this 'forces' the file to
+    have 'implicit c/r attribute', so that a newline is added to the end of
+    every record read. This surmounts the problem of text files without c/r
+    attribute containing empty records (i.e. blank lines), which caused
+    sysread to return 0 and made it appear that end of file had been reached.
+    Conversely, a third argument of "line" to syscreate will create a file
+    with implicit c/r attribute, and cause syswrite to strip a newline off the
+    end of each record written.
+        In Unix Poplog, "line" and "record" are identical, though for
+    compatibility you should switch to using "line".
+
+Jul 17 (John Gibson)
+    --- (VMS only) Owing to problems with compatibility between source and
+    library files for VMS Poplog and Unix Poplog, the logical name USE$POP that
+    supplies the disk for the Poplog directory tree is to be changed to
+    USEPOP.  In combination with a new facility for allowing filenames to be
+    specified in Unix format (see below), this will make it possible for
+    system source and library files using Unix filenames to be compatible with
+    VMS Poplog.
+        If you have the name USE$POP defined system-wide, you are advised to
+    change it to USEPOP (or add USEPOP in parallel) as soon as possible.
+    However, the standard command files [POP]LOGIN.COM, [POP.COM]POPLOG.COM
+    and [POP.COM]POPLIB.COM all define either name in terms of the other, so
+    that it should not be necessary to do this immediately.
+
+    --- (VMS only) A serious bug in "syscreate" and "sysopen" has been fixed.
+    This caused the system to crash while creating a device record, if a
+    garbage collection just happened to occur at the wrong point (this was
+    relatively infrequently, however).
+
+    --- (VMS only) The operation of "systranslate" has changed slightly. By
+    default, it now converts the input logical name to uppercase before
+    translation, and the result to lowercase. This is compatible with the idea
+    that logical names in the VMS tables are usually in uppercase, whereas
+    Poplog programs prefer to deal with lowercase. In addition, "sysassign"
+    for assigning to logical names has been made the updater of systranslate,
+    and this by default converts both the logical name and its required
+    translation to uppercase before doing the assignment. For a full
+    description, see REF * SYSUTIL.
+
+    --- (VMS only) The procedures "sysfileok" and "dir_><" now cope with
+    filenames in Unix format, translating them to VMS format. This means that
+    most parts of the system will now accept Unix style names.
+    See HELP * UNIX_FILENAMES.
+
+    --- (VMS only) "sys_real_time" has been added to VMS Poplog. As in the
+    Unix system, it returns the time in seconds since 00:00 1 Jan 1970.
+    See REF * SYSUTIL.
+
+Jul 12 (John Williams)
+    --- Some library programs previously only available at Sussex have now
+    been moved into the main auto-loadable directory. See the following HELP
+    files for details:
+
+    *BITS_IN
+    *BITS_OUT
+    *NEWSPARSE
+    *NEWANYSPARSE
+    *FORMAT_PRINT
+
+
+Jul 13 (Aaron Sloman)
+    --- LIB NEWOBJ now separates DEFAULT_ACTIONS from START_ACTIONS.
+    HELP * NEWOBJ expanded.
+
+Jul 10 (John Williams)
+    --- NPR (as in SPR) moved to public library. See HELP *NPR.
+
+Jul  8 (Jonathan Cunningham)
+    --- VED_H updated to work again with VMS, plus bug fixes, plus
+    HELPFILES() exported (this can be used to initialise the helpfile list).
+
+Jul  4 (John Williams)
+    --- HELP *FILL modernised.
+
+Jun 29 (Aaron Sloman)
+    --- VED_CUT (see HELP * VEDCOMMS) improved to cope with different cursor
+    positions before text deleted.
+
+Jun 28 (Aaron Sloman)
+    --- Entry for * POPMEMUSED added to HELP * POPVARS.
+
+
+Jul  9 (John Gibson)
+    --- The way in which "popdprecision" affects the production of
+    floating-point results by arithmetic operations and functions has changed.
+    The behaviour is now:
+
+    popdprecision       effect
+    -------------       ------
+    <false>             No double-length (ddecimal) results are produced, ever.
+
+    "ddecimal"          A ddecimal result is produced only if one or other (or
+                        the only) argument is ddecimal. (This is the behaviour
+                        required by Common LISP.)
+
+    Any other true      Same as the previous case, except that a ddecimal
+    value               result is also produced when neither argument is a
+                        single-length decimal, i.e. if all argument(s) are
+                        either ddecimal or rational ('rational' meaning
+                        integers, or bigintegers/ratios when these appear in
+                        the system).
+
+    Thus for example, with popdprecision set to <true>, sin(90) would produce
+    a ddecimal, whereas if set to "ddecimal" it would produce only a
+    single-length result.
+
+
+Jul  9 (Aaron Sloman)
+    --- VED_CUT (see HELP * VEDCOMMS): yet more positions restored accurately
+        after deletion.
+
+
+Jul 6 (John Williams)
+    --- *LASTPAIR moved from local to public autoload library (because Common
+        Lisp uses it)
+
+Jul 3 (John Gibson)
+    --- "vars"-type statements in POP-11 can now include initialisations, by
+    following an identifier name with '= <expression>,' (where the comma
+    may be omitted if the next item is ")" or ";"). For example:
+
+            vars x=100, y, z=x+4, macro (HI="hello", BYE="goodbye");
+            lconstant list = [1 2 3 4], procedure p = identfn;
+
+    etc.  The form
+
+            <declarator> <name1> = <expr1>, <name2> = <expr2>, ...
+
+    is equivalent to
+
+            <declarator> <name1>;
+            <expr1> -> <name1>;
+            <declarator> <name2>;
+            <expr2> -> <name2>;
+            ...
+
+    For declarations inside a procedure, appropriate code is generated to be
+    executed at run-time. Lconstants are the only exception to this, the
+    assignments being done at compile-time: in this case the initialisation
+    expressions must be meaningful for compile-time evaluation.
+
+    --- 'define updaterof ... ' no longer re-declares the procedure name if no
+    declarator (i.e. "vars" etc) is explicitly specified and the name is
+    already declared as an identifier. That it did so previously meant that
+    constants would be redeclared, when an "updaterof" definition followed a
+    "define" for a constant procedure.
+
+    --- "nextreaditem" stands to "readitem" as "nextitem" does to "itemread",
+    i.e. macros aren't expanded. HELP * NEXTREADITEM added.
+
+Jun 26 (John Gibson)
+    --- POPLOG Version 10.3 with full lexical scoping. There are 2 new POP-11
+    identifier declarations, DLVARS and LCONSTANT, and corresponding VM
+    procedures sysDLVARS and sysLCONSTANT.  HELP DLVARS and HELP LCONSTANT
+    will be available as soon as possible, also HELP LEXICAL for an overview
+    of lexical scoping.  For the VM level, REF VMCODE will replace the VM
+    section of REF SYSCOMPILE.
+
+    --- A bug in VED_TO and VED_MO which caused the destination file not to be
+    set "changed" in some circumstances is fixed.
+
+Jun 26 (John Williams)
+    --- Some new procedures intended purely for Common Lisp will appear in the
+    next version of the system. They are mentioned here so that users will not
+    "trip over" their names. They are not to be treated as POP11 facilities
+    (at the moment). The procedures are: CONSLIST, DESTLIST, CAR, CDR, ENDP,
+    LISP_TRUE, POP_TRUE, LISP_IDENTIFIER, SETSTACKLENGTH.
+
+Jun 26 (John Williams)
+    --- New procedures * ISVECTORCLASS, * ISRECORDCLASS, CLASS_FAST_SUBSCR.
+
+Jun 25 (Mark Rubinstein)
+    --- MAPDATA for creating a new record or vector type object with each
+    element mapped by a given procedure.  See HELP * MAPDATA.
+
+Jun 25 (Mark Rubinstein)
+    --- *** COMING SOON *** NEWANYPROPERTY for creating properties with
+    user defined hashing procedures, equalist tests, active defaults and
+    expandable properties.  See HELP * NEWANYPROPERTY.
+
+Jun 22 (Aaron Sloman)
+    --- LIB NEWOBJ extended to provide 'DEFAULTS' field, and moved to 'public'
+    library. LIB NEWOBJ is an experimental unsupported Object-oriented package
+    using POP-11 Processes. It provides multiple inheritance.
+    See HELP * NEWOBJ, TEACH ADVENT.NEWOBJ
+
+Jun 18 (Mark Rubinstein)
+    --- DISCAPPEND produces a character consumer for appending to a file.
+    See HELP * DISCAPPEND for details.
+
+Jun 18 (Mark Rubinstein)
+    --- VEDEDITAT(pdr, filename, lineno) - like VEDEDITOR but starts editing
+    the file at the specified lineno.
+
+Jun 18 (Mark Rubinstein)
+    --- VED_LL altered so that it no longer assumes that you can only have
+    14 lines when in long line mode unless the variable vedvt100noavo is set
+    true.  See SHOWLIB VED_LL.
+
+Jun 13 (Mark Rubinstein)
+    --- HELP files for *LOCCHAR_BACK and *SKIPCHAR_BACK added.  Reference to
+    it added to *LOCCHAR, *SKIPCHAR and *STRINGS
+
+Jun 10 (Mark Rubinstein)
+    --- TEACH POPNOTES - which at some time got lost from every machine
+    except VAX2 has been restored.
+
+Jun  9 (Aaron Sloman)
+    --- HELP * V55 modified. Section on LIB AUTOV55 clarified and extended to
+    explain new facilities.
+
+Jun  7 (Aaron Sloman)
+    --- HELP * SUBSTITUTE added.
+
+Jun  3 (Roger Evans)
+    --- Minor 'declaring variable' bug in LIB FACETS fixed.
+
+Jun  2 (Aaron Sloman)
+    --- VED_CD (<ENTER> cd directory) altered to call VEDERROR if directory
+    does not exist. HELP * CD altered to refer to VED_CD.
+
+June 1 (Aaron Sloman)
+    --- This file was too long. Items before 1st Jan 1985 have been moved
+    to HELP NEWS.9
+
+May 31 (Jonathan Cunningham)
+    --- Small bug in LIB CROSSREF fixed (it didn't recognise numeric
+    restrictions in patterns)
+
+May 30 (John Williams)
+    --- Library procedure SYSREPEAT tidied up (it didn't make SYSREPEAT a
+    global identifier).
+
+May 31 (Mark Rubinstein)
+    --- VECTORCLASS and RECORDCLASS fixed to declare an identifier of the
+    form <class-name>_key containing the key of the class.
+
+    --- VECTORCLASS accepts an optional ":" between class-name and spec.
+
+28 May 1985 (Jonathan Laventhol)
+    --- VECTORCLASS bug fixed. A slipup in CONSKEY meant that vector class
+    keys were built wrongly.
+
+    --- ALLBUTFIRST and ALLBUTLAST fixed to return words when given words.
+    Also, bugs fixed which could produce system objects in mishap messages
+    produced by these procedures.
+
+    --- Mishap printing in VED (with truncated structures) fixed so as not to
+    bomb out on nested pairs, nor hang on circular structures, nor expand
+    dynamic lists.  Printing is also slightly reformatted.
+
+    --- VED_NAME fixed so that status line messages are correct.
+
+    --- When in VED, broadcast messages often appeared in graphics characters
+    in terminals which support them. A change to VEDINASCII, the procedure
+    which VED reads characters with, makes this much more unlikely.
+
+    --- VED_QUIT, the procedure used to quit files in VED, slightly altered so
+    that programs which want to retain pointers to the structure
+    VEDCURRENTFILE can do so sensibly.  Previously, VED altered the structure
+    as it was quit.
+
+May 24 (Roger Evans)
+    --- LIB FACETS now allows terminal symbols in grammar rules when used with
+    LIB GRAMMAR (ie symbols that have no entry in the lexicon, but are
+    themselves literal words.
+
+May 24 (Mark Rubinstein)
+    --- POPINDEX and VED_SOURCEFILE fixed to use sys_>< - previously
+    they didn't work if POP_PR_QUOTES was true.
+
+May 22 (Mark Rubinstein)
+    --- HELP * VEDVERSIONS partially rewritten to make clear the
+    relationship between VEDVERSIONS and * POP_FILE_VERSIONS.
+
+May 22 (Mark Rubinstein)
+    --- RECORDCLASS and VECTORCLASS updated to use LVARS in order to
+    ensure that field names will not class with the local variables (e.g.
+    previously you could not have a field called "name").
+
+May 22 (Jonathan Laventhol)
+    --- A fairly serious bug has been introduced into VECTORCLASS and
+    RECORDCLASS to do with bitfields.  So if your program uses a new class
+    like this
+        vectorclass foo 1;
+    (or any number not a power of two) then you will get system objects!
+    The bug has been tracked down, it will be fixed as soon as possible.
+
+
+May 21 (Mark Rubinstein)
+    --- VEDFILESELECT streamlined.  If it lists the files in another ved
+    buffer then it uses VEDFILEPROPS to indicate documentation files more
+    elegantly.
+
+May 13 (Jonathan Laventhol)
+    --- System rebuilt with various fixes:
+
+    --- SYS_>< added.  Like ><, see *STRINGS, and see entry below March 20.
+
+    --- Bug in >< fixed.  See entry below for March 20.
+
+    --- DEST_CHARACTERS altered to give standard printing.  It is no longer
+    sensitive to POP_PR_QUOTES etc, setting them locally to their default
+    values.  HELP *DEST_CHARACTERS updated.
+
+    --- Minor bugs in SETPOP, and MISHAP fixed: foulups with POP_PR_QUOTES.
+
+    --- VED_CLEAR rewritten to fix bug with 'non-writable system structure'
+        Has new messages.  ENTER YANK now works properly with it.
+
+    --- Can now give capital 'Y' and 'N' to VED substitute.
+
+    --- TRACE now works with closures of variadic procedures. Used to
+        mishap if closure had negative PDNARGS.  Now pretends PDNARGS is 0.
+        HELP *PDNARGS and *DATALENGTH updated.
+
+    --- Can now use VED commands with capital letters in them.  Used to always
+        convert the command name to lowercase.  Now, given ENTER Foo, VED
+        looks for a procedure "ved_Foo", tries to autoload it if needed, if
+        not found then looks for "ved_foo", or tries to autoload that.  The
+        second autoloading is not tried on VMS systems, because there is no
+        case distinction in filenames.
+
+    --- The procedure VEDCOMMANDTRAP now works.  This is called before any
+        action when a VED ENTER command is given.  Allows arbitrary action of
+        ENTER commands.
+
+    --- POPLOG can now be used as a login shell (UNIX ONLY).  Users who
+        wish to make use of this facility should see their system manager,
+        to set up an initialisation file in their login directory called
+        .login.p -- this should be a POP11 file which sets up the list
+        popenvlist.  Practical use of this feature will require provision
+        of standard files and more documentation.  Users should regard this
+        as an experimental feature until these are developed.
+
+May 13 (Mark Rubinstein)
+    --- HELP * POP_FILE_VERSIONS installed.  It refers to the effect of
+    the variable on VMS machines.  This effect will not be noticed until a
+    planned change to the VMS system occurs.  The help file will not
+    appear on VMS there until the system has been changed.
+
+May  9 (Aaron Sloman)
+    --- HELP * VEDPROCS * VEDCOMMS and * VEDVARS updated.
+
+May  3 (Aaron Sloman)
+    --- HELP * POPVARS updated. Entry for POP_FILE_VERSIONS added
+
+Coming (John Williams)
+    --- Rationalisation of the effects of APPDATA, EXPLODE, DATALENGTH and
+    DATALIST on arrays.
+
+May 3 (Aaron Sloman)
+    --- Owing to problems with our Systime 8750 we have lost some files, and
+    it may take some time to recover fully. There may be discrepancies between
+    help and library files, as a result.
+    Help files recently updated:
+       * EFFICIENCY * APPDATA * COPY * YANK * VEDSEARCH
+       * APPDATA * NEWANYARRAY * DATALIST * EXPLODE * VEDVARS
+       * VEDCOMMS (ved_gsl, ved_cut, ved_splice)
+
+Apr 19 (Mark Rubinstein)
+    --- HELP SYS_FILE_STAT updated to cover UNIX as well.
+
+Apr 19 (Aaron Sloman)
+    --- REF SYNTAX updated to mention LVARS
+
+Apr 16 (John Williams)
+    --- READEXPRESSION found to be the same as EXPRREAD (one of Allan Ramsay's
+    LIB FORMS utilities). So READEXPRESSION changed to be identical - perhaps
+    to be withdrawn later.
+
+Apr 17 (Jonathan Laventhol)
+    --- Minor bug in ENTER SW fixed.  Now complains if too close to left
+    margin.
+
+Apr 14 (Aaron Sloman)
+    --- HELP * FOR brought up to date
+
+    --- FAST_FOR: can now be used in place of 'for' for loops without
+    checking. Terminator may be either 'ENDFOR' or 'ENDFAST_FOR'. Formats
+    allowed include:
+
+        fast_for <variable> in ...
+        fast_for <variable> on ...
+        fast_for <variable> from ...
+        fast_for <variable> to ...
+
+    (In the last two, only fast integer operations are used.)
+    See REF FASTPROCS.
+
+Apr 11 (Roger Evans)
+    --- FAST_NCREV added - a non-checking version of NCREV - twice as fast!
+
+Apr  5 (Aaron Sloman)
+    --- A book entitled 'POP-11: A Practical Language for AI' will be
+    published by Ellis Horwood and Wiley, during the Summer of 1985. It
+    totally supersedes TEACH PRIMER. It is aimed at readers who are already
+    programmers, not at absolute beginners.
+
+Apr  5 (Aaron Sloman)
+    --- Two new autoloadable FAST procedures. FAST_MEMBER and FAST_LMEMBER
+    Both use ' == []' instead of NULL to test for end of list. On a 10000
+    element list, FAST_LMEMBER is nearly three times as fast as LMEMBER.
+    FAST_MEMBER is about 25% faster than MEMBER (which is four times slower
+    than LMEMBER at looking for a number in a list). The FAST_ procedures will
+    crash on dynamic lists, and are unsafe on lists which might not end in [].
+    See REF FASTPROCS for more information on 'FAST' procedures.
+
+Apr  5 (Aaron Sloman)
+    --- HELP * EFFICIENCY updated with information on list processing times.
+
+Apr  3 (Aaron Sloman)
+    --- Section on repeated call of an updater added to HELP * EFFICIENCY.
+
+    --- HELP * UPDATER and * PDPROPS extended and clarified.
+
+Apr  2 (Mark Rubinstein)
+    --- VEDJUMPTO made slightly more efficient.
+
+Apr 1 (Aaron Sloman)
+    --- LIB V55KEY5 does for Visual 55 what LIB VEDKEY5 does for V200.
+    See HELP * VEDKEY5
+
+Mar 31 (Aaron Sloman)
+    --- ENTER stop no longer asks you to press return when you re-run the
+    suspended process.
+
+Mar 30 (John Williams)
+    VEDJUMPTO made slightly more efficient.
+
+Mar 24 (Aaron Sloman)
+    LIB GRAPHCHARSETUP modified to call VEDSETUP before VEDTERMSETUP.
+
+Mar 22 (Mark Rubinstein)
+    --- SYSFILEPARSE updated (thanks to John Williams) so that it works
+    properly on UNIX machines (note the second field "disk" is always a
+    null string).  SYSFILETYPE, SYSFILENAME, SYSFILEDIR and SYSFILEVERSION
+    changed to use this as they always have done on VMS.
+
+    --- IMPORTANT NOTE: the affect of SYSFILENAME is now changed - it no
+    longer returns the file extension if there is one.  The new procedure
+    SYSFULLFILENAME will do this and libraries using SYSFILENAME have been
+    changed to use this if necessary.
+
+Mar 21 (Mark Rubinstein)
+    --- <ENTER> SEND now deals with apostrophes (') in subject line.
+    Previously it hung up without warning!
+
+Mar 20 (Tom Khabaza)
+    Ved commands <ENTER> WC and WCR altered to use the same itemisation rules
+    as unix wc.  New versions also run faster. See HELP * WC.
+
+Mar 20 (Jonathan Laventhol)
+    --- Some bug fixes coming:
+
+    --- SYS_>< added.  This is like ><, but is immune to changes to PR and the
+    control variables POP_PR_EXPONENT, POP_PR_QUOTES, POP_PR_RADIX and
+    POP_PR_PLACES: it sets the variables and uses SYS_SYSPR. All appropriate
+    system uses of >< are changed. This fixes bug of quotes appearing in
+    strange places when POP_PR_QUOTES set true. HELP *POP_PR_QUOTES *SYS_SYSPR
+    added. HELP *STRINGS *PR updated.
+
+    --- Bug in >< removed, now always uses PR.  (Used to sometimes use <>, and
+    hence gave funny behaviour when POP_PR_QUOTES true).
+
+    --- HELP *PDPROPS updated.  Used to say boundslist of array was in PDPROPS.
+
+    --- VED_CLEAR rewritten to make sure all variables set up properly.  Fixes
+    various bugs including <ENTER> YANK after <ENTER> clear messing up tabs.
+
+Mar 17 (Aaron Sloman)
+    --- DOC OVERVIEW slightly updated. Installation guide DOC AAREAD.ME
+    updated and clarified.
+
+Mar 17 (Aaron Sloman)
+    --- VED_IC (ENTER IC) can now cope with CR (CTRL M, ascii 13) or LF (10).
+    See HELP * VEDCOMMS
+
+Mar 17 (Aaron Sloman)
+    --- LIB V55 - VEDSTATUSSWITCH assigned to keypad "," instead of
+    VEDSWITCHSTATUS, which did not mark current line.
+
+Mar 15 (Aaron Sloman)
+    --- HELP * SUSPEND updated to mention optional process argument.
+
+Mar 15 (Aaron Sloman)
+    --- VED_SEND minor bug fixed: now restores position of cursor.
+
+Mar 15 (Aaron Sloman)
+    --- VED_LS made to use temporary file in users $HOME directory.
+
+Mar 15 (Mark Rubinstein)
+    --- CHARIN_TIMEOUT made slightly more efficient.
+
+Mar 13 (Aaron Sloman)
+    --- HELP * SYSOBEY updated, re `!` for second argument.
+
+    --- New ENTER SEND: names can be on a line starting: 'To:'. Now moves
+    marked range instead deleting and re-inserting lines.
+
+Mar 13 (Mark Rubinstein)
+    --- Minor bug fix to DATAFILE.  Previously it couldn't write "-" signs
+    without a number.
+
+Mar 12 (Mark Rubinstein)
+    --- Minor bug fixes to LIB FINGER (and associated teach file).
+
+Mar 11 (Aaron Sloman)
+    --- UPPERTOLOWER and LOWERTOUPPER made a bit more efficient
+
+Mar  9 (Mark Rubinstein)
+    --- VEDTHISSTRING moved from file <vedthisstrinq.p> to <vedthisstring.p>.
+
+Mar 3  (Aaron Sloman)
+    --- LIB AUTOV55 (automatic selection between V200 and V55) in Public
+    Library. See HELP * V55, or SHOWLIB AUTOV55.
+
+    --- HELP * VEDTERMINALSELECT clarified and brought up to date. The
+    following files have been removed from the VED library, as the relevant
+    procedures are now in the system: ved_ti.p ved_to.p ved_mi.p ved_mo.p
+    inorout.p
+
+    --- HELP * VEDKEYS updated with more cross references.
+
+Feb 25 (Aaron Sloman)
+    --- HELP * INITIAL.EX extended with examples related to V55.
+
+    --- Entry for VVEDSCREENSENDIDSEQ added to HELP * VEDVARS
+
+Feb 22 (Mark Rubinstein)
+    --- INSTANCE altered so that it can take an optional second argument
+    specifing action to take if the variable is undefined or is prefixed by a
+    double query and its value is not a list.  If the second argument is not
+    provided then its behaviour is not altered.  See HELP * INSTANCE.
+
+Feb 21 (Mark Rubinstein)
+    --- VEDLOADLINE() loads the current line without upsetting the marked
+    range. LIB VEDLOADLINE, now in the public library defines this and assigns
+    it to <ESC> d. HELP * VEDPROCS updated.
+
+    --- VED_SEND, VED_SENDMR, now have VEDCHANGED local. See HELP * VEDCOMMS
+
+Feb 16 (Aaron Sloman)
+    --- Bug in VEDMARKPOP fixed. It did not always reset marked range.
+
+Feb 15 (Aaron Sloman)
+    --- Improved version of VED_H, replacing previously withdrawn version.
+
+    --- VED_STOP added to HELP * VEDCOMMS
+
+    --- VEDRESTOREWINDOWS added to HELP * VEDPROCS
+
+Feb 14 (Mark Rubinstein)
+    --- Popready fixed so that it now works smoothly in ved with Version 10's
+    interactive mode.  To exit from popready it is necessary to do
+    <escape> <control> Z.
+
+Feb 11 (Aaron Sloman)
+    --- Some VED help files slightly updated:
+        * VEDINPUT * VEDPROCS * VEDPUTCHAR * VED
+
+    --- POPINDEX speeded up by using more/shorter files. Also slightly
+    generalised to enable users to create and use their own index files.
+    See HELP * POPINDEX
+
+Feb 3  (Mark Rubinstein)
+    --- Entries for * POP_TIMEOUT and POP_TIMEOUT_SECS inserted into
+    HELP * POPPROCS and * POPVARS
+
+Jan 30 (Aaron Sloman)
+    --- VEDBACKLOCATE had a bug - did not find most recent occurrence of
+    string if there were two on same line. Fixed temporarily.
+    See HELP * VEDPROCS (The bug is in ved_backsearch, actually).
+
+    --- VED_DS (search up to and delete) and VED_DSB (delete searching
+    backwards) added to library. See help vedcomms.
+
+Jan 28 (Aaron Sloman)
+    --- POPINDEX made very much faster. VED_SOURCEFILE cleaned up.
+    See HELP * SOURCEFILE * POPINDEX
+
+Jan 22 (Aaron Sloman)
+    --- LIB SETV55KEYS and HELP * SETV55KEYS copied from local to public
+    directories.
+
+    --- HELP * MAIL added. ENTER SEND sends the whole file. ENTER SENDMR sends
+    only the marked range. See HELP * SEND
+
+Jan 9  (Aaron Sloman)
+    --- Minor alteration to VED_LL in order to supress declaring variable
+    message.
+
+    --- Bug in CONSKEY to do with ddecimal fields in records fixed.
+
+Jan 8  (John Williams)
+    --- Some bugs in VED_MEP (and hence VED_MCP, VED_JCP etc) fixed.
+
+    --- New procedure ARRAYVECTOR_BOUNDS that returns the bounds of the used
+    portion of an array's *ARRAYVECTOR.
+
+Jan 4  (Aaron Sloman)
+    --- VED_CUT and VED_SPLICE cleaned up and made to act more naturally.
+    They now use global variable VVEDCUT_DUMP, not VVEDDUMP.
+
+Jan 1  (Aaron Sloman)
+    --- VEDCHARINSERT had a bug when VEDBREAK was true and line had to be
+    broken to left of cursor. Character was not inserted. Now fixed.
+
+************** FOR NEWS ITEMS BFORE JAN 1985 see HELP NEWS.9 *****************
+
+-----<Copyright University of Sussex 1986.  All rights reserved.>-------

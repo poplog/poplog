@@ -1,0 +1,317 @@
+HELP VED_VMAN (Unix only)                       Aaron Sloman, Nov 1995
+
+LIB VED_VMAN
+
+Makes it easier to find out which Unix "man" files are available
+and to browse them. It can be used either to build, in VED, an index of
+man files in a particular category, or to select a file from such an
+index and read it into VED.
+
+The library maps ved_vman onto the VED key sequence "ESC ESC 3"
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Background information about the Unix "man" command
+ -- -- "man" categories and subdirectories
+ -- How to use ved_vman
+ -- -- ENTER vman   (build an index file)
+ -- -- Bypassing the menu
+ -- -- Selecting a category
+ -- VED key binding changed by LIB VED_VMAN
+ -- More detailed description: two uses of "ENTER vman"
+ -- -- (a) In a vman index file (select a man file)
+ -- -- (b) In some other file
+ -- The structure of a VMAN index file
+ -- vman_default_dirs (Installation specific defaults)
+ -- Selecting a particular man file
+ -- Comparison with xman
+ -- Applicability of ved_vman
+
+-- Background information about the Unix "man" command ----------------
+
+The Unix "man" command can be used to search the online "manual" files
+to obtain information about utilities, system commands, the file system,
+locally installed program, etc. The VED command "ENTER man", described
+in HELP * MAN, provides a convenient VED-based interface to the "man"
+command, when you know the name of the man file that you want.
+
+The "man" command searches in one or more directories, which can be
+determined by the Unix $MANPATH environment variable. This specifies a
+sequence of directories for the command to search in to find the file
+whose name you have specified.
+
+The environment variable is normally set by your .login file and
+possibly by other files "sourced" therein. For instance, if your .login
+file makes available an additional library with its own man files it may
+extend various search paths, including $MANPATH.
+
+As a result, man files that are potentially relevant can be distributed
+over a collection of directories, making it hard for users to find out
+about available utilities, even if they are all fully documented.
+
+This is not a problem if you know the name of a utility: you can give it
+as an argument to the unix "man" command or to VED's "ENTER man". But
+when you don't know the name, the "ENTER vman" enables you to browse the
+man directories, to find things that may be of interest.
+
+In particular it enables you to create a vman index file, listing
+available man files in a given category (see below). In such an index
+file the normal VED string search mechanism is available. so you can
+search for items including (for instance) the substring 'font' in order
+to discover such utilities as
+
+    fslsfonts  mkfontdir  showfont  xfontsel  xlsfonts  fontedit
+
+Also you can search for "overview" man files, which usually include the
+string "intro" as part of their name.
+
+
+-- -- "man" categories and subdirectories
+
+There are different categories of man files, e.g. some describing
+commands that are directly available as shell commands, others
+describing utilities available only as subroutines for incorporation in
+user programs (e.g. written in C). All Unix systems have 8 categories,
+listed below, and some have additional categories, e.g. "local", "new",
+"old". Not all of these categories are used in all Unix systems.
+
+The categories are represented as sub-directories of man directories.
+E.g. if the main man directory is /usr/man, then sub-directories might
+be
+    /usr/man/man1  /usr/man/man2  ....  /usr/man/man8
+
+and possibly also
+
+    /usr/man/manl  /usr/man/mann  /usr/man/mano
+
+These subdirectories will contain the "nroff/troff" source files for the
+manual pages. These files have to be fed through the nroff utility (see
+MAN nroff) in order to be formatted online. More sophisticated
+formatting may be available using troff, on some systems.
+
+In addition to the sub-directories such as man1 to man8, etc. there may
+be corresponding "cat" sub-directories cat1 to cat8, etc. containing
+already pre-processed versions of the man files (which have been
+through nroff). In addition either the man files or the cat files may be
+compressed or not. Directories containing compressed man files may have
+the suffix ".Z", e.g. /usr/man/man1.Z (e.g. on HP-UX).
+
+Thus there are many different cases, and ved_vman may not cope perfectly
+with all of them.
+
+
+
+-- How to use ved_vman
+
+The ved_vman procedure gives you the option to select a category to
+browse in, or to specify that you want ALL categories.
+
+-- -- ENTER vman   (build an index file)
+
+To try it out, type ENTER vman
+
+That will autoload ved_vman, and run the procedure to give you a menu of
+"man" types, corresponding to volumes 1 to 8 "local", "new" or "old"
+or all. (Not all of these categories of man files exist on all systems.)
+
+The menu is in two parts, as the whole thing is too long to display
+on the status line. So you'll first be shown the menu
+
+    *:all 1:commands 2:system calls 3:routines 4:devices ?:others
+
+If you type the character "?" it will show the remaining options:
+
+    5:files 6:games 7:misc 8:admin l:local n:new o:old ?:others
+
+If you type the character "?" again it will switch back to the
+first menu.
+
+If for any reason the screen gets corrupted before you choose your
+option (e.g. because of broadcast messages) you can type CTRL-L to have
+the options re-displayed and the screen refreshed.
+
+-- -- Bypassing the menu
+
+If you know in advance which category you want, you can type the
+relevant character directly as argument to the vman command, e.g.
+
+    ENTER vman 3
+        Get section 3 of the man files
+
+    ENTER vman *
+        Get all sections
+
+    ENTER vman 1c
+        Get section 1c, under Solaris
+
+The next section tells you more about the categories.
+
+-- -- Selecting a category
+
+Note that the labels describing the categories are approximate, and may
+be quite inaccurate in some Unix systems: you have to gain experience of
+your own system. Most user commands are found in category 1 and category
+l (local).
+
+To select a category, type its number, or the letter starting its name,
+or, if you wish to look at ALL categories, type an asterisk "*"
+
+If you have made a selection for which no man files exist, it will tell
+you.
+
+When you have chosen, ved_vman gets a list of all the man files in that
+category, in all the man libraries in your man search path. The list of
+file names is read into a temporary VED file, described below as a "vman
+index file".
+
+When the VED cursor is in a vman index file you can choose to look at
+one of the files listed, simply by putting the cursor over or to the
+left of its name, and giving the "ENTER vman" command, or pressing REDO
+if the "vman" command is still on the command line.
+    (See HELP VEDNEWKEYS/REDOCOMMAND, or HELP VEDKEYS/REDOCOMMAND)
+
+
+-- VED key binding changed by LIB VED_VMAN ----------------------------
+
+When the library is loaded it defines a procedure ved_vman_init which
+when run alters VED's key-binding so that the sequence
+
+    ESC ESC 1
+
+is mapped onto a call of ved_vman. It does this by a defining a
+procedure ved_vman_init that is invoked at the beginning of ved_vman.
+This sets up the key-binding and then redefines itself to do nothing.
+The default value is
+
+    define ved_vman_init();
+        vedset keys
+            "ENTER vman" = esc esc 1
+        endvedset
+        identfn -> ved_vman_init
+    enddefine;
+
+this may be re-defined by users. To suppress the above, do this
+before loading ved_vman (e.g. in your vedinit.)
+
+    global vars ved_vman_init = identfn;
+
+-- More detailed description: two uses of "ENTER vman" ----------------
+
+The command "ENTER vman" has two forms of behaviour,
+
+-- -- (a) In a vman index file (select a man file)
+
+ENTER vman
+
+In an index of man files previously created by "ENTER vman", the command
+fetches the man file that the VED cursor is on or to the left of.
+
+
+-- -- (b) In some other file
+
+ENTER vman
+
+If not invoked in a vman-produced index of man files, gets you an index
+of available man files in a category. It first prompts you on the status
+line to specify which category, by selecting from one of the menus
+described above.
+
+When you have selected the category of man files, it then traverses
+directories in your $MANPATH to find all those man files that are in the
+given category, and lists them in a VED buffer, grouped by directory.
+
+Note:
+Some directories may be duplicated because of the structure of $MANPATH
+
+
+-- The structure of a VMAN index file ---------------------------------
+
+The first line of an index file will contain the string
+
+    'VMAN INDEX: MAN FILES FOUND (put cursor on one then REDO)'
+
+This should not be changed, as it is used by ved_vman to recognise
+vman index files.
+
+Next will come a "CONTENTS" list in the format produced by ved_indexify
+(see HELP * VED_INDEXIFY), giving the names of directories in which
+man files in the selected category were found. The index may look like
+this:
+
+             CONTENTS - (Use <ENTER> g to access required sections)
+
+     -- /bham/X11/man/man1:
+     -- /bham/X11/pd/man/man1:
+     -- /bham/man/man1:
+     -- /bham/ums/X11/man/man1:
+     -- /bham/ums/man/man1:
+     -- /usr/man/man1:
+
+It is possible to use the standard VED "ENTER g" command to go to a
+particular directory in order to browse the files located there.
+
+In some cases some empty directories will also be listed as such. This
+is because of the search patterns used. Basically the file is created
+by a command using Unix "ls", except that an index is added.
+
+
+-- vman_default_dirs (Installation specific defaults) -----------------
+
+If you have not set the environment variable $MANPATH then then ved_vman
+uses the list of directory names held in the variable vman_default_dirs,
+which defaults to
+
+    ['/usr/man' '/usr/local/man']
+
+This default can be changed to suit local sites, by altering the
+declaration in LIB * VED_VMAN.
+
+
+-- Selecting a particular man file ------------------------------------
+
+If the VED cursor is in a vman index file, then in order to select a
+particular man file you can move the VED cursor to the desired name and
+pres REDO to read it, or do
+    ENTER vman
+
+or do
+    ESC ESC 1
+
+This invokes the ved_man command to read in the man file.
+
+
+-- Comparison with xman -----------------------------------------------
+
+A partly similar browsing facility is provided by the "xman" program
+distributed as part of the MIT X Window utilities library, except that
+xman requires you to do visual searching in the window of options,
+whereas ved_vman gives a VED window listing the options, making it easy
+to use VED's string search mechanism, as described above.
+
+Also ved_vman shows you which directory each man file is in, helping you
+to understand how the different libraries you use are structured.
+
+Moreover, you can save the index files produced by ved_vman and use them
+again later, instead of rebuilding every time, which can be slow with
+xman.
+
+Also, because ved_vman creates a VED file, you can, of course, keep
+several man files and index files and your own files in VED and flip
+between them very quickly.
+
+Finally you don't need to be running X to use ved_vman, neither does
+the machine that you run it on need to have authority to create a new
+X window on your terminal (unless you use it with XVed, of course).
+
+
+-- Applicability of ved_vman ------------------------------------------
+
+The present version has been tested only on SunOS and on HP-UX running
+on an HP 68040 server. These two use different methods of storing
+man files (e.g. they are mostly compressed on HP-UX). When a selected
+file is viewed ved_vman uses ved_man, which, in turn, uses the local
+version of "man", which should therefore be able to cope with the local
+format.
+
+--- $poplocal/local/help/ved_vman
+--- The University of Birmingham 1995.  --------------------------------

@@ -1,0 +1,214 @@
+HELP GABORMASK                                  David Young, June 1995
+
+LIB * GABORMASK provides routines that return arrays containing the
+values of discretised 1-D and 2-D Gabor functions.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Procedures
+
+  2   Examples
+
+  3   Relationship to published formulae
+
+
+-----------------------------------------------------------------------
+1  Procedures
+-----------------------------------------------------------------------
+
+gabormask1(sigma, period) -> (cmask, smask)                  [procedure]
+        calculates the values for a 1-D Gabor function.
+
+        sigma is the width parameter for the Gaussian envelope. period
+        is the period of the harmonic component. It is standard practice
+        to set sigma equal to period/(2*sqrt(2)) - see below. Note that
+        it does not normally make sense to make period less than or
+        equal to 2.
+
+        cmask is a 1-D array containing the real (cosine, symmetric)
+        component of the mask. smask is an array containing the
+        imaginary (sine, asymmetric) component. (See below for how big
+        these arrays are.)
+
+        The formula are
+                                 2         2
+            cmask(i) = N * exp(-i /(2*sigma ))  *  cos(i * omega)
+
+                                 2         2
+            smask(i) = N * exp(-i /(2*sigma ))  *  sin(i * omega)
+
+        where omega = 2*pi/period.
+
+        N is a real normalisation constant chosen so that if the mask is
+        convolved with a sine curve of unity amplitude and period equal
+        to period, the output will have unity amplitude.
+
+
+gabormask2(sigma, period, orient) -> (cmask, smask)          [procedure]
+        calculates the values for a 2-D Gabor function.
+
+        sigma and period are as for gabormask1.
+
+        orient sets the orientation of the mask, which must be given in
+        degrees or radians depending on whether *popradians is <false>
+        or <true>. The direction of the axis of oscillation of the mask
+        (i.e. the line at right-angles to the stripes) is at an angle
+        orient to the x-axis, measured anticlockwise in right-handed
+        coordinates. (The x-axis is defined as the direction
+        corresponding to changes in the first array index.)
+
+        cmask and smask are as for gabormask1 except that they are 2-D
+        arrays.
+
+        The formulae are
+                                    2         2
+            cmask(x, y) = N * exp(-r /(2*sigma )) * cos(x' * omega)
+
+                                    2         2
+            smask(x, y) = N * exp(-r /(2*sigma )) * sin(x' * omega)
+
+        where
+
+             2     2    2
+            r  =  x  + y
+
+            x' =  x * cos(orient) + y * sin(orient)
+
+            omega = 2*pi / period
+
+            N is a real normalisation constant such that if the mask is
+            convolved with a sine grating of unity amplitude, period
+            equal to period, and orientation given by orient, the output
+            will have unity amplitude.
+
+
+gabormask_limit(sigma) -> limit                              [procedure]
+        returns the size of the arrays that are created by the two
+        procedures above. The *boundslist for each of the arrays
+        returned by  gabormask1 is [%-limit, limit%] and for gabormask2
+        is [%-limit, limit, -limit, limit%].
+
+
+gabormask_limit_ratio                                         [variable]
+        can be used to control how big the arrays that are created are.
+        The default value ensures that the Gaussian has tailed off to a
+        small value at the margins of the array.  Increasing
+        gabormask_limit_ratio will improve accuracy slightly at the
+        expense of computation time; decreasing it will speed up
+        computations, possibly at the expense of greatly reduced
+        accuracy.  Only expert users should change the value of this
+        variable.
+
+
+-----------------------------------------------------------------------
+2  Examples
+-----------------------------------------------------------------------
+
+Execute the indented example code in sequence.  You need to be at a
+colour graphics terminal.
+
+    uses popvision
+    uses gabormask
+    uses rc_graphplot
+    uses rci_show
+
+To look at the output of the 1-D function, it is best to plot it as a
+graph. This will plot the real part in black and the imaginary part in
+red.
+
+    rc_start();         ;;; get a graphics window
+
+    vars cmask, smask, limit, period = 50;
+    vars sigma = period/(2 * sqrt(2)); ;;; see below for an explanation
+
+    gabormask1(sigma, period) -> (cmask, smask);        ;;; get masks
+
+    gabormask_limit(sigma) -> limit;
+    'black' -> rc_window("foreground");
+    true -> rcg_newgraph;
+    undef -> rcg_usr_reg;
+    rc_graphplot(-limit, 1, limit, 'x', cmask, 'Gabor') -> rcg_usr_reg;
+    'red' -> rc_window("foreground");
+    false -> rcg_newgraph;
+    rc_graphplot(-limit, 1, limit, false, smask, false) -> ;
+
+To look at the output of the 2-D function, it is easier to show it as an
+image. As *rci_show uses left-handed coordinates to fit in with the
+standard image convention, the axis of variation will appear clockwise
+from the horizontal axis for positive orient.
+
+    false -> popradians;            ;;; will specify orient in degrees
+    vars orient = 30;               ;;; 30 degrees to hor axis
+
+    gabormask2(sigma, period, orient) -> (cmask, smask);
+
+    2 -> rci_show_scale;            ;;; make it bigger
+    30 -> rci_show_xshift;          ;;; separate the two
+    rci_cmap("sqrt");               ;;; make greyscale more visible
+    rci_show(cmask) -> ;
+    rci_show(smask) -> ;
+
+The arrays generated here are quite large to make the display clearer;
+for most practical purposes a period much less than 50 is likely to be
+more useful.
+
+
+-----------------------------------------------------------------------
+3  Relationship to published formulae
+-----------------------------------------------------------------------
+
+The 2-D Gabor function is sometimes described using this formula:
+
+                      2j
+    g(x, y)  =  (alpha  /pi)
+                              2j      2    2                  j
+                * exp( -(alpha   * (x' + y' ) + i * pi * alpha  * x'))
+
+    x' =  x * cos(phi) + y * sin(phi)
+
+    y' = -x * sin(phi) + y * cos(phi)
+
+The relationship between the two formulations is:
+
+    cmask       =       Re(g)
+    smask       =       Im(g)
+                                            j
+    sigma       =       1 / (sqrt(2) * alpha )
+
+                                  j
+    period      =       2 / (alpha )
+
+    orient      =       phi
+
+                                          2j
+    N   is approximately equal to   (alpha  /pi)
+
+The equation for N is approximate because the routines make sure that
+the normalisation is exact (to within the machine precision) for the
+finite discrete mask, whilst the theoretical normalisation constant is
+exact for an infinite continuous function.
+
+Note that to maintain the relationship between the oscillation period
+and the envelope width implied by these published formulae, the
+functions should be called using
+
+    sigma = period / (2 * sqrt(2))
+
+as in the example above. With this setting, the cosine mask is more or
+less a second derivative operator and the sine mask a first derivative
+operator with a bit of third derivative added in.
+
+This relationship seems rather restrictive for general use, so the
+routines allow sigma and period to set independently. Making sigma
+larger for the same period means that more cycles of oscillation will be
+included in the mask; that is, the mask becomes more finely tuned in
+spatial frequency and less localised in space.
+
+                     j
+The expression (alpha ) used in the published formulae allows families
+of masks to be generated spanning frequency space, by fixing alpha and
+varying j.
+
+
+--- $popvision/help/gabormask
+--- Copyright University of Sussex 1995. All rights reserved.

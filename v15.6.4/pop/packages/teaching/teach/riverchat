@@ -1,0 +1,1520 @@
+TEACH  RIVERCHAT                              Aaron Sloman November 1982
+                                        Updated for "!" syntax, Oct 1996
+                                                        Updated Oct 2000
+
+                      TALKING ABOUT THE RIVER WORLD
+                      =============================
+
+Combining some Eliza-like techniques, with the techniques demonstrated
+in TEACH * RIVER2 to create a conversational program that allows a user
+to interact with the river world in something approximating to a subset
+of English. (To claim that this is a "natural language" interface would
+be an exaggeration.)
+
+
+         CONTENTS - (Use ENTER g to access required sections)
+
+ -- Introduction
+ -- Prerequisites
+ -- Starting your file riverchat.p
+ -- Making the procedures specified in TEACH RIVER2 available
+ -- Make the new riverchat.p file load the river2.p file
+ -- The riverchat problem
+ -- Using the matcher to produce a translator
+ -- Simplify the task: restrict the ontology and the grammar
+ -- Preliminary exercise
+ -- -- Examples of input it would be desirable to cope with
+ -- -- Now classify the sentences
+ -- -- Exercise: Describe the Ontology of the world
+ -- -- Record your ontology in the database
+ -- Use ENTER procheader
+ -- The top level procedure riverchat
+ -- Fixing indentation
+ -- -- Procedure river_converse does the conversing
+ -- -- river_interpret handles each input sentence
+ -- Choosing a syntax for the interaction
+ -- -- Exercise: try to extend the list of patterns
+ -- Planning river_interpret in more detail
+ -- Assertions
+ -- Questions
+ -- Commands
+ -- Defining river_interpret properly
+ -- Questions
+ -- Defining whereis
+ -- Synonymous forms can use "or" conditions
+ -- More question formats
+ -- How river_interpret looks now
+ -- Using which_values to define findthings
+ -- Declaring procedure names
+ -- Still more questions
+ -- A complication with "??" and the matcher
+ -- You could stop here
+ -- Further work
+
+-- Introduction ------------------------------------------------------
+
+This teach file is about producing a simplified "Natural Language
+Front End" for the riverworld procedures described in TEACH RIVER2.
+
+You will learn how to define a "controlling" program called riverchat,
+which handles a conversation with a user about a simple world, the river
+world described in TEACH RIVER. Riverchat will allow the user to ask
+questions about where the objects in the world are, and to give commands
+to change the world by moving objects from one place to another, e.g. a
+command to the man to put the fox in the boat, or to cross the river.
+
+The program reacts to each sentence typed in either by complaining that
+it does not understand, or by updating or interrogating the database
+representing information about the world.
+
+This uses a program architecture similar to that illustrated in
+connection with an Eliza program in TEACH RESPOND, but extends the
+techniques so that instead of simply printing out a response to
+everything the user types in, the new program changes its internal state
+as well, when appropriate. Also instead of producing a response that
+depends only on the contents of what the user typed, the program also
+examines its database.
+
+We can use a diagram to represent the architecture of riverchat, showing
+how the eliza architecture and the river2 architecture are parts of
+the riverchat architecture developed below:
+
+    [.......................Riverchat....................]
+
+    [........  Eliza ...........]         [...River2.....]
+
+    interface   <-----> response  <-----> world model
+    controller          generator         manipulator
+
+    (readline           (multi-branch     (lists, matcher
+    repeat loop)        conditional       and database)
+                        using the
+                        matcher)
+
+
+At Birmingham you can run a far more sophisticated example of such a
+program by giving the Unix command
+
+    pop11 +gblocks
+
+This will run a program about a "Blocks world" in which you can ask
+questions and give instructions. The program shows the state of the
+world using a graphical display. By contrast, the riverchat program that
+you define will not use graphics, though you might decide later on a
+project to extend riverchat to include graphical interaction. Your
+program will also have a smaller repertoire of grammatical constructs
+than the gblocks program, but that could also be extended in a project
+later on.
+
+-- Prerequisites ------------------------------------------------------
+
+This unit assumes that you have already been through TEACH RIVER2 and
+that you recall the puzzle about getting the man, the fox, the chicken,
+and the grain safely across the river. It will also be useful to have
+worked through TEACH RESPOND, in order to see how to define a simple
+Eliza-like program, and various additional teach files teaching basic
+techniques used for this exercise. In particular the following will be
+useful for revision:
+    TEACH MATCHES
+    TEACH DATABASE
+    TEACH ARROW
+    TEACH LISTS
+    TEACH MINI.ELIZA
+        This gives a "skeleton" version of the program described
+        in TEACH RESPOND.
+
+
+The information in those files is also available as part of a more
+comprehensive overview of Pop-11, in TEACH PRIMER. Chapters 6 and 7 give
+an overview of list processing and the Pop-11 database. Chapter 3 will
+provide revision on procedures and how the work in connection with the
+Pop-11 stack.
+
+A summary of basic syntax forms required for this exercise can be found
+in TEACH * POPCORE
+
+-- Starting your file riverchat.p -------------------------------------
+
+The procedures defined below should be put into a file called
+
+    riverchat.p
+
+Before any Pop-11 commands your riverchat.p file should start with a
+commented header explaining what the file is about, who the author is,
+the creation and modification dates, etc. Give the VED command
+
+    ENTER fileheader
+
+to start a header template for your file. This will start off the file
+with a multi-line comment something like this
+
+/*
+FILE:            /home/students/msccg97xyz/riverchat.p
+AUTHOR:          Xavier Zinkenfugel
+CREATION DATE:  28 Oct 1997
+COURSE:          ???
+PURPOSE:         ???
+LAST MODIFIED:  28 Oct 1997
+
+*/
+
+Change the date whenever you modify the file. You can edit the header to
+fill in the gaps. E.g. you could give as the purpose:
+
+PURPOSE:        A conversational program about the river scenario.
+
+
+-- Making the procedures specified in TEACH RIVER2 available ----------
+
+TEACH RIVER2 shows how you can use the database to implement your own
+version of LIB RIVER. The present file assumes that you have available
+all the procedures mentioned in TEACH RIVER2. If you have not already
+defined those procedures, you can get the versions defined in
+    TEACH RIVER2.P
+
+That file includes all the procedure definitions but does not include
+comments or explanations. So if you copy those procedures you are
+advised to add comments.
+
+You can obtain your own copy of TEACH RIVER2.P using the following
+commands. First read the teach file into VED
+
+    ENTER teach river2.p
+
+Now change its name, so that it belongs to you.
+    ENTER name river2.p
+
+Warning: if you already have a file called river2.p this will overwrite
+it, in which case you should choose a different name for this file.
+
+Now ensure that a copy of the file containing the VED cursor is saved on
+the disk.
+
+    ENTER w1
+
+or save ALL your files on disk with
+
+    ENTER w
+
+
+-- Make the new riverchat.p file load the river2.p file ---------------
+
+To ensure that all the procedures in your river2.p file are already
+loaded before you start to compile your riverchat.p procedures need to
+put a command in the latter file to load the former file. Put the
+following command after the header, in riverchat.p, as follows, where
+the letters XYZ are replaced with your login name.
+
+
+    ;;; load the river2 procedures needed for this file
+    load  ~XYZ/river2.p
+
+That should not occur inside any procedure definition. It is a "top
+level" command, not an instruction inside a procedure.
+
+You are now ready to start defining the procedures needed for the
+riverchat program, as described below.
+
+
+
+
+-- The riverchat problem ----------------------------------------------
+
+The facilities described in TEACH RIVER2 allow you to change the river
+world by giving Pop-11 commands using action procedures, such as
+
+        riv_putin(fox);
+        riv_getin();
+        riv_cross();
+
+You can interrogate the database with Pop-11 database commands such as
+these:
+
+        present([in man boat]) =>
+        present([at fox right]) =>
+        present([at grain left]) =>
+
+or the query procedures, such as
+
+    riv_whereis("fox")  =>
+
+    riv_is_at("grain", "left") =>
+
+    riv_will_eat("chicken", "fox")=>
+
+    riv_which_at("left") =>
+
+Wouldn't it be pleasanter to give the instructions in English? E.g.
+
+    is the man in the boat ?
+    is the fox at the right bank ?
+    is the grain on the left bank ?
+    where is the fox?
+    will the chicken eat the fox?
+    which things are on the left bank?
+
+In fact that is not too difficult, provided that you write a procedure
+which will translate English sentences into Pop-11, much as the Pop-11
+system translates commands in its language into the 'machine code' of
+the computer.
+
+
+-- Using the matcher to produce a translator --------------------------
+
+We can use the MATCHES procedure (see TEACH MATCHES) to recognise
+patterns in English sentences such as those given above.
+
+For example the questions:
+
+    is the fox at the right bank
+    is the boat at the left bank
+    is the grain in the boat
+
+All have a common form, which can be expressed as a pattern
+
+    [is the ??thing1 ?rel ??thing2]
+
+We'll see shortly that in that form the matcher cannot use that pattern.
+It needs "restriction procedures" to constrain how many words match
+against ??thing1 and how many match against ??thing2.
+
+Assuming we can get round that problem, we can use the operator
+"matches" to test an English sentence to see which of several patterns
+it has. According to which pattern it is, Pop-11 can be made to perform
+different actions. This is similar to the Eliza program described in
+TEACH RESPOND. The difference is that Eliza produces answers based ONLY
+on what is in the input sentence, whereas our Riverchat program will
+also take account of what is in the database, i.e. what the state of the
+"world" is.
+
+
+-- Simplify the task: restrict the ontology and the grammar -----------
+
+ELIZA will accept almost any English sentence and say something in
+response. But ELIZA doesn't really understand anything. The sentences
+are not taken as relating to anything outside themselves. Giving a
+program the ability to really understand unrestricted English is a truly
+MASSIVE task. The same applies to any other 'natural' language.
+
+But by restricting the range of things that can be said one can make the
+task manageable, and show how the resources of Pop-11 might be used for
+managing interactions in useful programs.
+
+One restriction has already been implied: this is a restriction in the
+ontology of the program, the collection of things, properties, actions,
+events etc. that it can be used to talk about or manipulate. We allow
+the program to talk only about the "river world". (For a project, you
+could choose another simplified world, and perform a similar task, e.g.
+a "world" consisting of places, people who may need to be transported
+between places, and a collection of vehicles of limited capacity.)
+
+A second simplifying restriction concerns the variety of linguistic
+forms. English, and other natural languages, admit a very complex
+variety of linguistic structures, as illustrated by this very sentence
+which has many parts, interrelated in quite complex ways, which,
+I hope, is not so complex that most readers cannot understand it. Being
+able to understand sentences with a structure not previously encountered
+requires some grasp of the grammar, or syntax, of the language. We want
+to avoid that for now.
+
+To avoid having to deal with the full complexity of English we can
+restrict ourselves to a small set of grammatical forms, and use MATCHES
+to recognise them.
+
+(If you wish to get an introduction to more complex ways of analysing
+the structure of sentences look at TEACH * GRAMMAR)
+
+
+-- Preliminary exercise -----------------------------------------------
+
+Before designing a program it is important to have a good idea of the
+sorts of things it needs to be able to cope with, and the kinds of
+behaviours it can produce.
+
+In this case we need to have an "ontology" for the kinds of things
+talked about. This was previously described in TEACH RIVER2 (and managed
+by the programs shown in TEACH RIVER2.P). Try to remember the ontology
+of the river world, i.e. write down what it includes. Then check your
+version against that given in the section on ontology in TEACH RIVER2.
+
+We also need a specifications of the types of sentences our program
+should cope with and how it should react to them: a behavioural
+specification.
+
+What kinds of sentences should a "riverchat" program accept?
+
+How should it react to each type of sentence?
+
+Some examples have been given above. Try to invent some more examples of
+each of these types: questions, assertions, and commands.
+
+Write some examples of acceptable sentences into a file, which you can
+call riverinput. Refer to that file as you work on the procedures
+described below. You can think of the riverinput file as a partial
+specification of what you are doing in your riverchat.p file.
+
+Your list of possible inputs should include unacceptable inputs which
+the program must recognize as unacceptable and respond to in some
+sensible way.
+
+There are two different ways the sentence typed by the user may be
+unacceptable:
+
+o the program may be unable to understand it at all, e.g. because it is
+ungrammatical.
+
+o the current state of the world, as represented in the database, may
+make the question or command or assertion inappropriate, e.g. asking the
+program to move the fox to the left bank, if it is already there.
+
+(Compare the above with compile time error messages and run time error
+messages in a program.)
+
+
+-- -- Examples of input it would be desirable to cope with
+
+Here are some examples to give you further ideas:
+
+    where is the fox
+
+    put the man in the boat
+
+    put the boat in the man
+
+    are the fox and the chicken on the same side
+
+    what is on the left bank
+
+    the chicken is on the left bank
+
+And, more difficult:
+
+    why can the man not put the fox in the boat?
+
+
+Note: it will be convenient not to bother with upper case, and to leave
+out question marks, apostrophes, and other punctuation. Dealing with
+them would simply complicate the program.
+
+Add additional examples of possibly relevant sentences to those already
+given, and try to classify the sentences into groups with a common form.
+
+See if you can represent each form with a Pop-11 pattern.
+
+
+-- -- Now classify the sentences
+
+Now try the following, to help define a behavioural specification for
+your program:
+
+1. For each sentence, in the list work out what response the computer
+should make in different situations, e.g. the start of the puzzle, when
+some things are in the boat, when the chicken has eaten the grain, and
+so on.
+
+2. Try to work out what the presuppositions of different kinds of
+sentences are. E.g. when a question makes false suppositions, instead of
+answering it one can reject it. A famous example is:
+
+    When did you stop beating your wife?
+
+3. Try to group your sentences according to their forms or patterns. Two
+sentences could be said to have the same form, or the same pattern if
+    (a) they can be matched by the same pattern,
+and
+    (b) the reactions to all sentences matching that pattern should
+    be similar in form: i.e. you can have a single procedure to deal
+    with all of them.
+
+For example, perhaps you can see how to have a single procedure to
+deal with
+
+    where is the man
+    where is the fox
+
+Those are all questions. What other forms of questions should the
+program be able to deal with? How should the program react to each form
+of question?
+
+Another single procedure might deal with these:
+
+    the animal in the boat is the fox
+    the animal on the left bank is the chicken
+
+Those are all assertions. What other forms of assertions might there be?
+What should the program do when an assertion is made? What if the
+assertion contradicts what is in the database?
+
+Another a single procedure might deal with these commands, or imperative
+sentences:
+
+    put the fox in the boat
+    put the chicken in the boat
+
+4. See if you can represent the common forms using PATTERNS such as
+the Pop-11 pattern matcher employs, I.e. lists containing pattern
+variables preceded by "?" or "??" such as described in TEACH RESPOND
+and TEACH MATCHES. For example the last two have the common pattern:
+
+    [put the ?x in the ?y]
+or
+    [put ??x in ??y]
+
+
+5. When you have selected a set of such forms for your program to handle
+see if you can describe, in English what the program should do in order
+to respond to each form.
+
+6. If you wish you can add further complications to the world. E.g.
+instead of just the man, fox, chicken, grain and boat you could have
+other objects such as a bridge across the river, other people, and
+other animals.
+
+Also you could complicate the behaviour of objects. For example you
+could have a baby, and say that if ever the baby is not close to an
+adult it moves around until it falls into the river.
+
+Summarise your answers to all those points in a comment at the top of
+the file called riverchat.p, giving a specification of the program you
+are designing.
+
+-- -- Exercise: Describe the Ontology of the world
+
+Whether you stick to the original river puzzle or enrich the world, you
+should describe the ONTOLOGY of the program, i.e. the precise list of
+types of things in the world, what properties they can have and, what
+relations they can have, and what exactly can change, or how things
+behave. Put the ontology into a file called riverontology. Later you
+could include that as part of a report if this topic is used for a
+project.
+
+For the time being this teach file assumes we shall stick to the river
+world, with the following ontology.
+
+There are two main classes of things:
+
+    immobile things:    the river
+    mobile things:
+
+where mobile things divide up as follows:
+
+        inanimate mobile things:    the boat
+        animate mobile things:
+
+            human animate mobile things: the man
+            non-human animate mobile things:
+                    the fox, the chicken and the grain
+
+There are systematic differences between what the different sorts of
+things in the ontology can do.
+
+E.g. the mobile things can move from the left to the right, or vice
+versa, and in addition the animate mobile things can be in or out of the
+boat, and so on.
+
+You may find it a useful exercise to try to write down the laws of the
+world, e.g. preconditions for actions, consequences of actions, and so
+on. (See TEACH RIVER2 for some examples.)
+
+
+-- -- Record your ontology in the database
+
+When you have defined your ontology you should consider how to represent
+all the relevant facts in the database. In TEACH RIVER2 the procedure
+riv_start is defined thus:
+
+define riv_start();
+    ;;; A procedure to initialize the world
+
+    ;;; empty the database
+    [] -> database;
+
+    ;;; Use "alladd" to add a lot of items at once to the database
+
+    alladd(
+     [
+        [at boat left]
+        [at man left]
+        [at fox left]
+        [at chicken left]
+        [at grain left] ]);
+
+enddefine;
+
+
+You could use something like that. But note that depending on what you
+want to do with the information you might choose different forms to
+represent all the facts. For example, you could use one of the following
+instead if you don't need to use the word "at" sometimes and another
+word at other times, e.g. "near", or "under":
+
+   [
+    [boat left]
+    [chicken left]
+    [fox left]
+    [grain left]
+    [man left]
+   ] -> database
+
+Note that the more economical representation can sometimes reduce the
+flexibility of the program. E.g. you can't easily search for all the
+facts about where something is, as you could when all the factual items
+about location started with "at".
+
+If you wish your program to use more different kinds of information
+about the world and the interaction, you could include something like
+this:
+
+   [
+    [locations
+        [boat left] [chicken left] [fox left] [grain left] [man left]]
+    [object_types
+        [boat inanimate]
+        [chicken animate] [fox animate] [grain animate] [man animate]]
+    [eating_danger
+        [fox chicken] [chicken grain]]
+    [conversation
+        [questions 0] [assertions 0] [commands 0]]
+   ] -> database;
+
+
+In that last form the database instead of having large numbers of small
+facts, has a smaller number of more complex facts grouping items of the
+same kind together.
+
+You may find that conceptually more satisfying, but it will then be
+harder to define the patterns to locate information, and the adding and
+removal of items as the world changes could be more complex. So it is
+probably going to be easier to use a "flatter" database, for now. Thus
+the above could be replaced by a database containing things like
+
+    [location boat left]
+    [location grain left]
+    [eating_danger fox chicken]
+    etc.
+
+Or some other format that you think will be suitable. In TEACH RIVER2
+the format for locations included things like
+
+    [at fox left]
+    [at grain right]
+    [in man boat]
+
+along with procedures to act on these. We shall assume that format in
+the rest of this file, though you could try a different one if you are
+feeling adventurous.
+
+
+-- Use ENTER procheader -----------------------------------------------
+
+When you have started to write a procedure definition, you should
+produce a comment on the procedure just before it in the file. You can
+do that after you have written the header line of the procedure. Put the
+VED cursor on the line, and give the command
+
+    ENTER procheader
+
+This will insert a template header using the information provided in the
+procedure header. You can then fill in the template, explaining what it
+is for, what its inputs are what its outputs are, what side effects
+there are (e.g. changes to the database) and what the relation is
+between inputs and outputs.
+
+Do this for all the procedures you define, except the very simplest ones
+which can have a simpler comment.
+
+You should now start planning the form of the interaction with the user.
+
+-- The top level procedure riverchat ----------------------------------
+
+The top level procedure, which runs the whole interaction could do
+three main things, a bit like the procedure converse described in
+TEACH RESPOND, though with some extra capabilities:
+
+    1. Setting up the initial database
+    2. An introductory greeting or dialogue
+    3. The main dialogue
+        This will use a repeat loop to read in the user's input
+        and process it, repeatedly.
+    4. A terminating dialogue or message
+
+For example your procedure could be something like
+
+    define riverchat();
+        ;;; Insert a comment here describing the procedure
+        river_start_chat();
+        river_introduction();
+        river_converse();
+        river_farewell();
+    enddefine;
+
+Where river_start_chat(), and the other procedures would need to be
+defined (see below).
+
+The first and last are left entirely to you. They could each simply
+print out a message, or could do something more complex, e.g. involving
+finding out and using the user's name.
+
+-- Fixing indentation -------------------------------------------------
+
+REMINDER: you should ensure that in your program files, the word
+"define" is not indented as above but starts at the extreme left of the
+line:
+
+define riverchat();
+
+Unless you do this, Ved commands which work on the "current" procedure
+will not find the beginning of the procedure definition.
+
+If you copy an indented procedure definition from a teach file into
+your file you can de-indent it as follows.
+
+    1. Put the Ved cursor just to the left of "define", i.e. on the
+       preceding space.
+
+    2. Type CTRL U (or use the function key to delete the left part of
+       the line, CLEARHEAD, often set to F3)
+       This should move "define" to the left.
+
+    3. Give the following command to "justify the current procedure",
+       i.e. fix indentation:
+            ENTER jcp
+
+Try that on the definition of riverchat, above.
+
+-- -- Procedure river_converse does the conversing
+
+The form of river_converse could be something like this, using a repeat
+loop, which is terminated using "quitif" (See HELP * QUITIF).
+
+vars procedure river_interpret;   ;;; defined later, used below
+
+define river_converse();                ;;; no inputs and no results
+    ;;; insert a comment here describing the procedure
+    lvars input;
+
+    repeat
+        [What next?] =>
+
+        readline() -> input;
+
+    quitif( input = [bye] );            ;;; stopping condition
+
+        river_interpret(input);         ;;; still to be defined
+    endrepeat;
+
+    [good bye] =>
+enddefine;
+
+
+Notice the use of the
+        repeat  ....  endrepeat
+
+looping construct. This will go on forever, until argument to the
+"quitif" expression becomes true, i.e.
+
+        input = [bye]
+
+You can test this with a very simple version of river_interpret
+
+-- -- river_interpret handles each input sentence
+
+define river_interpret(input);
+    ;;; simple test version, to be replaced later
+    [You said ^^input] =>
+enddefine;
+
+This version of river_interpret will always give the same response, and
+will not change the database. But it can nevertheless be used for
+testing river_converse. Try all that, then test your program:
+
+    trace river_converse readline river_interpret;
+    river_converse ();
+
+    untrace river_converse readline river_interpret;
+
+It will be a pretty boring conversation, but testing things at every
+stage is a good idea. E.g. make sure that the test for [bye] works. If
+your program doesn't stop when you type "bye" as input, interrupt with
+CTRL C.
+
+The hard part is going to be defining the REAL river_interpret. It will
+have to be able to cope with a variety of forms of input sentence,
+depending on what you have decided your program should do. That will
+need some careful planning.
+
+
+-- Choosing a syntax for the interaction ------------------------------
+
+Consider the following sentences
+
+    the man is in the boat
+    the boat is at the left bank
+    the fox is on the left bank
+
+In each case we have two noun phrases and a relationship, where the
+first noun phrase refers to an object and the second to a location in
+the world:
+
+    NP1         REL         NP2
+    OBJ                     LOC
+ the man        in       the boat
+ the boat       at       the left bank
+ the fox        on       the left bank
+
+On this basis we can use the following patterns to represent some of our
+permitted sentences, where "obj" in the pattern stands for a noun phrase
+referring to and object, "loc" stands for a noun phrase referring to a
+location, and rel stands for a word (or phrase) expressing a relation
+between an object and a location, e.g. "at" or "in" or "on" or
+"close to", etc.
+
+Then possible patterns include
+
+    [ the ??obj is ??rel the ??loc ]
+    [ where is the ??obj ]
+    [ what is ??rel the ??loc ]
+    [ is the ??obj ??rel the ??loc ]
+    [ put the ??obj ??rel the ??loc ]
+
+Remember that if you put the "!" prefix before patterns inside a
+procedure, as explained in TEACH MATCHES, you should declare the pattern
+variables using lvars, near the top of the procedure.
+
+    lvars obj, rel, loc;
+
+If you don't use the pattern prefix, declare them as vars.
+
+
+-- -- Exercise: try to extend the list of patterns
+
+Depending on the range of sentences you plan to deal with, extend
+the list of patterns you think you will need. Put them into the
+file with your sample sentences (riverinput)
+
+How should the program respond to each of these forms? Before reading on
+you should try writing down your own ideas, and the actions required for
+each of the forms of input that you are going to allow. Each action
+could be expressed later on as a procedure that takes the variables
+found in the pattern and does something. E.g. if the input sentence
+matches the pattern
+
+    [where is ??obj]
+
+you could define a procedure called "locate" which takes the value
+of obj (e.g. a list like [the man] [the boat] [the left bank]) and then
+interrogates the database.
+
+You will also have to choose a message to print out if the input
+sentence does not match any of the patterns permitted.
+
+The program would then have the following form, based on a single
+multi-branch conditional instruction. (See TEACH IF.)
+
+
+    define river_interpret(input);
+        ;;; insert a comment here describing the procedure
+
+        lvars obj, loc, rel;     ;;; pattern variables, as needed
+
+        if input matches ! [....] then
+            ++++
+        elseif input matches ! [....] then
+            ++++
+        elseif input matches ! [....] then
+            ++++
+
+        <additional cases>
+
+        else
+            <some helpful message about not understanding>
+        endif
+
+    enddefine;
+
+Here "...." stands for the contents of some pattern, which can include
+pattern elements like "?", "??", "=", "==". "++++" stands for the
+corresponding actions, in which the values of the variables will
+normally be used.
+
+-- Planning river_interpret in more detail ----------------------------
+
+Each of the conditions in river_interpret could handle a different type
+of input. Exactly how the type should be broken down will depend on how
+wide a class of sentences you want to deal with. In the simplest case
+you might include a form of assertion, a form of question, and a form of
+command.
+
+We shall treat each case separately.
+
+-- Assertions ---------------------------------------------------------
+
+Suppose you assert
+
+        the fox is in the boat
+or
+        the man is at the left bank
+
+the computer should check if it already knows the location of the thing
+referred to. If it does and the assertion is not correct, the computer
+could print out something like:
+
+        ** [no the fox is on the right bank]
+
+If the assertion gives new information, then it could be added to the
+database, in some suitable format. The computer could then say simply
+
+        ** [ok]
+
+Or choose something more soothing. You could define a procedure called
+checkfact something like
+
+    define checkfact(obj, rel, loc);
+        ;;; insert a comment here describing the procedure
+
+        <use present to check where the object really is and
+        then print a response>
+
+    enddefine;
+
+
+-- Questions ----------------------------------------------------------
+
+Three forms of questions were suggested above, for example
+
+        where is the boat
+        what is at the left bank
+        is the fox in the boat
+
+In every case, the computer should use present to find the answer and
+print out something suitable. Later you could extend the program to
+include more forms of questions, such as:
+
+        how many things are ??rel the ??loc
+            (e.g. how many things are in the boat)
+
+        are the ??obj and the ??y in the sample place
+
+For each form of question you will need a slightly different pattern and
+a slightly different procedure that takes the values of the pattern
+variables and works out how to answer. For example, if you need to deal
+with three forms of question you could call the procedures do_question1
+do_question2 do_question3. Then which of these is called by
+river_interpret will depend on which pattern was matched. Alternatively
+you could use more meaningful names, e.g. whereis, whatis,
+true_or_false, etc depending on the form of the question.
+
+N.B. The Pop-11 matcher gets confused if a list ends with a question
+mark, so we'll assume that final question marks don't have to be typed
+in. (There are ways of overcoming this problem, but they are not worth
+bothering about for this exercise.)
+
+
+-- Commands -----------------------------------------------------------
+
+These are like:
+
+        put the man in the boat
+        put the fox at the left bank
+
+The computer should check that the conditions for carrying out the
+instruction are correct, and either print out
+
+        ** [I cannot do that because....]
+
+or do it and print out something like
+
+        ** [the ^^obj is now ^^rel the ^^loc]
+
+You could define a procedure called do_put(obj, loc) to deal with
+commands of this form. If there are different patterns that can be used
+for commands you can define different procedures to deal with them.
+
+TEACH RIVER2 explains how you can write programs to check preconditions.
+However, it proposes that a MISHAP should occur when an action cannot be
+performed. For present purposes we will want procedures which return
+TRUE if the action can be performed, otherwise FALSE, instead of
+producing a mishap. This is like the difference between PRESENT and
+LOOKUP, described in TEACH DATABASE. (See HELP DATABASE for a shorter
+summary.)
+
+
+-- Defining river_interpret properly ----------------------------------
+
+The master program called river_converse has previously been defined. It
+repeatedly reads in an input sentence (a list of words produced by
+readline), and then calls the procedure river_interpret(input), which
+still has to be defined properly.
+
+The procedure river_interpret has to test the input against various
+patterns, and call the appropriate procedures to manipulate or
+interrogate the database.
+
+We can now move to a 'real' version of INTERPRET. Its job is
+
+    (a) take in the list of word typed at the terminal
+    (b) work out what it means
+    (c) perform some appropriate internal action
+    (d) create a suitable response in the form of a list of words,
+    (e) print out the list
+
+(b) (c) and (d) can take different forms, depending on what sort of list
+is given as input.
+
+Notice how important it is to have a clear idea of what you want a
+procedure to do before you start work on it. You can change your ideas
+as a result of trying out preliminary forms. And you need not have
+thought about ALL the cases, so long as you are clear about whether it
+takes any inputs, and if so how many, whether it produces results, and
+for at least some of the forms of inputs what it is to do with them and
+what result it should produce. When explaining one of your procedures in
+a report you should be able to say all that clearly without showing a
+single line of the program.
+
+Don't try to define all of INTERPRET at once. Instead, as you add extra
+cases test it to make sure it works.
+
+As explained above the general form of river_interpret could be:
+
+    define river_interpret(input);
+        ;;; insert a comment here describing the procedure
+
+        lvars obj, loc, rel;     ;;; pattern variables
+
+        if input matches ! .... then
+                ++++
+        elseif input matches ! .... then
+                ++++
+                ....
+        else
+                <default case>
+        endif
+    enddefine
+
+We can make each condition correspond to one of the forms of sentence
+sketched above, using MATCHES to do the recognising. So the procedure
+will need some local variables. Hence the declaration:
+
+        lvars obj, rel, loc;
+
+(The use of lvars requires "!" before each pattern containing "?" or
+"??").
+
+Now fill out the first condition, to cope with assertions like
+    the fox is in the boat
+    the man is on the left bank
+
+Let's assume there is a procedure, called CHECKFACT, to be defined later
+(notice our 'top down' programming style), which will deal with such
+assertions.
+
+        if list matches ! [the ??obj is ??rel the ??loc] then
+            checkfact (obj, rel, loc) -> out
+        else
+
+etc.
+
+This requires a procedure called CHECKFACT which takes a list with an
+object name (produced by ??obj), a list with a relation name (from
+??rel) and a list with a location name(from ??loc). It should examine or
+alter the database, if necessary, and produce an appropriate reply.
+There are different ways of defining CHECKFACT. E.g. it could handle
+three conditions
+
+    (a) It already know the fact. Then say so
+    (b) It knows something inconsistent with the alleged fact. Then
+        correct the user.
+    (c) Otherwise add the new fact to the database.
+
+For example the definition of CHECKFACT could be something like:
+
+        define checkfact (thing, rel, place) -> out;
+            ;;; insert a comment here describing the procedure
+            lvars info;
+
+            if present ([^^thing ^^rel ^^place]) then
+                [I know that already] -> out
+            elseif present ( ! [^^thing ??info] ) then
+                [no it is ^^info ] -> out
+            else
+                add ([^^ thing  ^^rel ^^ place]);
+                [OK I have noted that] -> out
+            endif
+
+        enddefine;
+
+Note the use of "!" before "[...]" and inside the "(...)" parentheses.
+
+The precise forms of these patterns must be tailored to correspond
+to the forms that you use for information in the database.
+
+Define an appropriate version of checkfact, in your riverchat.p file
+then test it.
+
+You can then test the new procedure, perhaps something like this, but
+choose your own sample scenario first and make sure that your program
+produces it:
+
+        [] -> database;
+        checkfact ([fox], [in], [boat]) =>
+        ** [OK I have noted that]
+        checkfact ([man], [at], [left bank]) =>
+        ** [OK I have noted that]
+        checkfact ([fox], [at], [left bank]) =>
+        ** [no it is in boat]
+        checkfact ([joe bloggs], [in], [boat]) =>
+        ** [OK I have noted that]
+
+If that works you can complete the definition of INTERPRET given above,
+then test it:
+
+        river_interpret ([the fox is in the boat]) =>
+        ** [I know that already]
+        river_interpret ([the fox is at the left bank]) =>
+        ** [no it is in boat]
+
+If that all works you can then test river_converse. If all is well
+you'll get a dialogue something like:
+
+    river_converse();
+    ** [please type something]
+    ? the man is at the left bank       ;;; readline prompts with "?"
+    ** [I know that already]
+    ** [please type something]
+    ? the goat is at the left bank
+    ** [OK I have noted that]
+    ** [please type something]
+    ? the goat is in the boat
+    ** [no it is at left bank]
+    ** [please type something]
+    ? bye
+    ** [bye then]
+
+Try that, but first
+
+    trace river_interpret checkfact;
+
+
+-- Questions ----------------------------------------------------------
+
+Your procedure INTERPRET might, by now look something like this:
+
+    define river_interpret(input);
+        ;;; add a comment here
+        lvars obj, rel, loc;
+        if input matches ! [the ??obj is ??rel the ??loc] then
+            checkfact (obj, rel, loc) =>
+        else
+            ;;; warning. Don't use apostrophes as in "don't"
+            ;;; since Pop-11 interprets them as string quotes.
+            [sorry dont understand] =>
+        endif
+    enddefine;
+
+If you didn't succeed in making your own version work, try that, with
+river_converse.
+
+Now add another condition to INTERPRET to deal with a question of the
+first form:   WHERE  IS THE ?X
+
+Let us assume we can define a procedure called WHEREIS which will take
+the name of a thing, and find a response to print out.
+
+        elseif input matches ![where is the ??obj] then
+            whereis(obj) =>
+
+This needs a procedure called WHEREIS. You may be able to define this
+before reading on. If you find your definition doesn't work, read on.
+
+-- Defining whereis ---------------------------------------------------
+
+        define whereis (thing) -> out;
+            ;;; Add a comment here
+
+            lvars info;  ;;; pattern variable
+            if present ( ! [^^thing ??info] ) then
+                [the ^^thing is ^^info] -> out
+            else
+                [I dont know where it is] -> out
+            endif
+        enddefine;
+
+Test this procedure, then test INTERPRET
+
+    river_interpret ([where is the fox]) =>
+    ** [the fox is in boat]
+    river_interpret ([where is the old man]) =>
+    ** [I dont know where it is]
+
+then check that river_converse still works and allows you to alternate
+assertions and questions.
+
+
+-- Synonymous forms can use "or" conditions ---------------------------
+
+If you are going to allow more than one pattern to be interpreted as
+requiring the same action, then you can have "or" in the condition, e.g.
+
+    elseif input matches ! ....
+        or input matches ! ....
+        or input matches ! ....
+    then
+        ++++
+
+Note that each of the patterns used in this sort of case must have
+the same number of variables.
+
+NB you cannot join patterns using "or", you must join whole conditions.
+E.g. this will not work in Pop-11
+
+    elseif input matches ! [??x likes ??y]
+        or ! [??x hates ??y]
+    then
+
+It would have to be written as
+
+    elseif input matches ! [??x likes ??y]
+        or input matches ! [??x hates ??y]
+    then
+
+Pop-11 does not allow the same abbreviations as English!
+
+-- More question formats ----------------------------------------------
+
+For the other forms of questions you can extend INTERPRET. The following
+is a fairly obvious extension, requiring a procedure called FINDTHINGS.
+
+        elseif input matches ! [what is ??rel the ?? loc] then
+            findthings (rel, loc) -> out
+
+Try extending INTERPRET like this, and defining FINDTHINGS.
+
+You could use PRESENT in FINDTHINGS, but it will find only ONE thing at
+the place. To find ALL the things you can use a built-in procedure
+called WHICH (see TEACH WHICH). WHICH gives you a list of all the things
+in the database which satisfy the pattern you give it - which is just
+what you need in FINDTHINGS.
+
+
+When you have defined FINDTHINGS,  test it out, making sure it always
+produces an appropriate list, then check that INTERPRET and
+river_converse works properly with it. Perhaps thus:
+
+    river_converse();
+    ** [please type something]
+    ? what is at the right bank
+    ** [nothing is at the right bank]
+    ** [please type something]
+    ? what is in the boat
+    ** [[fox]]
+    ** [please type something]
+    ? what is at the left bank
+    ** [[goat] [man]]
+    ** [please type something]
+    ? where is the fox
+    ** [the fox is in boat]
+    ** [please type something]
+    ? where is the moon
+    ** [I dont know where it is]
+
+Try to define an appropriate version of FINDTHINGS, and extend INTERPRET
+so that it invokes the new procedure when appropriate.
+
+-- How river_interpret looks now --------------------------------------
+
+In case you have not managed to get all that to work, this is what your
+definition of INTERPRET could look like now.
+
+    define river_interpret(input);
+        ;;; add a comment here
+
+        lvars obj, rel, loc;
+
+        if input matches ! [the ??obj is ??rel the ??loc] then
+            checkfact (obj, rel, loc) -> out
+        elseif input matches ! [where is the ??obj] then
+            whereis(obj) -> out
+        elseif input matches ! [what is ??rel the ??loc] then
+            findthings(rel, loc) -> out
+        else
+            [dont understand] -> out;
+        endif
+    enddefine;
+
+
+-- Using which_values to define findthings ----------------------------
+
+
+And this is how FINDTHINGS could be defined:
+
+    define findthings(rel, loc)->out;
+        ;;; add a comment here
+
+        lvars obj;
+
+            which_values( ![?obj], ![[??obj ^^rel ^^loc]] )  -> out;
+            if out = [] then
+                [nothing is ^^rel the ^^loc] -> out
+            endif;
+    enddefine;
+
+Note on the library procedure WHICH_VALUES:
+
+The first argument is a list giving the variables for which you want all
+the possible matching values to be included in the result OUT.
+
+The second argument is a list of patterns, which should include some of
+those variables as pattern variables. It's because the second argument
+is a list of patterns that it has an extra pair of square brackets, even
+though in this case the list contains only one pattern.
+
+Both the variable list and the pattern list can be preceded by "!" to
+make the variables work as lvars.
+
+If you were interested in more than one variable, you would put each
+word in a list preceded by "?". For instance
+
+        which_values(![?obj ?loc], ![[??obj on ??loc]])
+
+would have a result which is a list of two element lists (each list
+giving object and location). It might look like this:
+
+        [ [man boat]  [chicken lb] [grain lb] [fox rb] ]
+
+See HELP * WHICH_VALUES for more information.
+
+
+-- Declaring procedure names ------------------------------------------
+
+You may find that when you compile your file you keep getting warning
+messages about "declaring variables", e.g. river_interpret, checkfact,
+whereis, etc.
+
+To prevent this, and reduce the load on the computer, you can put in a
+declaration at the top of the file, for all the procedure names defined
+lower down. E.g.
+
+        vars river_converse, river_interpret, checkfact ...;
+
+Pop-11 treats names of procedures as variables (which is why you can
+redefine a procedure during testing and developing of your programme and
+the other procedures will immediately access the new one).
+
+Usually procedure names are defined as global variables, instead of
+being local to another procedure. This makes it easy to test all the
+procedures separately, and also allows you to trace them.
+
+It is a good idea, while developing a program, to put a trace command
+for all your procedures, at the END of the file, after they have been
+defined. E.g.
+
+        trace river_converse, river_interpret, etc...;
+
+When everything is working perfectly you can remove the trace command.
+
+You may feel you have had enough for now, and not want to carry on. The
+remainder of this file introduces some technicalities which are useful
+with some of the more advanced sentence analysing programs, e.g.
+    TEACH ISASENT.
+
+If you need to stop now and write a report on your program, see
+    TEACH REPORTS.
+
+
+-- Still more questions -----------------------------------------------
+
+A more complicated extension is required to deal with questions like
+        is the fox in the boat
+
+E.g. river_converse should be able to cope with:
+     river_converse();
+    ** [please type something]
+    ? is the man in the boat
+    ** [no it is not]
+    ** [please type something]
+    ? is the fox in the boat
+    ** [yes it is]
+
+You might try extending INTERPRET using a procedure called something
+like TRUEFALSE, thus:
+
+        elseif list matches ![is ??obj ??rel the ??loc] then
+            truefalse(obj, rel, loc) -> out
+
+Defining TRUEFALSE should be fairly straightforward using PRESENT. But
+there is a snag in the above pattern given to MATCHES.
+
+
+-- A complication with "??" and the matcher ---------------------------
+
+For reasons which may be clear if you have fully understood how "??"
+works (see TEACH MATCHES, and the PRIMER), you cannot expect patterns
+with two "??" variables in succession to behave sensibly. So for form 4
+we could not usefully use a pattern
+
+        ! [is the ??obj ??rel the ??y]
+
+and expect a sensible analysis of
+
+        [is the fox in the boat]
+
+This is because the matcher will not know how to divide up
+        "fox in"
+
+sensibly between ??obj and ??rel, since "??" means match ANY number of
+items, including NONE, ONE, or more. So if you try:
+
+    [is the fox in the boat] matches ! [is the ??obj ??rel the ??y] =>
+
+and then print out X and REL, you'll find that one of them is the empty
+list and the other gets a list with both words: [FOX IN].
+
+To get round this we can make use of 'restriction procedures' to control
+the matcher. After a pattern variable you can put a colon and the name
+of a restriction procedure which decides whether the object being
+assigned to the variable is acceptable. Thus, suppose we define the
+following procedure to recognise relation names, using the Pop-11
+procedure MEMBER in the obvious way:
+
+    ;;; First declare a global variable that can easily be changed,
+    ;;; and give it a list of relation names. Put each in a list so
+    ;;; two word relation names can be handled.
+    vars relation_names = [[at] [on] [in] [next to][far from]] ;
+
+    define isrelation(list) -> result;
+        ;;; recognise a list containing a relation name
+
+        if member(list, relation_names) then
+            list -> result      ;;; don't use TRUE -> RESULT. See below
+        else
+            false -> result
+        endif
+    enddefine;
+
+We can use this procedure ISRELATION to restrict the match in:
+
+   [is the fox under the boat]
+        matches ! [is the ??obj ??rel:isrelation the ??y] =>
+
+   ** <false>
+
+I.e. "under" was not in the list used by ISRELATION to recognise
+relation names. Whereas:
+
+   [is the fox in the boat]
+        matches ! [is the ??obj ??rel:isrelation the ??y] =>
+   ** <true>
+
+Now check that the values given to X and REL are correct
+    obj=>
+    ** [fox]
+    rel=>
+    ** [in]
+
+When the matcher uses the restriction procedure (after ":" following a
+pattern variable) to check that the value being assigned to the variable
+is acceptable, it expects the procedure to return either FALSE, or the
+new value to be assigned to the variable. (This turns out useful in ways
+illustrated in TEACH ISASENT.) In the present case, we want the variable
+REL to get the list of corresponding words. So our procedure ISRELATION,
+above, does:
+
+    list -> result
+
+rather than
+
+    true -> result
+
+The latter would have made REL have the value TRUE rather than [IN].
+
+We could define restriction procedures to recognise OBJECTs, e.g. using:
+
+    member(list, [[man][fox][chicken][grain][boat]])
+
+and LOCATIONs, using:
+
+    member(list, [[left bank][right bank][boat]])
+
+
+-- You could stop here ------------------------------------------------
+
+The procedures sketched so far show how you can create an interactive
+data base which accepts new facts and answers questions.
+
+Having done this it is a good idea to write notes on what you have done.
+Summarise the ontology, the behavioural specification, the structure of
+the program, the representation used, the important design decisions,
+and any specially interesting procedures.
+
+Also, tidy up your file riverchat.p. Get rid of spurious old versions of
+procedure definitions. If there are any test commands make sure they are
+inside comment brackets
+    /*
+        ...
+    */
+
+so that they do not interfere with compilation of the whole file using
+the ENTER l1 Ved command, or the Pop-11 load command.
+
+Make sure the file has a header giving the name of the file author, and
+other information, as explained above.
+
+Also ensure that each main procedure has a comment describing it, saying
+what its purpose is, what sorts of inputs it takes, what sorts of
+outputs it produces, etc. You can use "ENTER procheader" in Ved to
+insert procedure headers.
+
+For many students the program described so far will seem too
+restrictive.
+
+If you have time, and ambition, you can try to extend INTERPRET to deal
+with commands, like
+
+        [put the ??obj ??rel:isrelation the ??loc]
+
+defining a procedure called perhaps ACHIEVE (thing, rel, place).
+
+This procedure could use procedures analogous to those defined in the
+file TEACH RIVER2, which, instead of a mishap, produce an explanation of
+why the task cannot be done. Don't be surprised if you find this tricky.
+
+Question: why would it be an exaggeration to describe the program
+developed here as a "natural language interface" ?
+
+-- Further work -------------------------------------------------------
+
+For an introduction to the problems of defining programs with a deeper
+grasp of English grammar, see
+
+        TEACH GRAMMAR
+        TEACH WHYSYNTAX
+        TEACH ISASENT
+
+and chapters on natural language processing in text books on AI, which
+are likely to be more up to date than those teach files.
+
+A further development, and a possible project, would be to replace the
+use of the pattern matcher with the use of a grammar-based system. This
+would take in user utterances and try to "parse" them in accordance with
+a grammar for permitted interactions. The parser would produce a parse
+tree for each acceptable sentence (of the sort described in the file
+TEACH * GRAMMAR) and a semantic interpreter procedure would have to
+analyse the parse tree to work out how to respond.
+
+Very ambitious students can look at TEACH MSBLOCKS for an example
+showing one way to do this connection with verbal interactions with a
+one armed robot that manipulates blocks. A more recent version of this
+is used in the gblocks program mentioned above.
+
+A fairly comprehensive introduction to natural language processing in
+Pop-11 can be found in the following:
+
+G. Gazdar, and C. Mellish,
+    Natural Language Processing in POP-11,
+    Addison Wesley 1989.
+
+Versions for Prolog and Common Lisp also available. The programming
+examples are now part of the Poplog Contrib Library (See HELP * CONTRIB)
+
+--- $poplocal/local/teach/riverchat
+--- Copyright University of Birmingham 2000. All rights reserved. ------

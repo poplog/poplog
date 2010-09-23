@@ -1,0 +1,923 @@
+REF OPENLOOK                    Jonathan Meyer, Andreas Schoter Sep 1991
+                                           Revised, John Gibson Apr 1993
+
+        COPYRIGHT University of Sussex 1993. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<     THE POPLOG OPENLOOK     >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<          INTERFACE          >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This file provides some programming  details of the Poplog interface  to
+the Open Look Intrinsics  Toolkit Widget Set  (sometimes referred to  as
+OLIT or  Xol,  this  widget set  is  referred  to as  OpenLook  in  this
+document). See HELP * OPENLOOK  for an overview  of the Poplog  OpenLook
+interface.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Loading OpenLook Widgets
+
+  2   Different Versions Of OpenLook
+
+  3   OpenLook Startup
+
+  4   OpenLook Procedures
+
+  5   OpenLook Widget Classes
+      5.1   Widgets
+      5.2   Gadgets
+      5.3   Objects
+
+  6   Include Files: Constants and Typespecs
+
+  7   Additional Data Structures
+
+  8   Function And Procedure Resources
+
+  9   ScrollingList Widget Support
+      9.1   Example
+
+ 10   Unsupported Features
+      10.1  Pop-11 Procedure Registration
+      10.2  Pixel Conversion Routines
+
+ 11   Associated Documentation
+
+
+
+---------------------------
+1  Loading OpenLook Widgets
+---------------------------
+
+To  use  OpenLook  library  files,  it  is  first  necessary  to  extend
+popuseslist to  include  the  Xol sub-directory  of  the  main  Poplog X
+library. This is done with
+
+        uses Xol;
+
+For each  OpenLook widgetclass,  the Xol  directory defines  a  constant
+identifier xolFooBazWidget (in a file of that name) which you must 'use'
+in order to use the widgetclass, i.e.
+
+        uses xolFooBazWidget;
+
+Thus for example, the OpenLook C widget class name rectButtonWidgetClass
+is mapped onto the Poplog name xolRectButtonWidget:
+
+        uses xolRectButtonWidget;
+        xolRectButtonWidget =>
+        <Xol WidgetClass RectButtonWidget>
+
+Alternatively, you can use LIB * XolAllWidgets:
+
+        uses XolAllWidgets;
+
+This is an Xol library file containing  a uses for every widget, and  so
+loads them all once.
+
+
+
+
+---------------------------------
+2  Different Versions Of OpenLook
+---------------------------------
+
+There are several differences between different releases of the OpenLook
+Toolkit  Intrinsics.  To  enable  Poplog  to  work  correctly  with  the
+different versions the constant XOL_VERSION is provided.
+
+For this to be  set, the Poplog  image must either  have be linked  with
+OLIT with a value for XLINK_VERSION defined, or the environment variable
+POP_XOL_EXLIBS  must  supply   a  value.   See  Poplog   Image  X   Link
+Specification in REF * X. The value will be an integer of the form
+
+          (MAJOR-RELEASE-NUMBER * 1000) + MINOR-RELEASE-NUMBER
+
+For example, when using version 3.0 of OLIT, XOL_VERSION should  contain
+the integer 3000.
+
+
+XOL_VERSION -> int                                            [constant]
+        This is  an  autoloadable constant.  If  * popxlink_openlook  is
+        defined (i.e. Poplog was linked with OLIT), and the link defined
+        XLINK_VERSION, then its value is XLINK_VERSION.
+
+        Otherwise, when XOL_VERSION is loaded,  it tries to get a  value
+        from   the    environment    variable    POP_XOL_EXLIBS    using
+        * sys_translate_exlibs. If this fails, the mishap
+
+            'NO OPENLOOK VERSION (XOL_VERSION) AVAILABLE'
+
+        occurs.
+
+
+
+
+-------------------
+3  OpenLook Startup
+-------------------
+
+When  you  load   an  OpenLook  widgetclass,   the  OpenLook   procedure
+OlToolkitInitialize is  either automatically  called (if  sysxsetup  has
+already been  called), or  added to  the Poplog  toolkit  initialisation
+procedure XptToolkitInitialize to be called when sysxsetup is run.
+
+Thus you need take no further action in this respect.
+
+
+
+
+----------------------
+4  OpenLook Procedures
+----------------------
+
+When any of the OpenLook widgetclasses are loaded, they load a number of
+OpenLook convenience  functions (starting  with  Ol-), and  also  define
+several additional procedures needed to use OpenLook in Poplog (starting
+with Xpol-). Additional functions may  also be defined when you  request
+specific widgets from the OpenLook widget set.
+
+Procedures starting with Ol- follow the same calling semantics as  their
+C equivalents, and do NOT perform any type checking on their  arguments.
+Xpol- procedures  on  the  other  hand do  perform  any  necessary  type
+checking.
+
+(The files defining the  Xol- procedures employ XptPopLoadProcedures  to
+load them.)
+
+
+OlCanAcceptFocus(arg1, arg2) -> bool                         [procedure]
+OlConvertVirtualTranslation(string1) -> string2              [procedure]
+OlCreatePackedWidget(arg1) -> widget                         [procedure]
+OlCreatePackedWidgetList(arg1, arg2) -> widget               [procedure]
+OlError(arg1)                                                [procedure]
+OlFlatGetValues(arg1, ... arg4)                              [procedure]
+OlFlatSetValues(arg1, ... arg4)                              [procedure]
+OlGetResolution(arg1) -> byte                                [procedure]
+OlHasFocus(arg1) -> bool                                     [procedure]
+OlPostInitialize(arg1, ... arg5)                             [procedure]
+OlPreInitialize(arg1, ... arg5)                              [procedure]
+OlRegisterHelp(arg1, ... arg5)                               [procedure]
+OlSetVaDisplayErrorMsgHandler(arg1, arg2)                    [procedure]
+OlSetVaDisplayWarningMsgHandler(arg1, arg2)                  [procedure]
+OlSetErrorHandler(arg1)                                      [procedure]
+OlSetWarningHandler(arg1)                                    [procedure]
+OlVaDisplayErrorMsg(argvarargs)                              [procedure]
+OlVaDisplayWarningMsg(argvarargs)                            [procedure]
+OlWarning(arg1)                                              [procedure]
+        These  procedures  are  in  LIB * Xolgeneral,  which  is  loaded
+        automatically by every widget class.
+
+
+BufferFilled(buffptr) -> bool                                [procedure]
+BufferLeft(buffptr) -> bool                                  [procedure]
+BufferEmpty(buffptr) -> bool                                 [procedure]
+        These procedures are provided  as buffer interface utilities  by
+        LIB * Xolbuffer, loaded automatically by xolTextEditWidget.
+
+
+LookupOlInputEvent(widget, xeventptr, ulong, charptrptr,     [procedure]
+                        intvec) -> olinputcalldataptr
+OlReplayBtnEvent(widget, uint, xeventptr)                    [procedure]
+OlDetermineMouseAction(widget, xeventptr) -> exptr           [procedure]
+OlGrabDragPointer(widget, XID1, XID2)                        [procedure]
+OlUngrabDragPointer(widget)                                  [procedure]
+OlDragAndDrop(widget, ulongptr, intvec1, intvec2)            [procedure]
+OlRegisterDynamicCallback(p, uint)                           [procedure]
+OlUnregisterDynamicCallback(p, uint) -> int                  [procedure]
+OlCallDynamicCallbacks()                                     [procedure]
+        These  procedures  are  in  LIB * XolDynamic,  which  is  loaded
+        automatically by  xolTextEditWidget.  For more  details  on  the
+        individual  functions  please  see  the  man  page  entries   in
+        /usr/openwin.
+
+
+GetOlMoveCursor(screenptr) -> XID                            [procedure]
+GetOlDuplicateCursor(screenptr) -> XID                       [procedure]
+GetOlBusyCursor(screenptr) -> XID                            [procedure]
+GetOlPanCursor(screenptr) -> XID                             [procedure]
+GetOlQuestionCursor(screenptr) -> XID                        [procedure]
+GetOlTargetCursor(screenptr) -> XID                          [procedure]
+GetOlStandardCursor(screenptr) -> XID                        [procedure]
+OlGet50PercentGrey(screenptr) -> XID                         [procedure]
+OlGet75PercentGrey(screenptr) -> XID                         [procedure]
+        These procedures  are  loaded  by  LIB * XolOlCursor.  For  more
+        details on the  individual procedures  please refer  to the  man
+        page entries in /usr/openwin/share/man.
+
+
+AllocateBuffer(int1, int2) ->  buffptr                       [procedure]
+GrowBuffer(buffptr, int)                                     [procedure]
+CopyBuffer(buffptr1) -> buffptr2                             [procedure]
+FreeBuffer(buffptr)                                          [procedure]
+InsertIntoBuffer(buffptr1, buffptr2, int1) -> int2           [procedure]
+ReadFileIntoBuffer(FP, buffptr) -> int                       [procedure]
+ReadStringIntoBuffer(buffptr1, buffptr2) -> int              [procedure]
+Ol_stropen(string) -> buffptr                                [procedure]
+Ol_strgetc(buffptr) -> int                                   [procedure]
+Ol_strclose(buffptr)                                         [procedure]
+Ol_streexp() -> string                                       [procedure]
+Ol_strexp(string1, string2, string3) -> string4              [procedure]
+Ol_strrexp(string1, string2, string3) -> string4             [procedure]
+AllocateTextBuffer(string, p, uint) -> textbuffptr           [procedure]
+FreeTextBuffer(textbuffptr, p, uint)                         [procedure]
+ReadFileIntoTextBuffer(string, p, uint) -> textbuffptr       [procedure]
+ReadStringIntoTextBuffer(string, p, uint) -> textbuffptr     [procedure]
+GetTextBufferLocation(textbuffptr, int, textlocptr)          [procedure]
+                                        -> string
+ForwardScanTextBuffer(textbuffptr, textlocptr, string)       [procedure]
+                                        -> int
+BackwardScanTextBuffer(textbuffptr, string, textlocptr)      [procedure]
+                                        -> int
+ReplaceBlockInTextBuffer(textbuffptr1, textlocptr1,          [procedure]
+                    textlocptr2, string, p, uint) -> int
+ReplaceCharInTextBuffer(textbuffptr, textlocptr, int, P,     [procedure]
+                                uint) -> int
+IncrementTextBufferLocation(textbuffptr, textlocptr1,        [procedure]
+                            int1, int2) -> textlocptr2
+LocationOfPosition(textbuffptr, int) -> textlocptr           [procedure]
+LineOfPosition(textbuffptr, int1) -> int2                    [procedure]
+PositionOfLocation(textbuffptr, textlocptr) -> int           [procedure]
+PositionOfLine(textbuffptr, int1) -> int2                    [procedure]
+LastTextBufferPosition(textbuffptr) -> int                   [procedure]
+LastTextBufferLocation(textbuffptr) -> textlocptr            [procedure]
+StartCurrentTextBufferWord(textbuffptr, textlocptr1)         [procedure]
+                                    -> textlocptr2
+EndCurrentTextBufferWord(textbuffptr, textlocptr1)           [procedure]
+                                    -> textlocptr2
+PreviousTextBufferWord(textbuffptr, textlocptr1)             [procedure]
+                                    -> textlocptr2
+NextTextBufferWord(textbuffptr, textlocptr1) -> textlocptr2  [procedure]
+NextLocation(textbuffptr, textlocptr1) -> textlocptr2        [procedure]
+PreviousLocation(textbuffptr, textlocptr1) ->  textlocptr2   [procedure]
+GetTextBufferLine(textbuffptr, int) -> string                [procedure]
+GetTextBufferChar(textbuffptr, textlocptr) -> int            [procedure]
+CopyTextBufferBlock(textbuffptr, charptr, int1, int2)        [procedure]
+                                    -> int3
+GetTextBufferBlock(textbuffptr, textlocptr1, textlocptr2)    [procedure]
+                                    -> string
+GetTextBufferBuffer(textbuffptr, int) -> exptr               [procedure]
+SaveTextBuffer(textbuffptr, string) -> int                   [procedure]
+RegisterTextBufferUpdate(textbuffptr, p, uint)               [procedure]
+UnregisterTextBufferUpdate(textbuffptr, p, uint) -> int      [procedure]
+RegisterTextBufferScanFunctions(p1, p2)                      [procedure]
+RegisterTextBufferWordDefinition(p)                          [procedure]
+        These  procedures  are  in  LIB * Xolbuffer,  which  is   loaded
+        automatically  by   xolTextEditWidget.   For  details   of   the
+        individual procedures please refer to the relevant man pages  in
+        /usr/openwin/share/man.
+
+
+OlCallAcceptFocus(arg1, arg2) -> bool                        [procedure]
+OlMoveFocus(arg1, arg2, arg3) -> widget                      [procedure]
+        These  procedures  are  in  LIB * XolManager,  which  is  loaded
+        automatically by
+
+            # xolBulletinBoardWidget
+            # xolCaptionWidget
+            # xolCheckBoxWidget
+            # xolControlAreaWidget
+            # xolExclusivesWidget
+            # xolHelpWidget
+            # xolManagerWidget
+            # xolNonexclusivesWidget
+            # xolTextFieldWidget
+            # xolTextWidget
+
+
+OlMenuPost(widget)                                           [procedure]
+OlMenuUnpost(widget)                                         [procedure]
+        These  procedures  are   in  LIB * XolMenu,   which  is   loaded
+        automatically by
+
+            # xolAbbrevMenuButtonWidget
+            # xolMenuButtonGadget
+            # xolMenuButtonWidget
+            # xolMenuShellWidget
+
+        Note that widget must be of class MenuShell.
+
+
+OlTextEditClearBuffer(widget) -> bool                        [procedure]
+OlTextEditCopyBuffer(arg1, arg2) -> bool                     [procedure]
+OlTextEditCopySelection(widget, int) -> bool                 [procedure]
+OlTextEditReadSubString(widget, charptrptr, int1, int2)      [procedure]
+                                        -> bool
+OlTextEditGetLastPosition(widget, intvec) -> bool            [procedure]
+OlTextEditGetCursorPosition(widget, intvec1, intvec2,        [procedure]
+                                intvec3) -> bool
+OlTextEditInsert(widget, string, int) -> bool                [procedure]
+OlTextEditPaste(widget) -> bool                              [procedure]
+OlTextEditSetCursorPosition(widget, int1, int2, int3)        [procedure]
+                                        -> bool
+OlTextEditRedraw(widget) -> bool                             [procedure]
+OlTextEditUpdate(widget, bool1) -> bool2                     [procedure]
+OlTextEditTextBuffer(widget) -> textbuffptr                  [procedure]
+        These procedures  are  loaded  by  xolTextEditWidget.  For  more
+        details on the  individual procedures  please refer  to the  man
+        pages in /usr/openwin/share/man.
+
+
+OlTextFieldCopyString(widget, charptr) -> int                [procedure]
+OlTextFieldGetString(widget, intvec) -> string               [procedure]
+        These procedures  are  loaded by  xolTextFieldWidget.  For  more
+        details  on  the  individual  procedures  please  refer  to  the
+        relevant man pages in /usr/openwin/share/man.
+
+
+OlListItemPointer(token) -> listitem                         [procedure]
+        This procedure  is loaded  by xolScrollingListWidget.  For  more
+        details  on  the  individual  procedures  please  refer  to  the
+        relevant man pages in /usr/openwin/share/man.
+
+
+InitializeOpenLook( ...)                                     [procedure]
+SetWMDecorationHints( ...)                                   [procedure]
+SetWMState( ...)                                             [procedure]
+SetWMWindowBusy( ...)                                        [procedure]
+SendProtocolMessage( ...)                                    [procedure]
+SetWMPushpinState( ...)                                      [procedure]
+GetOLWinAttr( ...)                                           [procedure]
+GetOLWinColors( ...)                                         [procedure]
+EnqueueCharProperty( ...)                                    [procedure]
+GetHelpKeyMessage( ...) -> int                               [procedure]
+GetCharProperty( ...) -> string                              [procedure]
+GetAtomList( ...) -> exptr                                   [procedure]
+        These procedures are imported by LIB * XolClients. They are  not
+        documented and  are  of  unknown arity,  but  are  included  for
+        completeness.
+
+
+
+
+--------------------------
+5  OpenLook Widget Classes
+--------------------------
+
+Each of the widgetclasses below is loaded by a file of the same name  in
+the Xol  directory  (the files  use  * XptLoadWidgetClass to  load  each
+class).
+
+
+XolAllWidgets                                                  [library]
+        This library loads all the widgetclasses below in one go.
+
+
+
+5.1  Widgets
+------------
+xolAbbrevMenuButtonWidget  -> widgetclass                     [constant]
+        Label-less MenuButtonWidget.
+
+
+xolBulletinBoardWidget     -> widgetclass                     [constant]
+        A 'Container Widget': basic non-constraint layout widget.
+
+
+xolCaptionWidget           -> widgetclass                     [constant]
+        A 'Container Widget': wraps a label around a single child.
+
+
+xolCheckBoxWidget          -> widgetclass                     [constant]
+        An 'Action Widget': boolean on-off "tick" button.
+
+
+xolControlAreaWidget       -> widgetclass                     [constant]
+        A 'Container Widget': layout widget for row/column panels.
+
+
+xolExclusivesWidget        -> widgetclass                     [constant]
+        A  'Container  Widget':  a  single  choice   RectButton/CheckBox
+        manager.
+
+
+xolFlatCheckBoxWidget      -> widgetclass                     [constant]
+        A 'Container Widget': an efficient CheckBox manager.
+
+
+xolFooterPanelWidget       -> widgetclass                     [constant]
+        A  'Container  Widget':  a  simple  main  window/footer   window
+        manager.
+
+
+xolFormWidget              -> widgetclass                     [constant]
+        A 'Container Widget': constraint layout widget.
+
+
+xolMenuShellWidget         -> widgetclass                     [constant]
+        A 'Pop Up Widget': a pop up menu shell.
+
+
+xolMenuButtonWidget        -> widgetclass                     [constant]
+        An 'Action Widget': button with pop up menu associated with it.
+
+
+xolNonexclusivesWidget     -> widgetclass                     [constant]
+        A 'Container Widget': a multi-choice RectButton manager.
+
+
+xolNoticeShellWidget       -> widgetclass                     [constant]
+        A 'Pop Up Widget': a modal pop up for messages and prompts.
+
+
+xolOblongButtonWidget      -> widgetclass                     [constant]
+        An 'Action Widget': button for invoking an action.
+
+
+xolPopupWindowShellWidget  -> widgetclass                     [constant]
+        A 'Pop Up Widget': a modeless pop up for dialog boxes.
+
+
+xolRectButtonWidget        -> widgetclass                     [constant]
+        An 'Action Widget': a toggle button for multi-choice.
+
+
+xolScrollbarWidget         -> widgetclass                     [constant]
+        An 'Action Widget': a scrollbar widget with pop up menu
+
+
+xolScrolledWindowWidget    -> widgetclass                     [constant]
+        A 'Container Widget': a viewport on a child widget.
+
+
+xolScrollingListWidget     -> widgetclass                     [constant]
+        A 'Container Widget':  a selection widget  with scrolling  items
+        list.
+
+
+xolSliderWidget            -> widgetclass                     [constant]
+        An 'Action Widget': thermometer widget.
+
+
+xolStaticTextWidget        -> widgetclass                     [constant]
+        A 'Text Widget': contains non-changeable text.
+
+
+xolStubWidget              -> widgetclass                     [constant]
+        An 'Action Widget': basic widget for graphics output
+
+
+xolTextFieldWidget         -> widgetclass                     [constant]
+        A 'Text Widget': single line (scrolling) text entry field.
+
+
+xolArrowWidget             -> widgetclass                     [constant]
+xolBaseWindowShellWidget   -> widgetclass                     [constant]
+xolButtonWidget            -> widgetclass                     [constant]
+xolDrawAreaWidget          -> widgetclass                     [constant]
+xolDropTargetWidget        -> widgetclass                     [constant]
+xolFlatExclusivesWidget    -> widgetclass                     [constant]
+xolFlatNonexclusivesWidget -> widgetclass                     [constant]
+xolFlatWidget              -> widgetclass                     [constant]
+xolGaugeWidget             -> widgetclass                     [constant]
+xolHelpWidget              -> widgetclass                     [constant]
+xolListPaneWidget          -> widgetclass                     [constant]
+xolMagWidget               -> widgetclass                     [constant]
+xolManagerWidget           -> widgetclass                     [constant]
+xolPushpinWidget           -> widgetclass                     [constant]
+xolRubberTileWidget        -> widgetclass                     [constant]
+xolTextEditWidget          -> widgetclass                     [constant]
+        These Widget Classes are members of the OpenLook widget set.
+
+
+
+5.2  Gadgets
+------------
+xolButtonGadget            -> widgetclass                     [constant]
+xolMenuButtonGadget        -> widgetclass                     [constant]
+xolOblongButtonGadget      -> widgetclass                     [constant]
+        These Gadget Classes are members of the OpenLook widget set.
+
+
+
+5.3  Objects
+------------
+xolEventObj                -> widgetclass                     [constant]
+        This Object Class is a member of the OpenLook widget set.
+
+
+
+
+-----------------------------------------
+6  Include Files: Constants and Typespecs
+-----------------------------------------
+
+The following include files are available for OpenLook; you can  include
+or loadinclude them:
+
+      #  INCLUDE * XolClients
+      #  INCLUDE * XolConstants
+      #  INCLUDE * XolDynamic
+      #  INCLUDE * XolFlat
+      #  INCLUDE * XolFont
+      #  INCLUDE * XolScroll
+      #  INCLUDE * XolTextEdit
+      #  INCLUDE * XolTextField
+      #  INCLUDE * Xolbuffer
+
+(note that these are  in the main Poplog  X include directory, so  don't
+actually require uses Xol; to make them accessible).
+
+Most OpenLook  constants  are declared  as  Pop-11 iconstants  in  these
+files, the majority of them in INCLUDE * XolConstants.
+
+In addition, typespecs for all OpenLook structures are provided, so that
+it is possible to access data in these structures using exacc. All  such
+typespecs have the same name as  their C counterparts. For example,  the
+typespec OlScrollbarVerify  can be  used to  access the  call data  of a
+callback attached to a ScrollbarWidget:
+
+        include XolScroll;
+
+        define scrollbar_callback(widget, client_data, call_data);
+            lvars widget, client_data, call_data;
+
+            ;;; accept the new position
+            true -> exacc :OlScrollbarVerify call_data.ok;
+
+            ;;; print out the location
+            exacc :OlScrollbarVerify call_data.new_location =>
+        enddefine;
+
+
+Buffer                                                        [typespec]
+        This structure is defined in INCLUDE * Xolbuffer as:
+
+            i_typespec Buffer {
+                size :int,
+                used :int,
+                esize :int,
+                p :exptr,
+            };
+
+
+OlDynamicColors                                               [typespec]
+        This structure is defined in INCLUDE * XolDynamic as:
+
+            i_typespec OlDynamicColors {
+                textForeground :ulong,
+                textBackground :ulong,
+                inputFocus :ulong
+            };
+
+
+OlInputCallData                                               [typespec]
+        This structure is defined in INCLUDE * XolDynamic as:
+
+            i_typespec OlInputCallData {
+                consumed :ShortBool,
+                event :exptr,
+                keysym :ulong,
+                buffer :ntstring_ptr,
+                length :exptr.:int,
+                ol_event :uint
+            };
+
+
+
+
+-----------------------------
+7  Additional Data Structures
+-----------------------------
+
+Additional  data   structure   support  is   provided   by   shadowclass
+definitions. These are used in situations  where you need to build  data
+structures in Poplog to pass out to OpenLook, and follow similar  naming
+conventions to  the  shadowclasses  defined by  the  Poplog  X  Toolkit.
+Currently, there is only one shadowclass, for the OlListItem  structures
+used by xolScrollingListWidget:
+
+
+XpolListItemPtr                                            [shadowclass]
+        This is the  shadowclass definition  for OlListItem  structures,
+        as follows:
+
+             shadowclass XpolListItemPtr [props OlListItemPtr] {
+                  XpolLILabelType :short,
+                  XpolLILabel     :XptString,
+                  XpolLIGlyph     :exptr,
+                  XpolLIAttr      :ulong,
+                  XpolLIUserData  :exptr,
+                  XpolLIMnemonic  :byte,
+              };
+
+        The following code creates a blank OlListItem structure and then
+        sets its label and label_type fields:
+
+            include XolConstants;
+            uses xolScrollingListWidget;
+
+            ;;; create a new blank scrolling list item
+            vars list_item = initXpolListItemPtr();
+
+            ;;; set label and label_type fields in item
+            'Hello' -> list_item.XpolLILabel;
+            OL_STRING -> list_item.XpolLILabelType;
+
+
+
+
+-----------------------------------
+8  Function And Procedure Resources
+-----------------------------------
+
+Some OpenLook C procedures are stored as resources in a widget. In order
+to access and call these procedures, you first need to get the value  of
+the resource as an external procedure type, and then call the  procedure
+using exacc.  For example,  the scrolling  list widget  has a  procedure
+stored in the  resource called XtN  applTouchItem. The following  Pop-11
+code shows you how to get that procedure and call it:
+
+          include XolScroll;
+
+          ;;; get the procedure out of the widget
+          vars applTouchItem
+                = XptVal list_widget(XtN applTouchItem:XptProcedure);
+
+          ;;; call the procedure
+          exacc applTouchItem(list_widget, list_item);
+
+Note that exacc will  only check the number  of arguments and not  their
+types.
+
+Note that the  OpenLook ScrollingList procedure  in the XtN  applAddItem
+resource expects a C OlListItem structure (not a pointer to a structure,
+as with most  X toolkit  procedures) as  one of  its arguments.  Because
+Poplog does not support the ability  to pass structures directly on  the
+call stack, this procedure cannot  be made directly available to  Poplog
+users. For  this  reason,  the  procedure  XpolAddListItem  is  provided
+instead by xolScrollingListWidget:
+
+
+XpolAddListItem(widget, parent, reference, item) -> token    [procedure]
+        This  procedure  is  identical  in  calling  semantics  to   the
+        procedure held in the XtN applAddItem resource of  ScrollingList
+        widgets,  except  that  item  is  a  pointer  to  an  OlListItem
+        structure  (eg.   as   returned   by   the   initXpolListItemPtr
+        procedure), rather than an OlListItem structure itself.
+
+        XpolAddListItem  calls  a   C  wrapper   procedure  which   then
+        dereferences ITEM into an  OlListItem structure, and then  calls
+        the XtN applAddItem procedure.
+
+        widget should  be an  OpenLook ScrollingListWidget.  parent  and
+        reference  should  be  OlListToken  descriptors,  or  false   to
+        indicate a NULL  (0) token. item  should be an  instance of  the
+        XpolListItemPtr shadowkey.
+
+        XpolAddListItem returns the OlListToken of the new entry to  the
+        list.
+
+
+
+
+-------------------------------
+9  ScrollingList Widget Support
+-------------------------------
+
+LIB * XPOL_LISTUTILS provides  a simple to use  Pop-11 interface to  the
+OpenLook ScrollingListWidget.  It provides  the programmer  with a  more
+friendly interface to the OpenLook ScrollingListWidget.
+
+The facilities in LIB * XPOL_LISTUTILS all work together -- if you  call
+the ScrollingListWidget list  manipulation routines  directly to  change
+the list entries, the  procedures provided in  LIB * XPOL_LISTUTILS  may
+cease to function correctly.
+
+The  XpolListItems,   XpolSubscrListItems,   XpolSelectedListItems   and
+XpolCurrentListItem procedures can  all take an  optional true as  their
+final argument. Providing  this true argument  will make the  procedures
+work in "OLLISTTOKEN" mode, where they return the raw list tokens rather
+than Poplog  ITEMS.  This  may  be  useful in  a  few  cases  where  the
+programmer needs to get at the tokens directly.
+
+XpolListItems allows the  items of  the list  to be  set using  either a
+Pop-11 list or a repeater.
+
+
+XpolListItems(widget) -> list                                [procedure]
+list -> XpolListItems(widget)
+        See below for examples of using XpolListItems.
+
+        widget should be an instance of an OpenLook ScrollingListWidget.
+
+        In update mode,  this procedure  takes a list  of Poplog  items,
+        (the list can  be a  dynamic list).  It uses  the widget's  list
+        manipulation procedures to modify the scrolling-list so that  it
+        displays the items as they would be printed from Poplog.
+
+        The   procedure   attempts   to   optimise   changes   to    the
+        scrolling-list. So re-assigning an equivalent Pop-11 list to the
+        scrolling-list will  not  cause  the  widget  to  redisplay.  In
+        repeated  calls   to   the   updater   of   XpolListItems,   the
+        scrolling-list  items  are  only   changed  when  their   Poplog
+        counterparts  are  changed.  New  items  are  only  added   when
+        necessary; rather than recreating the scrolling-list each  time,
+        the labels for the current items in the list are updated.
+
+        In non-update mode, XpolListItems returns a dynamic list,  which
+        when flattened will be the full  list of items in the  scrolling
+        list. It will  only work with  scrolling-list widgets where  the
+        items in  the  list have  been  set  using the  update  form  of
+        XpolListItems.
+
+
+XpolListTokenToItem(ollisttoken) -> item                     [procedure]
+        Takes an OlListToken as returned  by the XtN applAddItem  widget
+        procedure for ScrollingListWidgets. If the token corresponds  to
+        a scrolling-list entry that was  set by XpolListItems, then  the
+        Poplog  item  associated  with  that  list  entry  is  returned.
+        Otherwise the label for the token (as a string) is returned.
+
+
+XpolItemToToken(widget, item) -> ollisttoken                 [procedure]
+        Searches  down   the  list   of   items  associated   with   the
+        ScrollingListWidget  widget,   and   returns   the   ollisttoken
+        associated with item  if item  is found  in the  list, or  false
+        otherwise. If the same item appears twice in the list, the token
+        for the first occurrence of item is returned.
+
+
+XpolCurrentListItem(widget) -> item                          [procedure]
+item -> XpolCurrentListItem(widget)
+        Sets   or    retrieves   the    "current"   list    entry    for
+        ScrollingListWidget   widget.   The   list   entry   ollisttoken
+        associated with item is found using XpolItemToToken (see above).
+        XpolCurrentListItem ensures that only one  entry in the list  is
+        the "current" list  entry. The current  entry is highlighted  by
+        drawing a  thin  rectangle around  it.  Calling the  updater  of
+        XpolListItems will clear the "current" item.
+
+        Note  that  the  ScrollingListWidget  also  has  the  notion  of
+        "selected" entries, which are highlighted in inverse video,  and
+        are used  to  copy  entries  of  the  scrolling  list  to  the X
+        clipboard.  To   disable  this   feature,   you  can   set   the
+        XtN selectable resource for the list to false.
+
+        See below for an example of using XpolCurrentListItem.
+
+
+XpolSelectedListItems(widget) -> list                        [procedure]
+        Returns a (dynamic) list  of the items  that are "selected"  for
+        ScrollingListWidget widget. This is a "read-only" scrolling list
+        attribute,     hence     there     is     no     updater     for
+        XpolSelectedListItems.
+
+        List selections are used for copying items of the list onto  the
+        global X clipboard. More than  one list item can be  "selected".
+        See XpolCurrentListItem above for  information about how to  set
+        the single "current" item for a scrolling list.
+
+
+XpolSubscrListItems(N, widget) -> item                       [procedure]
+item -> XpolSubscrListItems(N, widget)
+        Accesses or updates the item associated with the N-th list entry
+        of ScrollingListWidget widget. List entries should be  specified
+        using XpolListItems (see above). This  procedure can be used  to
+        change the label of  a list entry without  having to change  the
+        whole list.
+
+
+XpolNumListItems(widget) -> N                                [procedure]
+        Returns   the   number   of   items   currently   displayed   in
+        ScrollingListWidget widget.
+
+
+
+9.1  Example
+------------
+The following is  a simple example  of the facilities  described in  the
+previous section.
+
+        uses popxlib, Xol;
+
+        exload_batch;
+        uses
+            xt_widget,
+            xt_callback,
+            xpol_listutils,
+            xolBaseWindowShellWidget,
+            xolScrollingListWidget,
+        ;
+        endexload_batch;
+
+          XptDefaultSetup();
+
+        vars basewin =
+               XtAppCreateShell('panel', 'Demo',
+                   xolBaseWindowShellWidget,
+                   XptDefaultDisplay, XptArgList([]));
+
+        /* make the scrolling list -- XtN selectable is false because we
+          are using the XpolCurrentListItem procedure
+        */
+
+        vars scroll =
+
+            XtCreateManagedWidget('myslider',
+                xolScrollingListWidget, basewin,
+                XptArgList([{selectable ^false}]));
+
+        XtRealizeWidget(basewin);
+
+        ;;; Set the list to display some items
+        [1 2 3 'hello' world ^true] -> XpolListItems(scroll);
+
+        ;;; making one of the entries current:
+        1 -> XpolCurrentListItem(scroll);
+
+        "world" -> XpolCurrentListItem(scroll);
+
+        ;;; Setting the list using a repeater procedure:
+        pdtolist(sys_file_match('$HOME/*','',false,false))
+             -> XpolListItems(scroll);
+
+        ;;; Clearing the list
+         [] -> XpolListItems(scroll);
+
+        ;;; Change the list to display the word None and the number 1
+        [None 1] -> XpolListItems(scroll);
+
+        ;;; Getting items displayed on the list
+        vars rep = XpolListItems(scroll);
+
+        rep =>
+        ** [...]
+
+        flatten(rep) =>
+        ** [None 1]
+
+        ;;; Note that Poplog items for each scrolling list item are
+        ;;; returned, so the second item returned will be an integer(1):
+        rep(2) + 1 =>
+        ** 2
+
+        ;;; Adding a callback to the list:
+
+        define list_cb(w, client, call);
+           lvars w, client, call;
+
+           ;;; call is a pointer to an OlListItem. Get the Poplog data
+           ;;; associated with that list entry and print it out with its
+           ;;; key
+           XpolListTokenToItem(call) -> call;
+
+           ;;; make it current
+           call -> XpolCurrentListItem(w);
+
+           ;;; print it out
+           {%call, datakey(call)%} =>
+        enddefine;
+
+       XtAddCallback(scroll, XtN userMakeCurrent, list_cb, undef);
+
+       [1 ^true 3 'hello' goodbye ] -> XpolListItems(scroll);
+
+
+
+
+------------------------
+10  Unsupported Features
+------------------------
+
+The following sections detail parts of the OpenLook interface which are,
+as yet, unsupported.
+
+
+10.1  Pop-11 Procedure Registration
+-----------------------------------
+Several  OpenLook  procedures,  for  example  OlSetErrorHandler,  take C
+procedures as arguments.  Currently there  is no  support for  supplying
+Pop-11 procedures  instead. Procedures  written in  C using  the  Pop-11
+callback mechanism can be used in situations where such functionality is
+essential. See  REF * EXTERNAL  for details  on  the  external  callback
+mechanism.
+
+
+10.2  Pixel Conversion Routines
+-------------------------------
+The Poplog OpenLook interface does not define Pop-11 procedures for  the
+C macros in OpenLook to perform pixel conversions. For details of a much
+more   generic   facility   for   performing   such   conversions,   see
+HELP * XptConvertUnit.
+
+
+
+
+----------------------------
+11  Associated Documentation
+----------------------------
+
+HELP * OPENLOOK
+    Overview of Poplog OpenLook Widget Set interface.
+
+TEACH * OPENLOOK
+    Tutorial introduction to some OpenLook Widgets.
+
+
+
+--- C.x/x/pop/ref/openlook
+--- Copyright University of Sussex 1993. All rights reserved.

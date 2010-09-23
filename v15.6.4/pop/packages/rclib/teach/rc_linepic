@@ -1,0 +1,2674 @@
+TEACH RC_LINEPIC                                 Aaron Sloman June 1997
+
+Last updated 11 Aug 1997
+Change notes in HELP * RCLIB_NEWS
+For an overview of RCLIB facilities see HELP * RCLIB
+
+For a shorter introduction with examples see TEACH * RCLIB_DEMO.P
+
+To make all this available you need to do
+
+    uses rclib
+
+[That presupposes that the RCLIB package has been installed
+appropriately at your site.]
+
+CONTENTS
+ -- Introduction
+ -- Ensure required libraries are compiled
+ -- Introduction to the class rc_window_object
+ -- Some examples of creating, moving and hiding windows
+ -- Creating picture objects to add to window objects
+ -- Using LIB RC_POINT
+ -- Creating mouse-draggable points.
+ -- Define a class of draggable objects
+ -- -- Create another instance of dragpic
+ -- Demonstrating program-controlled movement
+ -- The objects can also be dragged by mouse
+ -- Testing the picture selection algorithm
+ -- Making rc_mouse_limit a procedure
+ -- Example: a toy painting easel
+ -- -- Exercise on extending the painting demo
+ -- How the objects were made draggable: method definitions
+ -- Constrained movers
+ -- A more complex example: rc_blocks
+ -- Using lib rc_buttons.p to create a VED control panel
+ -- Non-draggable objects
+ -- A class of static objects
+ -- A class of movable objects
+ -- Make some instances
+ -- Drawing an instance of rc_static
+ -- -- Changing the default colour used
+ -- Drawing instances of rc_mover
+ -- The appearance of overlapping objects
+ -- Making moving pictures
+ -- Demonstrating motion in "trail" mode
+ -- Predefined types of sub-pictures: RECT and SQUARE
+ -- Rotatable objects
+ -- Static, movable and rotatable pictures
+ -- -- Classes based on rc_linepic
+ -- -- Classes based on rc_mousepic and rc_window_object
+ -- -- Class rc_window_object
+ -- -- Class rc_button
+ -- -- Features of these classes
+ -- Undrawing: rc_undrawn and rc_undraw_all
+ -- Drawing special figures
+ -- -- Drawing circles, using CIRCLE
+ -- -- Drawing a rectangle or square, using RECT, or SQUARE
+ -- -- Other figures
+ -- WIDTH: Pictures with variable line widths
+ -- Pictures with dashed and other line styles
+ -- Pictures with COLOUR specifications
+ -- Drawing a sub-picture with a different scale XSCALE, YSCALE
+ -- Drawing part of a picture at an angle
+ -- A simple move handler for windows
+ -- Detecting keyboard events: rc_handle_keypress
+ -- Key code mappings for rc_handle_keypress
+ -- Defining additional event handlers
+ -- MORE ON ROTATABLE OBJECTS
+ -- -- How to make a printed string rotate
+ -- Allowing squares or rectangles to rotate
+ -- -- Part of a rotatable object may be offset by an angle
+ -- Giving a class of objects a non-standard line-thickness
+ -- A demonstration of moving pictures the "ant" demo
+ -- -- Exercises on extending the ant demo.
+ -- Related documentation
+
+-- Introduction -------------------------------------------------------
+
+This file gives a basic overview of the facilities in the RCLIB library,
+which extend the Pop-11 RC_GRAPHIC library.
+
+The introduction is based on detailed examples that you can compile and
+run, and then modify to see what effects the changes have.
+
+For a higher level level introductory overview see
+    TEACH * RC_INTRO
+
+As explained there, it helps if you already have background knowledge
+about
+    (a) object oriented programming in Pop-11 (See TEACH * OOP, and
+        teach files referenced there)
+
+    (b) the Pop-11 RC_GRAPHIC library. See TEACH * GSTART, and
+        TEACH * RC_GRAPHIC.
+
+You may find that some things don't work as described, e.g. pictures not
+disappearing or moving when they should. In that case see
+    HELP * RCLIB_PROBLEMS
+
+-- Ensure required libraries are compiled -----------------------------
+
+The following are among the library commands that will be needed. Some
+of these are are done implicitly, since some libraries invoke others.
+
+Start with this command:
+    uses rclib
+        Extends various documentatino and library search lists
+
+    uses objectclass
+        Loads the objectclass extension to Pop-11
+    uses rc_graphic
+        Loads the basic relative coordinates graphic package on top of
+        which the others are built.
+
+    uses rc_linepic
+        Defines the main utilities for drawing and moving picture
+        objects. Static and movable pictures are defined by line drawing
+        and string printing commands, using picture-centred coordinates.
+
+    uses rc_window_object
+        Defines the mechanisms for creating multiple graphical windows
+        into which pictures can be drawn. The windows can be hidden and
+        then shown again, relocated and resized under program control.
+
+    uses rc_mousepic
+        Defines event handling mechanisms for mouse events and keyboard
+        events. The events can be handled either by the window
+        concerned, or by selected objects in the window.
+
+    uses rc_point
+        Defines a simple picture class for points that can be moved
+        by the mouse, in order to locate objects or modify graphical
+        structures.
+
+    uses rc_buttons
+        Defines facilities for attaching buttons to graphical windows.
+
+Additional demonstration programs built on top of these facilities
+include
+    rcdemo painting_demo
+        Defines an easel with coloured paint pots and brushes for
+        painting on a canvas. Accessed by ENTER rcdemo painting_demo
+
+    lib rc_blocks
+        Defines a demo of a simlulated robot that can be given
+        commands to moves blocks around and asked questions about
+        where the blocks are etc.
+
+    rcdemo rc_ant_demo
+        Shows a demonstration with varying numbers of "ants" moving
+        about and interacting with each other. A control button can be
+        used to increase the number of ants.
+
+We now provide some examples, first of movable windows, then objects
+that can be drawn in the windows, moved, made mouse sensitive, etc.
+
+-- Introduction to the class rc_window_object -------------------------
+
+This section makes use of LIB RC_WINDOW_OBJECT
+
+Part of the RCLIB library is a mechanism for associating instances of
+the class rc_window_object (defined in LIB * RC_WINDOW_OBJECT)
+with windows.
+
+E.g. we can create a graphical window object using the procedure
+rc_new_window_object, which can be invoked in the following format
+(NB this command is not executable -- it is a template).
+
+    rc_new_window_object(x, y, width, height,
+                    setframe, "hidden", string) -> win_obj
+
+The word "hidden" may be omitted, in which case the window is
+immediately made visible when it is created. The string may also be
+omitted. If provided it is used to give a name to the window, as
+described in HELP * RCLIB/rc_new_window_object. If the string is not
+provided a default title is used, 'Xgraphic'.
+
+The fifth argument, setframe, can be false, true, or a vector. It is
+used to determine the coordinate frame in the window, as described in
+    HELP * RCLIB/rc_new_window_object.
+
+The result returned by rc_new_window is not the graphical widget but a
+window object (an instance of the class rc-window_object) corresponding
+to the new window.
+
+-- Some examples of creating, moving and hiding windows ---------------
+
+The following commands may now be executed:
+
+    uses rclib
+    uses rc_window_object
+
+    vars win1 = rc_new_window_object(400, 40, 500, 400, true, 'win1');
+    win1 =>
+    ** <window_obj win1 400 40 500 400 items: 0>
+
+The default print_instance method for the rc_window_object class gives
+the window's title, the screen coordinates, the width, height, and the
+number of sensitive picture objects on the window (currently none).
+
+You may see slightly different window coordinates. The screen
+coordinates are not necessarily exactly the same as those given to
+rc_new_window_object because the window manager adds a border and
+titlebar. The exact coordinates shown will differ according to how your
+window manager is set up.
+
+It's possible to interrogate or update the title of the window:
+
+    rc_window_title(win1) =>
+    ** win1
+
+We can give it a different title
+
+    'WIN1' -> rc_window_title(win1);
+    win1 =>
+
+We can change the window's location or size, using rc_window_location:
+
+    rc_window_location(win1) =>
+    ** 400 40 500 400
+
+That returns xloc, yloc, width, height.
+
+The updater changes things, and false arguments are ignored. E.g. change
+the location (this may be a bit slow the first time, as it attempts to
+work out the correction needed for the window frame):
+    400, 400, false, false -> rc_window_location(win1);
+    win1 =>
+
+Change the size
+    false, false, 450, 350 -> rc_window_location(win1);
+
+Put it near the top left corner
+    10, 20, false, false -> rc_window_location(win1);
+    win1 =>
+
+You can also hide the window
+    rc_hide_window(win1);
+
+then change its location and show it again.
+    500, 40, false, false -> rc_window_location(win1);
+    rc_show_window(win1);   ;;; may change the location
+    win1 =>
+
+The window may appear in the wrong location then jump to the correct
+one, depending on the window manager.
+
+As before, the actual window coordinates shown are not necessarily the
+same as those given to rc_window_location.
+
+Let's create another window.
+
+    vars win2 = rc_new_window_object(600, 450, 300, 300, true, 'win2');
+    win2 =>
+    ** <window_obj win2 600 450 300 300 items: 0>
+
+We can change the window that is current, using the active variable
+rc_current_window and its updater.
+
+    rc_current_window_object =>
+
+    win1 -> rc_current_window_object;
+
+    rc_current_window_object =>
+
+Draw on it:
+    rc_drawline(0, 0, 150, 150);
+
+If it is hidden, try this
+    rc_raise_window(win1);
+
+Now draw on win2
+    win2 -> rc_current_window_object;
+    rc_raise_window(win2);
+    rc_drawline(0, 0, 150, 200);
+
+We can destroy those windows:
+
+    rc_kill_window_object(win1);
+    rc_kill_window_object(win2);
+
+If you are using the CTWM window manager you may have to move the mouse
+over the window to make it finally go away.
+
+-- Creating picture objects to add to window objects ------------------
+
+We now show how to create various kinds of picture objects on such
+windows. The objects may simply be static pictures, or they may have any
+of these additional features: they may be
+    moveable
+    rotatable
+    mouse sensitve
+    keysensitive
+
+In order for a picture object to be capable of being dragged it has to
+be movable and mouse sensitive. So we'll start with examples
+illustrating this.
+
+We shall use the predefined class of rc_point objects. These can be
+created, drawn, moved with the mouse and destroyed.
+
+Create two windows so that we can draw different pictures on them.
+
+    uses rclib;
+    uses rc_window_object;
+
+    vars
+        win1 =
+            rc_new_window_object(200, 40, 300, 250, true, 'win1'),
+
+        win2 = rc_new_window_object(510, 40, 300, 250, true, 'win2');
+
+Make them both mouse sensitive:
+
+    rc_mousepic(win1);
+    rc_mousepic(win2);
+
+After doing that you can make a window the value of
+rc_current_window_object simply by holding down the CTRL key and
+then clicking in the relevant window.
+
+Try clicking with CTRL and mouse button 1 in either of win1 or win2 and
+then print out
+
+    rc_current_window_object =>
+
+
+-- Using LIB RC_POINT -------------------------------------------------
+
+    uses rc_point
+
+Create two points, move them, then undraw them.
+vars
+    pt1 = rc_cons_point(0, 0, 6),
+    pt2 = rc_cons_point(100,100,10);
+
+    pt1, pt2 =>
+    ** <point  0 0> <point  100 100>
+
+    win1 -> rc_current_window_object;
+    rc_draw_linepic(pt1);
+    rc_draw_linepic(pt2);
+
+    ;;; Move them without leaving any "trail".
+    rc_move_to(pt1, -100, 50, true);
+    rc_move_to(pt2, -100, -50, true);
+
+Now undraw them.
+    rc_undraw_linepic(pt1);
+    rc_undraw_linepic(pt2);
+
+Try making win2 the current window object. Draw the points there, then
+move them then undraw them.
+
+-- Creating mouse-draggable points. -----------------------------------
+
+    ;;; create three points, with radius 6, 7 and 12, labelled 'a', 'b',
+    ;;;  'c' on win1
+    win1 -> rc_current_window_object;
+    rc_mousepic(win1);
+
+    vars
+        p1 = rc_new_live_point(0, 0, 6, 'a'),
+        p2 = rc_new_live_point(0, 50, 7, 'b'),
+        p3 = rc_new_live_point(0, -50, 12, 'c'),
+    ;
+
+Note that these points can be dragged with the left mouse button. Move
+them around and print them, repeatedly, seeing how their coordinates
+change:
+    p1,p2,p3 =>
+
+We can also move them under program control. Mark and load the
+following:
+
+    false -> popradians;
+    vars ang;
+    for ang from 0 by 5 to 360*4 do
+        rc_move_to(p1, 100*cos(ang), 100*sin(ang), true);
+        rc_move_to(p2, 80*cos(2*ang), 80*sin(2*ang), true);
+        rc_move_to(p3, 50*cos(3*ang), 50*sin(3*ang), true);
+        syssleep(1);
+    endfor;
+
+Make win2 current and create some points on that window.
+
+Get rid of the two windows.
+    rc_kill_window_object(win1);
+    rc_kill_window_object(win2);
+
+For more things you can do with point data structures see
+    HELP * RC_POINT
+
+We now show how a user definable class of draggable objects can be
+created.
+
+
+-- Define a class of draggable objects --------------------------------
+
+Use the mixins provided by rc_mousepic and rc_linepic to make a class of
+objects that can be dragged.
+
+Create two windows so that we can draw different pictures on them.
+
+    uses rclib;
+    uses rc_window_object;
+
+    vars
+        win1 =
+            rc_new_window_object(200, 40, 300, 250, true, 'win1'),
+
+        win2 = rc_new_window_object(510, 40, 300, 250, true, 'win2');
+
+;;; Make sure this is compiled
+    uses rc_mousepic;
+
+;;; Now define a class of draggable objects
+define :class dragpic;
+    ;;; this class inherits from three different "mixins"
+    is rc_keysensitive rc_selectable rc_linepic_movable;
+
+    ;;; default names for instances are dragpic1, dragpic2, etc.
+    slot pic_name = gensym("dragpic");
+enddefine;
+
+
+Define a print_instance method to simplify printing instances of this
+class. Use the format   <dragpic name x y> (See HELP * PRINTF)
+
+define :method print_instance(p:dragpic);
+    printf('<dragpic %P %P %P>', [%pic_name(p), rc_coords(p) %])
+enddefine;
+
+
+Create two instances of the class dragpic defined above. The first
+contains a blue square a blue rectangle and a red text string string.
+The second has a more complex shape, including a circle.
+
+define :instance drag1:dragpic;
+    pic_name = "drag1";
+    rc_picx = 100;
+    rc_picy = 50;
+
+    rc_pic_lines =
+        [WIDTH 2 COLOUR 'black'
+            [SQUARE {-25 25 50}]
+            [CLOSED {-30 20} {30 20} {30 -20} {-30 -20}]
+        ];
+
+    rc_pic_strings =
+        [[FONT '9x15bold' COLOUR 'red' {-22 -5 'drag1'}]];
+enddefine;
+
+Now draw drag1 on win1
+
+    win1 -> rc_current_window_object;
+    rc_draw_linepic(drag1);
+
+That should draw two overlapping black rectangles, with the word "drag1"
+printed in red.
+
+You should be able to make it disappear with this command (which works
+only for movable objects):
+
+    rc_undraw_linepic(drag1);
+
+    ;;; draw it again
+    rc_draw_linepic(drag1);
+
+Note: re-drawing while it is visible can make it alternately
+appear and disappear.
+
+If rc_undraw_linepic does not work see
+    HELP * RCLIB_PROBLEMS
+
+-- -- Create another instance of dragpic
+
+define :instance drag2:dragpic;
+    pic_name = "drag2";
+    rc_picx = 100;
+    rc_picy = -50;
+    rc_pic_lines =
+        [WIDTH 2     COLOUR 'blue'
+            [CLOSED {-30 20}  {30 20} {30 -20}  {-30 -20}]
+            [CIRCLE {0 15 10}]
+            [SQUARE {-10 -15 20}]
+        ];
+    rc_pic_strings =
+        [[FONT '8x13bold' COLOUR 'brown' {-20 -10 'drag2'}]];
+enddefine;
+
+Print the picture objects:
+
+    drag1 =>
+    drag2 =>
+
+Print out more details:
+    datalist(drag1) ==>
+    datalist(drag2) ==>
+
+Now draw drag2 on win2
+
+    ;;; First make win2 the current window
+    win2 -> rc_current_window_object;
+    rc_draw_linepic(drag2);
+
+That should draw, in blue, a large rectangle, with its upper line
+crossed by a circle and its lower line by a square.  In the middle is
+the word "drag2" in brown.
+
+Again, drawing and re-drawing should make the picture appear and
+disappear. Note that because of the use of an algorithm that makes
+moving objects easy, where bits of a picture overlap the colour
+may be surprising, e.g. where the circle overlaps the line. This will
+not happen with static pictures, which are drawn differently.
+(See HELP * RCLIB_PROBLEMS)
+
+-- Demonstrating program-controlled movement --------------------------
+
+The objects drag1 and drag2 can be moved by program command, using
+rc_move_to and rc_move_by. (Some details are explained later.)
+
+Use absolute locations (rc_move_to)
+    win1 -> rc_current_window_object;
+    rc_move_to(drag1, 60, -75, true); ;;; true means show the motion
+    rc_move_to(drag1, 75, -50, true); ;;; true means show the motion
+
+    win2 -> rc_current_window_object;
+    rc_move_to(drag2, 110, 30, true);
+    rc_move_to(drag2, -100, -50, true);
+
+Use relative locations (rc_move_by)
+
+    win1 -> rc_current_window_object;
+    repeat 10 times rc_move_by(drag1, -10, 5, true) endrepeat;
+    win2 -> rc_current_window_object;
+    repeat 10 times rc_move_by(drag2, 0, 8, true) endrepeat;
+
+Check the new locations
+
+    drag1 =>
+    drag2 =>
+
+NB if the objects did not move properly, e.g. if they left a "trail"
+showing previous locations, see previous comment about Glinefunction
+
+
+-- The objects can also be dragged by mouse ---------------------------
+
+Before objects can be selected or dragged, we have to make the windows
+mouse sensitive:
+
+    rc_mousepic(win1);
+    rc_mousepic(win2);
+
+Now make drag1 known to one window and drag2 to the other, and then
+try dragging them around with the left mouse button:
+
+    rc_add_pic_to_window(drag1, win1, true);
+    rc_add_pic_to_window(drag2, win2, true);
+
+(The second argument (true or false) determines whether the picture
+should be added to the front or the back of the current list of pictures
+associated with the current window).
+
+Check that the objects are now known, by printing out the list of known
+picture objects for each window.
+
+    rc_window_contents(win1) ==>
+    rc_window_contents(win2) ==>
+
+Each object has a default "sensitive" area, a square 10 by 10, centred
+on the objects internal coordinate frame.
+    rc_mouse_limit(drag1) =>
+    rc_mouse_limit(drag2) =>
+
+The default value of the rc_mouse_limit slot for new instances of
+rc_selectable is held in this global variable
+
+    rc_select_distance
+
+Initially this has as its value a vector defining a 10x10 square. To
+change the default to a 20x20 square, do
+
+    {-20 -20 20 20} -> rc_select_distance;
+
+That will change the default sensitive area for newly created picture
+objects, not for existing objets.
+
+For larger objects the sensitive area can be expanded automatically.
+E.g. this will enlarge the "sensitive" area for drag2, to include its
+enclosing rectangle:
+
+    rc_create_mouse_limit(drag2);
+    rc_mouse_limit(drag2) =>
+
+There is more information on rc_mouse_limit below. In particular its
+value can be a procedure.
+
+Try dragging the above objects to different locations, using mouse
+button 1.
+
+Check the coordinates before and after dragging, using these commands:
+
+    rc_coords(drag1) =>
+    rc_coords(drag2) =>
+
+
+If you try to drag the mouse too fast you may "lose" the object. Also
+you have to ensure that you click on the sensitive area to "select" the
+object.
+
+Once an object has been selected you no longer have to be accurate in
+re-selecting it for dragging. If you depress the SHIFT key in a blank
+part of the window, then if you depress mouse button 1, the previously
+selected object will "catch up" with the mouse. How this happens should
+be clear from the definition of the method rc_button_1_drag, for
+rc_window_object objects. See LIB * RC_MOUSEPIC/rc_button_1_drag
+
+Without the shift key, dragging works only with the mouse starting on
+the object, whereas with the shift key the last selected object is
+forcibly moved to wherever the mouse is being dragged. The relevant
+user-modifiable methods are shown below. They can be redefined to
+produce different behaviour, either for all selectable objects or for a
+new user-defined class.
+
+You can also select an object by clicking on it with button 1, then move
+the mouse cursor to another location, then put the shift key down, then
+click on mouse button 1. The previously selected object will jump to the
+new location. This can be faster than dragging all the way, for a
+complex object.
+
+Here's an even more complex draggable object, including coloured
+circular blobs, drawn using the library procedure rc_draw_blob.
+
+define :instance drag3:dragpic;
+    pic_name = "drag3";
+    rc_picx = 120;
+    rc_picy = 60;
+    rc_pic_lines =
+    [WIDTH 3    COLOUR 'black'
+        [CLOSED {-30 20}  {30 20} {30 -20}  {-30 -20}]
+        [CIRCLE {0 15 10}]
+        [WIDTH 2 SQUARE {-10 -10 15}]
+        ;;; give rc_draw_blob four sets of inputs, to draw
+        ;;; a circular blob at each order
+        [rc_draw_blob {-35 25 20 'red'} {35 25 20 'red'}
+            {35 -25 20 'blue'} {-35 -25 20 'blue'}]
+    ];
+    rc_pic_strings =
+        [[FONT '8x13bold' COLOUR 'blue' {-20 -10 'drag3'}]];
+enddefine;
+
+Draw it
+    win2 -> rc_current_window_object;
+    rc_draw_linepic(drag3);
+
+Make it mouse sensitive
+    rc_add_pic_to_window(drag3, win2, true);
+
+Now try dragging it.
+
+The global variable rc_fast_drag has a default value of true. This
+speeds up dragging but can also make it more discontinuous.
+To see the effect of this variable on the dragging of a complex object
+do
+
+    false -> rc_fast_drag;
+
+Then try dragging the object drag3. Then try again after restoring
+the default.
+
+    true -> rc_fast_drag;
+
+(On a very fast machine you may not notice any difference!)
+
+If an object is added to two windows then dragging it in one can ruin
+the picture in the other when you try to drag it there. Try adding
+drag3 to win1 and then dragging it in both.
+
+    rc_add_pic_to_window(drag3, win1, true);
+    win2 -> rc_current_window_object;
+    rc_undraw_linepic(drag3);
+    win1 -> rc_current_window_object;
+    rc_draw_linepic(drag3);
+
+The problem is that at present each picture has only one set of window
+coordinates, so it can be in only one window, and it can easily get
+"confused" if drawn and moved in two different windows. (A static object
+drawn in the same place in both should give no problem.)
+
+Remove drag3 from win2;
+
+    rc_remove_pic_from_window(drag3, win2);
+    rc_redraw_window_object(win2);
+    rc_redraw_window_object(win1);
+
+A copy of drag1 can be added to win2 (copydata is needed to ensure a
+fully recursive copy):
+
+    rc_add_pic_to_window(copydata(drag1), win2, true);
+    rc_redraw_window_object(win2);
+
+The new copy of drag1 in win2 can be moved independently of the copy in
+win1. In fact a copy can be made in the same window, though the old one
+will have to be moved to make both visible, as drawing the new one over
+the old one makes both invisible!
+
+    rc_current_window_object =>
+    rc_add_pic_to_window(copydata(drag1), win1, true);
+    rc_redraw_window_object(win1);
+    rc_move_by(drag1, -5, -5, true);
+
+Notice how the order of items printed out by this command changes
+depending on which picture you select with the mouse immediately
+before giving this command.
+
+    rc_window_contents(win1) =>
+
+
+-- Testing the picture selection algorithm ----------------------------
+
+Check which of the pictures is selected by various coordinates The items
+selectable at the location are returned, and the number of items. If
+none are, then just 0 is returned.
+
+Note how the objects drag1 and drag3 are printed:
+    drag1=>
+    drag3=>
+
+    win1 -> rc_current_window_object;
+    rc_move_to(drag1, 0, 60, true);
+    rc_move_to(drag3, -30, -60, true);
+
+The pictures are not close together, so they are unlikely both to be
+selected via any one location. We can see which pictures would be
+selected by clicking mouse button 1 at different locations.
+
+    rc_pictures_selected(win1, 0, 55, false) =>
+    rc_pictures_selected(win1, 100, 55, false) =>
+    rc_pictures_selected(win1, -35, -55, false) =>
+
+But if they are moved closer together ...
+
+    rc_move_to(drag1, 30, 60, true);
+    rc_move_to(drag3, 25, 55, true);
+
+The pictures are now close together, so they may be selected
+simultaneously.
+
+    rc_pictures_selected(win1, 25, 55, false) =>
+    rc_pictures_selected(win1, 15, 55, false) =>
+    rc_pictures_selected(win1, 40, 75, false) =>
+
+Notice that this procedure returns the selected objects and a number
+saying how many were selected.
+
+If the fourth argument is true, instead of false, then only the first
+object is returned, and the number 1.
+
+    rc_pictures_selected(win1, 15, 55, true) =>
+
+-- Making rc_mouse_limit a procedure ----------------------------------
+
+So far we have seen that the value of the rc_mouse_limit slot for a
+picture object may be either an integer, representing the size of a
+square surrounding the local origin of the picture, or a vector giving
+coordinates of a rectangle in terms of local picture coordints.
+
+To allow greater generality, the value of the slot can be a procedure
+taking five arguments and returning a boolean.
+
+    limit_procedure(x, y, picx, picy, pic ) -> boolean;
+Where
+    x, y are mouse cursor coordinates on the window
+    picx, picy, are the picture object coordinates on the window,
+    and pic is the picture object.
+
+We give as an example a procedure for checking that the mouse is
+withing a particular distance of the centre.
+
+define dragdist(x, y, picx, picy, pic, dist ) -> boolean;
+    ;;; This will be partially applied to an integer to
+    ;;; produce a checking procedure.
+        (x - picx)**2 + (y - picy)**2 < dist*dist -> boolean;
+enddefine;
+
+;;; Try changing drag1 to have a sensitive radius of 75 in picture
+;;; units, using dragdist.
+dragdist(%75%) -> rc_mouse_limit(drag1);
+
+Now try dragging the object drag1. It should be possible to pick it up
+from a great distance.
+
+By making the number very large you can make it selectable from anywhere
+on the window.  E.g.
+
+dragdist(%1000%) -> rc_mouse_limit(drag1);
+
+If this is done to the object that is already the first in the list
+of objects known to the screen then accessing the other objects with
+the mouse can be impossible.
+
+
+Before continuing with the next example, get rid of the two windows.
+
+    rc_kill_window_object(win1);
+
+and do the same for win2.
+
+
+-- Example: a toy painting easel --------------------------------------
+
+An example of the use of these facilities is to be found in the
+PAINTING_DEMO library.
+
+To try it out do this
+
+    uses rclib
+
+Then EITHER compile this
+
+    loadrcdemo painting_demo
+
+OR, in VED
+
+    ENTER rcdemo painting_demo
+
+And compile the file with the ENTER l1 command.
+
+Then give this command:
+
+    painting_go();
+
+Then use the left button to select a colour on the left (default
+black), and select a desired brush at the top. The selected brush
+must be dragged into the painting area.
+
+As you drag a brush it does nothing unless you depress SHIFT, in
+which case it draws a trail, but only in the main picture area.
+
+Release the mouse button to return brush to brush holder, using magical
+invisible elastic. Change the colour and draw some more. Use the white
+colour to erase bits of the picture.
+
+When finished do this to get rid of the window:
+
+    rc_kill_window_object(the_easel);
+
+Or click on the "Dismiss" button. You can clear the picture by clicking
+on "Restart" if you wish to continue drawing.
+
+You change the size of the window before you click on RESTART.
+
+The code for this demonstration can be examined if you give the command
+
+    ENTER rcdemo painting_demo
+
+You can control the initial size and location of the picture with a
+command of the form:
+
+    start_easel(screenx, screeny, width, height);
+
+e.g. the following:
+
+    start_easel(500,20,350,330);
+
+(It may adjust your width and height to accommodate the brush rack at
+the top and the paint pots on the left.)
+
+Adjusting the size of the window after creating it may produce
+unexpected effects.
+
+-- -- Exercise on extending the painting demo
+
+To extend the easel with more colours and more types of brushes, do
+
+    ENTER rcdemo painting_demo
+
+then edit the lists of colours and brushes and make appropriate changes.
+You may have to redefine the start_easel procedure,e.g. to make it
+produce several columns of colours, and more than one row of brushes.
+
+
+
+-- How the objects were made draggable: method definitions ------------
+
+Clicking with a mouse, moving the mouse, dragging (i.e. moving with a
+mouse button down) are all events that are handled by user-definable
+methods.
+
+    LIB RC_MOUSEPIC
+
+defines some default event handling methods for draggable objects, and
+methods for handling mouse events at blank locations in the window.
+
+These event handling methods are what produced the dragging behaviour,
+described above. The methods defined in the library are copied in
+    TEACH * RC_MOUSEPIC
+for convenience.
+
+Further information about event handling is provided in
+    HELP * RC_LINEPIC/'Event handlers'.
+
+-- Constrained movers -------------------------------------------------
+
+A first draft library for creating constrained movers (e.g. sliders) is
+provided in LIB * RC_CONSTRAINED_MOVER. You can try it out by doing
+
+    uses rc_constrained_mover
+
+Then try variants of the following.
+
+Create a new window (possibly destroying old ones first):
+
+    vars movewin = rc_new_window_object(400, 40, 400, 300, true);
+    'movewin' -> rc_window_title(movewin);
+    rc_mousepic(movewin);
+
+;;; Define a class of objects that can only move horizontally.
+
+define :class hor_dragpic;
+    is rc_horiz_constrained_mover rc_selectable;
+    ;;; default name dragpic1, dragpic2, etc.
+    slot pic_name = gensym("horiz");
+enddefine;
+
+;;; and an instance:
+
+define :instance hor1:hor_dragpic;
+    rc_picx = 100;
+    rc_picy = 50;
+    rc_pic_lines =
+        [WIDTH 2 COLOUR 'black'
+            [SQUARE {-25 25 50}]
+            [CLOSED {-30 20} {30 20} {30 -20} {-30 -20}]
+        ];
+    rc_pic_strings =
+    [[FONT '9x15bold' COLOUR 'yellow' {-22 -5 'horiz'}]];
+enddefine;
+
+;;; Draw it and test it, including trying to drag it around the window.
+
+    movewin -> rc_current_window_object;
+    rc_draw_linepic(hor1);
+    rc_add_pic_to_window(hor1, movewin, true);
+
+    rc_move_to(hor1, 200,50, true);
+
+;;; Try making it move diagonally:
+
+    repeat 60 times rc_move_by(hor1, -2,-2, true) endrepeat;
+    hor1=>
+
+;;; create a class of objects that can move only vertically
+
+define :class vert_dragpic;
+    is rc_selectable rc_vert_constrained_mover;
+    ;;; default name dragpic1, dragpic2, etc.
+    slot pic_name = gensym("vert");
+enddefine;
+
+;;; and an instance
+define :instance vert1:vert_dragpic;
+    rc_picx = 100;
+    rc_picy = 50;
+    rc_pic_lines =
+        [WIDTH 2 COLOUR 'blue'
+            [SQUARE {-25 25 50}]
+            [CLOSED {-30 20} {30 20} {30 -20} {-30 -20}]
+        ];
+    rc_pic_strings =
+    [[FONT '9x15bold' COLOUR 'red' {-22 -5 'vert'}]];
+enddefine;
+
+;;; display it, and try dragging it about:
+
+    movewin -> rc_current_window_object;
+    rc_draw_linepic(vert1);
+    rc_add_pic_to_window(vert1, movewin, true);
+
+    rc_move_to(vert1, 200,50, true);
+
+;;; try moving it diagonally:
+
+    repeat 60 times rc_move_by(vert1, -2,-2, true) endrepeat;
+    vert1=>
+
+;;; create a class of objects constrained to move in the line joining
+;;; two points (e.g. for building sliders):
+
+define :class ptcons_dragpic;
+    is rc_selectable rc_point_constrained_mover;
+    slot pic_name = gensym("ptcons");
+enddefine;
+
+;;; and an instance
+define :instance ptcons1:ptcons_dragpic;
+    rc_picx = -90;
+    rc_picy = 90;
+    ;;; these are the two constraining end points
+    rc_pic_end1 = conspair(-90,90);
+    rc_pic_end2 = conspair(90,-90);
+    rc_pic_lines =
+        [WIDTH 2 COLOUR 'black'
+            [SQUARE {-25 25 50}]
+            [CLOSED {-30 20} {30 20} {30 -20} {-30 -20}]
+        ];
+    rc_pic_strings =
+    [[FONT '9x15bold' COLOUR 'red' {-22 -5 'ptcons'}]];
+enddefine;
+
+;;; draw the object, make it draggable, and try moving it around
+
+    movewin -> rc_current_window_object;
+    rc_draw_linepic(ptcons1);
+    rc_add_pic_to_window(ptcons1, movewin, true);
+
+    rc_move_to(ptcons1, 200,50, true);
+
+;;; Try moving it in an arbitray direction:
+    repeat 60 times rc_move_by(ptcons1, -2,5, true) endrepeat;
+
+It should only move diagonally between the two points specified, whether
+dragged or moved by the mouse.
+
+You should now have three objects each constrained to move in a
+different direction from the others.
+
+Get rid of the window
+
+    rc_kill_window_object(movewin);
+
+A particular application of this class is the creation of sliders, which
+have a movable button whose locatation is linked to the value of a
+variable. See LIB * RC_SLIDER for details. Some examples of the use of
+sliders, and additional information, can be found in
+
+    TEACH * RCLIB_DEMO.P/sliders
+    LIB   * RC_POLYPANEL
+    HELP  * RC_CONTROL_PANEL
+
+-- A more complex example: rc_blocks ----------------------------------
+
+The standard Poplog distribution includes a demonstration program that
+shows a simulated robot that uses a sentence parser integrated with a
+semantic interpreter and a planner that simulates a subset of the
+mechanisms in Winograd's famous SHRDLU program (circa 1971, described in
+many text books on AI written in the 1970s and 1980s, e.g. Margaret
+Boden: Artificial Intelligence and Natural Man.)
+
+The program is LIB * MSBLOCKS ("MS" stands for "Mental schemata" the
+course at Sussex university for which this was originally developed.
+There are two teach files TEACH * MSBLOCKS and TEACH * MSDEMO
+
+That program uses the Ved window to show simple graphics, e.g. using a
+rectangle of occurrences "g" to represent a green block.
+
+There is now a new version, based on mechanisms described above, which
+has full graphics, with real coloured pictures moving around. It also
+shows the parse trees graphically, using the rc_showtree program
+produced by Riccardo Poli on the basis of LIB SHOWTREE.
+
+To run the demonstration do
+
+    uses rclib
+    uses rc_blocks
+    ENTER blocks
+
+Alternatively, try typing this to the shell in an Xterm window
+
+    pop11 +gblocks %x
+
+If a saved image has been created, that will start it and make it
+run an Xved window in which you can type commands, alongside the
+graphical window showing the simulated world manipulated by the robot.
+
+When finished either type "bye" to the program or click on the QUIT
+panel with the left mouse button.
+
+
+-- Using lib rc_buttons.p to create a VED control panel -------------
+
+Discard previous windows if necessary:
+
+    rc_kill_window_object(win1);
+    rc_kill_window_object(win2);
+
+See HELP * RC_BUTTONS for a demonstration of button creation in a
+graphic window, using the mechanisms described in this file.
+
+It also includes various sorts of menus and display panels with messages
+to inform the user.
+
+-- Non-draggable objects ----------------------------------------------
+
+Not all objects need to be movable or draggable. It is possible to use
+the following mixins defined in LIB * RC_LINEPIC, for simpler types
+of objects
+
+    mixin rc_linepic
+        For objects that cannot be moved
+
+    mixin rc_linepic_movable
+        For objects that can be moved
+
+    mixin rc_rotatable
+        For objects that can be moved and rotated
+
+
+-- A class of static objects ------------------------------------------
+
+For static objects, the rc_linepic mixin provides all the relevant
+machinery. We can define a class using it.
+
+define :class rc_static;
+    is rc_linepic;      ;;; Note: not rc_linepic_movable, nor selectable
+
+    slot pic_name = gensym("static");
+    slot rc_pic_lines =
+          [
+          ;;; Use "WIDTH" to specify line thickness
+          ;;; One sub-picture forming a closed four-point polygon
+            [WIDTH 3 CLOSED {-20 20}  {20 20} {20 -20}  {-20 -20}]
+        ];
+enddefine;
+
+
+Compile that (using ENTER lcp, or ESC c in VED).
+
+Note that instances of this class will inherit additional slots from the
+rc_linepic specification, namely rc_picx, rc_picy, and rc_pic_strings.
+These are used below in creating instances.
+
+Also because the pic_name slot value is defined using "=", not "==" the
+command gensym("static") will be run each time an instance is created,
+producing a new default name for each new instance.
+ ( See TEACH * SLOT_DEFAULTS, REF * OBJECTCLASS/'Field Specifications' )
+
+
+-- A class of movable objects -----------------------------------------
+
+Some objects are movable without being draggable.
+
+Define a subclass with the properties of the rc_linepic_movable mixin
+included. This automatically inherits from rc_linepic (though not from
+the class rc_static defined above). In addition methods for moving
+pictures from one location to another become available. Also re-drawing
+an object in the same place will make it disappear (unless Glinefunction
+is given a different value).
+
+Instances of the class rc_move defined below will show a cross made of
+two line segments, by default. The default can be overridden by a
+different specification for the rc_pic_lines slot.
+
+The standard line width for rc_graphic (value 0) is overridden, by the
+WIDTH specification in the picture.
+
+define :class rc_mover;
+    is rc_linepic_movable;  ;;; Note: not rc_keysensitive rc_selectable
+
+    slot pic_name = gensym("mover");
+    slot rc_pic_lines =
+          [ WIDTH 2 [{-20 20}  {20 -20} ] [{-20 -20}  {20 20}]];
+enddefine;
+
+
+-- Make some instances ------------------------------------------------
+
+We can make instances of both the rc_static and rc_mover classes defined
+above.
+
+define :instance stat1:rc_static;
+    rc_picx = 100;
+    rc_picy = 50;
+    rc_pic_strings = [FONT '8x13bold' {-17 -5 'stat1'}];
+enddefine;
+
+
+define :instance move1:rc_mover;
+    ;;; This will inherit the default picture
+    rc_picx = 0;
+    rc_picy = 0;
+    ;;; But add some  strings
+    rc_pic_strings =
+        [FONT '8x13bold' {0 20 'a'}{20 0 'b'}{0 -20 'c'} {-20 0 'd'}];
+enddefine;
+
+define :instance move2:rc_mover;
+    ;;; Override the default rc_mover picture.
+    ;;; Include a circle of linewidth 2 and colour blue
+    ;;; and a bigger one of linewith 3 and colour red
+    rc_picx = 0;
+    rc_picy = -150;
+    rc_pic_lines = [
+        ;;; red circle at 0,0 radius 20
+        [WIDTH 3 COLOUR 'red' CIRCLE {0 0 20} ]
+        ;;; blue circle at 0,20 radius 15
+        [WIDTH 2 COLOUR 'blue' CIRCLE {0 20 15}]
+    ];
+    rc_pic_strings =
+        [[FONT '6x13bold' {-16 -5 'move2'}]];
+enddefine;
+
+Print out the instances
+
+    stat1 =>
+    move1 =>
+    move2 =>
+
+The printing is somewhat verbose. Define a print_instance method for
+rc_linepic to show only the name and coordinates:
+
+define :method print_instance(p:rc_linepic);
+    printf('<pic %P %P %P>', [%pic_name(p), rc_coords(p) %])
+enddefine;
+
+stat1 =>
+move1 =>
+move2 =>
+
+You can still get full information by using datalist and
+printing the list of contents, thus:
+
+    datalist(move2) ==>
+
+
+-- Drawing an instance of rc_static -----------------------------------
+
+Get rid of the previous picture if necessary:
+
+    rc_kill_window_object(buttonwin);
+
+Create a new window:
+
+    vars win1 = rc_new_window_object(500, 40, 400, 350, true);
+
+Draw stat1
+
+    rc_draw_linepic(stat1);
+
+Because this is an instance of rc_static, redrawing will not make the
+picture go away:
+
+    rc_draw_linepic(stat1);
+
+and this will not work
+
+    rc_undraw_linepic(stat1);
+;;; MISHAP - Method "rc_undraw_linepic" failed
+;;; INVOLVING:  <pic static1 100 50>
+;;; DOING    :  mishap fail_generic(I,G) rc_undraw_linepic ....
+
+-- -- Changing the default colour used
+
+Check default print colour
+
+    rc_foreground(rc_window)=>
+
+This will by be an integer, e.g. 1 for black or 0 for black, or the
+other way round depending on the terminal.
+
+Try changing the colour and redrawing:
+
+    'red' -> rc_foreground(rc_window);
+    rc_draw_linepic(stat1);
+
+    'blue' -> rc_foreground(rc_window);
+    rc_draw_linepic(stat1);
+
+    'black' -> rc_foreground(rc_window);
+    rc_draw_linepic(stat1);
+
+    rc_foreground(rc_window) =>
+
+Since neither rc_static nor stat1 specifies a colour, the colour used
+depends on the current foreground.
+
+-- Drawing instances of rc_mover --------------------------------------
+
+Movable objects can be drawn using the same method:
+
+    rc_draw_linepic(move1);
+    rc_draw_linepic(move2);
+
+As these are movable, re-drawing will make them disappear
+
+    rc_draw_linepic(move1);
+    rc_draw_linepic(move2);
+
+also rc_undraw_linepic can be used on them.
+
+Look back at the definitions of rc_mover and move1 and move2 to
+understand what happens, and why move2 has different coloured parts.
+
+Try moving move1, first using absolute, then relative coordinates.
+Give both commands repeatedly. Why does only one of the cause
+repeated changes?
+
+    rc_move_to(move1, 30, 50, true);
+
+    rc_move_by(move1, -5, -5, true);    ;;; repeat a few times
+
+Put it at the centre of the window
+
+    rc_move_to(move1, 0, 0, true);
+
+NB see previous comment about changing Glinefunction if moving does not
+work.
+
+-- The appearance of overlapping objects
+
+Note the unintuitive changes of colour when a movable object passes over
+another object. This is due to the simple drawing algorithm used, which
+is designed to make it easy to "uncover" a temporarily covered object.
+
+If a non movable object is drawn over another object it does not have
+this "transparent" effect. (Examples of non-movable objects are given
+below, using the class rc_static.) However, if a static object is drawn
+over a movable object and then the movable object is moved, the
+appearance of the static object will be permanently "damaged". You can
+experiment with instances of rc_static and rc_mover (or dragpic defined
+above_ to observe this effect.
+
+To avoid the effect make sure that all static objects are drawn first.
+Then as movable objects slide over them the changes in appearance will
+be only temporary.
+
+-- Making moving pictures ---------------------------------------------
+
+Here is a procedure to demonstrate motion of pictures under program
+control.
+
+define test_moves(pic, drawmode);
+    ;;; Drawmode can be true, false, or "trail" --  given as
+    ;;; the third argument to rc_move_by
+
+    ;;; repeatedly move and draw pic
+    repeat 15 times
+        ;;; move up right
+        rc_move_by(pic, 5, 5, drawmode);
+    endrepeat;
+    repeat 15 times
+        ;;; move right
+        rc_move_by(pic,5,0, drawmode);
+    endrepeat;
+    repeat 10 times
+        ;;; move down
+        rc_move_by(pic,0,-5,drawmode);
+    endrepeat;
+    repeat 10 times
+        ;;; move down left
+        rc_move_by(pic,-5,-5, drawmode);
+    endrepeat;
+    repeat 20 times
+        ;;; move left
+        rc_move_by(pic,-5,0,drawmode);
+    endrepeat;
+
+enddefine;
+
+
+Clear the screen in the current picture;
+
+    rc_clear_window_object(win1);
+
+Inform the pictures that they are now undrawn.
+
+    rc_undraw_all([^move1 ^move2]);
+
+    rc_draw_linepic(move1);
+    rc_move_to(move1, 0, 20, true);
+    rc_draw_linepic(move2);
+    rc_move_to(move2, -30, -40, true);
+
+Now try moving move1 and move2 around without leaving a trail:
+
+    test_moves(move1, true);
+    test_moves(move2, true);
+
+Moving and drawing move2 is slower because of the colour switching.
+
+-- Demonstrating motion in "trail" mode -------------------------------
+
+Now try moving move1 and move2 around in "trail" mode
+    rc_move_to(move1, 0, 20, true);
+    rc_move_to(move2, -60, 40, true);
+
+    repeat 3 times test_moves(move1, "trail"); endrepeat;
+    repeat 3 times test_moves(move2, "trail"); endrepeat;
+
+Drawing in "trail" mode is a bit faster because it does not have to
+continually undraw.
+
+You can get rid of the previous window with the command:
+
+    rc_kill_window_object(win1);
+
+-- Predefined types of sub-pictures: RECT and SQUARE
+
+There are special cases of drawable objects recognized by the drawing
+methods. CIRCLE was one, shown above. RECT and SQUARE are others.
+
+define :instance rects:rc_mover;
+    pic_name = "rects";
+    rc_picx = 0;
+    rc_picy = 0;
+    rc_pic_lines =
+        [   ;;; A rectangle centre -25, 25, width 60 height 40
+            [RECT {-25 25 80 40}]
+            ;;; two squares
+            [SQUARE {-20 20 15} {5 -5 40}]
+            ;;; A thick green line
+            [WIDTH 3 COLOUR 'green'
+                {-15 -10} {15 -10}]
+        ];
+    rc_pic_strings = [[FONT '9x15bold' {5 5 'rects'}]]
+enddefine;
+
+    rects =>
+    rc_start();
+
+Draw it
+
+    rc_draw_linepic(rects);
+
+This is an instance of rc_mover, and can be moved
+
+repeat 60 times rc_move_by(rects, -2, -2, true) endrepeat;
+
+For examples using oblongs see below.
+
+
+-- Rotatable objects --------------------------------------------------
+
+The rc_rotatable mixin is used for creating objects that can be rotated.
+They have two extra slots, rc_axis, and rc_oldaxis. The one that is
+important for users, is rc_axis, which defaults to 0, representing the
+original orientation of the picture. Changing that to a new number
+represents a rotation of the object.
+
+Increasing rc_axis values represent rotations counter clockwise. The
+rc_oldaxis slot is used by system procedures for drawing rotating objects.
+
+Warning: some drawing procedures directly access external X mechanisms (such
+as rc_draw_rectangle, which uses XpwDrawRectangle). These cannot take account
+of rotations of the rc_graphic coordinate frame, so components based on them
+will not rotate when a picture rotates (though their start-point within the
+picture will rotate). Picture components created from vectors produced
+by rc_drawline will rotate as expected, though drawing them will be slower.
+This is illustrated below.
+
+
+;;; A class, based on the rc_rotatable mixin
+define :class rc_rotator; is rc_rotatable;
+    slot rc_axis = 0;
+    slot pic_name = "rot0";
+enddefine;
+
+;;; Make a new printing procedure for the class, showing the axis
+;;; as well as coordinates
+
+define :method print_instance(p:rc_rotator);
+    printf('<rotator %P %P %P axis:%P>',
+        [%pic_name(p), rc_coords(p), rc_axis(p) %])
+enddefine;
+
+;;; Make an object in that class consisting of a line with a circle near
+;;; one end.
+define :instance rp1:rc_rotator;
+    pic_name = "rp1";
+    rc_picx = 50;
+    rc_picy = 100;
+    rc_pic_lines =
+        [WIDTH 2
+            [{5 5} {30 30}][COLOUR 'pink' CIRCLE {25 25 5}]];
+enddefine;
+
+
+;;; A rotatable arrow shape
+define :instance rp2:rc_rotator;
+    pic_name = "rp2";
+    rc_picx = 100;
+    rc_picy = 50;
+    ;;; Make an arrow with a blue head
+    rc_pic_lines
+        = [WIDTH 3 [{0 0} {30 0}][COLOUR 'blue' {25 8}{30 0}{25 -8}]];
+enddefine;
+
+;;; demonstrate rotatbale objects
+    rp1 =>
+    rp2 =>
+
+    rc_start();
+
+    ;;; Draw the rotatable instances
+    rc_draw_linepic(rp1);
+    rc_draw_linepic(rp2);
+    ;;; re-drawing will make them alternately come and go
+
+    ;;; Rotatable objects can be moved
+    rc_move_by(rp1, -10, -10, true);
+    rc_move_by(rp2, 0, 10, true);
+
+    ;;; And rotated
+    ;;; first undraw rp1
+    rc_draw_linepic(rp1);
+    0 -> rc_axis(rp1); rc_draw_linepic(rp1);
+    30 -> rc_axis(rp1); rc_draw_linepic(rp1);
+    -45 -> rc_axis(rp1); rc_draw_linepic(rp1);
+    45 -> rc_axis(rp1); rc_draw_linepic(rp1);
+    -90 -> rc_axis(rp1); rc_draw_linepic(rp1);
+    -135 -> rc_axis(rp1); rc_draw_linepic(rp1);
+
+    ;;; clear and restart
+    rc_start();
+    rc_undraw_all([^rp1 ^rp2]);
+    rc_draw_linepic(rp1);
+    rc_draw_linepic(rp2);
+
+    ;;; Or using rc_set_axis to cause automatic undrawing when moving
+    rc_set_axis(rp1, 90, true);
+    rc_set_axis(rp1, 135, true);
+    rc_set_axis(rp1, 0, true);
+
+    vars x;
+    for x from 0 by 10 to 360 do rc_set_axis(rp1, x, true) endfor;
+
+    ;;; Rotating can also be done in "trail" mode
+    vars x;
+    for x from 0 by 10 to 360 do rc_set_axis(rp1, x, "trail") endfor;
+
+    ;;; Then do it again
+    for x from 0 by 10 to 360 do rc_set_axis(rp1, x, "trail") endfor;
+
+    ;;; Or by using rc_turn_by to do relative rotation, along with
+    ;;; relative motion
+    rc_turn_by(rp1, 10, true);rc_move_by(rp1, 5,5,true);
+
+    rc_move_to(rp2,150,150,true);
+    repeat 36 times
+        rc_turn_by(rp2, 10, true);rc_move_by(rp2,-5,-5,true);
+        ;;; use syssleep to slow it down
+        syssleep(10);       ;;; sleep for 10/100 of a second
+    endrepeat;
+
+    ;;; Bring it back to the original location
+    repeat 36 times
+        rc_turn_by(rp2, 10, true);rc_move_by(rp2,5,5,true);
+        syssleep(5);
+    endrepeat;
+
+    ;;; Rotating with a trail
+
+    ;;; Prepare rp1 for a demonstration
+    rc_move_to(rp1,50,150,true); rc_set_axis(rp1,0,true);
+
+    ;;; Mark these two loops and then do them both repeatedly.
+
+    repeat 36 times
+        rc_turn_by(rp1, 10, true);rc_move_by(rp1, -5, -5, "trail");
+    endrepeat;
+
+    repeat 36 times
+        rc_turn_by(rp1, 10, true);rc_move_by(rp1, 5, 5, "trail");
+    endrepeat;
+
+    ;;; Try that with different initial angles
+    rc_set_axis(rp1,90,true);   ;;; then try the above loops
+    rc_set_axis(rp1,180,true);  ;;; ditto
+
+
+    Try it also with rp2
+    rc_set_axis(rp2,90,true);   ;;; then try the above loops
+
+    repeat 36 times
+        rc_turn_by(rp2, 10, true);rc_move_by(rp2, -5, -5, "trail");
+    endrepeat;
+
+    repeat 36 times
+        rc_turn_by(rp2, 10, true);rc_move_by(rp2, 5, 5, "trail");
+    endrepeat;
+
+    rc_set_axis(rp2,180,true);  ;;; ditto
+    rc_set_axis(rp2,45,true);  ;;; ditto
+
+
+-- Static, movable and rotatable pictures -----------------------------
+
+-- -- Classes based on rc_linepic
+
+The rc_linepic library defines these mixins
+
+    rc_linepic, rc_linepic_movable, rc_rotatable
+
+Since we cannot create instances of mixins directly, we have to attach
+them to a class.
+
+To illustrate this, we defined above the following classes
+
+1.  rc_static
+        This inherits slots and methods from rc_linepic mixin.
+
+2.  rc_mover
+        This inherits from the rc_linepic_movable mixin (and therefore
+        also from rc_linepic)
+
+3.  rc_rotator
+        This inherits from the rc_rotatable mixin
+
+Below we show how to define a new mixin rc_thick, which allows lines and
+pictures to have a thickness, and we'll show how to extend the drawing
+methods to take account of the thickness. In terms of that we'll define
+another class
+
+4.  rc_thickpic
+        This inherits from rc_rotator and the rc_thick mixin.
+
+
+-- -- Classes based on rc_mousepic and rc_window_object
+
+We have also illustrated classes based on rc_mousepic. The library
+introduces the following:
+
+    Mixins: rc_selectable rc_keysensitive
+    Class: rc_window_object, based on rc_selectable  rc_keysensitive;
+
+We've used those mixins and the associated methods to introduce the
+class:
+
+5.  dragpic
+    This inherits from these mixins: rc_keysensitive rc_selectable
+    rc_linepic_movable.
+
+We showed how to make instances of this respond to mouse actions, such
+as dragging. This depends on creating an instance of rc_window_object
+associated with the current rc_graphic window.
+
+-- -- Class rc_window_object
+
+    Class: rc_window_object
+        This is what is created by rc_new_window_object. Each instance
+        represents a movable Pop-11 graphic window. It may also be given
+        an associated instance of rc_window_object using the procedure
+        rc_mousepic.
+
+-- -- Class rc_button
+
+    Class: rc_button
+        is rc_linepic, rc_selectable;
+        Buttons can be drawn and made mouse sensitive. At present they
+        are not movable, but it would be easy to define a movable
+        subclass (e.g. by analogy with the definition of class dragpic,
+        above.)
+
+-- -- Features of these classes
+
+We gave some of the classes a default pictorial representation.
+Instances of these classes can have different pictorial representations,
+overriding the defaults.
+
+An important feature of this library is that within the specification
+for each object the coordinates are all relative to the notional centre
+of the object. Thus if different instances of a class are located at
+different "centres" in the picture, their coordinates will be
+automatically adjusted (using the mechanisms of the RC_GRAPHIC library).
+
+Similarly if an object is moved from one location to another, there is
+no need to update the coordinates specifying the locations of its
+components: when the picture is redrawn in its new location they are
+automatically interpreted relative to the new centre.
+
+The same applies to text strings within an object. Each string is
+specified by a (relative) start location and the string to be printed
+starting there. As the location of the string is always relative to the
+object's coordinate frame, the string will move automatically on the
+graphic window with the rest of the object.
+
+Some objects can be rotated simply by rotating the object's coordinate
+frame. When the whole object is redrawn the components will also be
+redrawn rotated. Components made up of lines and circles can be rotated.
+However, text strings and some of the graphical objects created using X
+drawing routines directly, cannot be rotated, though the point from
+which they are drawn will be rotated. Methods for partially overcoming
+this are mentioned in some of the examples below.
+
+-- Undrawing: rc_undrawn and rc_undraw_all ----------------------------
+
+If the window is cleared, e.g. using rc_start(), or
+rc_clear_window_object, or if the current window is replaced by another,
+then we have to tell the movable pictures that they are undrawn. We can
+use rc_undrawn. E.g.
+
+    rc_start();
+    rc_undrawn(move1);
+    rc_undrawn(move2);
+    rc_draw_linepic(move1);
+    rc_draw_linepic(move2);
+
+We can make several pictures undrawn in a single command:
+
+    rc_start();
+    rc_undraw_all([^move1 ^move2]);
+
+Note that neither rc_undrawn nor rc_undraw_all will remove pictures from
+the screen. They should be used when a new window has been created or
+the window is clear.
+
+
+-- Drawing special figures --------------------------------------------
+
+So far we have shown how to define drawable objects whose pictures are
+made of open or closed polygons, circles, rectangles, squares and print
+strings. The CIRCLE, RECTANGLE and SQUARE are examples defined in the
+rc_linepic library. It is also possible to provide user-defined picture
+types.
+
+-- -- Drawing circles, using CIRCLE
+
+As illustrated above, use the format [CIRCLE {x y radius}] to indicate a
+circle. The vector following the word CIRCLE should have three numbers,
+two specifying the centre of the circle (in coordinates relative to the
+centre of the object), and one for the radius. If several circles are to
+be drawn use one vector for each circle. This picture has two circles as
+well as a closed polygon:
+
+define :instance funny:rc_mover;
+        pic_name = 'funny';
+        rc_picx = 100;
+        rc_picy = -50;
+        rc_pic_lines =
+          [
+            [CLOSED {-20 6}  {-15  35} {15 35}  {20 6}]
+            [CIRCLE {0 -5 20} {0 -5 10}]
+          ];
+        rc_pic_strings = [{-15 -8 'funny'}];
+enddefine;
+
+    funny =>
+
+    rc_start();
+    rc_draw_linepic(funny);
+
+;;; The relative bounds of the picture include the extremities of the
+;;; circle.
+rc_linepic_bounds(funny, false) =>
+
+;;; as do the absolute bounds
+rc_linepic_bounds(funny, true) =>
+
+repeat 20 times rc_move_by(funny, -5, 5, true); endrepeat;
+;;; now with trail
+repeat 20 times rc_move_by(funny, -5, -5, "trail"); endrepeat;
+repeat 20 times rc_move_by(funny, 5, -5, "trail"); endrepeat;
+repeat 40 times rc_move_by(funny, 0, 5, "trail"); endrepeat;
+
+;;; Now repeat the last three lines.
+
+;;; Clear the picture
+rc_start();
+
+-- -- Drawing a rectangle or square, using RECT, or SQUARE
+
+As shown above it is possible to draw a rectangle or square by using the
+CLOSED polygon option and specifying the four corners. A more compact,
+and faster drawing, option is provided. The key-words "RECT" and
+"SQUARE" followed by one or more vectors of numbers can be used to
+specify a set of rectangles or squares whose lines are parallel to the x
+axis and y axis. (Later we'll show how to use RRECT and RSQUARE to
+produce rotatable rectangles and squares).
+
+define :instance rects:rc_mover;
+    pic_name = "rects";
+    rc_picx = 30;
+    rc_picy = 50;
+    rc_pic_lines =
+        [
+            ;;; A rectangle centre -25, 25, width 80 height 40
+            [WIDTH 3 RECT {-25 25 80 40}]
+            ;;; two squares
+            [SQUARE {-20 20 15} {5 -5 40}]
+            ;;; A thick red line line
+            [WIDTH 5 COLOUR 'red' {-15 -10} {15 -10}]
+        ];
+    rc_pic_strings = [[FONT '9x15bold' COLOUR 'green' {5 5 'rects'}]]
+enddefine;
+
+    rects =>
+    rc_start();
+    ;;; draw it
+    rc_draw_linepic(rects);
+    rc_linepic_bounds(rects, false) =>
+    rc_linepic_bounds(rects, true) =>
+
+;;; This is an instance of rc_mover, and can be moved
+
+rc_move_by(rects, 10, 15, true);
+repeat 60 times rc_move_by(rects, -2, -2, true) endrepeat;
+
+-- -- Other figures
+
+It is possible to include other figures provided that there are drawing
+procedures that respect the relative coordinate system of the RC_GRAPHIC
+library.
+
+All that is needed is to have a list starting with the name of the
+procedure followed by one or more vectors containing arguments for the
+procedure.
+
+For example the rc_linepic library includes a procedure
+
+    rc_draw_ob(x, y, width, height, radius1, radius2);
+
+for drawing oblongs, ie rounded rectangles. It requires six numbers.
+The first two give the location of the top left hand corner, the others
+the width, height and the two radii of curvature of the corners.
+
+(The procedure rc_draw_oblong in LIB RC_GRAPHIC uses only the last four
+arguments and draws from the current turtle location.)
+
+Here is a picture containing two such pictures inside a third.
+
+define :instance ob1:rc_mover;
+    pic_name = "ob1";
+    rc_picx = 100;
+    rc_picy = 100;
+
+    rc_pic_lines =
+        [   WIDTH 2
+            [rc_draw_ob
+                ;;; two small oblongs, above and below the centre
+                {-15 15 30 15 3 3} {-15 -5 30 12 3 3}
+                ;;; and a bigger one enclosing them
+                {-30 20 60 45 10 10}]
+        ];
+    rc_pic_strings = [[FONT '8x13bold' COLOUR 'blue' {-10 5 'ob1'}]]
+enddefine;
+
+    ob1 =>
+    rc_start();
+    ;;; draw it
+
+    rc_draw_linepic(ob1);
+
+;;; This is an instance of rc_mover, and can be moved
+
+rc_move_by(ob1, -10, -15, true);
+repeat 20 times rc_move_by(ob1, -5, -5, true) endrepeat;
+
+
+However, moving something like this can be slow!
+
+
+-- WIDTH: Pictures with variable line widths --------------------------
+
+It is possible to use the word "WIDTH" followed by an integer, at the
+beginning of the list held in the rc_pic_lines slot of an object, or at
+the beginning of one of the sub-lists. The integer will then be used to
+determine the width of lines or circles specified by the rest of the
+list which it starts.
+
+For example, here is a picture containing rectangles of two thicknesses
+and circles of two thicknesses.
+
+define :instance thick1:rc_mover;
+        pic_name = "thick1";
+        rc_picx = 100;
+        rc_picy = 100;
+        rc_pic_lines =
+          ;;; default thickness for all the figures is 2
+          [WIDTH 2
+            [WIDTH 5 CLOSED {-35 35}  {35  35} {35 -35}  {-35 -35}]
+            [RECT {10 -10 20 15}]
+            [WIDTH 4 CIRCLE {0 35 19}]
+            [CIRCLE {0 35 12}]
+          ];
+        rc_pic_strings = [{-17 -5 'thick1'}];
+enddefine;
+
+rc_start();
+rc_draw_linepic(thick1);
+
+How that appears will in part depend on the font used.
+
+On a black and white image, the points where the different lines overlap
+come out as white. This is because of the use of "xor" for drawing
+everything. This may be thought to be a disadvantage. However, it is a
+necessary consequence of the simplicity of implementation of this
+package.
+
+Moving a complex object can be slow:
+
+    repeat 60 times rc_move_by(thick1, -3, -2, true) endrepeat;
+
+Moving in trail mode is a little faster
+
+    repeat 60 times rc_move_by(thick1, 3, 2, "trail") endrepeat;
+
+This explains why it is occasionally useful to use the "false" option
+for the moving procedures. The object will be moved without updating the
+screen. After a succession of moves inside the computer the resulting
+state can be shown on the screen, though care must be taken to prevent
+the picture becoming inconsistent
+
+
+Another example: a version of ob1 with thicker lines:
+
+define :instance ob2:rc_mover;
+    pic_name = "ob2";
+    rc_picx = 100;
+    rc_picy = 100;
+    rc_pic_lines =
+        [
+            [WIDTH 4 rc_draw_ob
+                ;;; two small ones, above and below the centre
+                {-15 15 30 18 3 3} {-15 -8 30 12 3 3} ]
+                ;;; and a bigger thicker one enclosing them
+            [WIDTH 7 rc_draw_ob {-30 25 60 55 10 10}]
+        ];
+    rc_pic_strings = [[FONT '6x13bold' COLOUR 'green' {-11 3 'ob2'}]]
+enddefine;
+
+    rc_start();
+
+Draw it. The appearance may not be perfect, depending on the X utilities
+you are using.
+
+    rc_draw_linepic(ob2);
+
+    rc_move_by(ob2, -10, -5, true);
+
+
+-- Pictures with dashed and other line styles -------------------------
+
+Just as the keyword WIDTH can be combined with a number to specify a
+width to be used for part of a picture, so can the keyword STYLE be
+followed by a linestyle specification. For available styles see
+
+    HELP * RC_GRAPHIC/rc_linestyle
+
+At least the following should be available
+        LineSolid           ( = 0   -- the default)
+        LineOnOffDash       ( = 1 )
+        LineDoubleDash      ( = 2 )
+
+The keyword STYLE can occur on its own or AFTER the keyword WIDTH.
+If followed by one of the above symbolic names don't forget to use
+"^" to get the value. Here is an example of a picture using three
+different styles.
+
+
+define :instance ob3:rc_mover;
+    pic_name = "ob3";
+    rc_picx = 100;
+    rc_picy = 50;
+    rc_pic_lines =
+        [
+            ;;; A solid oblong above the centre
+            [WIDTH 2 STYLE ^LineSolid COLOUR 'red'
+                rc_draw_ob {-15 15 30 15 3 3}]
+            ;;; A dashed rectangle below
+            [STYLE ^LineOnOffDash RECT {-15 -3 30 12 } ]
+            ;;; A bigger thicker double-dashed oblong
+            [WIDTH 3 STYLE ^LineDoubleDash
+                 rc_draw_ob {-25 20 50 40 10 10}]
+            ;;; A simple horizontal line, default style and thickness
+            [{-30 -30} { 30 -30}]
+        ];
+    rc_pic_strings = [[FONT '6x13bold' {-10 5 'ob3'}]]
+enddefine;
+
+ob3 =>
+
+rc_start();
+rc_draw_linepic(ob3);
+
+rc_move_to(ob3, 100, 50, true);
+
+rc_move_by(ob3, 0, -5, true);
+
+;;; Moving such a thing can be very slow
+repeat 20 times rc_move_by(ob3, -3, -2, true) endrepeat;
+
+;;; repeatedly redrawing it in the same place can have an interesting
+;;; effect, because of the delays in drawing and erasing components.
+
+repeat 20 times rc_draw_linepic(ob3) endrepeat;
+
+
+-- Pictures with COLOUR specifications --------------------------------
+
+In addition to the use of "WIDTH" and "STYLE" pictures or sub-pictures
+may use "COLOUR", as illustrated above to indicate a particular
+colour. Any combination of these three specifications can be used, but
+they must be in this order
+
+        WIDTH STYLE COLOUR
+
+I.e. width, if present must be specified first, and colour last. If an
+angle is specified as in the next section, that must come before any of
+these.
+
+-- Drawing a sub-picture with a different scale XSCALE, YSCALE
+
+If a particular picture or sub-picture is to have a different scale then
+you can use XSCALE and/or YSCALE each followed by a positive or negative
+number as part of a picture or sub-picture specification.
+
+We can use the previous class of movable selectable pictures to
+illustrate this
+
+
+vars win1 = rc_new_window_object(500, 40, 300, 250, true);
+
+rc_mousepic(win1);
+
+define :class dragpic;
+    ;;; this class inherits from three different "mixins"
+    is rc_keysensitive rc_selectable rc_linepic_movable;
+enddefine;
+
+define :instance circ1:dragpic;
+    rc_picx = 100;
+    rc_picy = 50;
+
+    ;;; two circles. The outer 1 blue, radius 40, the
+    ;;; inner one red stretched by 2 horizontally and by
+    ;;; -1.5 vertically
+    rc_pic_lines =
+        [WIDTH 2 COLOUR 'blue'
+            [COLOUR 'red'
+                XSCALE 2 YSCALE -1.5
+                CIRCLE {0 0 15}]
+            CIRCLE {0 0 40}
+        ];
+
+    rc_pic_strings =
+        [FONT '8x13' COLOUR 'red' {-17 -5 'circ1'}];
+enddefine;
+
+rc_draw_linepic(circ1);
+
+rc_move_by(circ1, -80,-80,true);
+
+;;; now try the above again with the SCALE line commented out.
+
+
+-- Drawing part of a picture at an angle ------------------------------
+
+It is possible to have a part of a picture drawn at a different
+orientation from the rest of the picture. That is done by using the
+keyword ANGLE at the beginning of the specification of that sub-picture.
+
+For example, here is a picture that has a circle based on its centre,
+and an arrow that will be drawn at different angles depending on the
+number following "ANGLE".
+
+define :instance ang1:rc_mover;
+    pic_name = "ang1";
+    rc_picx = 100;
+    rc_picy = 150;
+    rc_pic_lines = [
+        ;;; a circle
+        [CIRCLE {0 0 15}]
+        ;;; Make an arrow
+        [ANGLE 45 WIDTH 2 {0 0} {30 0}]
+        [ANGLE 45 WIDTH 3 COLOUR 'blue' {25 8}{30 0}{25 -8}]];
+enddefine;
+
+    ang1 =>
+
+    rc_start();
+    rc_draw_linepic(ang1);
+
+It is possible to repeatedly change the number after ANGLE
+and re-draw, to get the effect of a rotating arrow, as follows:
+get the rc_pic_lines information out and keep changing the angle between
+drawing (rather nasty):
+
+    rc_start();
+    rc_undrawn(ang1);
+    vars ang;
+    vars shaft = rc_pic_lines(ang1)(2), barb = rc_pic_lines(ang1)(3);
+
+    for ang from 0 by 5 to 360*2 do
+        rc_draw_linepic(ang1);  ;;; show it
+        rc_draw_linepic(ang1);  ;;; remove it
+        ;;; change the angle
+        ang -> shaft(2);
+        ang -> barb(2);
+    endfor;
+
+    rc_draw_linepic(ang1);
+
+
+-- A simple move handler for windows ----------------------------------
+
+Get rid of the previous picture:
+
+    rc_destroy();
+
+Start a mew window and make it mouse sensitive:
+
+    vars win1 = rc_new_window_object(500, 40, 300, 250, true);
+
+    rc_mousepic(win1);
+
+Here is example of how you can re-define one of the default handlers
+yourself, to see what effect they have. This is the mouse motion event
+handler:
+
+define :method rc_move_mouse(w:rc_window_object, x, y, modifiers);
+    ;;; select Ved's output file for printing, but prevent the
+    ;;; file being writeable
+    vededit('output.p', vedhelpdefaults);
+    vedendfile();
+
+    ;;; Make printing go into the output buffer
+    dlocal cucharout = vedcharinsert;
+
+    ['Mouse moved at' ^x ^y in window] =>
+    if strmember (`c`, modifiers) then
+        'The Control button was depressed' =>
+    endif;
+enddefine;
+
+Move the mouse over the window. Move it a little, then let go, then move
+it, then move it back into the VED window.
+
+Each motion event should be recorded. The coordinates of the mouse are
+given relative to the rc_graphic coordinate frame as it was when
+the rc_mousepic procedure was applied to rc_window.
+
+An alternative method will move the ang1 picture defined above to the
+current mouse cursor location.
+
+rc_undrawn(ang1);
+
+define :method rc_move_mouse(w:rc_window_object, x, y, modifiers);
+
+    rc_move_to(ang1, x, y, true);
+
+enddefine;
+
+If you have two different live windows and you have that method defined,
+then the same thing will be drawn on both windows. However, the picture
+will not remember its coordinates when you move from one window to
+another. So the method should keep track of which windows it has drawn
+on and where the last location was at which it drew on each window.
+That could be done using a property, mapping rc_window to a location.
+
+After experimenting with the motion event handler, disable the method
+by commenting out the print instruction and recompiling. Or compile
+this:
+
+define :method rc_move_mouse(w:rc_window_object, x, y, modifiers);
+    ;;; do nothing
+enddefine;
+
+Check that moving the mouse over the window now does nothing.
+
+-- Detecting keyboard events: rc_handle_keypress ----------------------
+
+The method rc_handle_keypress can be similarly defined to reveal
+keyboard events. It has an extra argument, the code for the key
+involved, which will be positive if the key is pressed, negative if it
+is released. If the key is an alphanumeric or symbol key the code will
+be the ascii code for the symbol otherwise one of the codes showin in
+HELP * RC_KEYCODES. The following can be used to find out the key code
+mappings on your keyboard.
+
+
+define :method rc_handle_keypress(w:rc_window_object, x, y, modifier, key);
+    ;;; select Ved's output file for printing, but prevent the
+    ;;; file being writeable
+    vededit('output.p', vedhelpdefaults);
+    vedendfile();
+
+    ;;; Make printing go into the output buffer
+    dlocal cucharout = vedcharinsert;
+
+    [
+        %if key >= 0 then 'Key pressed at'
+         else 'key released at'
+         endif% ^x ^y : key ^key modifier: ^modifier] ==>
+enddefine;
+
+
+Experiment with that. In particular move the mouse cursor into the
+graphic window then press various keys, including the space bar,
+function keys, shift, ENTER, etc.
+
+After these experiments redefine the method to do nothing.
+
+define :method rc_handle_keypress(w:rc_window_object, x, y, modifier, key);
+enddefine;
+
+
+-- Key code mappings for rc_handle_keypress ---------------------------
+
+The actual mappings between the keys pressed and the key codes given as
+final argument to rc_handle_keypress may vary from one system to
+another. By defining a procedure like the above you can experiment to
+find out the actual mappings.
+
+The results of such an experiment can be see in
+
+    HELP * RC_KEYCODES
+
+It would be possible to use a property to record such associations, if
+needed.
+
+-- Defining additional event handlers ---------------------------------
+
+The default methods which do nothing are defined as follows.
+
+;;; uncomment the print commands for testing
+define :method rc_button_2_down(pic:rc_selectable, x, y, modifiers);
+    ;;; [button 2 down ^x ^y ^modifiers] =>
+enddefine;
+
+define :method rc_button_3_down(pic:rc_selectable, x, y, modifiers);
+    ;;;[button 3 down ^x ^y ^pic] =>
+enddefine;
+
+define :method rc_button_1_up(pic:rc_selectable, x, y, modifiers);
+    ;;; [button 1 up ^x ^y ^pic] =>
+enddefine;
+
+define :method rc_button_2_up(pic:rc_selectable, x, y, modifiers);
+    ;;; [button 2 up ^x ^y ^pic] =>
+enddefine;
+
+;;; etc. etc.
+
+;;; and these for dragging, moving and handling key presses
+
+define :method rc_button_2_drag(pic:rc_selectable, x, y, modifiers);
+    ;;; [button 2 drag ^x ^y ^pic ^modifiers] =>
+enddefine;
+
+define :method rc_button_2_drag(pic:rc_window_object, x, y, modifiers);
+    ;;; [button 2 drag ^x ^y ^modifiers] =>
+enddefine;
+
+define :method rc_button_3_drag(pic:rc_selectable, x, y, modifiers);
+     ;;; [button 3 drag pic ^pic ^x ^y ^modifiers] =>
+enddefine;
+
+define :method rc_button_3_drag(pic:rc_window_object, x, y, modifiers);
+     ;;; [button 3 drag ^x ^y nothing ^modifiers] =>
+enddefine;
+
+
+define :method rc_move_mouse(pic:rc_selectable, x, y, modifiers);
+    ;;; [move mouse ^x ^y ^pic ^modifiers] =>
+enddefine;
+
+define :method rc_handle_keypress(pic:rc_selectable, x, y, modifiers, key);
+;;; [keypress ^x ^y ^modifiers key ^key ] =>
+enddefine;
+
+Notice that if you wish to distinguish actions on a selected object and
+actions on an empty space in the window, then define the empty space
+method using the following format, adding a "key" argument if it is a
+keypress handler.
+
+define :method <name>(pic:rc_window_object, x, y, modifiers);
+    ........
+enddefine;
+
+
+You can try experimenting with different events. E.g. try making
+mouse button three with the shift key down make the selected picture
+move vertically 50 units (using rc_move by), and make it move
+verttically down 50 units if the control key is depressed.
+
+define :method rc_button_3_down(pic:rc_selectable, x, y, modifiers);
+    ;;; translate this to pop11
+    if shift key is depressed then move down
+    elseif control key is depressed then
+    else
+        ...
+    endif
+enddefine;
+
+You could also try making an object rotate by clicking on it with the
+control button down, but only if it is an rc_rotatable object. E.g.
+create an instance of rc_rotator to check it out.
+
+
+-- MORE ON ROTATABLE OBJECTS ------------------------------------------
+
+There are further complications regarding rotating objects that may
+be worth pointing out.
+
+-- -- How to make a printed string rotate
+
+If a rotatable object includes a print string, the string will not
+rotate when the object does, though its start point will.
+
+define :instance rp3:rc_rotator;
+    pic_name = "rp3";
+    rc_picx = 0;
+    rc_picy = 0;
+    ;;; Make an arrow
+    rc_pic_lines = [[{0 0} {30 0}][{25 8}{30 0}{25 -8}]];
+    ;;; And a string
+    rc_pic_strings = [{0 -20 'arrow'}]
+enddefine;
+
+    rc_start();
+
+Draw it
+
+    rc_move_to(rp3, 0, 50, true);
+
+Rotate it a few times. Repeat this command several times.
+
+    rc_turn_by(rp3, 20, true)
+
+The result is not very satisfactory
+
+A partial solution is to break the string into substrings, as follows:
+
+define :instance rp4:rc_rotator;
+    pic_name = "rp4";
+    rc_picx = 0;
+    rc_picy = 0;
+    ;;; Make an arrow
+    rc_pic_lines = [[{0 0} {30 0}][{25 8}{30 0}{25 -8}]];
+    ;;; And a string
+    rc_pic_strings =
+        [[FONT '6x13bold'
+            {0 -20 'a'} {7 -20 'r'} {14 -20 'r'} {21 -20 'o'}
+        {28 -20 'w'}]];
+    ;;; For the 6x13 font, I incremented the x coordinate in steps of 7.
+enddefine;
+
+    rc_start();
+
+Draw it
+
+    rc_move_to(rp4, 0, -20, true);
+
+Rotate it a few times. Repeat this command several times.
+
+    rc_turn_by(rp4, 30, true)
+
+For some orientations the result may be acceptable, and not others.
+Creating a font out of vectors, subject to the same rotations as
+lines, would be another solution, but tedious.
+
+-- Allowing squares or rectangles to rotate
+
+Previously we saw how to include a RECT or SQUARE figure.
+For rotation, use RRECT and RSQUARE. The difference will now
+be demonstrated
+
+define :instance rp5:rc_rotator;
+    pic_name = "rp5";
+    rc_picx = 0;
+    rc_picy = 0;
+    rc_pic_lines =
+        [
+            ;;; A rectangle of thickness 2, non-rotatable
+            [WIDTH 2 RECT {-25 25 50 45}]
+            ;;; A rectangle of thickness 4, rotatable
+            [WIDTH 4 RRECT {-35 35 75 65}]
+            ;;; A line of current default thickness
+            [{-15 -10} {15 -10}]
+        ];
+enddefine;
+
+    rc_start();
+
+Draw it
+
+    rc_draw_linepic(rp5);
+
+Check that moving works
+
+    rc_move_to(rp5, -75, -75, true);
+    rc_move_by(rp5, 30, 30, true);
+
+Rotate it a few times. Repeat this command several times.
+
+    rc_turn_by(rp5, -30, true);
+    repeat 12 times rc_turn_by(rp5, 30, true) endrepeat;
+
+
+It will be seen that the smaller RECT figure does not rotate properly,
+whereas the larger RRECT figure does, as does the line. Use RECT to draw
+non-rotatable rectangles, and RRECT to draw rotatable ones. The latter
+are considerably less efficient.
+
+Similarly SQUARE and RSQUARE can be used, except that they require one
+less number than RECT and RRECT
+
+define :instance rp6:rc_rotator;
+    pic_name = "rp6";
+    rc_picx = 0;
+    rc_picy = 0;
+    rc_pic_lines =
+        [ ;;; an ordinary closed polygon
+            [CLOSED {-10 15} {10 10} {10 -10}{-10 -15}]
+            ;;; A non rotatable square
+            [WIDTH 2 SQUARE {-20 20 40}]
+            ;;; A rotatable square
+            [WIDTH 4 RSQUARE {-30 30 60}]
+        ];
+enddefine;
+
+    rc_start();
+
+Draw it and move it
+    rc_draw_linepic(rp6);
+    rc_move_to(rp6, -75, -75, true);
+    rc_move_by(rp6, 20, 30, true);
+    rc_move_to(rp6, 30, 40, true);
+
+Rotate it
+
+    rc_turn_by(rp6, 60, true);
+    repeat 12 times rc_turn_by(rp6, -30, true) endrepeat;
+
+Note: the library procedures used for drawing rotatable and
+non-rotatable squares and rectangles defined in LIB RC_LINEPIC are:
+
+non-rotatable
+    define rc_draw_rect(x, y, width, height);
+    define rc_draw_square(x, y, side);
+
+rotatable
+    define rc_draw_Rrect(x, y, width, height);
+    define rc_draw_Rsquare(x, y, side);
+
+However, if you use these procedures directly to draw things you will
+not have an object inside Pop-11 corresponding to the picture drawn. So
+moving or interrogating the picture will not be possible.
+
+
+-- -- Part of a rotatable object may be offset by an angle
+
+The next figure is similar to rp6 except that the RSQUARE is tilted at
+an angle of 30 degrees. Using this is often much easier than computing
+coordinates of the corners.
+
+define :instance rp7:rc_rotator;
+    pic_name = "rp7";
+    rc_picx = 0;
+    rc_picy = 60;
+    rc_pic_lines =
+        [
+            ;;; an ordinary closed polygon
+            [CLOSED {-10 15} {10 10} {10 -10}{-10 -15}]
+            ;;; A non rotatable square
+            [WIDTH 2 SQUARE {-20 20 40}]
+            ;;; A rotatable square
+            [ANGLE 30 WIDTH 4 RSQUARE {-30 30 60}]
+        ];
+enddefine;
+
+    rc_start();
+    rc_draw_linepic(rp7);
+    rc_move_to(rp7, -80, 30, true);
+    rc_move_by(rp7, 20, 40, true);
+
+Rotate it. While the finger is being rotated, the outer RSQUARE figure,
+like the smallest polygon, maintains its angular offset relative to the
+rest, whereas the other SQUARE is not rotated.
+
+    rc_turn_by(rp7, 60, true);
+    repeat 36 times rc_turn_by(rp7, -10, true) endrepeat;
+
+
+-- Giving a class of objects a non-standard line-thickness ------------
+
+This section shows how to use the facilities of objectclass to use
+existing methods in a new context.
+
+So far all the objects have been drawn with lines of the same default
+thickness. To have a different thickness we had to include a thickness
+specification explicitly in the sub-pictures.
+
+It is possible to define a type of object that is automatically drawn
+with lines of a different thickness.
+
+First we define a mixin and re-define the standard methods for it.
+
+
+define :mixin rc_thick;
+    slot rc_thickness = 0;
+enddefine;
+
+;;; These methods all need to be redefined
+
+define :method rc_move_to(pic:rc_thick, newx, newy, draw);
+    dlocal rc_linewidth = rc_thickness(pic);
+    call_next_method(pic, newx, newy, draw)
+enddefine;
+
+define :method rc_move_by(pic:rc_thick, dx, dy, draw);
+    dlocal rc_linewidth = rc_thickness(pic);
+    call_next_method(pic, dx, dy, draw)
+enddefine;
+
+define :method rc_set_axis(pic:rc_thick, ang, draw);
+    dlocal rc_linewidth = rc_thickness(pic);
+    call_next_method(pic, ang, draw)
+enddefine;
+
+define :method rc_turn_by(pic:rc_thick, ang, draw);
+    dlocal rc_linewidth = rc_thickness(pic);
+    call_next_method(pic, ang, draw)
+enddefine;
+
+;;; Now define a class that inherits from rc_thick and rc_rotator.
+define :class rc_thickpic; is rc_thick rc_rotator;
+    ;;; no new slots needed
+enddefine;
+
+Create an instance made of a triangle and a circle
+
+define :instance thick2:rc_thickpic;
+    pic_name = "thick2";
+    rc_picx = 50;
+    rc_picy = 50;
+    rc_thickness = 3;
+    rc_pic_lines = [[CLOSED {-20 -10}{0 15}{20 -10}][CIRCLE {0 10 10}]]
+enddefine;
+
+This will inherit the printing method from rc_rotator.
+    thick2 =>
+    ** <rotator thick2 50 50 axis:0>
+
+We can now move it
+    rc_start();
+    rc_move_to(thick2, 100, 100, true);
+
+Try moving and rotating the object.
+    repeat 10 times rc_move_by(thick2, -5, -5, true); endrepeat;
+
+    repeat 36 times rc_turn_by(thick2, 10, true); endrepeat;
+
+    repeat 36 times
+        rc_turn_by(thick2, 10, true);
+        rc_move_by(thick2, -3, 3, true)
+    endrepeat;
+
+Note that rc_draw_linepic has not been redefined appropriately for this
+class. This is left as an exercise. Define the method and test it on
+this.
+
+    rc_draw_linepic(thick2);
+
+-- A demonstration of moving pictures the "ant" demo ------------------
+
+This section describes another demonstration, but may be skipped if
+you merely want to learn more about details.
+
+The file
+    $poplocal/local/rclib/demo/rc_ant_demo.p
+
+contains a demonstration program illustrating moving objects. If you
+compile that file
+
+    loadrcdemo rc_ant_demo
+
+OR
+    load    $poplocal/local/rclib/demo/rc_ant_demo.p
+
+OR
+    ENTER rcdemo rc_ant_demo
+    ENTER l1
+
+then give a command something like this, where the number specifies the
+initial number of ants to be shown.
+
+    rc_ant_demo(10);
+
+This will create a window with a sub-window containing moving ants. If
+there are too few they may move so fast that you cannot see them. In
+that case increase the number by clicking on the up arrow button.
+You can decrease the number by clicking on the decrement button.
+
+You can stop the program by clicking on stop. Watch the behaviour when
+the ants get together.
+
+To examine the code do
+
+    ENTER rcdemo rc_ant_demo
+or
+    ENTER pved $poplocal/local/rclib/demo/rc_ant_demo.p
+
+You can then rename the file, alter it, etc.
+
+-- -- Exercises on extending the ant demo.
+
+You could try the following. Add a button that makes the demonstration
+"pause". I.e. it stops the program but doesn't destroy the window.
+You should then also have a "restart" button.
+
+Try extending the definition of the ant class so that if you click on an
+ant it prints out information about its current location and heading.
+
+Try making the ant room mouse sensitive so that if you click on it a new
+ant is created at that point and added to the list of ants.
+
+-- Related documentation ----------------------------------------------
+
+More on rc_linepic and rc_mousepic
+    HELP * RC_LINEPIC
+        Summarises the information presented here
+
+    HELP * RCLIB
+        Gives a broader overview
+
+    TEACH * RC_INTRO, * RC_BUTTONS, * RC_MOUSEPIC
+        Extend the information provided here
+
+    SHOWLIB * RC_LINEPIC
+        Inspect the library for creating, drawing and moving
+        pictorial objects, under program control.
+
+    SHOWLIB * RC_CONSTRAINED_MOVER
+        Facilities for constrained movers
+
+    SHOWLIB * RC_MOUSEPIC
+        Inspect the library for making objects sensitive to mouse
+        and keyboard actions.
+
+    SHOWLIB * RC_WINDOW_OBJECT
+    SHOWLIB * RC_BUTTONS
+
+
+General information about rc_graphic
+    TEACH * RC_GRAPHIC
+    HELP  * RC_GRAPHIC
+
+At Birmingham the following "rapid" introduction is available:
+    TEACH * GSTART
+        ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/teach/gstart
+
+RC_GRAPHIC Utilities
+(Warning some of these are local to Sussex and Birmingham)
+    HELP * RC_BACKGROUND
+        Shows how to change the background colour in an rc_graphic
+        window.
+
+    HELP * RC_WINDOW_COORDS
+        For accessing and updating location of Xgraphic window
+
+    HELP * RC_WINDOW_DIMENSIONS
+        For accessing and updating the window dimensions
+
+    TEACH * RC_ARRAY
+    HELP  * RCI_SHOW
+        Part of the popvision library available from Sussex. For
+        displaying images in rc_graphic windows.
+
+    TEACH * RC_GRAPHPLOT
+        Drawing graphs of many kinds
+
+Some of the utilities listed here, with associated documentation,
+including RC_LINEPIC and RC_MOUSEPIC may be fetched from the Poplog ftp
+directory at Birmingham
+    ftp://ftp.cs.bham.ac.uk/pub/dist/poplog
+
+in the subdirectory rclib, also available as compressed tar file.
+
+
+--- $poplocal/local/rclib/teach/rc_linepic
+--- The University of Birmingham 1997. All rights reserved. ------------

@@ -1,0 +1,56 @@
+HELP ELLIPSE_HOUGH                                  David Young
+                                                    March 1995
+
+LIB * ELLIPSE_HOUGH provides a very simple routine for finding a single
+instance of an ellipse with known axis lengths and orientation in an
+array, using a Hough transform. A subsdiary routine will find an
+instance of a circle of known radius. See the note on the limitations at
+the end of this file.
+
+ellipse_hough(array, a, b, alpha) -> (xc, yc)                [procedure]
+ellipse_hough(array, a, b, alpha, bool) -> (xc, yc, acc)
+        This returns  the  centre  coordinates  of  the  most  prominent
+        instance of an ellipse with major semi-axis a, minor semi-axis b
+        and orientation alpha  in the  image represented  by array.  The
+        orientation alpha  is  the  angle of  the  major  axis  measured
+        anticlockwise  from  the  X-axis  in  right-handed  coordinates,
+        clockwise in left-handed coordinates (see *appellipse).
+
+        The data in array must be  all numbers, and for efficiency  most
+        of these  should  be  zero.  The  non-zero  elements  should  be
+        positive numbers  giving  the  strength  of  evidence  for  edge
+        features. For instance,  array might  be the output  of an  edge
+        detector such as that provided  by the *canny library. For  each
+        non-zero element of  array, say array(x,  y), accumulator  array
+        elements lying on an ellipse  centred on (x, y) are  incremented
+        by the value of array(x, y).  The accumulator bins are the  same
+        size as the image  pixels. The results are  the position of  the
+        maximum value in  the accumulator array,  modified by  averaging
+        over a 3x3 window.
+
+        The optional final boolean argument, if given and <true>, causes
+        the accumulator array to be returned also.
+
+circle_hough(array, r) -> (xc, yc)
+circle_hough(array, r, bool) -> (xc, yc, acc)
+        This does the same  job for a  circle of known  radius r. It  is
+        just implemented as ellipse_hough(array, r, r, 0).
+
+Note on limitations
+-------------------
+
+It is necessary to know the size, eccentricity and orientation of the
+target ellipse, or the radius of the target circle. Routines to find
+these parameters would need to be considerably more complex.
+
+These are simple demonstration routines - they do not use external
+procedures, so are relatively slow. Also, they do not allow control over
+bin size or accumulator postprocessing, they only return a single
+instance of the object without an indication of the strength of
+evidence, and they do not allow access to the accumulator array.  These
+things could be added, at the expense of more complexity in the
+arguments and results.
+
+
+--- $popvision/help/ellipse_hough
+--- Copyright University of Sussex 1995. All rights reserved.

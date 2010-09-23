@@ -1,0 +1,196 @@
+HELP RC_IMAGE                                       David Young
+                                                    January 1991
+                                                    revised Feb. 1994
+
+-----------------------------------------------------------------------
+|               RC_IMAGE has been superseded by RC_ARRAY              |
+|               See HELP * RC_ARRAY and TEACH * RC_ARRAY              |
+|                                                                     |
+|               RC_IMAGE will be withdrawn sometime so should         |
+|               not be used in new programs.                          |
+-----------------------------------------------------------------------
+
+LIB RC_IMAGE provides a convenient way of displaying grey-level images
+from POPLOG under X-windows.  It is tied in to *RC_GRAPHIC to make it
+easy to combine graphics and image display, using the same coordinate
+system for the graphics as for the indices of the array representing the
+image.
+
+For a simpler procedure for straightforward applications see *RCI_SHOW.
+
+The library is made autoloadable on loading LIB *VISION.
+
+See TEACH *RC_IMAGE for examples of use.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- The display procedure
+ -- Changing the colour map
+ -- Setting the coordinate system
+ -- Efficiency considerations
+ -- Problems and possible improvements
+
+-- The display procedure ----------------------------------------------
+
+The main procedure displays a grey-level array in the window held in
+-rc_window- (see *RC_GRAPHIC).
+
+rc_image(ARR, DISPLAY_REGION, ARRAY_REGION, BLACKVAL, WHITEVAL);
+        ARR is any array containing only numbers. The array can be of
+        any type, but packed arrays of single precision floats and bytes
+        are handled more efficiently.
+
+        DISPLAY_REGION specifies where in the window to show the array,
+        in terms of user coordinates. It can be:
+
+            <false> (or anything else not a list). This is the normal
+            and most useful case. The array is displayed so that the
+            element ARR(X, Y) is displayed centred at USER coordinates
+            (X, Y), for all X and Y. (See *RC_GRAPHIC for what user
+            coordinates are. -rc_transxyout- must not have been
+            redefined.) If -rc_xscale- and -rc_yscale- are integers,
+            then each array element is displayed using an
+            -rc_xscale- x -rc_yscale- rectangle of screen pixels. (If
+            not, then the number of pixels for each array element will
+            vary.)
+
+            A list of the form [UX0 UX1 UY0 UY1].  The array will be
+            displayed inside the rectangular region of the window with
+            diagonally opposite corners at (UX0,UY0) and (UX1,UY1) in
+            USER coordinates. The ordering of the list is like the
+            ordering of an array boundslist. Note that the rectangle
+            specified ENCLOSES the region to draw in. This means that if
+            the boundslist of ARR is [AX0 AX1 AY0 AY1], giving <false>
+            as this argument is equivalent to giving it as [AX0-0.5
+            AX1+0.5 AY0-0.5 AY1+0.5].
+
+            A list of the form above, but with X0 or X1 not a number,
+            and/or Y0 or Y1 not a number. Any non-numerical values are
+            worked out by reference to the boundslist of the array,
+            adding or subtracting the X or Y size as appropriate. For
+            example, a list of the form [X0 undef Y0 undef] specifies
+            the position of one corner, but allows the position of the
+            other corner to be worked out so that the scale is correct.
+
+        ARRAY_REGION specifies which part of the array to display, in
+        terms of the array indices (i.e. it is in "array coordinates").
+        It can be:
+
+            <false>: Display the whole of the array.
+
+            A list of the form [RX0 RX1 RY0 RY1]. Only the pixels in
+            this boundslist-type region specification are displayed.
+            <false> is equivalent to the array boundslist.
+
+        [Note that DISPLAY_REGION above defines a window region
+        corresponding to the WHOLE array, and this still applies when
+        ARRAY_REGION is used to restrict the part of the array actually
+        drawn. So if you draw one part of the array using one setting of
+        ARRAY_REGION, and another part using a different setting, but
+        keep DISPLAY_REGION the same, the two regions will be displayed
+        in their correct relative positions.]
+
+        BLACKVAL is a number specifying the value in the array which is
+        to correspond to black (or the first colour in a colour list) on
+        the screen. Alternatively, it may be a boolean:
+
+            <false>: Use the minimum value in the array.
+
+            <true>: If the array has an arrayvector with integer
+            fields (e.g. it's a string array), then use the minimum
+            value which can be stored in the array (e.g. 0 for a string
+            array). Otherwise same as <false>.
+
+        WHITEVAL is a number specifying the value in the array which is
+        to correspond to white (or the last colour in a colour list) on
+        the screen.  Numbers between BLACKVAL and WHITEVAL get mapped to
+        the intervening shades of grey. Alternatively, WHITEVAL may be a
+        boolean
+
+            <false>: Use the maximum value in the array.
+
+            <true>: If the array has an arrayvector with integer
+            fields (e.g. it's a string array), then use the maximum
+            value which can be stored in the array (e.g. 255 for a
+            string array). Otherwise same as <false>.
+
+-- Changing the colour map --------------------------------------------
+
+rci_cmap(OPTION)
+        This changes the mapping from array values to colour map
+        entries. OPTION may be
+
+            The word linear.  This is the initial setting. The colour
+            map entries change linearly from r = 0, g = 0, b = 0 (to
+            which BLACKVAL is mapped) to r = 255, g = 255, b = 255 (to
+            which WHITEVAL is mapped).
+
+            The word sqrt.  The colour map entries vary over the same
+            range but follow a square root rule. That is, the rgb values
+            for a pixel are linearly related to sqrt(V/R) where R is
+            WHITEVAL-BLACKVAL and V is a value in the array. This can
+            give a more natural image with more detail visible in the
+            darker areas.
+
+            A list of two or more colour names.  The colour names can be
+            words or strings, and must be valid names as listed in REF
+            *XCOLOURS.  The colour map entries vary continuously from
+            the first colour to the last, passing through any colours in
+            between. Linear interpolation between the colours is used.
+            Array values of BLACKVAL or less get shown as the first
+            colour; values of WHITEVAL or more get shown as the last
+            colour; in between is in between.
+
+        If OPTION is a colour list, all images drawn with a colour list
+        option in force are affected by the change, as well as all
+        images drawn up to the next call to rci_cmap. In other words, it
+        is not possible to show more than one colour spectrum at the
+        same time.  Images previously drawn with a grey-scale option are
+        not affected though.
+
+-- Setting the coordinate system --------------------------------------
+
+The default coordinate system used by RC_GRAPHIC is not very useful for
+images.
+
+rci_default_coords()
+        This routine sets the coordinate system for RC_GRAPHIC to have
+        (0,0) at the top left of the window, with X running left to
+        right and Y running top to bottom.  This is often more
+        convenient than the normal default for displaying images.
+
+-- Efficiency considerations ------------------------------------------
+
+For best speed, use a byte array or an array of single precision floats
+(as created by *NEWSARRAY and *NEWSFLOATARRAY respectively).
+
+In addition, the routine need do no resizing if the array elements map
+one-to-one onto the window pixels. This happens if RC_XSCALE and
+RC_YSCALE are both 1 (as set by -rci_default_coords-) and DISPLAY_REGION
+is <false>, or contains at least two <undef> elements.
+
+There will be some speedup of BLACKVAL or WHITEVAL are given as numbers,
+as otherwise the procedure has to find extrema in the array. (The same
+speedup is obtained if these arguments are <true> and the input is a
+byte or other integer array.)
+
+-- Problems and possible improvements ---------------------------------
+
+The mapping from array indices to user coordinates only works if
+-rc_transxyout- has its default definition.
+
+Only 8-bit displays are supported.  The library used to use *Xpi for
+greater generality, but since it was mainly being used on 8-bit displays
+this was a sledgehammer to crack a nut.
+
+Bit arrays could be handled more efficiently.
+
+The library tries to grab 128 colour map entries for its grey-level ramp
+and 64 for its colour spectra. It will mishap if these are not
+available. The remaining 64 entries are left for the system and the
+user.
+
+The library assumes that no -rc_window- has a private colour map.
+
+--- $popvision/help/rc_image
+--- Copyright University of Sussex 1991. All rights reserved. ----------

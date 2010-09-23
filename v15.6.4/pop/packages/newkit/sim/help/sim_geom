@@ -1,0 +1,96 @@
+HELP SIM_GEOM                                    Aaron Sloman April 1997
+
+LIB SIM_GEOM
+
+CONTENTS
+
+ -- Introduction
+ -- The procedures
+
+-- Introduction -------------------------------------------------------
+
+This library provides a first draft and limited collection of utilities
+for handling geometric and trigonometric computations in 2-D.
+It is based in part on the much older Pop-11 library, LIB * GEOMETRY)
+
+This library assumes that a point is represented by two numbers, i.e.
+its coordinates. The obvious alternative, using a record class to
+represent points will generally produce garbage owing to the need to
+compute intermediate points. Similarly, at present lines and line
+segments are represented by four sets of points, e.g. in the procedures
+
+    sim_intersect_lines(xa, ya, xb, yb, xc, yc, xd, yd) -> (x, y);
+    sim_intersect_segs(xa, ya, xb, yb, xc, yc, xd, yd) -> (x, y);
+
+If users wish to use a data structure to store points, e.g. pairs or
+other more complex structures, the x and y coordinates will need to be
+extracted before the point information is handed to these procedures.
+Similarly if datastructures are used to represent lines or line
+segments. It should be trivial to define interface procedures to do
+this.
+
+The library does introduce a record class representing angles, where
+each angle has both a number representing the magnitude of the angle in
+degress and two numbers representing the sin and cosine of the angle.
+This is because frequently recomputing the sin and cosine of an angle
+can be wasteful.
+
+    defclass sim_angle{sim_degrees, sim_cos, sim_sin};
+
+-- The procedures -----------------------------------------------------
+
+sim_normalise_angle(degrees) -> degrees  ;
+    Returns a number > 0 and <= 360
+
+sim_set_angle(angle, degrees);
+    update the angle record to correspend to the integer degrees
+
+sim_init_angle(degrees) -> angle;
+    Given an integer create an angle record
+
+sim_degrees_diff(degrees1, degrees2) -> diff;
+    Assume both degrees1 and degrees2 are in range 0 to 360
+    subtract and return a number in range -180 to 180.
+    Used in TEACH SIM_DEMO to compute the difference between
+    two headings
+
+sim_rotate_angle(angle, degrees);
+    Add degrees to the value already stored in the angle record,
+    then set rc_rotate_cos and rc_rotate_sin
+
+sim_angle_diff(angle1, angle2) -> degrees ;
+    Simply return the difference (in degrees) between the stored angles
+
+sim_angle_xy(x, y) -> degrees  ;
+    Given coordinates (x, y) of a point work out angle of the vector
+    from the origin to the point. The result is between 0 and 360
+    degrees.
+
+sim_heading_from(x1, y1, x2, y2) -> heading;
+    Return the heading in degrees of the vector from point (x1, y1)
+    to point (x2, y2)
+
+sim_distance_from(x1, y1, x2, y2) -> dist;
+    Computes the distance between two points.
+
+sim_subtend_ang(dist, width) -> degrees;
+    Return angle in degrees subtended by an object of width width
+    at distance dist.
+
+sim_intersect_lines(xa, ya, xb, yb, xc, yc, xd, yd) -> (x, y);
+    Does the line joining (xa ya) to (xb yb) intersect the line joining
+    (xc yc) to (xd yd)?
+    If so return coords of the intersection point otherwise return
+    (false false)
+
+sim_intersect_segs(xa, ya, xb, yb, xc, yc, xd, yd) -> (x, y);
+    Does the segment joining (xa ya) to (xb yb) intersect the
+    segment joining (xc yc) to (xd yd)?
+
+    If so return coords of the intersection point, otherwise return
+    (false false).
+
+TO BE EXTENDED. See also LIB * GEOMETRY, LIB * GEOM3D
+
+--- $poplocal/local/sim/help/sim_geom
+--- Copyright University of Birmingham 1997. All rights reserved. ------

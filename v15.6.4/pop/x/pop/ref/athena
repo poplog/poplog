@@ -1,0 +1,490 @@
+REF ATHENA                                     Andreas Schoter, Jun 1991
+                                           Revised, John Gibson Apr 1993
+
+        COPYRIGHT University of Sussex 1993. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<       THE POPLOG ATHENA     >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<           INTERFACE         >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This file provides some programming  details of the Poplog interface  to
+the Athena Widget Set.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   Loading Athena Widgets
+
+  3   Athena Widget Classes
+
+  4   Athena Procedures
+
+  5   Include Files: Constants and Typespecs
+
+  6   Additional Data Structures
+
+  7   Further Documentation
+
+
+
+---------------
+1  Introduction
+---------------
+
+Athena does  not have  any  special startup  requirements, so  only  the
+standard  sysxsetup  (or   XptDefaultSetup)  procedure   is  needed   to
+initialise the  toolkit before  creating Athena widgets. (If  you  start
+Pop-11 etc  with the  %x flag  then this  is done  automatically --  see
+REF * XT_INIT for details.)
+
+
+
+
+-------------------------
+2  Loading Athena Widgets
+-------------------------
+
+To use Athena library files, it is first necessary to extend popuseslist
+to include the Xaw sub-directory of  the main Poplog X library. This  is
+done with
+
+        uses Xaw;
+
+For each  Athena  widgetclass,  the Xaw  directory  defines  a  constant
+identifier xawFooBazWidget (in a file of that name) which you must 'use'
+in order to use the widgetclass, i.e.
+
+        uses xawFooBazWidget;
+
+Thus for example, the  Athena C widget  class name toggleWidgetClass  is
+mapped onto the Poplog name xawToggleWidget:
+
+        uses xawToggleWidget;
+        xawToggleWidget =>
+        <Xaw WidgetClass ToggleWidget>
+
+Alternatively, you can use LIB * XawAllWidgets:
+
+        uses XawAllWidgets;
+
+This is an Xaw library file containing  a uses for every widget, and  so
+loads them all once.
+
+Loading a Athena widgetclass will cause any associated procedures to  be
+loaded as well.
+
+
+
+
+------------------------
+3  Athena Widget Classes
+------------------------
+
+Each of the widgetclasses below is loaded by a file of the same name  in
+the Xaw  directory (the  files use  * XptLoadWidgetClass  to load  each
+class). Refer to the  appropriate section of the  Athena Widget Set  - C
+Language Interface for further details.
+
+
+XmAllWidgets                                                   [library]
+        This library loads all the widgetclasses below in one go.
+
+
+xawAsciiSinkObject  -> widgetclass                            [constant]
+        Used by text  widgets to  render text.  See Section  5.7 of  the
+        Athena manual for details.
+
+
+xawAsciiSrcObject   -> widgetclass                            [constant]
+        Used by  text widgets  to  read text from a  file or  string  in
+        memory. See Section 5.6 of the Athena manual for details.
+
+
+xawAsciiTextWidget  -> widgetclass                            [constant]
+        A compound widget including the Text widget, an AsciiSrc and  an
+        AsciiSink. See Section 5.5 of the Athena manual for details.
+
+
+xawBoxWidget        -> widgetclass                            [constant]
+        This widget provides geometry management for its children within
+        a box of  specified dimensions.  See Section 6.1  of the  Athena
+        manual for details.
+
+
+xawClockWidget      -> widgetclass                            [constant]
+        This widget provides a clock. It is not documented in the Athena
+        manual.
+
+
+xawCommandWidget    -> widgetclass                            [constant]
+        This widget provides a button containing a text label or bitmap.
+        Arbitrary procedures can be  associated with clicking the  mouse
+        within it.  See Section 3.1 of the Athena manual for details.
+
+
+xawDialogWidget     -> widgetclass                            [constant]
+        This widget provides for user interaction via input strings  and
+        command buttons.  See  Section  6.2 of  the  Athena  manual  for
+        details.  Note   that   adding   buttons   via   the   procedure
+        * XawDialogAddButton (described below) requires coercion of  any
+        Pop-11 procedures used as callbacks.
+
+
+xawFormWidget       -> widgetclass                            [constant]
+        This widgets provides geometry  management for its children.  It
+        allows  more   sophisticated   positioning  of   children   than
+        BoxWidget. See Section 6.3 of the Athena manual for details.
+
+
+xawGripWidget       -> widgetclass                            [constant]
+        This widget  provides a  small rectangular  region for  handling
+        mouse button events. See  Section 3.2 of  the Athena manual  for
+        details.
+
+
+xawLabelWidget      -> widgetclass                            [constant]
+        This widget  allows  the display  of  a string  or  bitmap  in a
+        rectangular region of the screen. See Section 3.3 of the  Athena
+        manual for details.
+
+
+xawListWidget       -> widgetclass                            [constant]
+        This widget manages a  list of strings  formatted into rows  and
+        columns which can be individually  selected with the mouse.  See
+        Section 3.4 of the Athena manual for details.
+
+
+xawLogoWidget       -> widgetclass                            [constant]
+        This widget displays the  MIT X Window's  Logo in a  rectangular
+        window. It is not documented in the Athena manual.
+
+
+xawMailboxWidget    -> widgetclass                            [constant]
+        This widget displays the pixmap graphic of the mailbox icon used
+        by xbiff. It is not documented in the Athena manual.
+
+
+xawMenuButtonWidget -> widgetclass                            [constant]
+        This widget provides  a button  to which pulldown  menus can  be
+        attached. See Section 4.6 of the Athena manual for details.
+
+
+xawPanedWidget      -> widgetclass                            [constant]
+        This widget provides geometry  management for children  arranged
+        either  vertically  or   horizontally:  the   children  may   be
+        dynamically resized by the user.  See Section 6.4 of the  Athena
+        manual for details.
+
+
+xawScrollbarWidget  -> widgetclass                            [constant]
+        This widget provides a rectangular area with a slider (or thumb)
+        for generating values. See Section 3.5 of the Athena manual  for
+        details.
+
+
+xawSimpleMenuWidget -> widgetclass                            [constant]
+        This widget provides  a basic  container for  menu entries.  See
+        Section 4.2 of the Athena manual for details.
+
+
+xawSimpleWidget     -> widgetclass                            [constant]
+        This widget  is used  as a  superclass for  other Athena  simple
+        widgets. See Section 3.6 of the Athena manual for details.
+
+
+xawSmeBSBObject     -> widgetclass                            [constant]
+        This object is used to create  a menu entry containing a  string
+        (and option bitmaps). See Section  4.3 of the Athena manual  for
+        details.
+
+
+xawSmeLineObject    -> widgetclass                            [constant]
+        This object is used to add horizontal, non-selectable entries to
+        menus. See Section 4.4 of the Athena manual for details.
+
+
+xawSmeObject        -> widgetclass                            [constant]
+        This is the base class for all menu entries. See Section 4.5  of
+        the Athena manual for details.
+
+
+xawStripChartWidget -> widgetclass                            [constant]
+        This widget provides  a real  time data  graphing facility.  See
+        Section 3.7 of the Athena manual for details.
+
+
+xawTemplateWidget   -> widgetclass                            [constant]
+        This widget provides a basic  template for widget creation.  See
+        Section 7 of the Athena manual for details.
+
+
+xawTextSinkObject   -> widgetclass                            [constant]
+        This is the root object for all text sinks. See Section 5.11  of
+        the Athena manual for details.
+
+
+xawTextSrcObject    -> widgetclass                            [constant]
+        This is the root object for  all text sources. See Section  5.10
+        of the Athena manual for details.
+
+
+xawTextWidget       -> widgetclass                            [constant]
+        This widget is used as the core of the Athena text  manipulation
+        facilities. See Section 5.9 of the Athena manual for details.
+
+
+xawToggleWidget     -> widgetclass                            [constant]
+        This widget provides a mouse selectable button that  maintains a
+        Boolean state. For details see Section 3.8 of the Athena manual.
+
+
+xawViewportWidget   -> widgetclass                            [constant]
+        This widget provides  a facility  for creating  a window  onto a
+        large area  of data  that  can be  moved using  scrollbars.  See
+        Section 6.5 of the Athena manual for details.
+
+
+
+
+--------------------
+4  Athena Procedures
+--------------------
+
+Many Athena  widgetclasses have  convenience functions  associated  with
+them.  When  a  widgetclass  is   loaded  these  functions  are   loaded
+automatically. Poplog  provides a  transparent  interface to  these  via
+Pop-11 procedures of the same  name as the Athena  C versions . For  the
+most part the calling semantics of these Pop-11 procedures are identical
+with the  equivalent C  functions  and the  reader  is referred  to  the
+relevant sections of  the Athena Widget  Set Manual, but  in some  cases
+coercion  must  be  performed  on  the  arguments  before  calling.  The
+following  section  lists  all   the  convenience  functions   provided,
+indicating which  widgetclass  loads  them,  and  where  necessary,  the
+coercion that must be done on procedure arguments.
+
+(The files defining the  Xaw- procedures employ XptPopLoadProcedures  to
+load them.)
+
+
+XawAsciiSave(widget) -> bool                                 [procedure]
+XawAsciiSaveAsFile(widget, string) -> bool                   [procedure]
+XawAsciiSourceChanged(widget) -> bool                        [procedure]
+XawAsciiSourceFreeString(widget)                             [procedure]
+        These procedures are loaded by xawAsciiSrcObject. See the Athena
+        manual, Section 5.6.2 for details.
+
+
+XawDialogAddButton(widget, string, callback_p, client_data)  [procedure]
+XawDialogGetValueString(widget) -> string                    [procedure]
+        These procedures are loaded by xawDialogWidget. Note that it  is
+        necessary to  coerce the  procedure p  to an  external  function
+        callback_p (using for example * XptExportCallback). E.g, to  add
+        a  button  named  'CONFIRM'   with  callback  procedure  p   and
+        client_data 'confirm_button'  to  the  DialogWidget  widget  one
+        would have to do
+
+            XawDialogAddButton(
+                widget,
+                'CONFIRM',
+                XptExportCallback(p, 'confirm_button', true)
+            );
+
+        See the Athena manual, Section 6.2.5 for details.
+
+
+XawFormDoLayout(widget, bool)                                [procedure]
+        This procedure  is  loaded  by  xawFormWidget.  See  the  Athena
+        manual, Section 6.3.4 for details.
+
+
+XawListChange(widget, vec, int1, int2, bool)                 [procedure]
+XawListHighlight(widget, int)                                [procedure]
+XawListUnhighlight(widget)                                   [procedure]
+XawListShowCurrent(widget) -> exptr                          [procedure]
+        These procedures  are  loaded  by  xawListWidget.  exptr  is  an
+        external pointer  to  an  XawListReturnStruct.  See  the  Athena
+        manual, Sections 3.4.4 to 3.4.7 for details.
+
+
+XawPanedAllowResize(widget, bool)                            [procedure]
+XawPanedSetMinMax(widget, int1, int2)                        [procedure]
+XawPanedGetMinMax(widget, int1, int2)                        [procedure]
+XawPanedSetRefigureMode(widget, bool)                        [procedure]
+XawPanedGetNumSub(widget) -> int                             [procedure]
+        These procedures are  loaded by xawPanedWidget.  See the  Athena
+        manual, Section 6.4.6 for details.
+
+
+XawScrollbarSetThumb(widget, float1, float2)                 [procedure]
+        This procedure is loaded  by xawScrollbarWidget. See the  Athena
+        manual, Section 3.5.4 for details.
+
+
+XawSimpleMenuAddGlobalActions(appcon)                        [procedure]
+XawSimpleMenuGetActiveEntry(widget1) -> widget2              [procedure]
+XawSimpleMenuClearActiveEntry(widget)                        [procedure]
+        These procedures are  loaded by  xawSimpleMenuWidget. appcon  is
+        the application  context for  which  the menu's  global  actions
+        should be registered.  See the Athena  manual, Sections  4.2.4.1
+        and 4.2.4.2 for details.
+
+
+XawTextDisableRedisplay(widget)                              [procedure]
+XawTextDisplay(widget)                                       [procedure]
+XawTextEnableRedisplay(widget)                               [procedure]
+XawTextGetInsertionPoint(widget) -> xtp                      [procedure]
+XawTextGetSelectionPos(widget, xtp1, xtp2)                   [procedure]
+XawTextGetSource(widget1) -> widget2                         [procedure]
+XawTextInvalidate(widget, xtp1, xtp2)                        [procedure]
+XawTextSearch(widget, xtsd, xtb) -> xtp                      [procedure]
+XawTextSetInsertionPoint(widget, xtp)                        [procedure]
+XawTextSetSelection(widget, xtp1, xtp2)                      [procedure]
+XawTextSelectionArray(widget, sarray)                        [procedure]
+XawTextSetSource(widget1, widget2, xtp)                      [procedure]
+XawTextTopPosition(widget) -> xtp                            [procedure]
+XawTextUnsetSelection(widget)                                [procedure]
+XawTextReplace(widget, xtp1, xtp2, xtb) -> int               [procedure]
+        These  procedures  are  loaded  by  xawTextWidget.  xtp  is   an
+        XawTextPosition  structure,  and   xtb  is  a   pointer  to   an
+        XawTextBlock structure. xtsd  is an XawTextScanDirection  value.
+        Refer to the Athena manual, Section 5.4 for details.
+
+
+XawTextSinkClearToBackground(widget, int1, int2,             [procedure]
+                                        int3, int4)
+XawTextSinkDisplayText(widget, int1, int2,                   [procedure]
+                                        xtp1, xtp2, bool)
+XawTextSinkFindDistance(widget, xtp1, int1, xtp2, int2,      [procedure]
+                                        xtp3, int3)
+XawTextSinkFindPosition(widget, xtp1, int1, int2, bool,      [procedure]
+                                        xtp2, int3, int4)
+XawTextSinkGetCursorBounds(widget, xrect)                    [procedure]
+XawTextSinkInsertCursor(widget, int1, int2, xtis)            [procedure]
+XawTextSinkMaxHeight(widget, int1) -> int2                   [procedure]
+XawTextSinkMaxLines(widget, int1) -> int2                    [procedure]
+XawTextSinkResolve(widget, xtp1, int1, int2, xtp2)           [procedure]
+XawTextSinkSetTabs(widget, int1, int2)                       [procedure]
+        These procedures  are loaded  by  xawTextSinkObject. xtp  is  an
+        XawTextPosition  structure,  and  xrect  is  a  pointer  to   an
+        XRectangle (refer to X  Windows documentation for details).  For
+        details of these functions refer to the Athena manual,  Sections
+        5.11.2.1 to 5.11.2.8.
+
+
+XawTextSourceRead(widget, xtp1, xtb, int) -> xtp2            [procedure]
+XawTextSourceReplace(widget, xtp1, xtp2, xtb) -> xtp2        [procedure]
+XawTextSourceScan(widget, xtp1, xtst, xtsd, int, bool)       [procedure]
+                                                -> xtp2
+XawTextSourceSearch(widget, xtp1, xtsd, xtb) -> xtp2         [procedure]
+XawTextSourceConvertSelection(widget, xatom1, xatom2,        [procedure]
+                     xatom3, exptr, ulong, int) -> bool
+XawTextSourceSetSelection(widget, xtp1, xtp2, xatom)         [procedure]
+        These procedures  are  loaded  by xawTextSrcObject.  xtp  is  an
+        XawTextPosition  structure;  xtsd  is  an   XawTextScanDirection
+        value; xtst is an XawTextScanType value; xtb is an  XawTextBlock
+        structure. For a description  of xatom see  REF * XPT_ATOMCACHE.
+        For full  details  of these  functions  see the  Athena  Manual,
+        Sections 5.10.2.1 to 5.10.2.5
+
+
+XawToggleChangeRadioGroup(widget1, widget2)                  [procedure]
+XawToggleGetCurrent(widget) -> string                        [procedure]
+XawToggleSetCurrent(widget, string)                          [procedure]
+XawToggleUnsetCurrent(widget)                                [procedure]
+        These procedures are  loaded by xawToggleWidget.  Note that  the
+        string passed as argument to XawToggleSetCurrent must be a fixed
+        address string (see REF * XtN)  as must the string specified  as
+        the value of the  coresponding radioData resource. See  Sections
+        3.8.4 and 3.8.5 of the Athena manual for details.
+
+
+
+
+-----------------------------------------
+5  Include Files: Constants and Typespecs
+-----------------------------------------
+
+The following include files are available for Athena; you can include or
+loadinclude them:
+
+    # INCLUDE * XawConstants
+    # INCLUDE * XawCardinals
+
+Most Athena constants are declared as Pop-11 iconstants in these  files,
+most of them in INCLUDE * XawConstants.  In addition, typespecs for  all
+Athena structures are provided, so that it is possible to access data in
+these structures using exacc. All such  typespecs have the same name  as
+their C counterparts.
+
+
+GripCallDataRec                                               [typespec]
+        A pointer to an object of type GripCallDataRec is passed as  the
+        call_data to any  callback associated  with a  Grip widget.  See
+        Section 3.2.2 of the Athena manual for details.
+
+
+GripCallData                                                  [typespec]
+        A pointer  to an  object of  type GripCallDataRec.  See  Section
+        3.2.2 of the Athena manual for details.
+
+
+XawListReturnStruct                                           [typespec]
+        This type is used  by the ListWidget. See  Section 3.4.3 of  the
+        Athena manual for details.
+
+
+XawTextPosition                                               [typespec]
+        This type is used by the TextSrcObject for a position in a  text
+        buffer.
+
+
+XpawTextBlock                                                 [typespec]
+        This typespec is used  by the TextWidget.  See Section 5.4.4  of
+        the Athena manual for details.
+
+
+XpawTextBlockPtr                                              [typespec]
+        A pointer to an object of type XpawTextBlock.
+
+
+
+
+-----------------------------
+6  Additional Data Structures
+-----------------------------
+
+Additional datastructure support is provided by shadowclass definitions.
+These are used in situations where  you need to build datastructures  in
+Poplog to pass out to Athena,  and follow similar naming conventions  to
+the shadowclasses defined by the  Poplog X Toolkit. Currently, there  is
+only  one  shadowclass,  for   the  XpawTextBlock  structures  used   by
+xawTextWidget:
+
+
+XpawTextBlockPtr                                           [shadowclass]
+        This is a shadowclass definition  provided to faciltate the  use
+        of XpawTextBlock in certain TextWidget procedures. It is defined
+
+            shadowclass XpawTextBlockPtr {:XpawTextBlock};
+
+
+
+
+------------------------
+7  Further Documentation
+------------------------
+
+    # HELP * ATHENA
+    # TEACH * ATHENA
+
+And of course Athena Widget Set - C Language Interface, X Window System,
+by Chris D. Peterson, MIT X Consortium.
+
+
+
+--- C.x/x/pop/ref/athena
+--- Copyright University of Sussex 1993. All rights reserved.

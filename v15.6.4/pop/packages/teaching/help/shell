@@ -1,0 +1,1229 @@
+HELP SHELL                            Jonathan Laventhol, 5 October 1983
+                                                 Modified by Tom Khabaza
+                                            Revised A. Sloman 8 Dec 2000
+
+Please send suggestions for extending or improving this file to
+A.Sloman. It was written primarily for users of Poplog, but may be
+useful for others also. Links to this this file have been provided in
+other places on the system, e.g. /bham/doc/help/unix.shell
+
+Readers who are completely new to Unix may find it helpful to start with
+TEACH UNIX.INTRO and the online guide:
+
+    http://www.cs.bham.ac.uk/studentinfo/computing-handbook/
+
+
+
+CONTENTS
+
+ -- INTRODUCTION
+ -- Man files
+ -- RECOGNISING THE SHELL
+ -- ENVIRONMENT VARIABLES
+ -- -- Setting up environment variables
+ -- -- Poplog-related environment variables
+ -- INITIALISATION OF POPLOG
+ -- -- More information on environment variables and initialisation
+ -- LISTING AND REMOVING YOUR FILES
+ -- GETTING A LONG DIRECTORY LISTING
+ -- DELETING FILES
+ -- INCOMPLETE FILENAMES
+ -- MOVING AND COPYING FILES
+ -- DIRECTORIES
+ -- -- The current directory
+ -- -- The Unix root directory and its sub-directories
+ -- A SHORTHAND NAME FOR YOUR OWN DIRECTORY
+ -- A SHORTHAND NAME FOR SOMEONE ELSE'S DIRECTORY
+ -- CREATING A SUBDIRECTORY
+ -- -- Putting your Pop-11 and VED startup files in a subdirectory
+ -- MOVING BETWEEN DIRECTORIES
+ -- -- Use of ".."
+ -- --Getting back to your login directory
+ -- -- WARNING about the cd command
+ -- FINDING OUT ABOUT YOUR PROCESSES
+ -- KILLING OLD PROCESSES
+ -- GETTING TO THE SHELL TEMPORARILY
+ -- FOR THOSE WITH CONFIDENCE
+ -- USE OF '!'
+ -- TEMPORARILY RETURNING TO ORIGINAL SHELL (stop and ENTER stop)
+ -- SENDING AND READING MESSAGES (Electronic mail)
+ -- PRINTING FILES
+ -- PASSWORDS
+ -- SUMMARY OF SHELL COMMANDS
+ -- ONLINE UNIX TUTOR
+ -- ASSOCIATED DOCUMENTATION
+
+-- INTRODUCTION -------------------------------------------------------
+
+When you log in to a computer you have to interact with a 'SHELL'
+program which interprets your commands, including possibly commands to
+run another program which can then take over interpreting your commands.
+For example if you run VED that takes over interpreting your commands.
+
+Different operating systems use different sorts of initial shell
+programs. On UNIX operating systems (of which there are several
+different kinds) two main kinds of 'SHELL' program can be found, one
+simply called 'SH' the other 'CSH' and known as the 'CSHELL', as found
+on the sea shore.
+
+Both types of shell enable you to give a range of commands, e.g. to read
+mail, copy files, list the files in your directory, and run any programs
+available on the machine. However, the CSHELL is a bigger more powerful
+program, and is not available on all UNIX systems, whereas there is
+always a version of 'SH'.
+
+Besides SH and CSH there are now many other Unix shells, including KSH,
+BASH (which are extensions of SH) and TCSH (which is an extension of
+CSH), all with slightly different features and disadvantages.
+
+NOTE: upper case has been used here for clarity, though all these
+programs have names that are lower case only.
+
+Each user has a default shell which is started up when that user logs
+in. It may be possible to change the shell, depending on which system
+you are using.
+
+The shell will normally allow you to specify a 'login command file' in
+your home directory, to enable you to control terminal settings and
+other things.
+
+For 'csh' and 'tcsh' the main startup file is called '.login', and for
+'sh', and related shells, e.g. 'ksh' and 'bash' the main startup file is
+'.profile'. For details consult your local UNIX expert, or manuals. If
+you don't have one of these set up suitably you will have difficulty
+running Pop-11 and other systems on our network.
+
+For csh and tcsh there is usually another subsidiary startup file called
+'.cshrc' which is run each time a new shell program starts running, e.g.
+in a new window, which is not necessarily a 'login shell' because you
+have already logged in. Your login shell will run both .cshrc and .login
+usually.
+
+You can sometimes tell which sort of shell you are interacting with when
+you log in by the 'prompt' printed out to invite you to type a command.
+By default, SH prints '$' and CSH prints '%', though it is usually
+possible to change the prompt, e.g. to remind you which machine you are
+using, and which directory you are in. For many people the command to
+change the prompt to something more informative is already included in
+their .login or .cshrc or .profile file, provided by the system
+managers.
+
+In all the following it is assumed that you are using CSH (or TCSH,
+which is very similar), and therefore our examples all use '%'. If you
+wish to run SH (or KSH or BASH) instead, some of the facilities will
+work differently, and the prompt may look different. (See also USE OF
+'!' below.)
+
+NOTE: people using the central Information Services computing facilities
+at Birmingham will normally be given KSH as their default shell, and
+will have a file called .profile as their default login script. You can
+change to csh by adding at the end of your .profile, the line
+
+    exec /bin/csh
+
+and editing your .cshrc.
+
+The remainder of this file describes how to deal with the shell, in
+order to delete files, find out what files you have, send mail, etc.
+This is solely an introductory guide, and doesn't give you full
+information.
+
+-- Man files ----------------------------------------------------------
+
+To find out full details regarding Unix facilities, you will have to
+read UNIX online manuals, or "man" files. These are accessible from VED
+as described in HELP * MAN. However many of them are very terse and hard
+for beginners to understand. To see an example of a simple man file,
+type in VED
+    ENTER man who
+
+you can quit the file after scanning it briefly. The "man" command can
+also be given direct to the shell prompt, e.g.
+
+    % man who
+
+However you will then have to use the space bar to read the next page,
+press the "b" key to go back a page, and press "q" to stop.
+
+-- RECOGNISING THE SHELL ----------------------------------------------
+
+You will know that you are in the shell by the prompt that the computer
+prints at you -- it is normally a percent sign (%) for the CSH, and a
+dollar ($) for SH, and may have other information showing which computer
+you are using, and how many commands you have typed, e.g.
+
+    dipsy50 %
+
+However, it is possible to set up your login files to change the default
+prompt.
+
+In what follows we leave out all the details of the shell prompt apart
+from the percent symbol: "%"
+
+When you log in, or start up a new xterm window, you will get the shell
+prompt. You can then type a command to start up a program. E.g. to run
+POP11 or Prolog.  Just type the name of the language you want:
+
+        % pop11
+ or     % prolog
+ or     % clisp
+
+(Don't type the '%' - that's the prompt printed out by the shell.)
+
+Some programs start up their own windows for you to interact with,
+so they need not use the xterm window. You can run them with an
+ampersand to tell the shell to run them in the background, e.g.
+to run XVED
+
+    % xved &
+
+or to start a new xterm window:
+    % xterm &
+
+Many interactive programs allow you to terminate the interaction by
+pressing the end-of-file key (which is usually CTRL d, in Unix). After
+that you will be back talking to the shell. The end-of-file key is
+generally used to indicate that you have finished with some process, and
+want to get back to where you were before you started it. In particular,
+if you type it to the shell, the shell will stop, and if that is the
+shell process which ran when you logged in, stopping it will have the
+effect of logging you out.
+
+If you type that command (or "exit") in an xterm window which is simply
+running your shell, then the window will be closed.
+
+If you are using the editor VED or XVED, you need a more complex command
+to leave it, e.g.
+    ENTER bye
+
+Some versions of shell allow you to put something into your login start
+up command file to prevent accidental logouts caused by pressing the
+end-of-file key. You can normally then log out by typing, to CSH
+
+        % logout
+
+or, to SHELL
+
+        $ exit
+
+PLEASE DON'T FORGET TO LOG OUT WHEN YOU FINISH -- Someone else might
+want to use your terminal.
+
+
+-- ENVIRONMENT VARIABLES ----------------------------------------------
+When programs run they need to find information about how you want them
+to behave. There are several ways they can do this.
+
+    1. They can prompt you with requests for decisions. This can be
+    very tedious and slow.
+
+    2. You can specify how to run them by giving a command which has
+    lots of extra information saying how to start up. E.g. you can
+    give font, size and location information in extra parameters when
+    you run xterm to start an xterm window on your terminal
+
+        xterm -fn 10x20 -geometry 80x30+10+10 &
+
+    Giving the extra "flags" can be tedious for commands that you start
+    up frequently. However, you can define an "alias" for such a command
+    in your .cshrc file, so that you just type the alias each time,
+    instead of the full command. See MAN * CSH. Search for 'Aliases'
+
+    3. You can create an initialisation file. Many programs use these.
+    E.g. your files called .login .cshrc .Xdefaults .xclients .mailrc
+    are all examples of files that are read by specific programs when
+    they start up. Some programs also look at "system-wide"
+    initialisation files, which are maintained by our system managers.
+
+    4. You can use "environment variables". These are identifiers
+    that are usually defined when you log in or possibly just before you
+    start running a program, which are associated with strings of
+    information specifying what sort of behaviour you want. Unix
+    environment variables are normally referred to in Unix commands
+    by putting a "$" before the name of the variable. Examples of
+    commonly used environment variables are
+        $PRINTER
+            This tells many printing programs which printer you wish
+            to use if you don't specify a printer.
+            See TEACH PRINTING, HELP PRINTERS
+
+        $VISUAL $EDITOR
+            These tell many programs which editor to use if they need
+            you to type in some text. For example some mail programs may
+            run your favourite editor every time you wish to compose
+            a message or reply to a message.
+
+        $PATH
+            This has as its value a set of directory names, telling the
+            the Unix shell where to look for programs when you give a
+            command. E.g. if you type "who" to the shell it will
+            probably find the program code for the "who" command in a
+            directory called /bin. Other commands may be in other
+            directories. (For CSHELL users the variable $path can be
+            used instead of $PATH, but with a different syntax.)
+
+        $MANPATH
+            This tells the "man" command where to look for the online
+            manual files.
+
+        $DISPLAY
+            This tells X "client" programs, like xterm, netscape and
+            others where to find the screen you are using. For example
+            you could be logged in to a remote computer connected to
+            many terminals with screens. It has to know which one to use
+            for your programs.
+
+Note other operating systems use different a name for environment
+variables. For example, in VMS they are called "logical names"
+
+-- -- Setting up environment variables
+
+How you define environment variables depends on which kind of shell you
+are using.
+
+
+1. If it is csh or tcsh you use the format
+
+    setenv <environment variable> <string>
+
+Example: if you wish to put your poplog startup files in a subdirectory
+of your main directory called pop, you can do
+
+    setenv poplib ~/pop
+
+Such commands are normally given in your .login file, or possibly your
+.cshrc file (though using the latter can be wasteful as it is read
+every time a shell sub-process starts).
+
+2. If your shell is sh, or ksh or bash, you use a different format,
+which may vary slightly from one case to another. The main format is
+
+    <environment variable>=<string>
+
+or possibly
+
+    export <environment variable>=<string>
+
+Such commands are normally given in a start-up file called .profile
+
+Example:
+    poplib='~/pop'
+
+-- -- Poplog-related environment variables
+
+Before you can start up Poplog it must know where all the poplog files
+are kept on our system. Several environment variables provide this
+information, including $usepop $popsys $popautolib $poplocal $popsavelib
+$poplocalbin $popcom and several more.
+
+In addition you yourself may wish to specify a location where your
+poplog startup files are to be found, e.g. init.p vedinit.p. For that
+you need to set the value of the environment variable $poplib to be the
+name of the directory where you keep the files. If you don't set it
+explicitly poplog will assume it is your login directory. It is probably
+more sensible to use a special directory, e.g. called Poplib or poplib.
+
+
+(Note for experts: Poplog programs can access environment variables via
+the procedure called systranslate.)
+
+-- INITIALISATION OF POPLOG -------------------------------------------
+
+Before you start up any of the Poplog programs (pop11, prolog, lisp,
+pml or ved) you need to make sure that all the environment variables
+required have been set up. For regular poplog users this is normally
+done by a command in your .login file or .profile file, depending on
+which sort of shell you normally use. For example users of csh will have
+in their .login file a command something like
+
+    source /bham/global/poplogin
+
+This "source" command tells the login csh process to treat that named
+file as if all of its contents were in your .login file.
+
+For users of ksh on (e.g. on Sun1 or ISDUGP) your .profile file may have
+a command line something like
+
+    . /bham/global/poplogin.ksh
+
+The poplogin file will itself run several other files setting up new
+environment variables and extending your $PATH environment variable so
+that Poplog programs can be found when you try to run them.
+
+-- -- More information on environment variables and initialisation
+
+The following POPLOG help files contain information on the process of
+starting up POPLOG (pop11, prolog, lisp, ml, and VED) including;
+
+    Environment variables
+    Setting up the environment
+    Search paths used when POPLOG starts up
+    Directories
+    Running POPLOG
+    Using initialisation files to tailor the system
+    Initialisation files for POP-11 Prolog Lisp and VED
+    Changing $poplib
+    Tailoring POP-11
+    Tailoring Prolog
+    Tailoring Common Lisp
+    Initialising VED
+    VED Search lists
+    Tailoring VED for Individual files
+    Examples of tailoring and initialisation files
+    Running saved images
+    Layered saved images
+    Running POPLOG with parameters
+    Running UNIX saved images with no abbreviation facility
+
+    *INITIAL        - initialisation and tailoring of POPLOG
+    *INITIAL.EX     - examples of initialisation procedures
+    *PARAMETERS     - passing command line parameters to POP-11
+
+
+-- LISTING AND REMOVING YOUR FILES ------------------------------------
+
+You may often wish to find out which files you have. You can use the
+Unix 'ls' command to do this.
+
+        % ls
+
+will print out names of all the files you have in the current
+'directory' (see below for directories). The files will be arranged in
+columns.
+
+-- GETTING A LONG DIRECTORY LISTING -----------------------------------
+
+To get more information use the command:
+
+        % ls -l
+
+In VED you can give such a Unix command thus:
+
+    ENTER unix ls -l
+
+This has the benefit that if the command prints out lots of information
+you can read it easily in a VED window by moving up and down in the
+normal way.
+
+The "ls -l" command will give a 'long' listing, indicating the
+protection, the number of 'links' to the file, the owner of the file,
+the size (number of characters in the file), the creation date and time,
+and finally the name of the file. For example, it might look like this,
+if your login name is 'pqr' and you are in a group called 'ug':
+
+    drwx------  17 pqr      ug       8192 Nov  6 12:16 Mail
+    -rw-r--r--   1 pqr      ug        285 Oct 12  1994 addup.p
+    drwxr-xr-x   6 pqr      ug       6144 Nov  5 18:47 adm
+    -rw-r--r--   1 pqr      ug        729 Oct  7 16:32 init.p
+    -rw-r--r--   1 pqr      ug       2589 Jul 23  1992 initfiles
+    -rw-r--r--   1 pqr      ug       8538 Nov  1 08:10 vedinit.p
+
+         A       B C        D         E      G     H     I
+
+There are letters under each column which would not be printed out. The
+column labelled A gives information about the properties of the file. If
+there is a "d" at the beginning then it is a directory. The other
+letters and hyphens in column A tell you whether the file is readable,
+writeable, or executable by you, the rest of your group, or the rest of
+the world.
+
+Column B tells you how many links the file has. Normally there should be
+only 1, though a directory which contains other directories may have
+several.
+
+Column C tells you who owns the file. It should show your login name.
+Coumn D (which may not be present on some systems) indicates which "user
+group" the files belong to. Column E tells you the size of the file in
+characters (including spaces and newlines). Columns G and H tell you the
+date and time at which the file was created or last modified. Column I
+tells you the name of the file. Some file names have a suffix which is
+used by convention to indicate what their function is. E.g. the suffix
+'.p' is normally used for Pop-11 program files, though sometimes it is
+used for Pascal programs. The suffice '.c' is normally used for C
+program files. The suffix '.pl' is often used for Prolog files.
+
+You will normally be provided with a directory called Mail which is
+readable and writeable by you and nobody else. For a directory to be
+readable it needs the 'x' even though it is not an executable program.
+
+See also
+    *CD             - changing directory in POP-11 or VED
+    *LS             - listing files
+
+-- DELETING FILES -----------------------------------------------------
+
+How do I get rid of files? You can use the Unix command "rm". The
+command
+
+        % rm filename
+
+will remove the file called "filename". For some users, the "rm" command
+is defined so as to be "interactive", namely it asks you for each file
+to confirm whether you want it removed, and you have to type "y" and
+press RETURN if you want it removed. If you merely press RETURN it will
+not be removed. You can bypass the interactive removal by using the
+command "/bin/rm" instead:
+
+        % /bin/rm filename
+
+However, the file may have been protected against deletion, or it may
+not belong to you, in which case an error message will be printed out,
+and the file will not be removed.
+
+It is also possible to delete file from inside the editor VED. For
+details see these VED information files.
+
+    HELP * PURGE
+        This tells you how to give a VED command to list all the files
+        in the current directry, then mark with an asterisk those you
+        want deleted, then delete them with the ENTER del command.
+
+    HELP * VED_PURGEFILES
+        This shows you how to give a command in VED to remove all your
+        VED backup files (whose names end in "-"). You have the option
+        to type "s" to have them all shown to you before you confirm
+        that they should be deleted.
+
+    HELP * VED_CLEANUP
+        This shows how to get rid of all the backup versions of the file
+        you are currently editing.
+
+
+-- INCOMPLETE FILENAMES -----------------------------------------------
+
+When you give filenames to the shell, you can leave parts out, by
+putting "wildcards" in the name.  There are two main wildcards in the
+shell, the asterisk (*), and the question mark (?).  You can use the
+question mark to stand for any single character.  The asterisk will
+stand for any number of characters.
+
+So if you wanted to get rid of all the files in your area which end
+with 'tmp', you could do
+
+        % rm *tmp
+
+WARNING
+
+        % rm *
+
+will delete all your files. So will
+
+        % rm * tmp
+
+so will
+
+        % rm tmp *
+
+so be careful about typing asterisks in an 'rm' command.
+
+Or to find out which files end with 'tmp', you can try
+
+        % ls *tmp
+
+(This is especially useful to find out what %rm *tmp would remove.)
+
+-- MOVING AND COPYING FILES -------------------------------------------
+
+If you want to move a file from one place to another, use the "mv"
+command, like this:
+
+     % mv oldname newname
+
+(This is how you change the name of a file -- by moving it to a
+different name.)
+
+If you want to create a copy of a file, you can use the "cp" command for
+example
+
+      % cp old new
+
+will make a copy of the file "old", and call it "new". If you previously
+had a file called 'new' it will be deleted!!
+
+-- DIRECTORIES --------------------------------------------------------
+
+All your files are stored on a magnetic disk, and when you access them
+in VED they are read in from the disk. When you change a file and then
+leave VED the new version is written out and saved on the disk so that
+you can find it later.
+
+The disk is organised into directories. A directory is a region of the
+disk that has files in it, which may be a set of files belonging to a
+particular individual, or a set of files associated with a particular
+program or collection of programs. For example, there will be a
+directory containing the main poplog system, and it will have different
+sub-directories for its help files, teach files, library files, files
+related to Pop-11, files related to Prolog, etc.
+
+-- -- The current directory
+
+At any time your process will have a "current" directory, and if you
+give the "ls" command or any other command that accesses a file by its
+name, e.g. "cp" or "mv", the command will operate on files in your
+directory. You can make it operate on files in other directories (if you
+have the access rights) by using the full path name for those files,
+explained below.
+
+When you are given an "account" on the system you will automatically be
+given a directory, known as your "login" directory, and when you log in
+that is made your current directory. If you give the unix "pwd" command
+(i.e. Print Working Directory) it will tell you wish is your current
+directory, and if you have done nothing to change to a different
+directory it will tell you your login directory. Try
+
+    % pwd
+
+or
+    ENTER unix pwd
+
+For a user called pqr, whose login directory is called "pqr" in a
+directory called "csai94" which is in a directory called "students",
+which is in a directory called "home", which is immediately below the
+top level of the directory hierarchy, this would print something like:
+
+    /home/students/csai94/pqr
+
+This is the full path name of the login directory. If there is a file
+called 'vedinit.p' in that directory, the path name of the file would
+then be
+
+    /home/students/csai94/pqr/vedinit.p
+
+However, when the current directory is the one indicated, the name
+'vedinit.p' is enough to refer to that file, even though lots of other
+users also have files called vedinit.p.
+
+-- -- The Unix root directory and its sub-directories
+
+At the top of the Unix directory hierarchy there is always a "root"
+directory whose name is "/", i.e. just the slash. You can look at its
+contents if you give the command
+
+    % ls /
+
+or
+
+    % ls -l /
+
+It may contain a directory called kernel. You can see the contents of
+kernel by doing
+
+    % ls -l /kernel
+
+Similarly you can look at the contents of the directory called home in
+the root directory with
+
+    % ls -l /home
+
+One of those may be a directory called students, in which case you can
+look at its contents by doing
+    % ls -l /home/students
+
+and so on. As the directories and files get deeper into the directory
+hierarchy the path names get longer and longer.
+
+
+-- A SHORTHAND NAME FOR YOUR OWN DIRECTORY ----------------------------
+
+If you are using the CSH shell, or TCSH, KSH, BASH, and probably others,
+though not SH, then you can use a single character '~' as a name for
+your login directory.
+
+Thus, for the mythical student user mentioned above, these two commands
+will be identical:
+
+    % ls ~
+and
+    % ls /home/students/csai94/pqr
+
+and the name ~/vedinit.p will be equivalent to the full path name:
+
+    /home/students/csai94/pqr/vedinit.p
+
+Note that the ~ abbreviation works also in VED. It may not work for all
+programs that accept file names.
+
+However be warned that you must never use "~" as the abbreviation for
+your login directory when you are communicating with other people, or in
+project reports, or in program files that refer to other files.
+
+That is because "~" always refers to the login directory of the
+*current* user, and that may not be you, if someone else is running your
+program, or reading your files. Even if they know you mean to refer to
+your login directory they may not know your login name. So if your login
+name is pqr always use "~pqr" and not just "~" in anything that you
+write down referring to your directory or files therein.
+
+
+
+-- A SHORTHAND NAME FOR SOMEONE ELSE'S DIRECTORY ----------------------
+
+You may sometimes need to look at a file in someone else's directory.
+If you know that person's login name (not the email name) you can refer
+to the login directory by attaching "~" to the login name. Thus other
+users can refer to pqr's login directory using the name ~pqr
+
+So to refer to the vedinit.p file, I could use ~pqr/vedinit.p
+
+You can use the ~<login name>/<filename> format to access the files of
+other people, both in VED or when using other Unix commands. Note: this
+is why you should protect files that are not meant to be read by other
+users. You should NOT protect your top level directory, because then you
+will not be able to share any files with other people and you will not
+be able to make your project files accessible by examiners, which is a
+requirement for some courses.
+
+
+-- CREATING A SUBDIRECTORY --------------------------------------------
+
+If you wish to create a sub-directory called pop in which to put your
+Pop-11 programs you can use the unix "mkdir" command.
+
+    % mkdir pop
+
+Later if you have files in there, e.g. files called project.p and
+report, then you can refer to them as
+
+    pop/project.p
+    pop/report
+
+If you wish to move a file called myfile.p into your pop subdirectory
+you can give the unix command
+
+    % mv myfile.p pop
+
+If you wish to move all your pop11 files there you can do
+
+    % mv *.p pop
+
+(Don't leave a space after the asterisk, or all your files will be
+moved.)
+
+-- -- Putting your Pop-11 and VED startup files in a subdirectory
+
+If you wish to move your Poplog startup files, such as
+    init.p vedinit.p vedfiletypes.p vedkeys.p
+
+into a subdirectory called "pop" or "poplib" you can do so, but then you
+must change the value of the Unix environment variable $usepop, in your
+.login file, for otherwise when Pop-11 starts up it will not be able to
+find the files.
+
+For example, if you wish to put those files in a subdirectory called
+"pop" then you should put the following command near the end of your
+.login file:
+
+    setenv poplib ~/pop
+
+You will then also have to put your init.pl and init.pml and init.lsp
+files there if you have them (for Poplog prolog, ML, and Lisp).
+
+Immediately after doing that you will either have to log out and log in
+again, or else type the above command into every xterm window in which
+you are going to use Pop-11, before you start up Pop-11 or Ved.
+
+It is probably a good idea to create a different subdirectory for each
+course you take, and to keep files related to each course in its
+subdirectory.
+
+Some directories may be relevant to several different courses, e.g. a
+directory containing references to literature. You might call that
+directory something like 'bib', for example.
+
+NOTE: since 1996, the default setup for new Poplog users puts their
+startup files in a directory called Poplib.
+
+
+-- MOVING BETWEEN DIRECTORIES -----------------------------------------
+
+If you wish to make your new pop directory your current directory you
+can do
+
+    % cd pop
+
+after that the command
+
+    % pwd
+
+will show a new current working directory, i.e. something like
+
+    /home/students/csai94/pqr/pop
+
+Having done that you can then refer to files in the pop subdirectory
+without using the prefix: "pop/".
+
+Similarly the "ls" and "ls -l" commands will refer only to the files
+in that directory, instead of the files in your login directory.
+
+-- -- Use of ".."
+
+When you are in any directory except the "root" directory you can use
+the special file name ".." to refer to the directory immediately above
+your current directory. Thus if you have moved to your pop subdirectory,
+and you wish to refer to a file called fred in your superdirectory, you
+can refer to it as
+
+    ../fred
+
+This will also work in VED, e.g. ENTER ../fred
+
+Similarly if you are in the pop subdirectory and you wish to refer to
+the Mail subdirectory of your super directory you can refer to it as
+../Mail, e.g. this will print out the files in your Mail subdirectory,
+if you are in another subdirectory:
+
+    % ls ../Mail
+
+If you wish to refer to a file in that directory, e.g. the file mail31
+you can use the path name ../Mail/mail31
+
+You can use ".." repeatedly to refer to more than one directory level
+above your current level. E.g.
+
+    % ls -l ../..
+
+will list the files in the super directory of the super directory of the
+current directory.
+
+-- --Getting back to your login directory
+
+When you have gone to a subdirectory, the directory immediately above it
+in the hierarchy is always referred to by the name "..". (The name "."
+always refers to the current directory). So you can list the files in
+the directory above your current directory by doing
+
+    % ls -l ..
+
+Similarly you can change to the directory above by doing
+
+    % cd ..
+
+Thus the commands
+
+    % cd pop
+    % cd ..
+
+have the net effect of leaving you where you were originally.
+
+Because your login directory is called "~" you can always change to that
+by the command
+
+    % cd ~
+
+In fact things are usually set up so that the "cd" command on its own
+will take you to your login directory. I.e.
+
+    % cd
+
+-- -- WARNING about the cd command
+
+The "cd" command changes only the current shell process and any
+processes that you create subsequently in that shell. Thus if you
+suspend Poplog and give a cd command and then go back to Poplog, the
+poplog process will be in the same directory as before.
+
+Fortunately you can change the directory inside Poplog with the
+VED command
+
+    ENTER cd <directoryname>
+
+or to Pop-11
+
+    cd <directoryname>
+
+However, this will not affect the current directory in the shell process
+that invoked Poplog. See HELP * CD for more information.
+
+
+-- FINDING OUT ABOUT YOUR PROCESSES -----------------------------------
+
+When you use Unix you may create many processes without realising it.
+E.g. for each xterm window on your screen there will be a separate xterm
+process, and one for the window manager, and if you have a clock
+showing, or run netscape, or have a "message" window showing you the
+"Message Of The Day" (motd) each of those will have a process. Similarly
+for each shell in each window there is a process. Thus even before you
+have started doing any real work you will have created a lot of
+processes. When you run VED, or Pop-11 or Emacs, or a mail program,
+that's yet another process. You can find out which processes belong to
+you when they started, and how big they are (in kilobytes) by using the
+command "ps". Unfortunately there are different versions of this, and
+they are not all equally helpful. The one that is probably most useful
+is this:
+
+    % /usr/ucb/ps -ux
+
+or if you are on a machine running SunOS instead of Solaris, just
+
+    % ps -ux
+
+or on a DEC Alpha simply leave out the "-", i.e.
+
+    % ps ux
+
+You can do it in VED, e.g.
+
+    ENTER unix /usr/ucb/ps -ux
+
+This prints out information in something like this format
+
+USER       PID %CPU %MEM   SZ  RSS TT       S    START  TIME COMMAND
+pqr       4814  0.3  1.1 2976 1368 ?        S   Nov 02  2:50 xterm -ls -geometr
+pqr      20298  0.2  0.7  900  812 pts/8    O 17:23:21  0:00 /usr/ucb/ps -ux
+pqr      20297  0.2  0.5  720  556 pts/8    S 17:23:20  0:00 /bin/sh -ce /usr/u
+pqr      19262  0.1  5.4 9456 6772 pts/8    S 14:05:43  0:40 ved fooo
+pqr       4775  0.0  0.2 1076  180 ?        S   Nov 02  0:00 tcsh -c sh -c 'HOM
+
+and so on.
+
+The column headed USER tells you what you already know, that the
+processes all belong to you. The column headed PID tells you the Process
+IDentifier of each process. This is important if you need to kill a
+"runaway" or "leftover" process. The next two columns specify percentage
+of time and memory (RAM) space in use. The SZ column is very important.
+It tells you the total size of each process, including the amount in the
+main memory of the machine and any that is temporarily `swapped out'.
+The TT column specifies the terminal or pseudo terminal, if appropriate.
+S gives the status (which you can ignore). START tells you when the
+process started (which may have been some days ago). TIME tells you how
+much processor time the process has used, and the final column tells you
+the command with which it was invoked. If you can't see the whole
+command name, you can ask for the display to be in "wide" format, by
+adding a "w", e.g.
+
+    ENTER /usr/ucb/ps -wux
+
+Some of the lines may then be too long for you to read but you can put
+the VED cursor on them and move right, and the VED window will scroll
+right to make the long line visible.  You can make it go left again by
+moving the cursor left.
+
+-- KILLING OLD PROCESSES ----------------------------------------------
+
+Sometimes you will find processes that were left running because you did
+not quit a process before you last logged out. E.g. if you don't quit
+netscape and possibly even if you don't quit VED, or Emacs, or a Mail
+reader it may sometimes go on running when you log out, causing a
+nuisance for other users by taking up memory space, and possibly also
+taking up processor time.
+
+If you have identified such processes you can kill them by using the PID
+number, with the command
+
+    % kill -9 <pid1> <pid2> <ped3> ....
+
+Just using "kill" may not get rid of some processes as that sends them
+a signal politely asking them to stop, and they may not be in a state in
+which they can respond. So use "kill -9" which is the strongest kind of
+kill command, to make sure they really die.
+
+E.g. to kill processes with PIDs 1537 1598 2673 do, in VED,
+
+    ENTER unix kill -9 1537 1598 2673
+
+The other options for kill may be found in MAN * kill .
+
+There is more information on killing processes in HELP * RUN.BACKGROUND
+
+
+-- GETTING TO THE SHELL TEMPORARILY -----------------------------------
+
+In the middle of working with POP11 (or Prolog), if you are not using
+VED, you can give a single command to the shell just by prefacing the
+command with a percent sign:
+     : % ls
+
+will print out your files, but leave you inside POP11.
+
+If you are using VED you can give the same command with the ENTER unix
+option:
+
+    ENTER unix ls
+
+This reads all the output of the "ls" command into a VED buffer for you
+to inspect in VED.
+
+If you wish to run an interactive program (e.g. Mail, or more), this
+will not work and you will have to do use the "ENTER %" format:
+
+    ENTER % ls
+
+This temporarily suspends your Poplog process (including VED) and runs
+the command following "%". Then when it has finished you'll get a prompt
+asking you to press a key to return to VED. That is so that you can
+examine any printout on the screen before the editor takes over the
+space.
+
+Of course, if you want to get back to the shell permanently, you can
+leave POPLOG, e.g. using ENTER bye in VED.
+
+See also the following help files:
+    *STOP           - suspending a poplog process
+
+The following help files show you how to create a VED window in which
+you can give interactive commands.
+    *IMCSH          - CSH in VED (immediate mode)
+    *IMSH           - SH in VED (immediate mode)
+
+
+-- FOR THOSE WITH CONFIDENCE ------------------------------------------
+
+This section explains how to suspend POPLOG, and invoke the shell in
+such a way that you can type a sequence of commands to it, without
+repeatedly coming back to POPLOG.
+
+If you want to give a sequence of commands to the shell, you can
+take an excursion from POP-11 when you get its prompt (or the Prolog or
+lisp propt) by just typing a percent sign like this:
+
+        : %
+
+(Here the ':' is the POP-11 prompt - you don't type it. Just type '%' -
+or '$' if appropriate - then press the RETURN key.)
+
+This suspends your POPLOG process and starts a new shell process
+('Cshell' if you type '%', shell if you type '$'). You will get the
+appropriate prompt, and can give a sequence of shell commands. Your
+POPLOG process will wait for you to finish with the shell by pressing
+the END-OF-FILE KEY. At that point, the suspended POPLOG process will
+'wake up' and you can continue where you were with it.
+
+N.B. When you've finished giving shell commands, and want to go back
+PRESS THE END-OF-FILE KEY ONCE. This will take you back to POPLOG (i.e.
+POP-11, Prolog, Lisp or VED).
+
+If you press it twice, you will leave the invocation of the shell, go
+into POP11, then leave POPLOG and go into the shell you first started
+with. The invocations of POPLOG and the shell are said to "nest". It is
+important that you keep track of how nested you are.)
+
+If you invoke a nested shell, DO NOT type 'pop11' or 'ved' or 'prolog'
+to it to get back to where you were in POPLOG. Doing this will start up
+a NEW POPLOG process, and you will probably lose the edits you have been
+doing when you finally get out of all the nested processes.
+
+Instead of invoking a new process by giving a command, simply press the
+end-of-file key to get back to where you were. If it doesn't work, try
+typing 'exit' to the shell.
+
+If this sounds too confusing, just play safe and use the percent sign in
+front of every shell command to POPLOG.
+
+Use '$' if you only have SH available. (If you don't know which to use ,
+you can use '!' and let POPLOG decide what to do!)
+
+-- USE OF '!' ---------------------------------------------------------
+
+In some cases, you can use '!' instead of either '%' or '$' in POPLOG.
+This tells POPLOG to decide for itself which shell to invoke. It does
+this by looking at the 'environment variable' called 'SHELL', set up
+when you log in, and choosing the shell program denoted by that. The
+pop11 command
+
+    systranslate('SHELL') =>        ;;; note upper case
+
+will print out the name of the relevant program file, preceded by the
+directory in which it is stored.
+
+e.g.
+    ** /bin/csh
+or
+    ** /bin/sh
+
+See also
+    *INITIAL        - initialisation and tailoring of POPLOG
+    *INITIAL.EX     - examples of initialisation procedures
+
+-- TEMPORARILY RETURNING TO ORIGINAL SHELL (stop and ENTER stop) ------
+
+A more  convenient  and  economical  mechanism  is  also  available  for
+temporarily going back to the SHELL  from which you ran POP-11. This  is
+only available on Berkeley Unix systems with the C-SHELL.
+
+If you type
+
+    : stop
+
+to top level, or
+
+    <ENTER> stop
+
+to VED, then the POP-11 process will be suspended and you will go back
+to the C-SHELL (CSH). When you wish to return to POP-11 you will need to
+type a '%' (i.e. percent sign) to CSH. In fact the CSH allows you to
+start a number of processes and switch between them by suspending them
+and then re-connecting. You can find out at any time how many such
+processes you have by typing
+
+    % jobs
+
+to CSH. The processes will be printed out with numbers. If you have more
+than one, you can attach to number 3 by typing
+
+    % %3
+
+(the first '%' is just the CSH prompt). See the CSH manual.
+See also
+    *STOP           - suspending processes
+    *IMCSH          - CSH in VED (immediate mode)
+    *IMSH           - SH in VED (immediate mode)
+    *VED_CSHFILE    - running a csh in VED
+    *CSH_COMPILE    - a csh compiler
+
+-- SENDING AND READING MESSAGES (Electronic mail) ---------------------
+
+On Unix systems there are usually many different ways of reading and
+sending email. There is an old and simple email program called "mail"
+on some systems and "Mail" on others, which is purely text based. There
+are other programs that use the X window system and present a graphical
+interface, including "xmailtool", "xmail", "pine", and others.
+
+Some users prefer to read and send mail from inside their normal text
+editor, e.g. Emacs or Ved.
+
+The are also POPLOG HELP files on accessing mail from Ved.
+See
+    *VED_GETMAIL    - reading and replying to mail
+    *SEND           - sending mail from VED
+
+
+-- PRINTING FILES -----------------------------------------------------
+
+On Unix systems the basic printing command is usually "lpr". On some
+systems this is replaced by "lp". See the MAN files.
+
+NB
+whether a particular file can be printed directly using that command or
+not will depend on what sort of file it is and what sort of printer is
+available.
+
+VED users see TEACH * PRINTING for more information.
+
+
+-- PASSWORDS ----------------------------------------------------------
+
+When logging in you will need to use a password.
+
+Using passwords is required so that nobody can log in as you (and e.g.
+delete all your files or read your mail) unless they know the (secret)
+password. Never tell anyone else your password, especially your best
+friends. If anyone ever finds out your password you should change it.
+
+You change your password by typing
+
+     % yppasswd
+
+Depending on the system.
+
+It will ask you for your old password , and the new password twice, just
+to make sure.  Sometimes it won't like the new password because it's too
+short or something.  Just think up a longer one, and make sure it does
+not contain only letters or any word of the language, or anything
+obviously associated with you.
+
+See also this VED help file
+    *SYSGETPASSWDENTRY
+        Pop11 facilities for getting information on users
+
+-- SUMMARY OF SHELL COMMANDS ------------------------------------------
+
+A summary of some common "shell" commands can be found in
+
+    HELP * UNIX.COMMANDS
+
+This file will grow. Suggestions for inclusion welcome.
+
+An older summary is in HELP *SHELLSUMM
+
+-- ONLINE UNIX TUTOR --------------------------------------------------
+
+The file HELP * UNIX.COMMANDS describes how to access an online Unix
+tutor located in /bham/doc/unixhelp (on the Computer Science network).
+
+
+-- ASSOCIATED DOCUMENTATION -------------------------------------------
+
+The following files accessible in VED give further relevant information.
+
+HELP
+    *CD             - changing directory in POP-11 or VED
+    *LS             - listing files
+
+    *PURGE          - deleting files
+    *DEL            - deleting files
+
+    *POP_FILE_MODE  - variable controlling file default protection
+
+    *VED_UNIX       - Running a Unix command in VED
+    *VED_BG         - Starting a background process in VED
+
+The next two help files show how to start up a VED window in which you
+can give Unix commands. The output will be displayed in the window.
+    *IMCSH          - CSH in VED (immediate mode)
+    *IMSH           - SH in VED (immediate mode)
+
+Utilities used for the above:
+    *VED_CSHFILE    - running a csh in VED
+    *CSH_COMPILE    - a csh compiler
+    *KILLCSH        - killing CSH processes created by IMCSH
+
+Poplog initialisation
+    *INITIAL        - introduction to initialisation and tailoring
+                      POPLOG
+    *PARAMETERS     - initialising POPLOG with parameters
+    *INITIAL.EX     - examples of initialisation procedures
+        (Some of them are probably out of date)
+
+Mail interface
+    *VED_GETMAIL    - reading mail in VED
+    *VED_MDIR       - Make a `directory' of messages in the current mail
+                      file
+    *VED_REPLY      - Prepare a reply to the current message (in VED)
+    *SEND           - sending mail in VED
+    *VED_MAIL       - An older VED-based mail reader
+
+Reading and Posting Net News
+    *VED_GN         - Get News
+    *VED_POSTNEWS   - Posting news articles
+
+    *POPENVLIST     - list of environment variables current in Pop
+                      process
+    *SERR           - information on a system error message
+    *STOP           - suspending processes
+
+Procedures for interacting with the Operating system
+
+    *PIPEUTILS      - passing output of POPLOG to UNIX through a pipe
+    *SYSEXECUTE     - POP-11 procedure which does a UNIX "execve"
+    *SYSFILEMODE    - accessing and changing protection on files
+
+    *SYSFORK        - forking POPLOG processes
+    *SYSGETPASSWDENTRY - getting information on users
+    *SYSOBEYLIST    - executing UNIX commands in POP-11
+    *SYSOBEY
+    *SYSPIPE        - creating UNIX pipes
+    *RUN_UNIX_PROGRAM
+    *SYSTRANSLATE   - getting the values of environment variables
+
+    *SYSUTIL        - general facilities for interfacing POPLOG and UNIX
+
+    *SYS_IO_CONTROL - system io control
+    *SYSIO          - IO behaviour of POPLOG
+    *IO             - overview of IO facilities in POPLOG
+
+    *TTY            - key functions
+
+    /bham/doc/tips/
+        At Birmingham this directory has a number of files contributed
+        by users, some of which have tips regarding Unix commands and
+        "shell" scripts. On the CS Unix network only.
+
+        If you have problems about unix commands email "advice" for
+        help. Do not email "support" simply to ask for advice.
+
+
+--- C.unix/help/shell --------------------------------------------------
+--- Copyright University of Sussex 1988. All rights reserved. ----------
+
+--- $poplocal/local/help/shell
+--- Copyright University of Birmingham 2000. All rights reserved. ------

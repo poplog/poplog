@@ -1,0 +1,144 @@
+
+                 POPLOG-NEURAL 2.02/2.021/2.03 RELEASE NOTES
+                 -------------------------------------------
+
+    1. Introduction
+    ---------------
+    Poplog-Neural 2.02 is a maintenance version to run at Poplog 14.5.
+    This document provides a brief description of changes made since
+    Poplog-Neural 2.0, the last issued version.
+
+    Poplog-Neural 2.021 has the same functionality as 2.02 but with
+    minor modifications to make it run on SG IRIX 5.2/3.
+
+    Poplog-Neural 2.03 has the same functionality as 2.02/2.021 but with
+    minor modifications to make it run on Poplog 15.0 and also under
+    Linux/PC. Note that 2.03 is not supported on the following machines:
+    HP 9000/3xx+4xx machines (M68K-based machines); Sun 3 workstations;
+    Silicon Graphics running IRIX 4.x or earlier.
+
+
+    2a. System Requirements (version 2.02/2.021)
+    --------------------------------------------
+    Poplog-Neural 2.02 requires a Poplog 14.5 system to run.
+    Poplog-Neural 2.02 will not run with previous versions of Poplog.
+
+    2.02 is the first issued version of Poplog-Neural which will run
+    under Solaris 2.x on SPARC and under HP-UX 9.x on HP PA-RISC.
+
+    Approximately 5-10Mb of free disk space will be required for a
+    complete installation depending on the version. Poplog-Neural should
+    not be installed over the top of an existing version.
+
+    For some types of development work, X development libraries will be
+    required. These are documented in the Poplog 14.5 Installation
+    Guide.
+
+    2b. System Requirements (version 2.03)
+    --------------------------------------
+    Poplog-Neural 2.03 requires a Poplog 15.0 system to run.
+    Poplog-Neural 2.03 will not run with previous versions of Poplog.
+
+    2.03 is the first issued version of Poplog-Neural which will run
+    under Linux 1.0 on Intel x86.
+
+    Approximately 5-10Mb of free disk space will be required for a
+    complete installation depending on the version. Poplog-Neural should
+    not be installed over the top of an existing version.
+
+    For some types of development work, X development libraries will be
+    required. These are documented in the Poplog 15.0 Installation
+    & Administrators Guide.
+
+
+    3. Changes & Compatibility
+    --------------------------
+    Various minor changes have been made, including some bug fixes (see
+    next section).
+
+    Poplog-Neural 2.02 is source compatible with Poplog-Neural 2.0 and
+    no changes should be required for user code to run at the new
+    version.
+
+    Poplog-Neural 2.021 requires that the value of the environment
+    variable HOST_TYPE is set to irisr5, e.g. by typing:
+
+        setenv HOST_TYPE irisr5
+
+    Poplog-Neural 2.03 has a slightly modified installation procedure.
+    In particular, it no longer requires the user to set HOST_TYPE
+    manually in a .login file. Instead, the user now sources a file
+    ($popneural/bin/setneural) which sets HOST_TYPE if it has not
+    defined previously.
+
+    4. Bug Fixes
+    ------------
+
+    PNF0039: nn_load_net Ref Entry Gives Incorrect Return Result
+    --------
+    nn_load_nets documentation is wrong. It doesn't return a boolean
+    when the read succeeds, it returns the network record.
+
+
+    PNF0042: Incorrect Documentation For Example Set Flag Access/Update
+    --------
+    The REF EXAMPLESETS file says that accessors and updaters for
+    example set flags can accept the name of the example set. This is
+    incorrect - they take the example set record itself.
+
+
+    PNF0043: Set Warning Message is incorrect
+    --------
+    The warning message printed when an item is passed to a set
+    conversion function which isn't actually in the defined set prints
+    the wrong object (it prints the datatype record for the set rather
+    than the item which is not in the set).
+
+
+    PNF0044: nn_generate_egs Can Call Generator Procedure Too Often
+    --------
+    When the source of an example set is a procedure, nn_generate_egs
+    applies the procedure an extra time. This can be very problematic
+    when the procedure returns different data each time or returns very
+    large data structures.
+
+
+    PNF0046: Loading Set Datatypes Reverses Member Order
+    --------
+    nn_load_dt on a set reverses the order of the set items. This means
+    that the units on the network (both input and output) will no longer
+    correspond to the initial setting.
+
+
+    5. Bugs Raised Since Neural 2.0
+    -------------------------------
+
+    PNF0040: Interaction With Lib Xlib/NEWEXTERNAL
+    --------
+    The C version of Poplog-Neural (version 2.01 onwards) does not load
+    if lib Xlib or any other library which uses NEWEXTERNAL has been
+    loaded. The reason is a bug in NEWC_DEC which causes arrays to be
+    passed incorrectly to the C code and means they become corrupted.
+    Currently Neural has to use LIB EXTERNAL and LIB C_DEC.
+
+
+    PNF0041: Neural User Guide Example Uses Random Learning
+    --------
+    Page 39 of the NUG has the following example:
+
+        nn_learn_egs("colour_set", "col_net", 5000, false);
+
+    This often does not work correctly and the last argument should
+    be "true" for more consistent results i.e.:
+
+        nn_learn_egs("colour_set", "col_net", 5000, true);
+
+
+    PNF0045: Training Iterations Documentation Is Incorrect
+    --------
+    The documentation for the number of training presentation says that
+    the number specifies the number of presentations of the example set.
+    In fact this gives the number of single presentations. For
+    example, this means that for an example set with n examples and m
+    iterations are specified, if n > m then the last (n - m) examples
+    will never be presented.

@@ -1,0 +1,502 @@
+REF XColormaps                                       A.Schoter, Aug 1991
+                                        Revised: Adrian Howard, Jun 1993
+
+        COPYRIGHT University of Sussex 1991. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<< XLIB COLORMAP MANIPULATION  >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+Colormaps are the mechanism by which pixel numbers in X are mapped  onto
+colors. A colormap consists of a number of color cells which  correspond
+to actual colors  (see REF * XColor and  REF * XColorcells.) Each  pixel
+number corresponds  to  a color  cell  in the  colormap.  The  following
+details how to create, copy, and destroy colormaps under Xlib.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Support of Multiple Colormaps
+
+  2   LIB XColormaps
+      2.1   Creating, Copying, and Destroying Colormaps
+      2.2   The Installation of Virtual Colormaps
+      2.3   The Representation of Standard Colormaps
+      2.4   Standard Colormap Properties and Atoms
+      2.5   Accessing Standard Colormaps
+
+  3   Also Of Interest
+
+
+
+--------------------------------
+1  Support of Multiple Colormaps
+--------------------------------
+
+Most display hardware can only support a single colormap (although  some
+high-grade graphics machines   support  more  - see  * MinCmapsOfScreen,
+and * MaxCmapsOfScreen) Since colormaps are of a fixed size, defined  by
+the display hardware, this  can restrict the number  of colors a set  of
+applications can use.
+
+Under X it is possible to have a number of different colormaps (one  for
+each window)  to overcome  this problem.  X manages  these colormaps  by
+keeping a number  of colormaps in  memory and installing  them into  the
+hardware colormap  as  needed.  The window  manager  should  manage  the
+installation of  the  appropriate colormap  automaticaly,  depending  on
+which application is active.
+
+Note: while a virtual  colormap for an  application is installed,  other
+applications which use different colormaps will be displayed in  "false"
+colors. If possible it  is far better for  all application to share  one
+colormap. This is made easier if they use read-only color cells, and use
+color names (see REF * XColorcells.)
+
+X also provides a number of "standard" colormaps which applications with
+similar color needs can  use to avoid  needless duplication of  colormap
+entries. They allow the easy mapping of RGB values to color cells in the
+colormap and  are  thus  very useful  for  graphical  applications.  The
+application programmer can also define their own standard colormaps  for
+use within their applications.
+
+
+
+
+-----------------
+2  LIB XColormaps
+-----------------
+
+To load LIB * XColormaps do the following:
+
+    uses xlib, XColormaps;
+
+The constants, type definitions, and procedures supplied by this library
+are direct equivalents of the Xlib C constants, types and functions. For
+information on the  C functions see  sections 5.1.1 'Creating,  Copying,
+and Destroying Colormaps', 7.3 'Determining Resident Colormaps', and 9.3
+'Standard Colormaps' in:
+
+                     Xlib - C Language X Interface,
+                       MIT X Consortium Standard,
+                         X Version 11, Release 4
+
+        Copyright (C) 1985, 1986, 1987, 1988, 1989 Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+
+2.1  Creating, Copying, and Destroying Colormaps
+------------------------------------------------
+AllocNone -> 0                                          [constant macro]
+AllocAll -> 1                                           [constant macro]
+        These constants are used in functions like * XCreateColormap  to
+        specify how  the  color  cells should  be  allocated.  AllocNone
+        indicates that the colormap initially has no allocated  entries,
+        and clients can allocate them. AllocAll indicates that the whole
+        colormap should be allocated writable (the initial values of all
+        allocated entries being undefined.)
+
+        For  * StaticGray,   * StaticColor,  and   * TrueColor   visuals
+        AllocNone must  be used  (since  the colormap  is fixed  by  the
+        display hardware -- see REF * XVisuals.)
+
+        For  * GreyScale  and  * PseudoColor   visuals  the  effect   of
+        supplying AllocAll is that  of having * XAllocColorCells  return
+        all the pixel  values in a  colormap. For * DirectColor  visuals
+        the effect  of AllocAll  is that  of having  * XAllocColorPlanes
+        return a pixel value of zero, and RGB masks containing the  same
+        bits as the corresponding masks in the visual.
+
+        * XFreeColors  cannot  be  used  to  free  cells  allocated  via
+        AllocAll.
+
+
+XCreateColormap(displayptr, window, visualptr, alloc)        [procedure]
+                -> colormap
+        Creates and returns a colormap colormap.
+
+        window is the  window on  whose screen  you wish  to create  the
+        colormap.
+
+        displayptr specifys the display connection.
+
+        visualptr should  pointer  to a  visual  type supported  on  the
+        screen.
+
+        alloc should be * AllocNone or * AllocAll.
+
+        The initial colormap entries of * GrayScale, * PseudoColor,  and
+        * DirectColor  visuals   are   undefined.   For   * StaticColor,
+        * StaticGray, and * TrueColor the  colormap entries are  defined
+        by the visual. See REF * XVisuals for more information on visual
+        types.
+
+        A "BadMatch" X error will occur if visualptr is not supported on
+        screen. XCreateColormap  can also  give "BadAlloc",  "BadValue",
+        and "BadWindow" X errors.
+
+
+XCopyColormapAndFree(displayptr, colormap_1) -> colormap_2   [procedure]
+        XCopyColormapAndFree  creates   and  returns   a  new   colormap
+        colormap_2 which is of  the same visual type  and screen as  the
+        colormap colormap_1.
+
+        If colormap_1 was created with * AllocAll, then so is colormap_2
+        All color cells are then copied from colormap_1 to COLORMAP2 and
+        then freed in colormap_1.
+
+        If colormap_1 was created with * AllocNone then all the  clients
+        existing allocated  color cells  are copied  from colormap_1  to
+        colormap_2 with  their color  values and  read/write  attributes
+        intact. It then frees the clients color cells in colormap_1. The
+        values of the color cells not previously allocated by the client
+        are undefined  in  colormap_2.  A  color  cell  is  said  to  be
+        allocated  by  a   client  if   the  client   created  it   with
+        * XAllocColorColor, * XAllocNamedColor,  * XAllocColorCells,  or
+        * XAllocColorPlanes, and has not yet freed it.
+
+        This procedure  is  often  used  when a  client  has  failed  to
+        allocate a new  color cell in  a colormap because  there are  no
+        free cells due to the use of the colormap by other clients.  The
+        client can use XCopyColormapAndFree to  get a new colormap  with
+        its previously  allocated  cells, and  then  assign it  to  it's
+        windows using * XSetWindowColormap.
+
+        XCopyColormapAndFree can give "BadAlloc" and "BadColor" X errors
+        if inappropriate arguments are supplied.
+
+
+XSetWindowColormap(displayptr, window, colormap)             [procedure]
+        Sets the colormap of the window window to the colormap colormap.
+        displayptr specifies the  display of window.  The colormap  must
+        have the same visual type as the window or a "BadMatch" X  error
+        will occur.
+
+        XSetWindowColormap can also produce "BadColor" and "BadWindow" X
+        errors if given inappropriate arguments.
+
+
+XFreeColormap(displayptr, colormap)                          [procedure]
+        Destroys the  colormap  colormap  on the  display  specified  by
+        displayptr. If  colormap is  installed on  a screen  then it  is
+        removed (see * XUninstallColormap.)
+
+        If colormap is  associated with a  window (via  * XCreateWindow,
+        * XSetWindowColormap,  or  * XChangeWindowAttributes)  then  the
+        colormap associated with the window  is changed to * None  and a
+        * ColormapNotify event is generated.
+
+        XFreeColormap will have no effect  on the default colormap  of a
+        screen (see * DefaultColormapOfScreen.)
+
+        XFreeColormap can  produce  a "BadColor"  X  error if  given  an
+        inappropriate argument.
+
+
+
+2.2  The Installation of Virtual Colormaps
+------------------------------------------
+These functions allow the currently installed colormap(s) to be  queried
+and changed. These functions are  normally only used in window  managers
+and it is not expected that they be used in normal clients.
+
+Some old window managers  did not install  colormaps properly but  these
+should be  considered  to be  "broken."  Under the  current  Interclient
+Communications Conventions  applications should  not install  their  own
+colormaps.
+
+
+XInstallColormap(displayptr, colormap)                       [procedure]
+        Installs  the  colormap  colormap  for  its  associated  screen.
+        displayptr specifies the display  connection. All windows  using
+        colormap will immediately  be displayed in  their "true"  colors
+        (see      * XChangeWindowAttributes,      * XCreateSimpleWindow,
+        * XCreateWindow, and * XSetWindowColorMap.)
+
+        Unless colormap is already installed XInstallColormap  generates
+        a * ColormapNotify event for each window where colormap is used.
+        In addition a ColormapNotify is sent to every other window which
+        has a colormap that is currently installed.
+
+        If installing  colormap  would mean  that  there would  be  more
+        colormaps than the display harware can handle (usually just one)
+        then the colormap that has been installed longest is removed.
+
+        XInstallColormap can generate a "BadColor" X error.
+
+        Also see * XUninstallColorMap and * XListInstalledColormaps.
+
+
+XUninstallColormap(displayptr, colormap)                     [procedure]
+        Removes  the  colormap  colormap  from  its  associated  screen.
+        displayptr specifies the display connection to use.
+
+        Removing colormap does not have  to mean that it is  uninstalled
+        from the hardware colormap. Which colormaps get (un)installed is
+        server dependent  at this  point.  A * ColormapNotify  event  is
+        generated for  every  window  whose  colormap  is  (un)installed
+        because of the call to XUninstallColormap.
+
+        XUninstallColormap can generate a "BadColor" X error.
+
+        Also see * XInstallColormap.
+
+
+XListInstalledColormaps(displayptr, window, intptr)          [procedure]
+            -> colormap_ptr
+        XListInstalledColormaps  returns   a  list   of  the   currently
+        installed colormaps on a given screen. displayptr specifies  the
+        display connection. window should be the XID of the window which
+        will be used to determine which screen to check.
+
+        On exit colormap_ptr will point  to an array of * Colormap  XIDs
+        which can be accessed via:
+
+            include xpt_xtypes;
+            vars colormap = exacc :XptXID[] a[N]
+
+        Where N is  an integer index  into the the  array of  colormaps.
+
+        intptr should be a pointer to an integer as produced by:
+
+            vars intptr = initexptr_mem(SIZEOFTYPE(:int));
+
+        After the procedure  exits intptr  will point to  the number  of
+        currently installed  colormaps,  as returned  via  colormap_ptr.
+        It's value can be gained by
+
+            exacc :int intptr
+
+        If window is  not a valid  window XID a  "BadWindow" X error  is
+        produced.
+
+        See * XInstallColormap for how to install colormaps.
+
+        It is the programmers  responsibility to free colormap_ptr  with
+        * XFree when it is no longer of use.
+
+
+
+2.3  The Representation of Standard Colormaps
+---------------------------------------------
+The following section details  the XStandardColormap structure  supplied
+by  LIB * XColormaps.   It   is   created   with   LIB * NEWC_DEC.   See
+HELP * NEWC_DEC for more information on how to access it's fields.
+
+
+ReleaseByFreeingColormap -> 1                           [constant macro]
+        This constant is used in the killid field of * XStandardColormap
+        structures to indicate that the color cells held by the standard
+        colormap should  be released  by freeing  the colormap  XID,  as
+        opposed to calling * XKillClient on the XID.
+
+
+XStandardColormap                                             [typespec]
+        The XStandardColormap  structure  is used  if  procedures  which
+        manipulate standard colormaps. It is defined as follows:
+
+            typedef struct {
+                Colormap colormap;
+                unsigned long red_max;
+                unsigned long red_mult;
+                unsigned long green_max;
+                unsigned long green_mult;
+                unsigned long blue_max;
+                unsigned long blue_mult;
+                unsigned long base_pixel;
+                VisualID visualid;
+                XID killid;
+            } XStandardColormap;
+
+        colormap is the colormap to be used as the standard colormap.
+
+        red_max, green_max, and blue_max indicate the maximum RGB  value
+        of the maximum value available for representing the  appropriate
+        color. For  example, a  typical  eight bit  representation  will
+        allocate three bits to red and green, and two bits to blue. Thus
+        red_max and green_max will be 7 and blue_max will be 3.
+
+        red_mult, green_mult, and blue_mult give the scaling factors for
+        each RGB component  which, in combination  with base_pixel,  are
+        used to  compose the  full pixel  value of  a color.  Using  the
+        previously described 8 bit representation (assuming 'red' is  in
+        the most significant bits) then red_mult would be 32, green_mult
+        would be 4, and blue_mult would be 1.
+
+        base_pixel gives  the pixel  value on  which the  various  color
+        values are based. It's value is  usally obtained from a call  to
+        * XAllocColorPlanes.
+
+        The pixel value of a particular color is calculated by:
+
+            R*red_mult + G*green_mult + B*blue_mult + base_pixel
+
+        For * GrayScale  colormaps, the  green and  blue components  are
+        ignored and the pixel number is calculated by:
+
+            R*red_mult + base_pixel
+
+        visualid gives the XID of the visual from which the colormap was
+        created (see * XVisualIDFromVisual.)
+
+        killid defines how the  colour cells in  the colormap should  be
+        released. It  is  either  an  XID  which  will  be  supplied  to
+        * XKillClient or * ReleaseByFreeingColormap.
+
+
+consXStandardColormap(colormap, red_max, red_mult, green_max,[procedure]
+                green_mult, blue_max, blue_mult, base_pixel, visualid,
+                killid) -> stdcmap_ptr
+destXStandardColormap(stdcmap_ptr) -> (colormap, red_max,    [procedure]
+                red_mult, green_max, green_mult, blue_max, blue_mult,
+                base_pixel, visualid, killid)
+initXStandardColormap(false or exptrclass) -> stdcmap_ptr    [procedure]
+isXStandardColormap(item) -> bool                            [procedure]
+        Procedures for  constructing and  accessing  * XStandardColormap
+        structures. See  HELP * NEWC_DEC  and HELP * EXTERNAL  for  more
+        information on their usage.
+
+
+XStandardColormap_key -> key                                       [key]
+        The key of * XStandardColormap structures
+
+
+
+2.4  Standard Colormap Properties and Atoms
+-------------------------------------------
+X provides several standard colormaps for the use of applications.  Each
+colormap is stored in a property which is identified by an atom. All the
+properties    containing    standard    colormaps    have    the    type
+* XA_RGB_COLOR_MAP and a  format of 32  (see REF * XProperties for  more
+information on properties.) The standard colormap atoms are:
+
+     # * XA_RGB_DEFAULT_MAP
+     # * XA_RGB_BEST_MAP
+     # * XA_RGB_RED_MAP
+     # * XA_RGB_GREEN_MAP
+     # * XA_RGB_BLUE_MAP
+     # * XA_RGB_GRAY_MAP
+
+See REF * X_ATOMS for full details.
+
+
+
+2.5  Accessing Standard Colormaps
+---------------------------------
+XGetRGBColormaps(displayptr, window, stdcmap_ptrptr,         [procedure]
+                intptr, xprop) -> status
+        XGetRGBColormaps is used  to fetch the  standard colormap(s)  in
+        the property  named by  the  atom xprop  in the  window  window.
+        displayptr specifies the display connection.
+
+        intptr should be a pointer to an integer as produced by:
+
+            vars intptr = initexptr_mem(SIZEOFTYPE(:int));
+
+        After the procedure  exits intptr  will point to  the number  of
+        standard colormaps in the specified property. It's value can  be
+        found by doing:
+
+            exacc :int intptr
+
+        stdcmap_ptrptr should be  an external pointer  class object  as,
+        for example, returned by:
+
+            consexternal_ptr();
+
+        After the  procedure finishes  this will  point to  an array  of
+        pointers to the * XStandardColormap structures of the  property.
+        They can be accessed with:
+
+            exacc (
+                exacc :exptr.:XStandardColormap[] STD_CMAP_PTRPTR
+            )[N]
+
+        Where N is an integer index.
+
+        If the visualid field  of any of the  standard colormaps is  not
+        present then the default visual  for the screen in which  window
+        is located is assumed. If killid  is not present then * None  is
+        assumed which indicates that the resources cannot be released.
+
+        status will be 0 if the attempt to get the standard  colormap(s)
+        fails, non-zero otherwise.
+
+        XGetRGBColormaps  can   produce   "BadAlloc",   "BadAtom",   and
+        "BadWindow" X  errors.  This procedure  supersedes  the  earlier
+        * XGetStandardColormap.
+
+        Also see * XSetRGBColormaps.
+
+
+XSetRGBColormaps(displayptr, window, stdcmap_ptr, count,     [procedure]
+                xprop)
+        XSetRGBColormaps replaces  the standard  colormap(s) defined  in
+        the property named by the atom  xprop in the window window  with
+        the * XStandardColormap structure(s) pointed to by  stdcmap_ptr.
+        count should  be  the  number  of  XStandardColormap  structures
+        pointed to  by  stdcmap_ptr. displayptr  specifies  the  display
+        connection.
+
+        If the specified  property does  not exists it  is created.  The
+        property is stored with a type of * XA_RGB_COLORMAP and a format
+        of 32.
+
+        NOTE: It is up to the programmer to uphold the ICCCM  convention
+        that only * XA_RGB_DEFAULT_MAP contains  more than one  standard
+        colormap.
+
+        XSetRGBColormaps   can   produce   "BadAlloc",   "BadAtom"   and
+        "BadWindow" X  errors.  This procedure  supersedes  the  earlier
+        * XSetStandardColormap.
+
+        Also see * XGetRGBColormaps.
+
+
+XGetStandardColormap(displayptr, window, stdcmap_ptr, xprop) [procedure]
+                -> status
+        IMPORTANT  NOTE:   This  procedure   has  been   superseded   by
+        * XGetRGBColormaps  and   is   only   included   for   backwards
+        compatability. New applications should use XGetRGBColormaps.
+
+        displayptr, window,  xprop, and  status  are as  for a  call  to
+        XGetRGBColormaps. stdcmap_ptr  should  be  an  external  pointer
+        class object, which will point to the returned standard colormap
+        after the procedure exits.
+
+
+XSetStandardColormap(displayptr, window, stdcmap_ptr, xprop) [procedure]
+        IMPORTANT  NOTE:   This  procedure   has  been   superseded   by
+        * XSetRGBColormaps  and   is   only   included   for   backwards
+        compatability. New applications should use XSetRGBColormaps.
+
+        displayptr,  window,   and  xprop   are  as   for  a   call   to
+        XSetRGBColormaps. stdcmap_ptr should be the  * XStandardColormap
+        structure that should be set in xprop.
+
+
+
+
+-------------------
+3  Also Of Interest
+-------------------
+
+The following procedures may also be of use:
+
+ #  * DisplayCells
+ #  * DefaultVisual
+ #  * DefaultColormapOfScreen
+ #  * DefaultColormap
+ #  * CellsOfScreen
+ #  * MinCmapsOfScreen, and * MaxCmapsOfScreen
+
+See REF * XlibMacros for full details.
+
+
+
+
+
+--- C.x/x/pop/ref/XColormaps
+--- Copyright University of Sussex 1993. All rights reserved.

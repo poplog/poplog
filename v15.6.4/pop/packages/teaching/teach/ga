@@ -1,0 +1,211 @@
+TEACH GA
+                                              Riccardo Poli Nov 1995
+
+
+ How to use LIB GA - The simple library to run Genetic Algorithms
+ (Note: this is a very preliminary, incomplete version.)
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- A simple genetic algorithm
+ -- A simple problem
+ -- Preparing to use genetic algorithms
+ -- Using LIB GA to solve the problem
+ -- Note
+ -- Further reading
+
+
+-- Introduction -----------------------------------------------------
+
+Genetic   algorithms  (GAs)  are optimisation  and   search procedures
+inspired by genetics and the process of natural selection.
+
+In order  to do so in GAs  the following nature-to-computer mapping is
+used:
+
+  +-----------------------+--------------------------------------+
+  !       Nature          !           Computer                   !
+  +-----------------------+--------------------------------------+
+  ! Individual            !    Solution to a problem             !
+  !                       !                                      !
+  ! Population            !    Set of solutions                  !
+  !                       !                                      !
+  ! Fitness               !    Quality of a solution             !
+  !                       !                                      !
+  ! Chromosome            !    Representation for a solution     !
+  !                       !    (e.g. set of parameters)          !
+  !                       !                                      !
+  ! Gene                  !    Part of the representation of     !
+  !                       !    a solution (e.g. parameter)       !
+  !                       !                                      !
+  ! Growth                !    Decoding of the representation of !
+  !                       !    solutions                         !
+  !                       !                                      !
+  ! Crossover or          !    Main search operator              !
+  ! recombination         !                                      !
+  !                       !                                      !
+  ! Mutation              !    Secondary search operator         !
+  !                       !                                      !
+  ! Natural Selection     !    Reuse of good (sub-)solutions     !
+  +-----------------------+--------------------------------------+
+
+In GAs there is  a strong distinction  between adult individuals (i.e.
+solutions) and chromosomes (i.e.  representations for the solutions).
+
+Chromosomes are strings of symbols (e.g.  0s and 1s).
+
+Adult individuals can be  anything  as  long  as  there  is a way   of
+encoding/decoding them   using  a  string of  symbols   (chromosomes).
+Examples are vectors of parameters or lists of choices.
+
+As  GAs (like nature) act   on genotypes only, a genotype-to-phenotype
+decoding process is required ("generalised" growth).
+
+-- A simple genetic algorithm ----------------------------------------
+
+A typical GA includes the following steps:
+
+
+ 1.  Randomly generate a population of chromosomes
+
+ 2.  DECODE each  chromosome to get an individual
+
+ 3.  EVALUATE the fitness of each individual    
+
+ 4.  Generate a new population partly by CLONING (copying), partly by
+     RECOMBINING and partly by MUTATING the chromosomes of the
+     fittest individuals
+
+ 5.  Repeat steps 2, 3 and 4 until a stop condition is true.
+
+
+Note: Cloning is  used to  simulate the  survival of  parents for more
+than one generation.
+
+-- A simple problem --------------------------------------------------
+
+Let us   start with a  simple  example. 
+
+The   problem is  to find the    number in {0,1,...,255}  whose binary
+representation has  the maximum number    of 0-to-1 transitions.   
+
+The solution to this problem  is quite easy to  find for us, it is  85
+(01010101) which has  7 transitions. However, it  is not  easy to find
+with a computer if not  by using brute  force (the domain is discrete,
+so we cannot use most of the methods from numerical analysis).
+
+-- Preparing to use genetic algorithms -------------------------------
+
+There are some decisions to be made   before starting the GA.
+
+REPRESENTATION: First  we need to decide how  many bits  to use in our
+chromosomes.  We can use chromosomes with eight bits (byte), which are
+are sufficient to represent any value in {0,1,...,255}.
+
+DECODING: As we want the solution as a decimal  number, we will decode
+our solutions by using the normal binary to decimal conversion.
+
+FITNESS:  The  quality  of  our adult   individuals  (decimal numbers)
+depends  on  the  the number   of  0/1  transitions  in their   binary
+representation. Our  fitness function will have  to transform back the
+adult individuals into   binary form and count  the  transitions.  (Of
+course, for this   particular problem we  can   increase efficiency by
+avoiding  to  convert the  chromosomes in  decimal  form  in the first
+place.)
+
+POPULATION: Given the extreme simplicity of  the problem we use a very
+small population of 10 individuals.
+
+SELECTION: We will select  individuals for reproduction and cloning on
+with a probability proportional to their fitness.
+
+CLONING: 30% of the selected  individuals will be just copied. 
+
+RECOMBINATION: We  will  apply recombination to   70% of  the selected
+strings. To recombine two strings we cut them at a random position and
+swap their left hand sides.
+
+MUTATION:  We flip   random bits  of  the  chromosome with a  very low
+probability.
+
+-- Using LIB GA to solve the problem ---------------------------------
+
+In order to run this example we have to load the GA library with
+
+   lib ga;
+
+then we have to define an appropriate  fitness function which receives
+as  argument  a  chromosome  and returns  the  fitness  of   the adult
+individual  represented by   such chromosome (the   decoding phase, if
+necessary, will have to take place inside the fitness function).
+
+Here is a procedure that  evaluates the number  of 0/1 transitions  in
+the bit string of a chromosome and stores it.
+
+  define test_fitness_function( chrom );
+      lvars chorm, bit_str = bit_string(chrom), fit = 0, counter;
+
+      for counter from 2 to bit_number(chrom) do
+          if ( bit_str(counter-1) /= bit_str(counter) ) then
+             fit + 1 -> fit;
+          endif;
+      endfor;
+      fit -> fitness(chrom);
+  enddefine;
+
+
+It  is possible to  check  whether the function  performs  the correct
+computation by creating a chromosome using the procedure
+
+   conschromosome( <fitness>, <bit vector>, <length> )
+
+and then running test_fitness_function on it. E.g.
+
+   vars c = conschromosome( undef, { 1 0 1 0 }, 4 );
+   test_fitness_function( c );
+   fitness(c) ==>
+
+Once the fitness function is defined we can run the procedure
+
+  genetic_algorithm( <fitness function name>, <population size>, <bits>,
+                <generations>, <recombination probability>, 
+                <mutation probability>,  0, false, 
+                <print generation stats>, undef )
+
+which will return the best individual found.   E.g. the following code
+will  run  a GA with  the characteristics  outlined above,  print some
+statistics  for each generation (average  fitness, best fitness, etc.)
+and return the best individual in the variable "best".
+
+   vars best = genetic_algorithm( "test_fitness_function", 30, 8, 50, 
+                                0.7, 0.01, 0, false, true, undef );
+   bit_string(best) ==>
+   fitness(best) ==>
+
+
+-- Note ----------------------------------------------------------------
+
+Normally  genetic_algorithm() will save the  population on disk every
+ten generations. You can prevent this by enclosing <population size>
+inside a list before passing it to genetic_algorithm(). E.g. 
+
+   genetic_algorithm( "test_fitness_function", [30], ....)
+
+It is also  possible  to restart a run   saved on disk by passing  the
+corresponding  filename (a string)  instead of a number  or a list (in
+<population size>).
+
+-- Further reading ---------------------------------------------------
+
+ SHOWLIB * GA
+    The source code of the library
+
+ TEACH * GA_DEJONG.p
+    The source code of a small set of more interesting examples
+    on how to use LIB GA for function optimisation (minimisation or
+    maximisation) 
+
+--- $poplocal/local/teach/ga
+--- The University of Birmingham 1995.  --------------------------------
+

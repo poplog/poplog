@@ -1,0 +1,823 @@
+HELP FFT                                    David Young
+                                            April 1996, revised Oct 2001
+
+LIB * FFT is an implementation of the Fast Fourier Transform algorithm,
+and is part of the popvision package. The routines are based on that in
+"Numerical Recipes in C" by W.H. Press, B.P. Flannery, S.A. Teukolsky
+and W.T. Vetterling (CUP 1988), p. 411.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+      1.1   The 1-D Discrete Fourier Transform
+      1.2   The 2-D Discrete Fourier Transform
+
+  2   The Fast Fourier Transform
+      2.1   The procedure fft_1d
+      2.2   Array subscripting and array bounds
+      2.3   Invertibility
+      2.4   The procedure fft_2d
+
+  3   Transforms for real arrays
+      3.1   Symmetries for real data
+      3.2   Representing symmetrical data
+      3.3   Routines for 1-D real arrays
+      3.4   Routines for 2-D real arrays
+      3.5   Routine for 2-D real symmetric arrays
+
+  4   Convenience routines
+
+
+-----------------------------------------------------------------------
+1  Introduction
+-----------------------------------------------------------------------
+
+You are strongly advised to consult a textbook dealing with the Fourier
+Transform to gain familiarity with the mathematical ideas underlying
+these routines.
+
+The Discrete Fourier Transform is the name of the mathematical transform
+outlined in this section and described in mathematics books. It is the
+discrete version of the Fourier Transform itself, which is an integral
+transform for functions of a continuous variable. The Fast Fourier
+Transform (FFT) is an algorithm which implements the Discrete Fourier
+Transform.
+
+1.1  The 1-D Discrete Fourier Transform
+---------------------------------------
+
+Given some data D(n), n = 0..N-1, the 1-dimensional "forward" transform
+is defined by
+
+             1    N-1
+    F(k)  =  - * SIGMA D(n) * exp(2 * pi * i * n * k / N)
+             N    n=0
+
+where i**2 = -1 and both D(n) and F(k) may be complex. SIGMA means
+summation over the range of indices given.
+
+Note that F is periodic with period N: F(k+j*N) = F(k) for any integer
+j. Thus if F is calculated for k = 0..N-1, it is defined for all k,
+using F(k) = F(k mod N). F(k) is therefore usually calculated only for k
+in the range 0..N-1.
+
+The "reverse" transform is
+
+                  N-1
+    D(n)    =    SIGMA F(k) * exp(-2 * pi * i * n * k / N)
+                  k=0
+
+which will reconstruct D(n) for n in the range 0..N-1.
+
+If the reverse transform is used to find D(n) for other values of n,
+then the reconstructed D is also periodic, with D(n) = D(n mod N) for
+all n. It is therefore convenient to regard the original data as one
+cycle of a periodic series - the cycle on 0..N-1 - of which the other
+cycles are implicit.
+
+The normalising factor 1/N in the forward transform is an arbitrary
+choice, since the only mathematical requirement is that the product of
+this factor and the factor for the reverse transform (here equal to 1)
+is 1/N. Sometimes the transforms are made more symmetrical by using a
+factor of 1/sqrt(N) in each direction, and sometimes the factor of 1/N
+is applied to the reverse transform. The choice used here has the merit
+that the components of F can be viewed as the amplitudes of the
+constituent harmonic waves of the data D.
+
+This view breaks the symmetry, and identifies D as the time or space
+domain and F as the frequency domain. Given this, the component F(k) of
+the transform is the (complex) amplitude of a harmonic curve of
+frequency 2*pi*k/N and wavelength N/k in the data domain. In particular,
+F(0) is just the average of the data, F(1) is the amplitude of the
+component that has a single cycle in 0..N-1, and F(N/2) is the amplitude
+of the component that alternates between positive and negative on
+successive data points. F(N/2) thus describes the highest frequency that
+can be represented in the data, and F(k) for k > N/2 is best thought of
+as describing the negative frequency associated with F(k-N).
+
+In the implementation given here, N is always a power of 2, for
+efficiency. As described below, the Pop-11 interface is capable of
+concealing this constraint, which can be convenient for simple
+applications. However in applications in which the frequency components
+are to be interpreted, it is essential to use the true value of N.
+
+1.2  The 2-D Discrete Fourier Transform
+---------------------------------------
+
+The generalisation to 2 dimensions is straightforward. If D(n, m) is
+defined on n = 0..N-1, m = 0..M-1, the formula is
+
+            1    N-1   M-1
+ F(k,j)  = -- * SIGMA SIGMA D(n, m) * exp(2 * pi * i * (n*k/N + m*j/M))
+           NM    n=0   m=0
+
+but it is important to realise that this can be written as two
+successive 1-D transforms, thus:
+
+            1    N-1  (
+ F(k,j)  =  - * SIGMA ( exp(2*pi*i*n*k/N) *
+            N    n=0  (
+
+                     1    M-1                             )
+                     -   SIGMA exp(2*pi*i*m*j/M) * D(n,m) )
+                     M    m=0                             )
+
+With this in mind, all the statements about periodicity that apply to
+the 1-D transform apply equally to each dimension of the 2-D transform.
+Thus D and F are periodic in the plane, with the region n = 0..N-1, m =
+0..M-1 being repeated over the rest of the plane in both cases. The
+inverse of the 2-D transform is the straightforward analogue of the 1-D
+inverse; that is, it is obtained by negating the exponent and omitting
+the factor 1/NM.
+
+The separability is also used to implement the 2-D transform: a 1-D
+transform is applied to each row of a 2-D array, then to each column of
+the resulting array (or vice versa).
+
+
+-----------------------------------------------------------------------
+2  The Fast Fourier Transform
+-----------------------------------------------------------------------
+
+2.1  The procedure fft_1d
+-------------------------
+
+fft_1d(N, dir, inr, ini, outr, outi) -> (outr, outi)
+        Carries out a 1-dimensional Fast Fourier Transform on complex
+        data. (See Section 3 for transforms dealing with real data.)
+
+        N may be an integer giving the transform length as defined
+        above. It must be a power of 2. Alternatively, N may be <false>,
+        in which case the transform length is the number of input data
+        points rounded up to the next power of 2.
+
+        dir must be <true> for a forward transform and <false> for a
+        backward transform.
+
+        inr and ini are 1-D arrays with the same bounds, containg the
+        real and imaginary parts respectively of the input data. There
+        are no other restrictions on the bounds - see below.
+
+        outr and outi may both be input as <false>, in which case new
+        arrays with boundslists [0 N-1], created with *newsfloatarray,
+        are created and returned.
+
+        Alternatively, outr and outi may be input as 1-D arrays with the
+        same bounds as one another, in which case the results are stored
+        in these arrays and the same arrays are returned. There are no
+        other restrictions on the bounds when the arrays are supplied -
+        see below. If they are arrays, outr can be the same array as
+        inr, and outi can be the same as ini, in which case the original
+        data are overwritten by the transform.
+
+        Finally, outr and outi may be non-false and not arrays on entry.
+        In this case, recyclable arrays with bounds [0 N-1] are obtained
+        using oldsfloatarray (see *oldarray and *newsfloatarray) and
+        returned. The supplied values are used as the tags in the calls
+        to oldsfloatarray. The point of this is to reduce garbage
+        creation when a procedure needs to carry out repeated
+        transforms.
+
+        On return, the results outr and outi contain the real and
+        imaginary parts respectively of the transformed data.
+
+        The computation is carried out in single-precision floating
+        point arithmetic. For best efficiency, all arrays passed to the
+        procedure should be packed arrays of single-precision floats, as
+        created, for example, by *newsfloatarray. If this is not the
+        case, data will be copied as necessary to and from a work array
+        (created using *oldarray to reduce garbage).
+
+2.2  Array subscripting and array bounds
+----------------------------------------
+
+To make sensible use of Pop-11 arrays, the following relations hold
+(apart from machine arithmetic inaccuracies) between array elements and
+the mathematical quantities for which the transforms are defined,
+regardless of the array bounds:
+
+if dir is <true>, for forward transforms
+
+    inr(n)  =   Re(D(n mod N))      outr(k) =   Re(F(k mod N))
+    ini(n)  =   Im(D(n mod N))      outi(k) =   Im(F(k mod N))
+
+else for backward transforms
+
+    inr(k)  =   Re(F(k mod N))      outi(n) =   Im(D(n mod N))
+    ini(k)  =   Im(F(k mod N))      outr(n) =   Re(D(n mod N))
+
+Here D and F are assumed to be defined for the range 0..N-1. (Note that
+these relations are not true in many implementations of the FFT - in
+particular, a shift of 1 element is common.)
+
+In the simplest case, all the arrays have bounds [0 N-1]. The range of
+the input and output data then corresponds to the formulae in the
+introduction. Output arrays created by the procedure always have this
+boundslist.
+
+However, this may not always be convenient. The procedure deals with
+other cases using zero-padding or truncation on inputs, together with
+the periodicity of both inputs and outputs, as follows. (The procedure
+used is copy_modn, described in section 4.)
+
+Suppose the boundslist of the input arrays is [in0 in1] and that of the
+output arrays, if supplied by the caller, is [out0 out1]. The number of
+input data is nin=in1-in0+1 and of output data is nout=out1-out0+1.
+
+If nin is greater than or equal to N, N data pairs from the input arrays
+are used. If in1 is great enough, these will start from the least
+multiple of N that is not less than in0; otherwise they will start from
+in0.
+
+If nin is less than N, then the input data is padded on the right with
+zeros, as if the input array actually had bounds [in0 in0+N-1] but with
+zeros in the elements from in1+1 onwards. (Actually, the padding can
+equally well be regarded as being on the left, given the cyclic nature
+of the data.)
+
+For a reverse transform, padding will usually only make sense if the
+boundslist of the input array straddles 0 (or a multiple of N)
+symmetrically, and truncation will almost never make sense. For reverse
+transforms, therefore, you should normally expect to have nin=N, and in
+fact this is advisable where possible for forward transforms too.
+
+If in0 is not 0, the input data is then in effect mapped onto the range
+0..N-1 using the assumed periodicity of the data, as described above.
+For example, the case N = 8, in0 = 5, in1 = 10 is handled like this:
+
+                   n:  0  1  2  3  4  5  6  7  8  9 10 11 12
+       Original data:                 a  b  c  d  e  f
+  Data for transform:  d  e  f  0  0  a  b  c
+
+The outputs are actually calculated for k in the range 0..N-1, and for
+user-supplied output arrays are then mapped onto the range out0..out1
+using periodicity as defined above.
+
+2.3  Invertibility
+------------------
+
+If a forward transform is followed by a reverse transform, the original
+data will be reconstructed to within machine precision, provided that: N
+is the same in both calls; N is greater than or equal to the number of
+input data; and the output arrays have at least N elements. These
+conditions are satisfied when N and the output arrays are supplied as
+<false> and allowed to default.
+
+2.4  The procedure fft_2d
+-------------------------
+
+fft_2d(N, M, dir, inr, ini, outr, outi) -> (outr, outi)
+        Carries out a 2-dimensional Fast Fourier Transform on complex
+        data.
+
+        N may be an integer giving the transform length in the first
+        dimension as defined in the introduction. It must be a power of
+        2. Alternatively, N may be <false>, in which case the transform
+        length is the size of the input array in the first dimension,
+        rounded up to the next power of 2.
+
+        M is like N, but for the second dimension.
+
+        dir must be <true> for a forward transform and <false> for a
+        backward transform.
+
+        inr and ini are 2-D arrays with the same bounds, containg the
+        real and imaginary parts respectively of the input data. There
+        are no other restrictions on the bounds - see above. Both arrays
+        must (at present) be stored "by row" - the normal Pop-11
+        default.
+
+        outr and outi may both be input as <false>, or as non-false
+        non-array tags for oldsfloatarray (see fft_1d above), in which
+        case arrays with boundslists [0 N-1 0 M-1] are created and
+        returned. Alternatively, outr and outi may be input as 2-D
+        arrays with the same bounds as one another, in which case the
+        results are stored in these arrays and the same arrays are
+        returned. There are no other restrictions on the bounds when the
+        arrays are supplied - see above. If supplied, the arrays must be
+        stored "by row".
+
+        If supplied as arrays, outr can be the same array as inr, and
+        outi can be the same as ini, in which case the original data are
+        overwritten by the transform. (If outr shares inr's arrayvector
+        and they overlap, but are not identical arrays, then the offsets
+        and boundslists must be such that outr(k, j) and inr(n, m) refer
+        to the same element of the arrayvector whenever k mod N = n mod
+        N and j mod M = m mod M. A similar restriction applies to outi
+        and ini. This is only likely to be a consideration in the most
+        esoteric applications.)
+
+        On return, the results outr and outi contain the real and
+        imaginary parts respectively of the transformed data.
+
+        The computation is carried out in single-precision floating
+        point arithmetic. For best efficiency, all arrays passed to the
+        procedure should be packed arrays of single-precision floats, as
+        created, for example, by *newsfloatarray. If this is not the
+        case, data will be copied as necessary to and from a work array
+        (created using *oldarray to allow subsequent reuse).
+
+Note that the term "first dimension" means the dimension relating to the
+first index of the array (the first argument of the array procedure). In
+image processing, this usually refers to the column or x-coordinate of a
+pixel. In matrix algebra, it usually refers to the row of a matrix
+element.
+
+The remarks above about array subscripting, array bounds and
+invertibility for the 1-D case extend in the obvious way to the 2-D
+case. Zero-padding or truncation on the inputs, on both dimensions, and
+tesselation of the plane on the outputs, are used to map between the
+fundamental region [0 N-1 0 M-1] and whatever boundslists the arrays
+happen to have. (This is implemented in copy_modn2, described in section
+4.)
+
+
+-----------------------------------------------------------------------
+3  Transforms for real arrays
+-----------------------------------------------------------------------
+
+3.1  Symmetries for real data
+-----------------------------
+
+The routines above require both the real and imaginary parts of the data
+to be specified. This is wasteful when the input data are real, as the
+resulting symmetry properties of the transformed data can be used to
+reduce both memory and time requirements.
+
+When D is real, the following relation holds (see Section 1 above for
+details of the notation):
+
+    F(k) = F*(-k)
+
+Here F* means the complex conjugate of F. This is in addition to the
+periodicity condition F(k) = F(k mod N). Thus in particular we have
+F(k) = F*(N-k).
+
+The corresponding relation in 2-D is
+
+    F(j, k) = F*(-j, -k)
+
+The library has two routines for 1-D transforms of real data, one for
+each direction, and likewise two routines for 2-D transforms. There are
+separate routines for forward and backward transforms because the
+omission of the imaginary part affects the number of arguments and
+results.
+
+Finally there is a special routine for transforming 2-D data that is
+both symmetric to reflection in the origin and real:
+
+    D(n, m) = D(-n, -m),    D real.
+
+In this case the transform F has exactly the same symmetry properties:
+
+    F(j, k) = F(-j, -k),    F real.
+
+3.2  Representing symmetrical data
+----------------------------------
+
+In 1-D this is fairly straightforward. For symmetrical data (such as the
+real part of F when D is real) there are N/2+1 independent values.
+However, not every span of this length is equally useful, because data
+on opposite sides of any point congruent to 0 are redundant (or
+inconsistent). A complete set of data is represented by a span of the
+form [j j+N/2] where j mod N/2 = 0. Where input data is expected to be
+symmetrical, the routines will use the leftmost such span in the input
+region, or if there is no such span, the longest available segment that
+falls into such a span, with missing data treated as zero. (This is
+implemented in copy_modn_ref, described in section 4.)
+
+Antisymmetric 1-D data, such as the imaginary part of F when D is real,
+have N/2-1 independent values, because for such data I(i)=0 if i mod N =
+0. Values in such elements of input data are ignored.
+
+The routines do not use the trick, sometimes found in other packages, of
+packing the "extra" point R(N/2) into the "spare" point I(0), reducing
+the array lengths to N/2.
+
+
+In 2-D the situation is more complex. We assume that N and M are both
+even. The following figure indicating regions of redundancy may be
+helpful - regions marked with the same letters (ignoring case) determine
+each other. O is at (0, 0). Taking horizontal to be the first dimension
+(image convention), N is 10 and M is 12 (for the FFT they would actually
+be powers of 2). Multiples of N/2 and M/2 are marked in the margins.
+
+            |         |         |
+        a a h b b b b d a a a a h b b
+        a a h b b b b d a a a a h b b
+      - c c i c c c c o c c c c i c c -
+        b b h a a a a d B B B B h a a
+        b b h a a a a d B B B B h a a
+        b b h a a a a d B B B B h a a
+        b b h a a a a d B B B B h a a
+        b b h a a a a d B B B B h a a
+      - e e g e e e e F E E E E G e e -
+        a a h b b b b D A A A A H b b
+        a a h b b b b D A A A A H b b
+        a a h b b b b D A A A A H b b
+        a a h b b b b D A A A A H b b
+        a a h b b b b D A A A A H b b
+      - c c i c c c c O C C C C I c c -
+        b b h a a a a d b b b b h a a
+        b b h a a a a d b b b b h a a
+            |         |         |
+
+For symmetrical data, say R, there are MN/2+2 independent values, and a
+complete set does not form a rectangle. One complete set (shown by
+capital letters above) is contained in the rectangular region [0 N/2 0
+M-1], but within this there is some redundancy because R(0,i)=R(0,M-i)
+and R(N/2,i)=R(N/2,M-i), as marked with d and h above.
+
+Other regions that also contain a complete set are found by shifting the
+region [0 N/2 0 M-1] any distance in y, and any multiple of N/2 in x. An
+arbitrary distance in x is not allowed because duplicates will be
+included. (Here x and y are taken to refer to the first and second
+dimensions respectively.)  Alternatively, it is possible to start from
+the region [0 N-1 0 M/2], which can shifted arbitrarily in x and by
+multiples of M/2 in y. Thus suitable input regions are of the form
+
+    [x0 x0+N/2 y0 y0+M-1], x0 mod N/2 = 0
+ or
+    [x0 x0+N-1 y0 y0+M/2], y0 mod M/2 = 0
+
+Where input data is expected to be symmetrical, the routines will use
+such a region if one is contained in the input data. If both kinds of
+region are available, that of the first type is chosen. If possible the
+region used will also satisfy y0 mod M = 0 for the first type, or else
+x0 mod N = 0 for the second type; if this extra condition cannot be
+satisfied, x0 or y0 will be set to the lower bounds of the input region.
+If no region of this form is contained in the input, a rectangular
+region will be chosen to use as many data points as possible, subject to
+its being contained within one of the "complete data" regions. As many
+non-redundant points from this region as possible are then used. Missing
+data is treated as zero. (This is implemented in copy_modn_ref2
+described in section 4.)
+
+Antisymmetric 2-D data, such as the imaginary part of F when D is real,
+for which I(j,k) = -I(-j,-k), have MN/2-2 independent values, because
+the points at I(j,k) for j mod N/2 = 0 and k mod M/2 = 0 are all 0.
+These are marked as o, i, f and g in the diagram above.
+
+3.3  Routines for 1-D real arrays
+---------------------------------
+
+fft_1d_real_fwd(N, inr, outr, outi) -> (outr, outi)
+        This procedure carries out a forward transform for real data.
+        The arguments are as for fft_1d, except that ini and dir are
+        omitted.
+
+        If outr and outi are not arrays, then the arrays returned have
+        bounds [0 N/2]. The symmetry and periodicity conditions are used
+        to fill supplied output arrays regardless of their boundslists.
+        Since outi(0) = outi(N/2) = 0 there are actually only N values
+        computed.
+
+fft_1d_real_bckwd(N, inr, ini, outr) -> outr
+        This procedure carries out a backward transform, assuming that
+        the symmetry condition for the transform of real data holds for
+        the inputs. The arguments are as for fft_1d, except that outi
+        and dir are omitted.
+
+        If N is <false>, it is determined from the number of data
+        points input. N is the smallest power of 2 such that the number
+        of data points is no greater than N/2+1.
+
+        The comments in the previous section about symmetrical data
+        apply to the inputs.
+
+        If outr is not an array, the array returned has bounds [0 N-1].
+
+3.4  Routines for 2-D real arrays
+---------------------------------
+
+fft_2d_real_fwd(N, M, inr, outr, outi) -> (outr, outi)
+        This procedure carries out a forward transform for 2-D real
+        data. The arguments are as for fft_2d, except that ini and dir
+        are omitted. N and M are determined, if not given, by rounding
+        up the dimensions of inr as for fft_2d.
+
+        If outr and outi are not arrays, the arrays returned have bounds
+        [0 N/2 0 M-1]. If output arrays are supplied, then they will be
+        filled appropriately, using symmetry and periodicity, so that
+        the correct relations hold for all their elements.
+
+fft_2d_real_bckwd(N, M, inr, ini, outr) -> outr
+        This procedure carries out a backward transform for 2-D real
+        data. The arguments are as for fft_2d, except that ini and dir
+        are omitted. inr is assumed to be symmetric by reflection about
+        the origin and ini to be antisymmetric.
+
+        If N is <false> it is set to be the smallest power of 2 such
+        that the size of the first dimension of inr is no greater than
+        N/2+1. If M is <false> it is set to the size of the second
+        dimension of inr, rounded up to the next power of 2.
+
+        The comments in the previous section about the region from which
+        data are actually taken apply.
+
+        If outr is not an array, the array returned has bounds [0 N-1 0
+        M-1].
+
+3.5  Routine for 2-D real symmetric arrays
+------------------------------------------
+
+fft_2d_real_sym(N, M, dir, inr, outr) -> outr
+        This procedure carries out transforms for 2-D real data that are
+        assumed to be symmetric by reflection through the origin. The
+        arguments are as for fft_2d except that ini and outi are
+        omitted.
+
+        The forward and backward transforms are essentially the same in
+        this case. The dir argument's main effect is on normalisation:
+        if it is <true>, division by 1/(N*M) takes place, and not
+        otherwise.
+
+        For this routine, it is probably wise to set N and M explicitly.
+        If they are allowed to default by giving them <false> values,
+        the rules that apply are as follows. Assuming that xsize and
+        ysize are the dimensions of inr, and that N and M are powers of
+        2, and as small as possible:
+
+            if dir is true (forward transform)
+                N is no smaller than xsize
+                M/2+1 is no smaller than ysize
+            if dir is false (backward transform)
+                N/2+1 is no smaller than xsize
+                M is no smaller than ysize
+
+        That is, for forward transforms, inr is expected to contain a
+        region of the second type described in section 3.1 above, and
+        for backward transforms to contain a region of the first type.
+        The reason for this is that the internal structure of the
+        routine makes it most efficient to swap representations on
+        transforming.
+
+        Note that if N and M are given explicitly, the value of dir has
+        no effect on the region of the input array from which data are
+        taken.
+
+        inr is assumed to contain data obeying the symmetry and
+        periodicity rules inr(j, k) = inr(-j, -k) and inr(j, k) = inr(j
+        mod N, K mod M). Inconsistent data are ignored - a consistent
+        set is taken from the largest available region, as described in
+        section 3.1. For highest efficiency, the boundslist of inr
+        should be [0 N/2 0 M-1]. However, a consistent approach is to
+        use [0 N-1 0 M/2] for forward transforms and [0 N/2 0 M-1] for
+        reverse transforms.
+
+        On exit, outr receives data which satisfy the symmetry and
+        periodicity requirements. If outr is supplied, highest
+        efficiency is obtained if its boundslist is [0 N-1 0 M/2], but a
+        consistent approach is to adopt the default output boundslists
+        that depend on dir, as follows. If outr is not supplied, the
+        array returned has boundslist [0 N/2 0 M-1] if dir is <true>,
+        and [0 N-1 0 M/2] if dir is <false>. The arrays inr and outr can
+        be the same, in which case the original data are overwritten.
+
+        This routine makes considerable use of internal work arrays.
+        These are created using oldanyarray (see HELP * OLDARRAY) and so
+        are garbage-efficient.
+
+
+-----------------------------------------------------------------------
+4  Convenience routines
+-----------------------------------------------------------------------
+
+A few routines which are mainly for internal use in the library are
+made global as they may be generally useful.
+
+nextpow2(int1) -> int2
+        Returns the smallest power of 2 which is not less than int1.
+
+copy_modn(s0, s1, soff, src,  d0, d1, doff, dst,  N)
+        src and dst must be vectors (of any type); the other arguments
+        must all be positive integers. src and dst may be the same
+        vector.
+
+        If soff and doff are zero, elements d0 to d1 of dst are filled
+        from elements s0 to s1 of src, such that dst(i) = src(j) if i
+        mod N = j mod N and j is one of the elements actually accessed.
+        See the discussion in section 2.2 which explains what elements
+        are actually used and how. The result is always periodic with
+        period N.
+
+        soff and doff are offsets, and all vector references are
+        actually relative to src(soff) and dst(doff). That is, they give
+        the indices in the real vector which correspond to the zero
+        points of the mathematical vectors for which the relation above
+        is defined. 1-D arrays can be passed to this routine as the
+        arrayvector and the array offset in the arrayvector (that is
+        min_sub result of *arrayvector_bounds minus the first element of
+        the boundslist).
+
+copy_modn_ref(s0, s1, soff, src,  d0, d1, doff, dst,  N, revsgn)
+        As copy_modn but incorporating reflection symmetry. See the
+        discussion in section 3.1 which explains what elements are
+        actually used and how.
+
+        If revsgn is not <false>, those segments which are reversed in
+        direction on copying are negated, to give antisymmetry.
+
+copy_modn2(sreg, sarr, dreg, darr, N, M)
+        2-D equivalent of copy_modn. sreg and dreg must be 4-element
+        lists giving regions of sarr and darr from which to take and
+        into which to place data. If <false> they default to the
+        boundslist of the arrays. sarr and darr may be the same array.
+
+        sarr and darr must be 2-D arrays, of any type. Data are copied
+        from the region sreg of sarr to the region dreg of darr,
+        respecting periodicity of N in the first dimension and M in the
+        second. See sections 2.2 and 2.4 for what data are actually
+        used, and how.
+
+copy_modn_ref2(sreg, sarr, dreg, darr, N, M, revsgn)
+        2-D equivalent of copy_modn_ref. Arguments are as for
+        copy_modn2, with the addition of revsgn which if non-<false>
+        causes data in regions which have been reflected to be negated,
+        giving antisymmetry. See section 3.1 for a full description of
+        the fairly complex behaviour of this routine.
+
+
+-----------------------------------------------------------------------
+5  Examples
+-----------------------------------------------------------------------
+
+Examples below should all work if executed in order.
+
+First load some libraries,
+
+    uses popvision, fft, showarray, rc_graphplot, rci_show, arrayset;
+
+5.1  Examples for 1-D data
+--------------------------
+
+Define a handy graph plotting routine:
+
+    define graph(arr);
+        dlocal rc_window;
+        rci_show([1 300 1 250]) -> rc_window;
+        lvars (i0, i1) = explode(boundslist(arr));
+        rc_graphplot(i0, 1, i1, 'i/j', arr, 'D/F') ->
+    enddefine;
+
+    10 -> rci_show_xshift; 35 -> rci_show_yshift;   ;;; space out windows
+
+Create 1-D sinusoidal data, with 230 points, starting from D(1094):
+
+    vars b = [1094 ^(1094+229)];        ;;; boundslist of data
+    vars d1r = newsfloatarray(b,
+        procedure(x); sin(10*360*x/200) endprocedure);
+    vars d1i = newsfloatarray(b);     ;;; zero complex part
+
+Create a window (click on this and any subsequent graphics windows if
+you want to get rid of them) and look at the input:
+
+    graph(d1r);
+
+Take the FFT of the data using the general purpose routine and plot the
+results:
+
+    vars (f1r, f1i) = fft_1d(false, true, d1r, d1i, false, false);
+    graph(f1r);
+    graph(f1i);
+
+Note the symmetries because the data were real. The length of the
+transform got rounded up to 256 (the next power of 2 above 230) so that
+is the length of the output arrays. The wiggles either side of the peaks
+are causes by the finite length of the sine wave input. Transform back:
+
+    vars (d1r_n, d1i_n) = fft_1d(false, false, f1r, f1i, false, false);
+    graph(d1r_n);
+    graph(d1i_n);
+
+Note that the complex part is close to zero, but the graph shows
+numerical noise. The real part is now on the range 0 to 255, the
+default, and the zero padding which was inserted for the forward
+transform is revealed. You should be able to see why it appears where it
+does from the discussion in section 2.2, bearing in mind that (1094+230)
+mod 256 is 44, and 1094 mod 256 is 70. To transform back to the original
+span, one could do:
+
+    vars (d1r_n, d1i_n) = fft_1d(false, false, f1r, f1i,
+                                 copy(d1r), copy(d1r));
+    graph(d1r_n);
+
+By passing in a new array with the same bounds as d1r, we get back
+something that is almost identical with the original input, and the
+zero padding vanishes again.
+
+Since the data are real, all this can be done at lower cost using the
+transforms for real data:
+
+    rci_show_destroy("all");
+    graph(d1r);
+    vars (f1r, f1i) = fft_1d_real_fwd(false, d1r, false, false);
+    graph(f1r);
+    graph(f1i);
+    vars d1r_n = fft_1d_real_bckwd(false, f1r, f1i, copy(d1r));
+    graph(d1r_n);
+
+Note that f1r and f1i now have half the length they did before - what is
+missing was redundant, and the original data are still recreated almost
+exactly.
+
+For a simple example of frequency domain filtering, we replace the input
+with a square wave:
+
+    vars d1r = newsfloatarray(b,
+        procedure(x); 2 * (x div 20) mod 2 - 1; endprocedure);
+    graph(d1r);
+    vars (f1r, f1i) = fft_1d_real_fwd(false, d1r, false, false);
+
+Now set the high frequencies to zero and transform back:
+
+    vars r, i;
+    for r, i in_array f1r, f1i updating_last 2 in_region [16 128] do
+        0 ->> r -> i
+    endfor;
+    vars d1r_n = fft_1d_real_bckwd(false, f1r, f1i, copy(d1r));
+    graph(d1r_n);
+
+Remove all the windows if necessary:
+
+    rci_show_destroy("all");
+
+5.2  Examples for 2-D data
+--------------------------
+
+Make a 2-D checkerboard test pattern, and a zero complex part:
+
+    vars b = [30 190 20 170];
+    vars d2r = newsfloatarray(b,
+        procedure(x, y); (sin(9*x) * sin(14*y)) ** 2 - 0.5 endprocedure);
+    rci_show(d2r) -> ;
+    vars d2i = newsfloatarray(b);
+
+Transform with the standard fft:
+
+    vars (f2r, f2i) = fft_2d(false, false, true, d2r, d2i, false, false);
+    rci_show(f2r) -> ;
+    rci_show(f2i) -> ;
+
+The transforms may not appear to have much information, but if you look
+closely you should be able to see the bright pixels representing the
+spikes in the output. Transform back with all the defaults:
+
+    vars (d2r_n, d2i_n) = fft_2d(false, false, false, f2r, f2i, false, false);
+    rci_show(d2r_n) -> ;
+
+The output reconstructs the input except that we now see the
+zero-padding that was used to make the dimensions a power of 2 on the
+forward transform. We could lose this by passing in an array the same
+size as d2r to accept the result.
+
+The same results can be obtained by using the versions of the arrays for
+real data - the transform arrays will then each be half the size, and
+the transforms will be faster.
+
+We can do simple frequency-domain filtering in the 2-D case also. In
+this case we will lose the low frequencies. It will be simpler if the
+transform arrays are centred on zero, so we will redo the transform
+first, giving it centred arrays to work on. We supply N and M explicitly
+now as otherwise the reverse routine will get the wrong defaults. Note
+how the spikes are now all close to the origin when the arrays are
+displayed.
+
+    vars tb = [-128 128 -128 128];
+    vars f2r = newsfloatarray(tb);
+    vars f2i = newsfloatarray(tb);
+    fft_2d(256, 256, true, d2r, d2i, f2r, f2i) -> (f2r, f2i);
+    rci_show(f2r) -> ;
+    rci_show(f2i) -> ;
+
+(We could also have recentred the previous outputs using copy_modn2.
+This would have been faster, but the example above starts from the
+original data to illustrate how fft_2d can produce outputs in any
+required region.) Now get rid of the low frequencies, transform back
+and display:
+
+    arrayset(0, f2r, [-20 20 -20 20]);
+    arrayset(0, f2i, [-20 20 -20 20]);
+    vars (d2r_n, d2i_n) = fft_2d(256, 256, false, f2r, f2i, false, false);
+    rci_show(d2r_n) -> ;
+
+Note how the boundary of the data region appears as a strong
+high-frequency edge.
+
+Again, this all works just the same, though about twice as fast, with
+the real array routines, because we have been using real data.
+
+    fft_2d_real_fwd(256, 256, d2r, f2r, f2i) -> (f2r, f2i);
+    arrayset(0, f2r, [-20 20 -20 20]);
+    arrayset(0, f2i, [-20 20 -20 20]);
+    fft_2d_real_bckwd(256, 256, f2r, f2i, false) -> d2r_n;
+    rci_show(d2r_n) -> ;
+
+We did not have to alter the calls to arrayset because the routines take
+care of filling the transform arrays properly. However, we could have
+made them smaller had we wished to and achieved the same results by only
+dealing with values in one half-plane. This is left as an exercise.
+
+
+--- $popvision/help/fft
+--- Copyright University of Sussex 2001. All rights reserved.

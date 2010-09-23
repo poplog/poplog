@@ -1,0 +1,176 @@
+REF XT_INIT                                         Adrian Howard Jun 92
+
+       COPYRIGHT University of Sussex 1990. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<  X INITIALISATION ROUTINES  >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This REF  file details  the  procedures that  are  supplied by  the  two
+library packages LIB * FAST_XT_INIT and  LIB * XT_INI which provide  the
+Pop-11 interface  the  the X  Toolkit  Intrinsics for  initialising  the
+toolkit and widget classes.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   LIB XT_INIT
+
+  3   LIB FAST_XT_INIT
+
+
+
+---------------
+1  Introduction
+---------------
+
+The  exact  structure  of  arguments  and  results  for  the   following
+procedures is as discussed in REF * XTOOLKIT
+
+For full details see sections 2.1 and 1.6.9 of:
+
+               X Toolkit Intrinsics - C Language Interface
+                             X Window System
+                         X Version 11, Release 4
+
+        Copyright (C)  1985,  1986,  1987,  1988,  Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+
+
+--------------
+2  LIB XT_INIT
+--------------
+
+XptToolkitPreInitialize()                                    [procedure]
+        Do  the   POPLOG   initialisation   required   BEFORE   external
+        initialisation.    This    procedure     is    equivalent     to
+        fast_XptToolkitPreInitialize.
+
+
+XptToolkitPostInitialize()                                   [procedure]
+        Do   the   POPLOG   initialisation   required   AFTER   external
+        initialisation.    This    procedure     is    equivalent     to
+        fast_XptToolkitPostInitialize.
+
+
+XtToolkitInitialize()                                        [procedure]
+        Initialise the toolkit  (both POPLOG and  external aspects).  If
+        called a second time it does nothing.
+
+
+XtInitializeWidgetClass(widgetclass)                         [procedure]
+        Initialise the  given widget  class (NB:  done automatically  on
+        first use).
+
+
+XptCustomInitialize(proc)                                    [procedure]
+        This procedure takes  a custom  initialisation procedure,  proc,
+        and uses  it  for toolkit  initialisation.  If the  toolkit  has
+        already been initialized (by a  previous call to this  procedure
+        or fast_XtToolkitInitialize),  it  does  nothing.  Otherwise  it
+        invokes  the  fast_XptToolkitPreInitialize,   then  proc,   then
+        fast_XptToolkitPostInitialize. Hence  it  allows  initialization
+        procedures from custom packages to be used in place of  standard
+        initialization, while ensuring initialization only occurs once.
+
+        Notes:
+
+        (1) since it is not guaranteed that proc will be run, it should
+            be a procedure which takes no arguments and returns no
+            results.
+        (2) Poplog  assumes  that  proc  will  initialize external
+            aspects of the toolkit (ie call the C routine
+            XtToolkitInitialize, even if only indirectly).
+
+
+XptDefaultSetup()                                            [procedure]
+        Creates an application  context and a  display (connection  to a
+        server) using information provided in popunderx (see REF *X  and
+        REF * SYSTEM),  $DISPLAY,  XptDefaultDisplay,  and  the   system
+        defaults.  The  application   context  created   is  placed   in
+        XptDefaultAppContext.  The  display  descriptor  is  placed   in
+        XptDefaultDisplay. Asynchronous processing of events is  enabled
+        on the application context with XptAsyncAppContext.
+
+        If XptDefaultFallbackResources is a list of strings, then it  is
+        used to  specify fallback  resources  for the  application.  See
+        XptDefaultFallbackResources for details.
+
+        This procedure  will only  execute if  XptDefaultAppContext  and
+        XptDefaultDisplay do not  contain an  application context  and a
+        display.
+
+        This procedure is the default value of sysxsetup, and so is  run
+        as the default response to typing 'pop11 %x' to a shell.
+
+        See REF * OPENLOOK/OpenLook Startup for details of OLIT startup,
+        which differs from standard R4 startup.
+
+
+
+
+-------------------
+3  LIB FAST_XT_INIT
+-------------------
+
+fast_XptToolkitPreInitialize()                               [procedure]
+fast_XptToolkitPostInitialize()                              [procedure]
+fast_XtToolkitInitialize()                                   [procedure]
+fast_XtInitializeWidgetClass(widgetclass)                    [procedure]
+fast_XptCustomInitialize(proc)                               [procedure]
+        As for the procedures in  LIB * XT_INIT, but without checks  for
+        valid arguments. These procedures should  only be used in  fully
+        debugged programs. See  REF * XTOOLKIT for full  details of  the
+        POPLOG  X  naming  conventions  for  non-checking  and  checking
+        procedures.
+
+
+XptDefaultAppContext -> appcontext or false                   [variable]
+appcontext or false -> XptDefaultAppContext
+        A variable holding the  default application context (as  created
+        by XptDefaultSetup) or false.
+
+        Note for Unix users: After a sysfork XptDefaultAppContext is set
+        to false  in  the child  process.  This is  because  application
+        contexts are only valid in the process they are created in.
+
+
+XptDefaultDisplay -> display or false or string               [variable]
+display or false or string -> XptDefaultDisplay
+        A  variable   holding  the   default  display   as  created   by
+        XptDefaultSetup) or false.
+
+        If XptDefaultDisplay contains a  string when XptDefaultSetup  is
+        called then the string is used as the name of the display to  be
+        opened.
+
+        Note for Unix users: After a sysfork XptDefaultDisplay is set to
+        false in the child process. This is because display pointers are
+        only valid in the process they are created in.
+
+
+XptDefaultFallbackResources -> false or list                  [variable]
+        Contains a list of strings containing fallback resources for the
+        default display as initialised  by XptDefaultSetup, or false  if
+        no fallback resources are specified. Altering this variable once
+        XptDefaultDisplay is initialised will have no effect.
+
+        For example  doing the  following  will cause  the  "foreground"
+        resource of applications with a class  of "Poplog" to be set  to
+        "red".
+
+            ['Poplog*foreground: red'] -> XptDefaultFallbackResources;
+
+        See  * XtAppSetFallbackResources   for   details   of   fallback
+        resources.
+
+
+
+--- C.x/x/pop/ref/xt_init
+--- Copyright University of Sussex 1990. All rights reserved.

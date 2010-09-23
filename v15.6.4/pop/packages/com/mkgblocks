@@ -1,0 +1,41 @@
+#!/bin/sh
+# File:             $poplocal/local/com/mkgblocks
+# File:             $poplocal/local/rclib/mkgblocks
+# Purpose:          Make saved image with LIB * RC_BLOCKS loaded
+# Author:           Aaron Sloman  21 Jan 1997
+# Documentation:    TEACH * MSBLOCKS  TEACH * MSDEMO
+# Related Files:    LIB * RC_BLOCKS, LIB * RC_HAND
+
+if [ ! -d $poplocalbin ] ; then mkdir $poplocalbin; fi
+
+$popsys/pop11 %nort %noinit << \\\\
+
+lib rclib
+lib rc_blocks;
+lib xved_standalone_setup
+optimise_objectclass( "all" );
+if syssave('$poplocalbin/gblocks.psv') then
+	pr(popheader); pr(newline);
+	false -> popheader;
+	max(popmemlim, 2000000) -> popmemlim;
+	sysexit -> do_quit;
+	'PLEASE WAIT TILL EDITOR IS READY' =>
+	true -> blocks_saved_image;
+    ;;; next line allows for %x (Thanks to John Gibson  30 Jan 1997)
+    if popunderx then "x" -> vedusewindows endif;
+	blocks_go();
+	sysexit();
+endif;
+
+sysexit();
+
+\\
+
+echo "mkgblocks done"
+rm -f $poplocalbin/gblocks.psv-
+
+###
+
+# --- Revision History ---------------------------------------------------
+# --- Aaron Sloman, Jan 16 2005
+#	Altered to create $poplocalbin if necessary

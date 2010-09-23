@@ -1,0 +1,901 @@
+REF PROPSHEET                                   Jonathan Meyer, Sep 1993
+
+        COPYRIGHT University of Sussex 1993. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<                                 >>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<   PROPERTY SHEET CONSTRUCTION   >>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<                                 >>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This file describes  PROPSHEET, a library  for building property  sheets
+and dialog boxes.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   Datatypes
+
+  3   Initialising PROPSHEET
+
+  4   Property Boxes
+      4.1   Creating Boxes
+      4.2   Operations on Boxes
+
+  5   Property Sheets
+
+  6   Property Fields
+      6.1   Field Name
+      6.2   Field Pattern
+            ... Simple Field Patterns
+            ... Compound Field Patterns
+            ... Pseudo Field Patterns
+      6.3   Field Attributes
+      6.4   Operations on Fields
+
+  7   Identifiers
+
+  8   Generic Procedures
+
+  9   Subparts
+
+ 10   Miscellaneous
+
+
+
+---------------
+1  Introduction
+---------------
+
+LIB * PROPSHEET is  a  high-level,  general purpose  tool  for  building
+dialog boxes.
+
+It is  designed to  simplify the  creation and  management of  'Property
+Sheets' (popup windows containing settings). However, LIB * PROPSHEET is
+very flexible, and can be used to generate almost any kind of dialog box
+with a mixture of labels and controls.
+
+See TEACH * PROPSHEET for a tutorial on using PROPSHEET facilities.
+
+
+
+
+------------
+2  Datatypes
+------------
+
+The following new datatypes are used in this document:
+
+pbox                                                           [datatype]
+        A PROPSHEET box obtained  from e.g. propsheet_new_box. Each  box
+        contains zero or more sheets, and a row of box buttons.
+
+
+psheet                                                        [datatype]
+        A PROPSHEET sheet obtained  from e.g. propsheet_new. Each sheet
+        contains zero or more sheets, and exists inside a box.
+
+
+pfield                                                        [datatype]
+        A PROPSHEET  field  obtained from  e.g.  propsheet_field_record.
+        Fields exist in sheets, which are in turn inside boxes.
+
+
+psheetspec                                                    [datatype]
+        A specification of a PROPSHEET  sheet. This is either a  psheet,
+        or a pbox followed by the  name or positional number of a  sheet
+        (A positional  number  is  the  index  of  the  object,  where 1
+        represents the first  object, 2 represents  the second, etc.  in
+        the order that the objects are created).
+
+
+pfieldspec                                                    [datatype]
+        A specification of a PROPSHEET  field. This is either a  pfield,
+        or a psheetspec   followed and the name or positional number  of
+        a field.
+
+
+pitemspec                                                     [datatype]
+        A pbox, a psheetspec or a pfieldspec.
+
+
+panyitemspec                                                  [datatype]
+        A pitemspec, but  in addition for  box and field  specifications
+        you can pass an extra  name or positional number indicating  one
+        of the push/toggle buttons within the box or field.
+
+
+
+
+-------------------------
+3  Initialising PROPSHEET
+-------------------------
+
+propsheet_init()                                             [procedure]
+        Initialises the  PROPSHEET  library.  This  function  should  be
+        called before other PROPSHEET functions are used.
+
+
+
+
+-----------------
+4  Property Boxes
+-----------------
+
+
+4.1  Creating Boxes
+-------------------
+propsheet_new_box(name, parent, callback_p, buttons) -> pbox [procedure]
+        Creates a new top-level  window in which to  place zero or  more
+        property sheets. The box consists of a window frame (supplied by
+        the window manager), a vertically oriented area for the property
+        sheets, and a horizontal row of buttons along the bottom edge of
+        the box.
+
+        name is the string that  is shown at the  top of the box  frame
+        that is supplied  by the  window manager.  If it  is false,  the
+        string 'Properties' is used instead.
+
+        parent is  either a  Widget or  false. If  it is  a widget,  the
+        widget is used  as the  parent for the  box. That  is, when  the
+        parent is destroyed, the box will also be destroyed. Under  most
+        window managers, iconifying the parent window will cause the box
+        to popdown.
+
+        callback_p is a procedure  which is called  whenever one of  the
+        buttons along the bottom edge of the box is activated. It should
+        be a procedure of the form:
+
+            callback_p(box, button_name) -> should_popdown
+
+        Where box is the property box owning the button, and button_name
+        is a  word or  string specifying  the label  of the  button.  If
+        should_popdown  is  false,  the  window  stays  present  on  the
+        workspace after  the  callback  returns.  Otherwise  the  window
+        disappears from the workspace after the callback returns.
+
+        buttons is either a list or false. If it is a list, it  contains
+        words or strings  used as the  labels of the  buttons along  the
+        bottom edge of the box. If buttons is false, it defaults to  the
+        list:
+
+             [Apply Reset 'Set Defaults' Dismiss]
+
+        You must use
+
+            propsheet_show(pbox);
+
+        to make the box appear on  the screen.
+
+
+propsheet_import_box(widget) -> pbox                         [procedure]
+        Takes an arbritrary composite widget (for example a RowColumn or
+        ControlArea widget) and registers it as a PROPSHEET box. You can
+        then call propsheet_new  to create property  sheets in the  box.
+        This allows  you to  nest PROPSHEET-created  property sheets  in
+        widget structures  that  you  have  created  elsewhere  in  your
+        application.
+
+
+
+4.2  Operations on Boxes
+------------------------
+propsheet_box_can_resize(pbox) -> bool                       [procedure]
+bool -> propsheet_box_can_resize(pbox)
+        Setting this false forces the box to refuse resize requests from
+        the sheets and buttons in the box. Subsequently setting it  true
+        makes the box resize itself to the preferred size of the  sheets
+        currently on display in the box. This procedure is used when  an
+        application wants to  make a smooth  transition from  displaying
+        one  sheet  to  displaying  another  (using  propsheet_hide  and
+        propsheet_show).
+
+
+propsheet_box_buttons(pbox) -> buttons                       [procedure]
+buttons -> propsheet_box_buttons(pbox)
+        Sets or  retrieves the  list of  words or  strings displayed  in
+        buttons along the  bottom edge of  a box. See  propsheet_new_box
+        for details of buttons.
+
+        The results of using this procedure with a pbox that is imported
+        using propsheet_import_box are undefined.
+
+
+propsheet_box_callback(pbox) -> callback_p                   [procedure]
+callback_p -> propsheet_box_callback(pbox)
+        Sets  or  retrieves  the  callback   handler  for  a  box.   See
+        propsheet_new_box for details of callback_p. Assigning false  as
+        the box callback installs the default behaviour.
+
+        The results of using this procedure with a pbox that is imported
+        using propsheet_import_box are undefined.
+
+
+propsheet_activate(pbox, button)                             [procedure]
+        Simulates the  effect of  a user  selecting one  of the  buttons
+        along the bottom  edge of a  box. button is  the string or  word
+        used as  the name  of the  button when  the box  was created  by
+        propsheet_new_box.
+
+        The results of using this procedure with a pbox that is imported
+        using propsheet_import_box are undefined.
+
+
+propsheet_handle_standard_button(pbox, button)               [procedure]
+        This is the procedure that is called by the PROPSHEET library to
+        handle a box button being  activated if the application has  not
+        specified a box callback  procedure. It is  made public so  that
+        user defined callback procedures  can use it  it to provide  the
+        standard response to default buttons whilst still being able  to
+        customise what happens when other box buttons are activated.
+
+        The default responses to box buttons are:
+
+            if button == "Reset" then
+                propsheet_reset(box, true);
+            elseif button == "Apply" then
+                propsheet_apply(box, true);
+                propsheet_save(box, true);
+            elseif button = 'Set Defaults' then
+                propsheet_set_defaults(box, true);
+            elseif button == "Refresh" then
+                propsheet_refresh(box, true);
+            elseif button == "Dismiss" then
+                propsheet_hide(box);
+            endif
+
+        The results of using this procedure with a pbox that is imported
+        using propsheet_import_box are undefined.
+
+
+
+
+------------------
+5  Property Sheets
+------------------
+
+propsheet_new(sheet_name, pbox, field_list) -> psheet        [procedure]
+        Creates a new property sheet in a property box pbox,  optionally
+        creating fields in that sheet.  Sheets are layed out  vertically
+        in pbox.
+
+        sheet_name should be  a string or  word, or false  if the  sheet
+        does not have a title. If a sheet_name is given it is  displayed
+        at the top of the sheet.
+
+        field_list should  either   be  a  list   of  PROPSHEET   field
+        definitions (see 'Property Fields' below) or false.
+
+        After creating a new sheet you should do:
+
+            propsheet_show(psheet);
+
+        to make the sheet appear within the box.
+
+
+
+
+------------------
+6  Property Fields
+------------------
+
+propsheet_field(psheetspec, field_list)                      [procedure]
+        Defines fields  that should  appear in  the field  specified  by
+        psheetspec. field_list is a  list of PROPSHEET field  defintions
+        (see below). If field_list contains definitions for fields  that
+        already  exist  in  the  sheet  then  the  existing  fields  are
+        replaced.
+
+
+A field definition is a list of the form:
+
+     [fieldname pattern attributes]
+
+field_list can contain single field definitions or multiple field
+definitions, i.e.
+
+     [[fieldname pattern attributes] [fieldname pattern attributes] ...]
+
+Each field is placed on a separate row. However you can force  PROPSHEET
+to join several fields together on one row by using the 'join' operator.
+The join operator is  a `+' plus sign  placed before field  definitions,
+and causes two fields to be placed on the same row. e.g.
+
+    [[fieldname pattern attributes] + [fieldname pattern attributes]]
+
+
+6.1  Field Name
+---------------
+The fieldname in a field definition  is a word or string specifying  the
+name used  by PROPSHEET  to identify  the field,  and also  used as  the
+default label for the field.
+
+
+6.2  Field Pattern
+------------------
+The pattern describes  what type of  field is to  be used. Patterns  are
+often just single Poplog items,  where the type of  the item is used  to
+indicate what kind of  field is wanted (for  example, boolean items  are
+displayed using check  boxes, strings are  displayed using text  fields,
+etc.). The following patterns are recognised:
+
+...  Simple Field Patterns
+--------------------------
+    'string'
+        A string is  shown as a  single line editable  text field  whose
+        initial contents is the string itself. The value of the field is
+        the contents of the text  field. The field's accepter is  called
+        when the  user  presses return  in  the text  field  or  calls a
+        procedure which accesses the contents of the field after it  has
+        been modified.
+
+    true
+    false
+        A boolean is shown as a toggle button. The initial state of  the
+        toggle button  is determined  by which  boolean is  used in  the
+        pattern. The value of  a boolean field is  the current state  of
+        the toggle button.
+
+    10
+    10 units
+        A number is shown in  an editable `numeric field' whose  initial
+        value is the number itself. Numeric fields are single line  text
+        fields with two arrow buttons (one to increment the number,  the
+        other to decrement it). The optional units is a label (a word or
+        string) displayed after the arrow buttons to indicate the  units
+        of the number to the user.
+
+    1 - 10
+    1 - 10 units
+        Two integers seperated  by a "-"  are shown as  a slider  with a
+        text field displaying the current value. The optional units is a
+        label (a word or  string) displayed after  the arrow buttons  to
+        indicate the units of the number to the user.
+
+    command 'string'
+        A string preceded by  the keyword "command" is  shown as a  push
+        button that the user can click on. The accepter for the field is
+        called when  the user  activates the  button. The  value of  the
+        field is  the current  label on  the push  button. The  'string'
+        portion of  the  pattern  specifies the  initial  label  on  the
+        button.
+
+
+
+...  Compound Field Patterns
+----------------------------
+    oneof [a b c ...]
+    oneof [a b c ...] [d e f ...]
+        A list (or several lists) preceded by the word "oneof" is  shown
+        as a  set of  'radio' buttons,  of which  only one  item can  be
+        selected at  any  time.  The  value of  a  oneof  field  is  the
+        currently selected item.
+
+        You can  use multiple  lists to  create multiple  rows of  radio
+        buttons, one list for each row.
+
+        The items a, b,  and c etc.  are words or  strings. You can  use
+        vectors instead of lists  after the "oneof".  If you use  lists,
+        you can omit the "oneof" keyword.
+
+        The  allowNone  attribute  (see   'Attributes'  below)  can   be
+        specified to  allow  zero elements  to  be selected.  When  zero
+        elements are selected the value of the field is false.
+
+    someof [a b c ...]
+    someof [a b c ...] [d e f ...]
+        A list (or several lists) preceded by the word "someof" is shown
+        as a  set  of 'option'  buttons,  of  which any  number  can  be
+        selected at any time. The value of  a someof field is a list  of
+        the currently selected options (or nil if none are selected).
+
+        You can use  multiple lists  to create multiple  rows of  option
+        buttons, one list for each row.
+
+        The items a, b,  and c etc.  are words or  strings. You can  use
+        vectors instead of lists after the "someof". If you use vectors,
+        you can omit the "someof" keyword.
+
+    menuof [a b c ...]
+    menuof [a b c ...] [d e f ...]
+        A list (or several lists) preceded by the word "menuof" is shown
+        as a button  which, when pressed,  pops up a  menu allowing  the
+        user to select one  of the items in  the list. The menuof  field
+        displays the last item that was  selected on a label. The  value
+        of a menuof field is the last selected item.
+
+        You can use multiple  lists to create  multiple columns of  menu
+        options, one list for each column.
+
+        The items a,  b, and  c can  be words  or strings.  You can  use
+        vectors instead of lists after the "menuof".
+
+    listof [a b c ...]
+    listof [a b c ...] [d e f ...]
+    listof 4 [a b c ...]
+        A list (or several lists) preceded by the word "listof" is shown
+        as a scrolling list of items. Exactly one of the elements in the
+        scrolling list is selected. The value  of a menuof field is  the
+        currently selected item.
+
+        If you use multiple lists, the length of the first list controls
+        how many items can be displayed at once in the scrolling region.
+        Alternatively, you can insert a  number just after the  "listof"
+        keyword to indicate how  many items should  be displayed in  the
+        scrolling region.
+
+        The items a,  b, and  c can  be words  or strings.  You can  use
+        vectors instead of lists after the "listof".
+
+        The  allowNone  attribute  (see   'Attributes'  below)  can   be
+        specified to  allow  zero elements  to  be selected.  When  zero
+        elements are selected the value of the field is false.
+
+
+
+...  Pseudo Field Patterns
+--------------------------
+The following field patterns are useful, although they are not  strictly
+'fields' in the sense that the user can't interact with them:
+
+    message 'string'
+        This displays 'string' on a noneditable text label. The value of
+        a message field is the text shown on the label.
+
+
+    blank 10
+        This is  an empty  field, usually  used to  insert spacing  in a
+        sheet to make it  more readable. The value  of the field is  the
+        height of the spacing in pixels.
+
+
+
+6.3  Field Attributes
+---------------------
+The last component of a field definition is an optional attribute  list.
+Attribute lists are of the form:
+
+    ( attribute, attribute, attribute = value, ... )
+
+i.e. some attributes are single keywords, others expect a value element.
+
+The following is the full list of attributes that can be specified in a field
+definition:
+
+    accepter = val
+        Sets the fields accepter to val. See propsheet_field_accepter.
+        val is a procedure, or a word whose valof is a procedure.
+
+    aligned = val
+        If val is true, the field is aligned with all other fields in
+        the same column so that the colon characters after the field
+        labels are in a straight vertical line. If val is false, the
+        field is created flush left. Note that you cannot change a
+        fields alignment once it has been created.
+
+    allowNone
+        Changes the behaviour of listof and oneof field types so that
+        it is possible to have no items in the list selected. Note that
+        you cannot change a fields "allowNone" once it has been created.
+
+    applier = val
+        Sets the fields applier to val. See propsheet_field_applier.
+        val is a procedure, or a word whose valof is a procedure.
+
+    columns = val
+        Sets the size of the active area of a field to val (an integer).
+        See the width attribute below, and also propsheet_field_columns.
+
+    converter = val
+        Sets the fields converter to val. See propsheet_field_converter.
+        val is a procedure, or a word whose valof is a procedure.
+
+    default = val
+        Sets the fields default to val. See propsheet_field_default.
+
+    ident = val
+    ident = val :class
+        Sets the ident associated with the field to val. In the second
+        form, it additionally sets the ident class of val to class.
+        See propsheet_field_ident and propsheet_ident_class.
+        val can be an ident or a word.
+
+    label = val
+        Sets the label of the field to the string val. val can be false
+        to specify an empty label. See propsheet_field_label.
+
+    nodefault
+        This is the same as:
+
+            default = ^false
+
+        See propsheet_field_default.
+
+    nolabel
+        This is the same as:
+
+            label = ^false
+
+        See propsheet_field_label.
+
+    width = val
+        Sets the fields overall width to val (an integer).
+        See the columns attribute above, and also propsheet_field_width.
+
+
+
+6.4  Operations on Fields
+-------------------------
+propsheet_field_name(pfieldspec) -> name                     [procedure]
+        Returns the name  of a field,  i.e. the word  or string that  is
+        used to  identify  the field  in  calls to  procedures  such  as
+        propsheet_field_value, etc. Note that this name may be different
+        from the fields label.
+
+
+propsheet_field_value(pfieldspec) -> item                    [procedure]
+item -> propsheet_field_value(pfieldspec)
+        Sets or retrieves the current value shown on a field.
+
+
+propsheet_field_default(pfieldspec) -> item                  [procedure]
+item -> propsheet_field_default(pfieldspec)
+        Sets or retrieves the default value of a field, which is used by
+        propsheet_set_defaults.  item   can   be   the   special   value
+        propsheet_undef to  specify  that  the  field  does  not  have a
+        default value. If item  is an * IDENT,  then the idval of  the
+        ident is used as the default value (the idval is evaluated every
+        time propsheet_set_defaults is called). If item is a  procedure,
+        it is expected to take two arguments (the property sheet and the
+        name of the field) and return the default value.
+
+
+propsheet_field_ident(pfieldspec) -> ident                   [procedure]
+ident -> propsheet_field_ident(pfieldspec)
+        Returns or sets the  * IDENT associated with  a field. That  is,
+        when the user clicks  on 'Apply' or  when the application  calls
+        propsheet_apply, values  held in  fields are  assigned to  their
+        associated idents.  Similarly, applications  can refresh  values
+        held in fields from those idents.
+
+
+propsheet_field_applier(pfieldspec) -> apply_p               [procedure]
+apply_p -> propsheet_field_applier(pfieldspec)
+        Instead of using an IDENT assigned by propsheet_field_ident (see
+        above), each field can  alternatively specify a procedure  which
+        is  called  when  the  user  clicks  on  'Apply'  or  when   the
+        application calls propsheet_apply. apply_p is a procedure of the
+        form:
+
+            apply_p(sheet, field_name, value)
+
+
+propsheet_field_accepter(pfieldspec) -> accept_p             [procedure]
+accept_p -> propsheet_field_accepter(pfieldspec)
+        Specifies the accepter procedure which  is called to verify  the
+        contents of a field whenever the  value of the field is  changed
+        by the user. accept_p is a procedure of the form:
+
+            accept_p(sheet, field_name, new_value) -> accepted_value
+
+        If accepted_value  is  the  special  item  propsheet_undef,  the
+        previous value of the field  is restored (i.e. the users  change
+        is rejected). Otherwise, it should either be new_value (i.e. the
+        users change  is accepted),  or any  other valid  value for  the
+        field.
+
+
+propsheet_field_formatter(pfieldspec) -> format_p            [procedure]
+format_p -> propsheet_field_formatter(pfieldspec)
+        Sets or retrieves the procedure used to format values  displayed
+        in text fields. format_p is a procedure with an updater, of  the
+        form:
+
+            format_p(text_string) -> value
+            -> format_p(value) -> text_string
+
+
+propsheet_field_converter(pfieldspec) -> convert_p           [procedure]
+convert_p -> propsheet_field_converter(pfieldspec)
+        Sets or  retrieves  the  converter procedure  that  is  used  to
+        convert to and from values as seen on the display and values  as
+        used in  the  application.  convert_p is  a  procedure  with  an
+        updater. convert_p is of the form:
+
+            convert_p(displayed_value) -> application_value
+            -> convert_p(application_value) -> displayed_value
+
+
+size -> propsheet_field_width(pfieldspec)                    [procedure]
+size -> propsheet_field_columns(pfieldspec)                  [procedure]
+        Sets the  width of  textual  fields (strings,  numbers,  numeric
+        ranges, and  scrolling  lists).  size  is  measured  in  average
+        character-cell width for  the font of  textual field. The  first
+        procedure, propsheet_field_width, sets the  overall size of  the
+        active region  of  the field  (including  scrollbars,  increment
+        arrows, etc). propsheet_field_columns is  used to set the  width
+        of only the text area of the field.
+
+
+propsheet_field_record(pfieldspec) -> pfield                 [procedure]
+        Takes a specification  for a  field and  returns the  underlying
+        field record that is  used by PROPSHEET. You  can use pfield  in
+        subsequent pfieldspec specifications,  which is slightly  faster
+        than using a sheet followed by a field name.
+
+
+
+
+--------------
+7  Identifiers
+--------------
+
+propsheet_ident_class(ident) -> refresh_class                [procedure]
+refresh_class -> propsheet_ident_class(ident)
+        Specifies how PROPSHEET deals with a particular ident when  that
+        ident is associated with a field using propsheet_field_ident.
+
+        You    use    propsheet_ident_class    in    conjunction    with
+        propsheet_field_ident  to  create  fields  which   automatically
+        refresh their contents (by  calling propsheet_refresh) when  the
+        value of the underlying ident changes.
+
+        refresh_class  is one of  the following:
+
+            Value       Meaning
+            -----       -------
+            false       any fields associated with ident do not
+                        automatically refresh their displayed value when
+                        the ident changes.
+
+            "timer"     The value of ident is exampled periodically by a
+                        timer. If the value of ident has changed the new
+                        value is displayed on all fields which are
+                        linked to ident.
+
+            "sysPOP"    Calls to sysPOP(ident) will also plant code to
+                        call propsheet_refresh(ident).
+
+            "active"    The updater of the active variable ident has
+                        been extended to call propsheet_refresh(ident).
+
+
+
+
+---------------------
+8  Generic Procedures
+---------------------
+
+propsheet_show(panyitemspec)                                 [procedure]
+        Ensures that a PROPSHEET item  is displayed on the screen.  Note
+        that this is the same as:
+
+            true -> propsheet_visible(panyitemspec)
+
+
+propsheet_hide(panyitemspec)                                 [procedure]
+        Removes a PROPSHEET item from the screen. The same as:
+
+            false -> propsheet_visible(panyitemspec)
+
+
+propsheet_visible(panyitemspec) -> bool                      [procedure]
+bool -> propsheet_visible(panyitemspec)
+        Sets or accesses  the visibilty  attribute of  a property  sheet
+        item. Setting the attribute will cause the item to be  displayed
+        or hidden as appropriate.
+
+        When property sheets  and boxes are  initially created they  are
+        not visible on the screen. This  allows you to create a  complex
+        property box/sheet structure off screen, then display it once it
+        is  created  by  using  propsheet_show  or  assigning  true   to
+        propsheet_visible. This is faster than changing structures  once
+        they are present on the screen.
+
+        Hint: you should show a property  sheet before you show the  box
+        that it is in. This will improve the speed that things appear to
+        the user.
+
+
+propsheet_sensitive(panyitemspec) -> bool                    [procedure]
+bool -> propsheet_sensitive(panyitemspec)
+        Sets or retrieves the sensitivity  of a sheet, field, or  button
+        (i.e. whether it is  eligable for input). Initially,  everything
+        is eligable for input. Setting the sensitivity of items to false
+        causes them to become 'greyed out', indicating to the user  that
+        the item is not active.
+
+
+propsheet_label(panyitemspec) -> string                      [procedure]
+string -> propsheet_label(panyitemspec)
+        Sets or retrieves the label displayed by a PROPSHEET item.
+
+
+propsheet_reset_size(psheetspec)                             [procedure]
+propsheet_reset_size(pbox)                                   [procedure]
+        A system procedure used to 'poke'  a box or a sheet after  items
+        in it have been modified so that the box or sheet resizes itself
+        correctly. See propsheet_box_can_resize.
+
+
+propsheet_destroy(pitemspec)                                 [procedure]
+        Destroys a property sheet,  box or field.  This removes it  from
+        the screen  and releases  any resources  and linked  identifiers
+        that are associated with the item.
+
+
+propsheet_set_focus_on(pitemspec)                            [procedure]
+        This causes keyboard focus  to be moved  to the specified  item.
+        Usually     called     by      accepter     procedures      (see
+        propsheet_field_accepter) in order to automatically advance  the
+        users input to  the next  field. This procedure  should only  be
+        viewed as a hinting mechanism  since other factors (such as  the
+        window manager, and user interaction) can change the input focus
+        regardless of whether this procedure is called.
+
+
+propsheet_save(pitemspec)                                    [procedure]
+propsheet_save(pitemspec, only_if_visible)                   [procedure]
+        Stores the current field values displayed in all fields referred
+        to by  pitemspec in  a location  which is  subsequently used  by
+        propsheet_reset to restore the values.
+
+        If the optional only_if_visible is true this action only effects
+        fields for which propsheet_visible returns true.
+
+
+propsheet_reset(pitemspec)                                    [procedure]
+propsheet_reset(pitemspec, only_if_visible)                   [procedure]
+        Swaps the field values  of all fields  referred to by  pitemspec
+        with those  last  stored  using  propsheet_save,  implementing a
+        simple 'undo' mechanism for fields.
+
+        If the optional only_if_visible is true this action only effects
+        fields for which propsheet_visible returns true.
+
+
+propsheet_apply(pitemspec)                                    [procedure]
+propsheet_apply(pitemspec, only_if_visible)                   [procedure]
+        Assigns  the  current  values  of  all  fields  referred  to  by
+        pitemspec    to     their    associated     identifiers     (see
+        propsheet_field_ident).
+
+        If the optional only_if_visible is true this action only effects
+        fields for which propsheet_visible returns true.
+
+
+propsheet_set_defaults(pitemspec)                             [procedure]
+propsheet_set_defaults(pitemspec, only_if_visible)            [procedure]
+        Sets fields referred to by pitemspec to use their default values.
+        (see propsheet_field_default).
+
+        If the optional only_if_visible is true this action only effects
+        fields for which propsheet_visible returns true.
+
+
+propsheet_refresh(pitemspec)                                 [procedure]
+propsheet_refresh(pitemspec, only_if_visible)                [procedure]
+        For each  field  referenced  by pitemspec,  Sets  the  displayed
+        values of  the field  to  the current  value of  the  identifier
+        associated with the field using propsheet_field_ident. Note that
+        pitemspec can  also  be  an ident  which  is  registered  with a
+        PROPSHEET field.
+
+        If the optional only_if_visible is true this action only effects
+        fields for which propsheet_visible returns true.
+
+
+propsheet_user_data(pitemspec) -> item                       [procedure]
+item -> propsheet_user_data(pitemspec)
+        Assigns or  retrieves  an  application specific  piece  of  data
+        associated with boxes, sheets, or fields.
+
+
+propsheet_length(psheetspec) -> n                            [procedure]
+propsheet_length(pbox) -> n                                  [procedure]
+        Returns the number of sheets in  a box, or the number of  fields
+        in a sheet, or the number of buttons in a field.
+
+
+
+
+-----------
+9  Subparts
+-----------
+
+You can  access  all of  the  underlying  widgets and  gadgets  used  in
+PROPSHEET with propsheet_subpart.
+
+propsheet_subpart(panyitemspec, subpart_name) -> widget      [procedure]
+        Takes a specification  for a subpart  and returns the  widget(s)
+        that used for that subpart. For example:
+
+            propsheet_subpart(mybox, "lower_controls") =>
+            ** <Widget lower_controls>
+
+        subpart_name can  also be  the specification  of a  button  in a
+        PROPSHEET box or a field that  is made up of buttons (a  Menuof,
+        Someof or Oneof field). For example:
+
+            propsheet_subpart(box, "Apply") =>
+            ** <Widget Apply>
+
+        You can also use the subpart_name "buttons" to get a list of all
+        the buttons in a box or a field that is made up of buttons.
+
+        See the table below for a full list of field subparts.
+
+
+
+The following  table shows  the  named PROPSHEET subparts:
+
+-----------------------------------------------------------------------
+|Type                 |                |            |                 |
+|    Subpart Name     |OLIT Class      |Motif Class |Notes            |
+|---------------------+----------------+------------+-----------------|
+|PROPSHEET Box        |                |            |                 |
+|    upper_controls   |ControlArea     |RowColumn   |holds sheets     |
+|    lower_controls   |ControlArea     |RowColumn   |holds box buttons|
+|All Fields           |                |            |                 |
+|    control_area     |ControlArea     |RowColumn   |holds field      |
+|    label            |StaticText      |Label       |fields' label    |
+|Number Field         |                |            |                 |
+|    text_field       |TextField       |TextField   |text input       |
+|    increment        |Arrow           |ArrowButton |up arrow         |
+|    decrement        |Arrow           |ArrowButton |down arrow       |
+|    units#           |StaticText      |Label       |shows units      |
+|Numeric Range Field  |                |            |                 |
+|    text_field       |TextField       |TextField   |text input       |
+|    label_1          |Button          |Label       |shows min value  |
+|    slider           |Slider          |Scale       |slider input     |
+|    label_2          |StaticText      |Label       |shows max value  |
+|Menuof Field         |                |            |                 |
+|    menu_button      |AbbrevMenuButton|RowColumn   |pops up menu     |
+|    menu_pane        |MenuPane        |MenuShell   |the menu         |
+|    preview          |StaticText      |-           |shows preview    |
+|Listof Field         |                |            |                 |
+|    list             |ScrollingList   |List        |list input       |
+|Text String Field    |                |            |                 |
+|    text_field       |TextField       |TextField   |text input       |
+|Boolean Field        |                |            |                 |
+|    toggle           |CheckBox        |ToggleButton|boolean input    |
+|Command Field        |                |            |                 |
+|    command_button   |OblongButton    |PushButton  |                 |
+|Label Field          |                |            |                 |
+|    message_label    |StaticText      |Label       |readonly label   |
+-----------------------------------------------------------------------
+
+# this subpart is created only if it is specified in the field pattern.
+
+
+
+
+-----------------
+10  Miscellaneous
+-----------------
+
+propsheet_undef -> undef                                      [constant]
+        This constant is used as the value of propsheet_field_default to
+        specify that the field has an undefined default value, or as the
+        return result of an accepter  if the accepter wishes to  restore
+        the previous value for the field.
+
+
+propsheet_acceptreason                              [protected variable]
+        This is  dlocally  set to  one  of the  following  words  before
+        calling an accepter  procedure, to specify  why the accepter  is
+        being called:
+
+          activate     - button has been clicked.
+          loose_focus  - text field has been changed and the user
+                         has then clicked on a box button.
+          slider_moved - numeric range's slider is being dragged.
+          increment    - up arrow on a numeric field has been clicked.
+          decrement    - down arrow on a numeric field has been clicked.
+
+
+
+
+--- C.x/x/pop/ref/propsheet
+--- Copyright University of Sussex 1995. All rights reserved.

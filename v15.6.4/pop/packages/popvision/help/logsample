@@ -1,0 +1,311 @@
+HELP LOGSAMPLE                                  David Young
+                                                May 1993
+                                                revised November 1994
+
+LIB * LOGSAMPLE provides facilities for resampling images on a log-polar
+grid. See CSRP 96 for some indication of why this is useful.
+
+Facilities in the * POPVISION library are used. You should load LIB
+POPVISION before loading LIB LOGSAMPLE or trying to refer to the help
+files mentioned below.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   The procedure logsample
+
+  2   The log-polar formulae
+
+  3   Condition for circular sample regions
+
+  4   Example
+
+  5   The reverse procedure logsampback
+
+-----------------------------------------------------------------------
+1  The procedure logsample
+-----------------------------------------------------------------------
+
+logsample(ARRAY, RMIN, RMAX, XC, YC, WINWID, OPT, NR, NW, RESULT)
+            -> LOGARRAY
+        This procedure returns an array of samples on a logarithmic
+        grid. The numerical work is done using an efficient external
+        procedure.
+
+        ARRAY is the initial image array. This may be a packed array of
+        single precision floats or of bytes. These kinds of arrays may
+        be created using *newsfloatarray and *newbytearray respectively.
+        These are used just like newarray.  Other procedures that return
+        compatible arrays include array_of_real (HELP *EXTERNAL),
+        *newsarray, *sunrasterfile and *vfc_sequence. If you have an
+        array made some other way you can copy it into a new array of
+        the right type with a statement like
+
+            newsfloatarray(boundslist(OLDARRAY), OLDARRAY) -> ARRAY;
+        or
+            newbytearray(boundslist(OLDARRAY), OLDARRAY) -> ARRAY;
+
+        RMIN and RMAX are the radii of the innermost and outermost rings
+        of the log-polar sampling pattern, in terms of pixels in the
+        original image.  XC and YC are the position of the centre of the
+        pattern in the original image, in terms of the array indices
+        of ARRAY.
+
+        The samples can be optionally weighted using circular Gaussian
+        weights centred on (XC, YC).  This is probably not very useful,
+        and the option should normally be rejecting by giving WINWID as
+        <false>. If WINWID is a number then the samples are weighted by
+        exp(-P^2/(2 * SIGMA^2)), where P is the distance of the sample
+        from the sampling centre and SIGMA is equal to WINWID*RMAX.  If
+        WINWID is a number, then 0.5 is about the right sort of value to
+        try.
+
+        OPT specifies the sampling strategy to use. It can be:
+
+                "nearest" - each sample has the value of the nearest pixel
+                in ARRAY;
+
+                "smooth" - where there are many samples for each pixel of
+                ARRAY, the values are obtained by bilinear interpolation
+                between the 4 nearest pixels in ARRAY, but where there are
+                many pixels between the sample points, the values are
+                obtained by taking a simple average over a circular region
+                of ARRAY;
+
+                "gaussian" - each sample is obtained by weighted
+                interpolation using Gaussian weights.
+
+            The "nearest" option is very fast but gives lumpy results.
+            The "gaussian" option gives high-quality results but is far
+            slower as many Gaussian weights have to calculated for each
+            sample. The "smooth" option is a reasonable compromise and
+            is probably the most useful.
+
+            The "gaussian" option can be extended by giving a list of
+            the form [gaussian ^S] where S specifies that the sigma
+            parameter of the Gaussian weights should be S times the
+            spacing between sample points. The default for S is 1. In
+            addition, the form [gaussian ^S1 ^S2] specifies that the
+            difference of two Gaussians should be taken at each sample
+            point, with S1 and S2 specifying the sigma parameters for
+            them relative to the sample spacing. This gives something
+            like ganglion cell responses.
+
+            For all options, samples which would come from points
+            outside the bounds of ARRAY are replaced by zeroes.
+
+        NR and NW specify the number of rings and the number of wedges
+        in the log-sampling pattern. The rings are indexed from 0 to
+        NR-1 and the wedges from 0 to NW-1.
+
+        If RESULT is an array, the results will be placed into this
+        array and it will be returned (so you can avoid creating a new
+        array if garbage collections are a problem). The array must be
+        created using *newsfloatarray (or some other routine that
+        creates packed single-precision float arrays) and must include
+        the region [0 NR-1 0 NW-1].  Array elements outside this region
+        are not changed. If RESULT is <false>, a new array with
+        boundslist [0 NR-1 0 NW-1] is created and returned.
+
+        In either case, once the procedure has run, LOGARR(R, W) will
+        contain the sample value for ring R and wedge W. Ring 0 lies at
+        radius RMIN and ring (NR-1) lies at radius RMAX in the original
+        image. Wedge W lies in the direction of the positive x-axis, and
+        W increases clockwise for an image in which the y-axis points
+        down the screen (as is normal). The next section gives the exact
+        relationship between ring and wedge indices and position in
+        terms of the original image's x and y coordinates.
+
+-----------------------------------------------------------------------
+2  The log-polar formulae
+-----------------------------------------------------------------------
+
+For reference, the exact formulae relating positions in the log-polar
+array to positions in the original image are as follows. R and W are
+ring and wedge numbers in the log-polar array and X and Y are column and
+row numbers in the original array, all treated as if they could take
+non-integer values.  For a sample at (X, Y):
+
+                                        2           2
+    Radius of sample: P = sqrt( (X - XC)  + (Y - YC) )
+
+    Angle of sample:  T = arctan( (Y - YC) / (X - XC) )
+
+    Ring number:      R = K * log( P / RMIN )
+
+        where         K = (NR - 1) / log( RMAX / RMIN )
+
+    Wedge number:     W = NW * T / C
+
+        where         C = 360 if working in degrees, 2*pi if in radians
+
+Going the other way, for a sample at (R, W):
+
+    Radius of sample: P = RMIN * exp( R / K )
+
+    Angle of sample:  T = W * C / NW
+
+    Column number:    X = P * cos(T)  +  XC
+
+    Row number:       Y = P * sin(T)  +  YC
+
+These formulae are implemented in the following procedures. These may be
+convenient, but they are not efficient if you use them for many points,
+as they recalculate constants like K each time. They will work correctly
+for either setting of *popradians - T will be returned and must be given
+in degrees or radians as appropriate.
+
+contorth(X, Y, XC, YC) -> (P, T)
+        Converts from column X and row Y to ordinary polar coordinates P
+        and T, with origin at (XC, YC).
+
+rthtocon(P, T, XC, YC) -> (X, Y)
+        Converts from polar to conventional, reversing contorth.
+
+logtorth(R, W, RMIN, RMAX, NR, NW) -> (P, T)
+        Converts from ring R and wedge W in log-polar coordinates to
+        ordinary polar coordinates, given the parameters of the
+        log-sampling scheme as defined above.
+
+rthtolog(P, T, RMIN, RMAX, NR, NW) -> (R, W)
+        Converts from polar to ring and wedge number, reversing
+        logtorth.
+
+contolog(X, Y, RMIN, RMAX, XC, YC, NR, NW) -> (R, W)
+        Converts from column X and row Y in the original image to ring
+        number R and wedge number W in the log-polar image, given the
+        parameters of the log-sampling scheme as defined above.
+
+logtocon(R, W, RMIN, RMAX, XC, YC, NR, NW) -> (X, Y)
+        Converts from log-polar indices to original image indices,
+        reversing contolog.
+
+expansion(RSHIFT, RMIN, RMAX, NR) -> EXPANSION
+        Returns the expansion factor in the original image which
+        corresponds to a shift RSHIFT in the log-polar sampled image
+        with the given parameters.
+
+-----------------------------------------------------------------------
+3  Condition for circular sample regions
+-----------------------------------------------------------------------
+
+A sample region is roughly speaking the area of the image that projects
+onto one element of the log-polar sampled array. Sampling regions may be
+elongated round the rings or along the radii. Sometimes it may be
+desirable to make them roughly circular - i.e. having the same extent in
+the two directions. Another way to say this is that a sample's
+neighbours should be the same distance away whether you go round the
+rings or along the wedges. This will be the case if
+
+                    NW = 2 * pi * K
+
+        or        RMAX = RMIN * exp( 2 * pi * (NR-1) / NW )
+
+        or        RMIN = RMAX * exp( -2 * pi * (NR-1) / NW )
+
+(where K is defined above).  It is up to the user to set this condition
+if it is required.
+
+If you use circular sampling regions, you will find that either RMIN is
+much less than one (which means many of the samples are inside a single
+pixel of the original image, so do not tell you much), or NR is much
+less than NW.  This is a consequence of the fact that resampling a
+conventional image is really no substitute for having log-sampling
+hardware.
+
+-----------------------------------------------------------------------
+4  Example
+-----------------------------------------------------------------------
+
+To try the routine out, create a test image with:
+
+    vars image;
+    newbytearray([1 200 1 200],
+        procedure(x, y) -> v; lvars l, x, y, d, xl, yl, c, s, v = 0;
+            lconstant lines = [
+                {^true 138.912 94.6912 0.990821 -0.135178}
+                {^false 134.191 73.9592 0.79554 -0.605901}
+                {^true 84.5847 76.933 -0.555631 -0.831429}
+                {^false 119.923 112.343 0.850078 0.526657}];
+            for l in lines do
+                explode(l) -> (d, xl, yl, c, s);
+                if ((x-xl) * c + (y-yl) * s > 0) == d then
+                    v + 1 -> v
+                endif
+            endfor
+        endprocedure) -> image;
+
+This just makes an array with some lines in it, to give something to
+look at. Display the result with:
+
+    uses rci_show;      ;;; needs LIB POPVISION loaded
+    rci_show(image) -> ;
+
+Get a log-sampled image, centred on (100, 100), with outer radius 90:
+
+    vars logarr;
+    vars rmin = 1, rmax = 90, xc = 100, yc = 100, nr = 64, nw = 64;
+    logsample(image, rmin, rmax, xc, yc, false, "smooth", nr, nw, false)
+        -> logarr;
+
+and look at it:
+
+    2 -> rci_show_scale;        ;;; make it a bit bigger
+    rci_show(logarr) -> ;
+
+R runs from left to right in the displayed log-polar image. W runs
+downwards from the top. Thus as you go down the right-hand side of the
+log-polar display you go round a circle just inside the boundaries of
+the original image, starting at 3 o-clock and going clockwise. You
+should be able to see that this is what has happened.
+
+To understand the log-polar sampling operation, experiment with changing
+the position of the sampling centre and the other parameters. Remember
+that the "gaussian" option can be slow.
+
+-----------------------------------------------------------------------
+5  The reverse procedure logsampback
+-----------------------------------------------------------------------
+
+logsampback(LOGARR, NR, NW, RMIN, RMAX, XC, YC, CONBOUNDS) -> CONARRAY
+        This procedure takes a log-sampled array, and resamples it into a
+        conventional image representation.
+
+        LOGARR is a log-sampled array as returned by logsample. If it
+        was generated some other way, it must have been created
+        originally with newsfloatarray. NR, NW, RMIN, RMAX, XC and YC
+        are as for logsample. There are no sampling or windowing options
+        - all values are generated by bilinear interpolation in LOGARR.
+
+        CONBOUNDS may be a list giving the boundslist of the array to
+        receive the results, or it may be an array created by
+        newsfloatarray. If CONBOUNDS is a list, the result is a new
+        array with CONBOUNDS as its boundslist. If CONBOUNDS is an
+        array, the results are stored in it and it is returned (avoiding
+        garbage creation). CONBOUNDS can be, or have, any legal
+        boundslist - it does not have to correspond to that of the
+        original array used by logsample. XC and YC refer to the same
+        coordinates as CONBOUNDS.
+
+        The result CONARRAY will contain an approximation to the
+        original conventional image (provided NR, NW, RMIN, RMAX, XC and
+        YC are unchanged from the call to logsample).
+
+This can be useful to see what the resolution of the log-sampling
+process is like in terms of the original image.
+
+For example, assuming the code above has been run, you can look at the
+back-sampled image with:
+
+    vars newimage;
+    logsampback(logarr, nr, nw, rmin, rmax, xc, yc, [1 200 1 200]) ->
+        newimage;
+
+    1 -> rci_show_scale;        ;;; normal size
+    rci_show(newimage) -> ;
+
+The dot in the middle is the hole in the innermost ring of samples. You
+can see how resolution is lost away from the centre.
+
+
+--- $popvision/help/logsample
+--- Copyright University of Sussex 1994. All rights reserved.

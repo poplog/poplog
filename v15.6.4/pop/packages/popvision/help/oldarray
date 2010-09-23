@@ -1,0 +1,235 @@
+HELP OLDARRAY                                       David Young
+                                                    November 1994
+
+LIB * OLDARRAY provides a mechanism for reducing garbage collections
+associated with array creation, without requiring the programmer to
+explicitly keep arrays for re-use.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Purpose
+
+  2   The procedures oldarray and oldanyarray
+
+  3   Example
+
+  4   Garbage collection behaviour
+
+-----------------------------------------------------------------------
+1  Purpose
+-----------------------------------------------------------------------
+
+The procedure oldarray is used instead of *newarray to obtain arrays. In
+addition to the usual arguments, the user supplies a tag - typically a
+word or integer. When a call to oldarray is made with same (non-false)
+tag as in a previous call, the array returned may (but will not
+necessarily) share storage with the array returned on the previous call.
+This can enormously reduce garbage collection frequency in many programs
+which use large arrays. The arrays may share storage even if they have
+different boundslists.
+
+Note that oldarray does not permanently hang on to any memory, and so
+does not increase the risk of a "run out of memory" (*ROM) mishap.
+
+In general, it is sensible to use oldarray in place of newarray whenever
+it is known that the array produced by some previous call is finished
+with when a new call is made. One clear of case of this is when an array
+is created inside a loop and assigned to a permanent variable, say a,
+and is not assigned to any other variable directly or by argument
+passing (and no other arrays are built on its arrayvector). Then,
+instead of writing
+
+    newarray(bounds) -> a
+
+it may reduce garbage collection to use
+
+    oldarray("a", bounds) -> a
+
+Another clear case is where a is a lexical variable in a procedure which
+is not used recursively, and where the array assigned to a is not passed
+out of the procedure, and not used outside of any loop in which a is
+created. There are many more complex cases where oldarray is a good
+idea, but if it is not entirely clear from the program structure that
+the storage associated with an array can be reused, it is safer to use
+newarray.
+
+It is always worth considering oldarray when a temporary work array is
+required - see the example below.
+
+-----------------------------------------------------------------------
+2  The procedures oldarray and oldanyarray
+-----------------------------------------------------------------------
+
+oldarray(tag, bounds_list, element_init) -> array
+        The argument tag identifies the set of arrays that can share
+        storage. Two arrays returned by oldarray may share storage if
+        tag was identical (i.e. the == operator would return true) in
+        the two calls, provided that tag is not <false>. (If tag is
+        <false> oldarray does the same as newarray.)
+
+        The arguments bounds_list and element_init are as for newarray
+        (see REF * ARRAYS). element_init is optional; if omitted, the
+        values stored in array may be those left over from a previous
+        use of the storage - i.e. garbage, rather than <undef>.
+
+        The result array is an array whose arrayvector is a standard
+        full vector.
+
+oldanyarray(tag, bounds_list, element_init, key) -> array
+oldanyarray(tag, bounds_list, element_init, init_p, subscr_p) -> array
+        This is the same as oldarray except that the type of the
+        arrayvector must be specified. element_init is optional.
+
+        The final argument(s) are roughly as for the arrayvec_spec
+        argument to *newanyarray:
+
+        key is a vector-class key. (A separate subscriptor procedure may
+        not be supplied with this.)
+
+        init_p may be a vector initialisation procedure, taking an
+        integer and returning a vector. In this case subscr_p must be
+        provided and must be a subscriptor procedure for the vector, and
+        it is assumed that each element of the array occupies one
+        element of the vector.
+
+        Alternatively, init_p may be a pair whose front is a vector
+        initialisation procedure and whose back is a procedure which
+        returns the size of the vector needed to hold the required
+        number of array elements:
+
+                front(init_p)(N) -> vectorclass_object
+                back(init_p)(N) -> size_needed
+
+        In this case also subscr_p must be supplied. (This is to allow
+        for arrays where more than one element of the arrayvector is
+        used to hold one element of the array, which is one way of
+        implementing packed arrays of complex numbers.)
+
+        The other arguments to newanyarray, arrayvec_offset and by_row,
+        are not supported, but poparray_by_row can be used to control
+        row or column ordering.
+
+        Two arrays created by oldanyarray may share storage if both
+        calls had identical non-false tags and either identical key
+        arguments or identical subscr_p arguments (the init_p arguments
+        is not used for this purpose).
+
+-----------------------------------------------------------------------
+3  Example
+-----------------------------------------------------------------------
+
+It may be worth setting *popmemlim to something fairly modest on slow or
+heavily used machines before running these examples.
+
+First, the point about garbage collection. Execute this:
+
+    true -> popgctrace;                 ;;; observe garbage collections
+    constant bounds = [1 100 1 100];    ;;; allocate 10000 elements
+    vars a;
+    timediff();
+    repeat 500 times
+        newarray(bounds) -> a;
+    endrepeat;
+    pr('--- Time used with newarray: '); npr(timediff());
+
+and then with oldarray:
+
+    timediff();
+    repeat 500 times
+        oldarray("a", bounds) -> a;
+    endrepeat;
+    pr('--- Time used with oldarray: '); npr(timediff());
+
+Now an example of a context where this is useful. Suppose you want a
+procedure that does simple "edge-detection" on a 2-D array in situ. This
+procedure will modify the array by subtracting from each element the
+average of its 4 neighbours, and taking the absolute value. If you try
+to do this without using a second array, it gets very complex, because
+you can't modify an element until you have used its value in the
+calculation of the average for all its neighbours. If your procedure
+creates a new work array each time it is called, you get lots of
+garbage. If your procedure uses a fixed work array, it may not be big
+enough, and in any case this will permanently reserve storage which you
+might ill afford. If the calling procedure has to supply a work array,
+that's fiddly. Using oldarray solves these problems. To be concrete,
+here is such a procedure, but the only part that matters here is the use
+of the array assigned to the variable average.
+
+    uses arrayshift;
+
+    define laplace_in_place(array);
+        lvars array;
+        ;;; The Laplacian operator is approximated by subtracting the
+        ;;; average of its 4 or 8 neighbours from each element. We use 4.
+        lvars c, u, d, l, r, av, res,
+            average = oldarray(laplace_in_place, boundslist(array), 0),
+            arru = arrayshift(array, {0 1}),
+            arrd = arrayshift(array, {0 -1}),            ;;; see HELP
+            arrl = arrayshift(array, {1 0}),             ;;; * ARRAYSHIFT
+            arrr = arrayshift(array, {-1 0});
+        ;;; Store the average in the work array
+        for u, d, l, r, av in_array     ;;; see HELP * IN_ARRAY
+            arru, arrd, arrl, arrr, average updating_last do
+            (u + d + l + r)/4.0 -> av
+        endfor;
+        ;;; Subtract from the original
+        for c, av, res in_array array, average, array updating_last do
+            abs(c - av) -> res
+        endfor
+    enddefine;
+
+Note that the tag for the call to oldarray is the procedure itself.
+Unless the same tag is perversely used somewhere else in the program,
+this guarantees that this procedure cannot damage arrays returned by
+oldarray being used elsewhere in the program. However, it will usually
+reuse its own storage.
+
+If multiple anonymous tags are required inside a procedure, a convenient
+way is to use
+
+    lconstant tag0 = consref(0), tag1 = consref(0);
+
+This says that arrays created can be reused whenever the lexical context
+is the same. It is sometimes even more convenient to declare a macro of
+the type
+
+    lconstant macro ltag = [ #_< consref(0) >_# ];
+
+which allows the expression ltag to be used as the tag in calls to
+oldarray; arrays are then recycled only on reaching the same point in
+the code.
+
+-----------------------------------------------------------------------
+4  Garbage collection behaviour
+-----------------------------------------------------------------------
+
+Although oldarray avoids unnecessary garbage collections by locally
+retaining for re-use the arrays it returns, it would not do for it to
+keep this memory indefinitely.  If it did, large amounts of memory might
+be reserved for a particular tag even after its last use in a program.
+For this reason, arrays cached by oldarray are garbage collected
+provided that they are not referenced elsewhere. Thus garbage
+collections are avoided where possible, but when one does take place,
+storage is not reserved unnecessarily. This is actually achieved by
+storing the arrays in a property with the "tmpval" attribute (REF
+* PROPS).
+
+This means in practice that if a garbage collection happens to occur
+between every call to laplace_in_place, oldarray has no advantage over
+newarray, since it will have to create a new array each time anyway. (It
+has little overhead, though, so it still does no harm to use it.) On the
+other hand, if a garbage collection occurs during the execution of
+laplace_in_place, then re-use will occur, because the array is
+referenced as average and so cannot be garbage collected.
+
+There is one further circumstance in which the storage is not recycled.
+If a call to oldarray asks for a smaller array than one returned by a
+previous call with the same tag, and there is no reference to the larger
+array at the next garbage collection, then the next call to oldarray
+with that tag will allocate new storage. This again avoids oldarray
+unnecessarily reserving storage if the size of the arrays required
+decreases.
+
+
+--- $popvision/help/oldarray
+--- Copyright University of Sussex 2001. All rights reserved.

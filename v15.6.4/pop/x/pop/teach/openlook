@@ -1,0 +1,390 @@
+TEACH OPENLOOK                                      Tom Khabaza Dec 1990
+                                         Updated: Adrian Howard Mar 1992
+                                        Updated: Julian Clinton Nov 1993
+
+This teach file contains a tutorial to demonstrate the creation and
+manipulation of some widgets from the Open Look widget set. The tutorial
+in this file can also be found in the Poplog User Guide, in the X
+Windows chapter.
+
+In order to run this tutorial, you must be running Poplog on a system
+which provides the "Xol" (or "OLIT") widget set libraries, and be
+running an X Window Server which has OpenLook fonts. See HELP *OPENLOOK
+for details of the Poplog OpenLook widget set interface.
+
+This teach file is essentially the same as the tutorial found in
+TEACH *MOTIF.
+
+The complete source code for this tutorial is in LIB *XolTutorial
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- The Task
+ -- The Application Code
+ -- Loading The X-related Libraries
+ -- Loading Open Look Widget Classes
+ -- Initialising the Open Look Widget Set
+ -- Creating a base window
+ -- Creating Widgets
+ -- The Role Of "Callback Routines"
+ -- Updating The Resources
+ -- Adding Callbacks To The Widgets
+ -- Initialising The Program
+ -- Updating The Slider From A Program
+ -- Destroying The Widgets
+
+
+-- The Task -----------------------------------------------------------
+
+We want to be able to examine, display and modify the (integer) values
+of a collection of variables. We are going to build a simple control
+panel using the X Toolkit Intrinsics and the Open Look widget set to
+perform this task.
+
+The panel contains a single button and a "slider".  The button is
+labelled with a variable name and its value. The slider displays the
+same value, and can also be used to set it using the mouse.  Pressing
+the button changes the variable displayed; repeated pressing cycles
+through the complete set of variables.
+
+
+-- The Application Code -----------------------------------------------
+
+The names of variables to be manipulated by the control panel are stored
+in a list in the global variable variable_list.  The variables being
+manipulated are also global, and are initialised to zero:
+
+    vars variable_list = [a b c d e];
+    vars a=0, b=0, c=0, d=0, e=0;
+
+In order to "cycle" through the variables stored in variable_list,
+another global variable stores the current position in the list,
+initially set to the beginning.  Another holds the name of the variable
+currently selected:
+
+    vars    current_variable,
+            current_variable_list = variable_list;
+
+We then provide a routine for selecting the current variable.  If
+current_variable_list is null, then we should "wrap round", starting
+again at the beginning of variable_list.  The head of
+current_variable_list becomes the current variable, and the tail becomes
+the new current_variable_list (for use next time).
+
+    define new_current_variable;
+        if current_variable_list = [] then
+            variable_list -> current_variable_list;
+        endif;
+        hd(current_variable_list) -> current_variable;
+        tl(current_variable_list) -> current_variable_list;
+    enddefine;
+
+
+-- Loading The X-related Libraries ------------------------------------
+
+A number of X-related libraries are needed for this application.  First
+we load the general library for making other X-related libraries
+available:
+
+    uses popxlib;
+
+We also require the libraries for widget handling, callback manipulation
+and event management:
+
+    uses xt_widget;
+    uses xt_callback;
+    uses xt_event;
+
+Finally, we will define a set of general X-related constants and
+structures provided in Poplog to make coercion between X types and
+Poplog types more convenient. Here we will compile them using
+* loadinclude:
+
+    loadinclude xpt_coretypes;
+
+
+-- Loading Open Look Widget Classes -----------------------------------
+
+Widget classes are accessed through a number of constants defined in
+autoloadable libraries. Individual widget classes are accessed through
+these constants --- thus the Open Look Slider widget class can be made
+accessible by:
+
+    uses xolSliderWidget;   ;;; defines xolSliderWidget constant
+    xolSliderWidget =>
+    ** <Xol WidgetClass SliderWidget>
+
+(Notice that we refer to this class as the "SliderWidget" class rather
+than just the "Slider" class, since we may at other times need to access
+a "SliderGadget" class.)
+
+The following code thus loads the BaseWindowShellWidget,
+ControlAreaWidget, OblongButtonWidget and SliderWidget classes:
+
+    exload_batch;
+    uses
+        xolBaseWindowShellWidget,
+        xolControlAreaWidget,
+        xolOblongButtonWidget,
+        xolSliderWidget;
+    endexload_batch;
+
+This is surrounded by the brackets "exload_batch ... endexload_batch" to
+ensure that then external loading of procedures and data-structures
+takes place in a single "batch", that is in a single call to the linker,
+for increased efficiency.
+
+Open Look also has a number of constants which are typically used as
+attribute specifiers (e.g. -OL_HORIZONTAL-, -OL_VERTICAL-). These are
+defined in an include file, "XolConstants.ph". In this example, we will
+compile the file rather than simply including it as it would be in a
+source file:
+
+    loadinclude XolConstants;    ;;; rather than: include XolConstants
+
+
+-- Initialising the Open Look Widget Set ------------------------------
+
+Before creating any Open Look widgets, we must perform various
+initialisations. The Poplog X Toolkit must be initialised, as must the
+Open Look widget set (See REF *SYSTEM and HELP *OPENLOOK for details of
+Poplog startup under X). In addition we must create a connection with
+the X server, and create an initial application context.  These
+functions are performed by the single call:
+
+    XptDefaultSetup();
+
+
+-- Creating a base window ---------------------------------------------
+
+We now create an Open Look "base window" (in X Toolkit terminology, a
+top-level application shell) in which to place other widgets.  The base
+window is created by the standard Intrinsics routine -XtAppCreateShell-,
+which takes the application name, the application "class" name, the
+application shell widget class, the display on which the shell is to
+appear, and an ArgList.
+
+An "ArgList" is an X Toolkit structure containing a set of attribute
+value pairs; in this case the attributes are "resources", that is slots
+in a widget used to hold its attributes. ArgLists may be used to specify
+various properties of a widget or an application shell, for example at
+the point where it is created.
+
+    vars basewin =  XtAppCreateShell('panel', 'Demo',
+                        xolBaseWindowShellWidget,
+                        XptDefaultDisplay,
+                        [{allowShellResize ^false}]);
+
+The application name is used as the title for the window created; the
+application class name is used by the X resource database manager, but
+we can ignore it here. In this example, the ArgList is used to set the
+base window's allowShellResize resource to the boolean -false-,
+indicating that this window should not respond to resize requests from
+its children.
+
+
+-- Creating Widgets ---------------------------------------------------
+
+We now create three widgets, one from each of the classes loaded
+previously.  To create a widget we must supply a name (a string), the
+class of the widget, the widget's "parent" and an ArgList specifying the
+widget's initial resources.  Widgets are arranged hierarchically, with
+every widget (except for top-level shells) having a "parent" widget.
+Normally each widget, when displayed, will be visually "inside" its
+parent widget (where the parent is visible).
+
+Of the widget classes loaded above, the "control area" class needs some
+explanation.  A control area is an Xol widget used to contain and manage
+other widgets.  Widgets placed within a control area are automatically
+arranged in a sensible default arrangement with sufficient space and no
+overlap.  By default, resizing actions are performed when necessary; in
+the present example this will have no effect because resizing has been
+disabled in the parent window.
+
+The Poplog X Toolkit routine -XtCreateManagedWidget- is used to create
+the widgets.  -XtCreateManagedWidget- corresponds to the standard X
+Toolkit routine used to create widgets that respond appropriately to
+management from their parent and window manager:
+
+    vars
+        control =   XtCreateManagedWidget('mycontrol',
+                        xolControlAreaWidget,
+                        basewin, []),
+        button =    XtCreateManagedWidget('mybutton',
+                        xolOblongButtonWidget,
+                        control, []),
+        slider =    XtCreateManagedWidget('myslider',
+                        xolSliderWidget,
+                        control,
+                        [{width 100} {orientation ^OL_HORIZONTAL}
+                            {sliderMax 50} ]);
+
+The control area is created with the base window as its parent; the
+button and slider both have the control area as their parent.  Thus the
+control area is used to manage to two visible widgets.  The control area
+and button are both created with empty ArgLists; that is they have no
+special resource settings.  The slider is given three non-default
+resource settings: a width of 100 pixels, a horizontal orientation and a
+maximum value of 50.  The value of the constant -OL_HORIZONTAL- is
+provided by the Open Look widget set library loaded by -XptWidgetSet-
+(supplying -OL_VERTICAL- would specify a vertical orientation.)
+
+
+-- The Role Of "Callback Routines" ------------------------------------
+
+Having created the widgets for our control panel, we now specify how
+they should behave.  This is achieved by supplying the widgets with
+"callbacks", that is procedures to be called when the widget is
+manipulated with the mouse.  Each callback has a name indicating the
+circumstances under which the procedure is called.  For example, the
+"select" callback is called when the associated widget is selected with
+the mouse, and the "sliderMoved" callback is called when the associated
+slider is moved using the mouse.
+
+
+-- Updating The Resources ---------------------------------------------
+
+The callback routines attached to both widgets will change the display
+by updating the resources of the widgets.  The resources to be updated
+are the label of the button and the value of the slider.  The former is
+always set to the current variable name concatenated with its value and
+separated by a space.  The latter is always set to the value of the
+current variable.  Separate routines provide these two functions:
+
+    uses xpt_coretypes;
+
+    define set_button_label;
+        current_variable sys_>< ' ' sys_>< valof(current_variable)
+            -> XptValue(button, XtN label, TYPESPEC(:XptString));
+
+        XptAppTryEvents(XptDefaultAppContext); ;;; flush any output
+    enddefine;
+
+    define set_slider_value;
+        valof(current_variable) -> XptValue(slider, XtN sliderValue);
+    enddefine;
+
+Resources are updated using the Poplog X Toolkit routine -XptValue-.
+This takes a widget, a resource name and an (optional) coercion type. If
+the coercion type is not provided, it defaults to "int" - the correct
+type in -set_slider_value-. However, in -set_button_label- we are
+dealing with a string, so the "TYPESPEC(:XptString)" coercion argument
+is used. The resource name argument should be a string. The -XtN-
+convenience macro is used here to return a string, so repeated use of
+the same resource name will not create a new string each time.
+
+Note the call to -XptAppTryEvents- in -set_button_label-. This is used
+to flush the output queue of the X server connection, causing changes to
+the buttons label to become visible immediately.
+
+
+-- Adding Callbacks To The Widgets ------------------------------------
+
+Every callback routine is called with three arguments: the widget whose
+callback is being invoked, the "client data" supplied when the callback
+is added to the widget, and the "call data" indicating the event which
+caused the callback.  In the case of the button's callback, none of this
+data is used; we simply call -new_current_variable- to move on to the
+next variable, -set_button_label- to give the button its new label, and
+-set_slider_value- to set the slider value to the value of the new
+variable:
+
+    define switch_variable_callback(widget, clientdata, calldata);
+        lvars widget clientdata calldata;
+        new_current_variable();
+        set_button_label();
+        set_slider_value();
+    enddefine;
+
+This is attached to the select callback of the button using the X
+Toolkit routine -XtAddCallback-:
+
+    XtAddCallback(button, 'select', switch_variable_callback,
+        'Data for button select callback');
+
+The final argument of this call is the "client data" passed to the
+callback routine when it is called.  This allows the callback routine to
+distinguish between widgets in cases where the same callback routine has
+been used for more than one widget.  However, in the present
+comparatively simple case this is not used by the callback routines, and
+is therefore effectively a dummy argument.
+
+The second callback procedure, -set_variable_callback-, is used to set
+the value of the selected variable when the slider is moved.  Here, the
+call data argument is used to access the new value given by the position
+of the slider.  This argument contains a Poplog "external pointer"
+object, pointing to a machine integer.  This integer is extracted and
+coerced into a Poplog integer using the "exacc :int" construct (see
+REF *EXTERNAL); the result is assigned to the current variable and the
+button label is set appropriately.
+
+    define set_variable_callback(widget, clientdata, calldata);
+        lvars setting widget clientdata calldata;
+        exacc :int calldata -> valof(current_variable);
+        set_button_label();
+    enddefine;
+
+This is attached to the slider's sliderMoved callback thus:
+
+    XtAddCallback(slider, 'sliderMoved', set_variable_callback,
+        'Data for slider sliderMoved callback');
+
+
+-- Initialising The Program -------------------------------------------
+
+We now "realise" the widgets, making them visible on the screen:
+
+    XtRealizeWidget(basewin);
+
+Finally, we set up the current variable and set the button's label:
+
+    new_current_variable();
+    set_button_label();
+
+The control panel now appears on the display and responds to mouse
+events in the manner that we have specified.
+
+
+-- Updating The Slider From A Program ---------------------------------
+
+The appearance of the widgets can be altered directly from Poplog. For
+example, the following procedure could be used to update the value of
+-current_variable-, and to ensure that the slider gets updated at the
+same time.
+
+    define update_slider(x);
+        lvars x;
+        x -> valof(current_variable);
+        set_button_label();
+        set_slider_value();
+    enddefine;
+
+Then try:
+
+    update_slider(45);
+
+
+-- Destroying The Widgets ---------------------------------------------
+
+The control panel continues to exist as long as the variables basewin,
+control, slider and button contain the widgets that comprise it.  If
+these objects are discarded, by assigning another value to the variables
+thus
+
+    false ->> basewin ->> control ->> slider -> button;
+
+then the widgets will be destroyed at the next garbage-collection.
+Alternatively, the widgets can be explicitly destroyed using
+-XtDestroyWidget- thus:
+
+    XtDestroyWidget(basewin);
+
+Destroying a widget will cause all its children to be destroy as well,
+thus we only need to call -XtDestroyWidget- once with the top level
+widget.
+
+
+
+--- C.x/x/pop/teach/openlook
+--- Copyright University of Sussex 1990. All rights reserved. ----------

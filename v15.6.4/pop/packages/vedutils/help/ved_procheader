@@ -1,0 +1,347 @@
+HELP VED_PROCHEADER                                    A.Sloman Oct 1996
+                                                        Revised Jan 2000
+ENTER procheader
+ENTER procheader <procedure spec>
+
+LIB VED_PROCHEADER is an autoloadable library which produces a template
+commented out description of a procedure, preceding the definition of
+the procedure. The user can then fill in the template, explaining what
+the procedure does and what its inputs and outputs are.
+
+It also automatically produces a commented heading for class
+definitions, method definitions, ruleset definitions, etc.
+
+As indicated above, there are two formats for invoking procheader: the
+first one automatically extracts header information from the current
+procedure definition while the second one uses the header definition
+given on the argument line. Examples are given below.
+
+When the library is compiled, the ved_procheader procedure is mapped
+onto the key sequence
+    ESC !
+
+So that key sequence can then be used as an abbreviation for the first
+form of
+    ENTER procheader
+
+More detailed explanations follow.
+
+
+         CONTENTS
+
+ -- ENTER procheader <procedure spec>
+ -- How to fill in the blanks
+ -- ENTER procheader
+ -- Using procheader with an escape sequence
+ -- Updaters
+ -- Other define formats
+ -- Acknowledgement
+ -- See also
+
+-- ENTER procheader <procedure spec> ----------------------------------
+
+This uses the information given in the <procedure spec> to produce a
+template commented procedure header with as much information as possible
+filled in already.
+
+For example, the Ved command:
+
+    ENTER procheader foo(this) -> that
+
+produces the following commented out template procedure description.
+
+/*
+PROCEDURE: foo(this) -> that
+INPUTS   : this is a ???
+OUTPUTS  : that is a ???
+USED IN  : ???
+CREATED  : 21 Feb 1998
+PURPOSE  : ???
+
+TESTS:
+
+*/
+
+ENTER procheader foo(arg1, arg2) -> (out1, out2, out3)
+produces the following:
+
+/*
+PROCEDURE: foo(arg1, arg2) -> (out1, out2, out3)
+INPUTS   : arg1, arg2
+  Where  :
+    arg1 is a ???
+    arg2 is a ???
+OUTPUTS  : out1, out2, out3
+  Where  :
+    out1 is a ???
+    out2 is a ???
+    out3 is a ???
+USED IN  : ???
+CREATED  : 21 Feb 1998
+PURPOSE  : ???
+
+TESTS:
+
+*/
+
+-- How to fill in the blanks ------------------------------------------
+
+It is then up to the user to fill in the blanks. For instance suppose
+the procedure foo takes a word which is the name of a city and a number
+representing a year, and returns a word representing the country
+containing foo, a number representing the population in that year, and a
+list of words representing the name of the mayor of the city in that
+year, and the procedure foo is used in procedures hoo and moo, then the
+above template could be filled in as follows:
+
+/*
+PROCEDURE: foo(arg1, arg2) -> (out1, out2, out3)
+INPUTS   : arg1, arg2
+  Where  :
+    arg1 is a word representing a city
+    arg2 is a number representing a year
+OUTPUTS  : out1, out2, out3
+  Where  :
+    out1 is a word representing the country
+    out2 is a number representing the population of the city
+            in that year
+    out3 is list of words representing the name of the mayor of the
+            city in that year, e.g. [Mary Bloggs]
+USED IN  : procedures hoo and moo
+CREATED  : 21 Feb 1998
+PURPOSE  : Obtains information about a city from the pop-11 database
+           to be used in answering questions posed by the user.
+
+TESTS:
+
+<instructions to set up the database might go here>
+
+foo("paris", 1993)=>
+
+<the output produced by that test might go here>
+
+*/
+
+Of course, it would be bad style to use such meaningless words as names
+for the procedure or for the input and output variables.
+
+Note that the explanation of the intput and output variables gives both
+the INTERNAL semantics, i.e. what sort of Pop-11 datatype is to be
+given as the value of the variable (and there might be different types
+in different contexts), and the EXTERNAL semantics, i.e. what sorts of
+things in the application domain are referred to by those values.
+
+(For more in INTERNAL and EXTERNAL semantics see Chapter 2 of the
+Pop-11 Primer, available also as TEACH PRIMER).
+
+-- ENTER procheader ---------------------------------------------------
+
+This format, with no argument, causes a header to be produced for the
+current procedure definition. (I.e. it searches back for the previous
+occurrence of "define" gets the header information following that, and
+then inserts the heading.)
+
+For example if the VED cursor is located in this procedure definition
+
+
+define riv_is_at(thing, place) -> boolean;
+
+    riv_whereis(thing) == place -> boolean
+
+enddefine;
+
+and the "ENTER procheader" command is given, then the following header
+will be inserted above the procedure definition (with the appropriate
+date):
+
+/*
+PROCEDURE: riv_is_at (thing, place) -> boolean
+INPUTS   : thing, place
+  Where  :
+    thing is a ???
+    place is a ???
+OUTPUTS  : boolean is a ???
+USED IN  : ???
+CREATED  : 21 Feb 1998
+PURPOSE  : ???
+
+TESTS:
+
+*/
+
+This example is taken from TEACH RIVER2. It might be expanded as
+follows:
+
+/*
+PROCEDURE: riv_is_at (thing, place) -> boolean
+INPUTS   : thing, place
+  Where  :
+    thing is a word representing an object such as one of the
+        animals, the man, or the boat
+    place is a word, either "left" or "right" representing one of
+        the river banks, or "boat" representing the boat.
+OUTPUTS  : boolean is a boolean which is true if the item is at the
+    location specified otherwise false.
+USED IN  : This is used in the procedure riverchat to answer
+            questions about the state of the world
+CREATED  : 21 Feb 1998
+PURPOSE  : The procedure interrogates the database to find out
+    whether the proposition specified in a question is true or false.
+
+TESTS:
+
+<give instructions to set up the database>
+
+riv_is_at("man", "left") ==>
+** <true>
+
+riv_is_at("boat", "right") ==>
+** <false>
+
+riv_is_at("left", "man") ==>
+
+MISHAP : 'man is not a location'
+    ....
+
+*/
+
+
+
+-- Using procheader with an escape sequence ---------------------------
+
+A default key sequence invoking ved_procheader is proved, namely: ESC !
+
+If your vedinit.p file includes the following, then after you start up
+Ved, the sequence ESC ! will autoload the library and then invoke it.
+
+define :ved_runtime_action;
+    vedsetkey('\^[!', veddo(%'procheader'%));
+enddefine;
+
+Alternatively you can include the following in your vedinit.p file:
+
+uses ved_procheader;
+
+The latter will cause the library to be loaded every time you start up
+VED, which is probably desirable only if you are editing program files
+all the time.
+
+Otherwise the escape sequence will become available after the first
+time you use the ENTER procheader command in any session running Ved.
+
+-- Updaters -----------------------------------------------------------
+
+Where a procedure updater (see HELP * UPDATER) is defined this is
+indicated by the use of "->" before the procedure name.
+
+E.g. you might wish to define a procedure second to access and update th
+second element of a list, thus:
+
+    define second(list);
+        hd(tl(list))
+    enddefine;
+
+    define updaterof second(value,list);
+        value -> hd(tl(list))
+    enddefine;
+
+Then using ENTER procheader (or ESC !) with the latter will produce
+
+/*
+PROCEDURE: -> second (value, list)
+INPUTS   : value, list
+  Where  :
+    value is a ???
+    list is a ???
+USED IN  : ???
+CREATED  : 21 Feb 1998
+PURPOSE  : ???
+
+TESTS:
+
+*/
+
+Explaining what the updater does may need more care, since the
+above updater procedure would normally be invoked in the format:
+
+    value -> second(list);
+
+See HELP UPDATER
+
+-- Other define formats -----------------------------------------------
+
+There are many formats defined using the "define :form" syntax which
+essentially extend the syntax of Pop-11. Examples are
+
+    define :class
+    define :mixin
+    define :method
+    define :instance
+    define :ruleset
+    define :rulefamily
+
+and more.
+
+If the "ENTER procheader" command (or ESC !) is used with any of these,
+an appropriate header is produced, using an upper case version of the
+keyword.
+
+E.g. if this is used with OBJECTCLASS and the following class is defined
+
+    define :class person;
+        slot person_name = undef;
+        slot person_age  = 0;
+        slot person_sex  = undef;
+    enddefine;
+
+Then ENTER proceheader will produce the following:
+
+/*
+CLASS    : person
+CREATED  : 21 Feb 1998
+PURPOSE  : ???
+
+*/
+
+Only the case of "define :method" is recognised as another format for
+defining a procedure which may have input and output locals, and may be
+defined using "updaterof".
+
+E.g.
+
+
+    define :method marry( p1:person, p2:person );
+
+produces
+
+/*
+METHOD   : marry (p1, p2)
+INPUTS   : p1, p2
+  Where  :
+    p1 is a ???
+    p2 is a ???
+OUTPUTS  : NONE
+USED IN  : ???
+CREATED  : 21 Feb 1998
+PURPOSE  : ???
+
+TESTS:
+
+*/
+
+-- Acknowledgement ----------------------------------------------------
+
+Extending ved_procheader to automatically analyse the enclosing
+procedure definition to find the header information was suggested by
+Toby Smith (AI and CS degree student at The University of Birmingham
+1994-97). He also suggested having an escape sequence as a standard
+abbreviation.
+
+-- See also -----------------------------------------------------------
+
+    HELP * VED_FILEHEADER
+
+    TEACH * VEDNOTES
+
+--- $poplocal/local/help/ved_procheader
+--- Copyright University of Birmingham 2000. All rights reserved. ------

@@ -1,0 +1,1161 @@
+HELP ARRPACK                                    David Young
+                                                December 2003
+                                                revised March 2004
+
+Modified by A.Sloman 21 Dec 2004
+Added some extra code to make the examples work and some instructions
+to print out results for testing.
+
+LIB * ARRPACK is an array processing package for Pop-11. It provides
+efficient procedures to carry out arithmetic and logical operations on
+elements of real and complex arrays. A whole array or a subset of its
+elements may be processed in a single procedure call. ARRPACK is
+restricted to operations in which each array element is treated
+separately from other elements of the same array, such as the
+element-by-element addition of two arrays. (Operations where each
+element is processed along with its neighbours, such as convolution,
+Fourier transforms and matrix operations, are provided by other
+libraries.) A higher-level interface to these procedures may be provided
+in future.
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   General Information
+      1.1   When to use this package
+      1.2   Loading and checking the library
+      1.3   Procedure names
+      1.4   Array storage types
+      1.5   Other array argument considerations
+      1.6   Repeated use of arrays
+  2   Active sets
+      2.1   General
+      2.2   Whole array
+      2.3   Regular grids in rectangular regions
+      2.4   Consistency between arguments with region/grid active sets
+      2.5   Mask selection
+      2.6   Indexed sets
+      2.7   Consistency between arguments with indexed active sets
+      2.8   Efficiency of masked and indexed sets
+      2.9   Switching between masked, grid and indexed representations
+  3   Procedures
+      3.1   Conventions
+      3.2   Copying and type conversion
+      3.3   Reshaping
+      3.4   Finding locations of non-zero values
+      3.5   Setting values
+      3.6   Arithmetic operations on single arrays
+      3.7   Arithmetic operations on two arrays
+      3.8   Mathematical functions
+      3.9   Relational operations
+      3.10  Logical operations
+      3.11  Scalar functions of arrays
+      3.12  Miscellaneous
+
+-----------------------------------------------------------------------
+1  General Information
+-----------------------------------------------------------------------
+
+1.1  When to use this package
+-----------------------------
+
+The ARRPACK library provides a convenient way of carrying out arithmetic
+and logical operations on arrays, when the operation is applied to each
+element (or set of corresponding elements in different arrays)
+separately. This covers, for example, adding two arrays element by
+element, or comparing each element of an array to a constant. For large
+arrays the library procedures are much faster than equivalent procedures
+written wholly in Pop-11 - generally by at least an order of magnitude.
+For very small arrays the overhead of calling the external procedure
+makes the library slightly slower than using pure Pop-11. Simple tests
+on a Sun give a break-even point at about a 4x4 array for
+single-precision addition, and this suggests that for all but the
+smallest arrays it is worth considering using ARRPACK for efficiency.
+
+All the operations can be applied to subsets of array elements,
+specified in a variety of ways, giving considerable flexibility.
+
+1.2  Loading and checking the library
+-------------------------------------
+
+The library may be loaded with
+
+    uses popvision, arrpack;
+
+This should produce no error messages or warnings. If there is a message
+to the effect that the object file cannot be found, it may be necessary
+to recompile the external functions, using the Gnu C compiler, for the
+system you are working on. In this case, consult the *POPVISION
+documentation.
+
+A simple check on whether the library is working correctly may then be
+done by executing
+
+    uses newzfloatarray
+    vars a = newzfloatarray([1 10 11 20], nonop +:);
+    Asumof(0, a, [3 8 12 19], [2 3]) =>
+
+which should print
+
+    ** 45.0_+:135.0
+
+A further test for whether you have the latest version of linux poplog
+which fixes a bug connected with external procedures that return single
+floats:
+
+    uses newsfloatarray
+    vars a = newsfloatarray([1 10 11 20], nonop +);
+    Asumof(0, a, [3 8 12 19], [2 3]) =>
+
+    ** 180.0
+
+If you get the result 0.0 instead of 180.0 then you probably do not have
+the latest version of poplog with the bug fixed, built on 6 Jan 2005.
+
+1.3  Procedure names
+--------------------
+
+ARRPACK procedure names start with upper-case A, AM or AI, followed by
+the name of the operation they perform in lower case, for example Aplus.
+This is intended to make them distinctive enough to avoid name clashes,
+whilst not involving lengthy prefixes.
+
+1.4  Array storage types
+------------------------
+
+The arrays processed must be of a "packed" type which can be accessed by
+external functions. The package recognises six types, given in the
+following table. The letter in the first column identifies the types in
+the documentation below.
+
+  ARRPACK   Pop-11 type     C type      Popvision       Other
+  ID                                    construction    construction
+                                        procedure       procedures
+  -------   -----------     ------      ------------    ------------
+
+  b         (byte)          unsigned    *newbytearray   *newsarray
+                            char
+
+  i         integer         int         *newintarray    *array_of_int
+                                                        *array_of_integer
+
+  s         decimal         float       *newsfloatarray *array_of_float
+                                                        *array_of_real
+                                                        *newfloatarray
+
+  d         ddecimal        double      *newdfloatarray *array_of_double
+                                                        *newfloatarray
+
+  c         (complex        Complex     *newcfloatarray
+            decimal)        float
+
+  z         (complex        Complex     *newzfloatarray
+            ddecimal)       double
+
+(The Pop-11 "types" in brackets are not true Pop-11 primitive data
+types, but arrays can be constructed that behave much as if they were.)
+
+It is also possible to create arrays of these types using *defclass and
+*newanyarray, but it is likely to be simpler to use the existing
+routines. The *POPVISION set are the most coherent. The other routines
+mentioned above may be found by reference to HELP *EXTERNAL/Arrays.
+
+These array types can be divided into classes in different ways:
+
+                           integral:    b i
+    single-precision floating point:    s c
+    double-precision floating point:    d z
+
+or
+
+                               real:    b i s d
+                            complex:    c z
+
+Any given procedure may accept some or all array types as arguments,
+depending on the operation being carried out. Details are given in the
+procedure descriptions below.
+
+1.5  Other array argument considerations
+----------------------------------------
+
+Apart from the storage type, array arguments are not restricted. In
+particular:
+
+    * they may be stored "by row" or "by column" (i.e. with
+      *poparray_by_row <true> or <false>), and arrays stored with
+      different orderings may even be mixed in the same call;
+
+    * they may have any number of dimensions;
+
+    * they may be offset in their arrayvectors.
+
+All the array arguments in a single call must be of the same type, with
+the following exceptions:
+
+    * the copying procedures Acop, AMcop and AIcop will copy from any
+      real type to any type, and from any complex type to any complex
+      type;
+
+    * the real-to-complex and complex-to-real conversion procedures take
+      different types as appropriate;
+
+    * all mask arrays, all index arrays (see below) and the results
+      of a "find" operation are of type i;
+
+    * the results of relational operations (e.g. Aeq) are of type i.
+
+Where a procedure accepts scalar arguments (i.e. real or complex
+numbers) as well as arrays, the array types are restricted as follows:
+
+    * if a scalar argument's value is not equal to an integer, the
+      arrays must be real or complex floating point;
+
+    * if a scalar argument is complex, the arrays must be complex.
+
+Arrays are never created by ARRPACK procedures, but must be supplied for
+both input and output. In many cases, the same array is used for both
+input and output, with the results overwriting the original data. This
+is because in many programs the original data are no longer required,
+and this strategy allows you to avoid creating new arrays more often
+than is necessary. If the original data are to be preserved, they can
+be copied first.
+
+1.6  Repeated use of arrays
+---------------------------
+
+The same array may be used for any number of input arguments to a
+procedure. If however the argument is used for output, then the same
+array must not be used for another argument, unless the two active sets
+(see below) have no elements in common.
+
+If the same array is passed as more than one argument, one of which is
+an output or input/output argument, and the active sets (see below) have
+elements in common, the results of the computation are undefined. No
+error message is given. This also applies to two arrays sharing an
+arrayvector; the sets of elements processed, allowing for any offsets in
+the arrayvector, must be disjoint.
+
+A single array may be used as an index array for different arguments in
+the same call.
+
+-----------------------------------------------------------------------
+2  Active sets
+-----------------------------------------------------------------------
+
+2.1  General
+------------
+
+A call to an ARRPACK procedure may process all the points in an array,
+or a subset of them. There are different ways to specify such a subset,
+which is here referred to as the active set of the array.
+
+    * A set of elements lying on a rectangular grid within a rectangular
+      region (or the equivalent in N dimensions) may be selected using
+      the Axxx procedures.
+
+    * A set of elements specified by the non-zero elements of a mask
+      array may be selected using the AMxxx procedures.
+
+    * The two methods above may be combined: a region and grid may be
+      specified together with a mask using the AMxxx procedures.
+
+    * The indices of an arbitrary set of elements may be specified using
+      the AIxxx procedures.
+
+2.2  Whole array
+----------------
+
+An Axxx procedure should be used to process the whole array. Each array
+argument should be followed by two further arguments, which should be []
+(the empty list) and 1 (the empty list), e.g.
+
+    Acos(arr, [], 1);       ;;; find the cosine of every element of arr
+
+2.3  Regular grids in rectangular regions
+-----------------------------------------
+
+An Axxx procedure may be used to process a "rectangular" region of an
+array, possibly sampled on a grid with spacing greater than unity. (A
+"rectangular" region is one formed by putting separate limits on the
+range of each index, and in the 2-D case it can be pictured as a
+rectangle.) The two arguments following the array specify the region and
+grid spacing.
+
+The argument following the array defines the active region. If it is not
+the empty list (meaning the whole array), it must be a list the same
+length as the *boundslist of the array - i.e. with 2 elements for each
+dimension. It specifies a subregion of the array in the same way as a
+boundslist specifies the bounds of the whole array. That is, for each
+dimension a pair of list elements gives the minimum and maximum indices
+on that dimension.
+
+For example, for this code:
+
+    uses newsfloatarray
+    vars arr = newsfloatarray([1 4 1 9]);
+    Acos(arr, [2 4 2 7], 1);
+
+the active set looks like this:
+
+        - - - - - - - - -
+        - * * * * * * - -
+        - * * * * * * - -
+        - * * * * * * - -
+
+vars x,y;
+pr(newline);
+for x from 1 to 4 do
+    pr(newline);
+    for y from 1 to 9 do prnum(arr(x,y), 3, 2) endfor
+endfor;
+
+Here the array is shown with the first index giving the row and the
+second index giving the column. Dashes show indicate unprocessed
+elements of the array, and asterisks show processed elements. The active
+set covers rows 2 to 4 and columns 2 to 7.
+
+This is a two-dimensional example, but the same mechanism applies to
+arrays with any number of dimensions. Also, there is no need for array
+indices to start from 1 - this is done here just to make the example
+easier to read.
+
+The second argument following the array is the sampling interval. This
+allows the active region to be sampled on a regular grid. For example,
+for the call
+
+    Acos(arr, [2 4 2 7], 2);
+
+the active set looks like this:
+
+        - - - - - - - - -
+        - * - * - * - - -
+        - - - - - - - - -
+        - * - * - * - - -
+
+with alternate rows and columns processed.
+
+The element with the lowest indices in the active region is always
+processed - in this case it's arr(2, 2). If the sampling interval is s,
+then every s'th element after that on each dimension is processed.
+
+The sampling interval may be different on different dimensions. This is
+done by giving a list equal in length to the number of dimensions,
+containing the sampling intervals in order. For example
+
+    Acos(arr, [2 4 2 7], [1 3]);
+
+processes every row and every third column, giving this set:
+
+        - - - - - - - - -
+        - * - - * - - - -
+        - * - - * - - - -
+        - * - - * - - - -
+
+All the elements of the active set must lie within the array. This is
+not quite the same as saying that the active region must lie within the
+array. For example, the following is a correct call, given that arr's
+boundslist is [1 4 1 9]:
+
+    Acos(arr, [2 4 2 10], [1 3]);
+
+Although the active region includes column 10, whilst the array only
+goes up to column 9, the sampling interval means that no elements in
+column 10 are actually processed, so there is no problem. (This
+simplifies one common kind of program construction in which the active
+region is computed from the number of elements to process and the
+sampling interval.)
+
+The case of the empty list for the active region (which defaults to the
+boundslist), and unity for the sampling interval, is handled specially.
+If the whole array is to be processed it is slightly more efficient to
+give the arguments in this form rather than giving the boundslist or a
+list of ones explicitly.
+
+2.4  Consistency between arguments with region/grid active sets
+---------------------------------------------------------------
+
+When more than one array is processed by an Axxx or AMxxx procedure,
+then, with the exception of Areshape, the arrays must all have the same
+number of dimensions, and the active sets must be consistent with one
+another.
+
+Two active sets are consistent if they have the same number of
+processable elements on each dimension. For 2-D examples shown as above,
+this means that if the dashes are omitted, the remaining blocks of
+asterisks must be the same for each of the arrays in question.
+
+For example, the following code is correct
+
+    vars arr1 = newsfloatarray([1 4 1 9], 1);
+    vars arr2 = newsfloatarray([-10 -8 11 17]);
+    Aplus(arr1, [2 4 3 9], [2 3],  arr2, [-9 -8 14 16], [1 1]);
+
+because the active sets look like this for arr1:
+
+        - - - - - - - - -
+        - - * - - * - - *
+        - - - - - - - - -
+        - - * - - * - - *
+
+and like this for arr2:
+
+        - - - - - - -
+        - - - * * * -
+        - - - * * * -
+
+so they are both 2 rows and 3 columns.
+
+
+vars x,y;
+pr(newline);
+for x from -10 to -8 do
+    pr(newline);
+    for y from 11 to 17 do prnum(arr2(x,y), 3, 2) endfor
+endfor;
+
+Elements in the active sets map onto one another in the obvious way. In
+the 2-D case, one can picture the two blocks of asterisks, with the
+dashes removed, superimposed. Elements that overlie one another then
+correspond. To be precise, in 1-D, arr1(i1) and arr2(i2) will be
+processed together if they are each in their active sets and
+
+    (i1 - r1) / s1 = (i2 - r2) / s2
+
+where r1 and r2 are the lowest indices in the respective active regions,
+and s1 and s2 are the respective sampling intervals.
+
+This generalises to any number of dimensions: the equation above applies
+on each dimension separately.
+
+2.5  Mask selection
+-------------------
+
+Every basic Axxx procedure in ARRPACK has a corresponding "masked" AMxxx
+procedure (except for Areshape). The masked procedures allow the
+processing to be restricted further, to arbitrary sets of elements, by
+giving a "mask array" and its active set as extra arguments.
+
+A mask array is always of type i (see above). Its active set is defined
+as a regular grid using the two arguments that follow it, and the
+correspondence between its elements and those of other array arguments
+is as described above.
+
+If an element of a mask's active set is zero, the corresponding elements
+of other arrays will not be accessed or updated. If a mask element is
+non-zero, then the operation required is carried out on the
+corresponding elements of the other arrays.
+
+For example, here is a mask for restricting attention to elements on the
+main diagonal of a 4x4 2-D region:
+
+    uses newintarray;
+    vars mask = newintarray([1 4 1 4],
+        procedure(i,j); if i == j then 1 else 0 endif endprocedure);
+
+If we now process arr (which has boundslist [1 4 1 9]) thus:
+
+    AMcos(mask,[],1, arr,[1 4 3 6],1);
+
+the elements processed are these:
+
+        - - * - - - - - -
+        - - - * - - - - -
+        - - - - * - - - -
+        - - - - - * - - -
+
+As in this example, mask and array active sets must be consistent. Mask
+elements correspond to other array elements in the normal way, so that
+in this case the main diagonal of arr's active set gets processed.
+
+
+vars x,y;
+pr(newline);
+for x from 1 to 4 do
+    pr(newline);
+    for y from 1 to 9 do prnum(arr(x,y), 3, 3) endfor
+endfor;
+
+2.6  Indexed sets
+-----------------
+
+An alternative way of selecting an arbitrary set of elements is to
+specify their indices explicitly. Each basic Axxx procedure except
+Areshape, Aindex and Afind has a corresponding AIxxx procedure.
+
+In this case the array arguments are preceded by an integer N giving the
+number of elements to process. Each array argument is followed by an
+array containing the indices of the elements of its active set. This
+index array must be of type i (see above), and must be two-dimensional.
+
+Assume that the index array is stored "by column" (the default, with the
+first index varying fastest and *poparray_by_row set <true>). Its
+boundslist must be [1 Ndim 1 Len] where Ndim is the number of dimensions
+of the preceding array. Len must be greater than or equal to N. Each
+of the first N columns of the index array holds the indices of one
+element of the active set of the array to be processed.
+
+For example
+
+    vars ind = newintarray([1 2 1 3]);
+
+creates a suitable index array for processing three elements of a 2-D
+array. We can specify three elements thus:
+
+    (2,2), (3,1), (4,9) -> explode(ind);
+
+and then in the call
+
+    AIcos(3, arr, ind);
+
+the active set of arr (assuming arr has boundslist [1 4 1 9]) is:
+
+        - - - - - - - - -
+        - * - - - - - - -
+        * - - - - - - - -
+        - - - - - - - - *
+
+vars x,y;
+pr(newline);
+for x from 1 to 4 do
+    pr(newline);
+    for y from 1 to 9 do prnum(arr(x,y), 3, 3) endfor
+endfor;
+
+The order in which elements are specified in the columns of the index
+array has no effect.
+
+If the index array is stored "by row" (i.e. *poparray_by_row <false>)
+then its boundslist must be [1 Len 1 Ndim] and each set of indices must
+be stored in one row.
+
+The AIxxx procedures do not check that all indices in an indexed array
+are valid, to reduce computational overhead. Out of range indices may
+cause mishaps or silent errors, depending on whether or not the
+resulting code actually attempts to access elements outside the array.
+
+2.7  Consistency between arguments with indexed active sets
+-----------------------------------------------------------
+
+When indexed access is used, there is no need for different array
+arguments to have the same boundslists or even the same number of
+dimensions, as long as each index array is consistent with the array it
+refers to.
+
+2.8  Efficiency of masked and indexed sets
+------------------------------------------
+
+In general, masks are more efficient than index arrays when a high
+proportion of the elements in the underlying grid is to be processed.
+Index arrays are more efficient, conversely, when the elements to be
+processed are sparse.
+
+If efficiency is crucial, the crossover should be determined by
+experiment. However, the logic of the calling program will often dictate
+the choice of representation.
+
+2.9  Switching between masked, grid and indexed representations
+---------------------------------------------------------------
+
+An index array may be obtained from a mask using Afind, e.g.
+
+    vars N;
+    Afind(ind, mask, [], 1) -> N;
+
+    N=>
+    ** 4
+
+The value of N (the number of non-zero elements found) should then be
+checked to see that it is no bigger than the length of ind.
+
+A mask may be obtained from an index array using Azero followed by
+AIinc, e.g.
+
+    Azero(mask, [], 1);
+    AIinc(N, mask, ind);
+
+where N is the number of columns of ind to use, i.e. the number of
+elements of mask to increment.
+
+The procedures AIsetvals and AIgetvals, in conjunction with Areshape,
+allow data to be moved between indexed active sets and any convenient
+grid representation. There are no equivalent AMsetvals and AMgetvals
+procedures because the order in which elements in a masked
+representation are processed is undefined, and indeed subject to
+optimisation. Afind (on the mask) and AIsetvals/AIgetvals (on the data
+array) can be used in succession to handle this situation, though the
+apparent need to do so may mean that the program logic should be
+reconsidered.
+
+-----------------------------------------------------------------------
+3  Procedures
+-----------------------------------------------------------------------
+
+3.1  Conventions
+----------------
+
+Capital letters refer to array arguments. The corresponding lower-case
+letters in procedure descriptions refer to a typical element of the
+array. The arguments ar and as refer to the active region and sampling
+interval for array A, as described above.
+
+A mask is always referred to as M, and is always "input" and type i.
+
+An index array is always referred to as Ia, Ib etc. and is always
+"input" and type i. The number of elements to process in an indexed
+procedure is always referred to as N, an input integer.
+
+Arrays marked as "input" are not altered (unless the same array is also
+used for output). Arrays marked as "output" are updated and the original
+data in their active sets are lost. Arrays marked as "input/output" are
+also updated, their original data having first been used.
+
+Each array argument has a list of acceptable types which refers to the
+section on array types above. "Same type as A" means that the type of
+the array in question has to be the same as the type of A in any given
+call, not simply that the list of possible types is the same.
+
+If the value of any scalar argument (k etc.) is not equal to an integer,
+the array arguments must be floating point (real or complex). If any of
+the scalar arguments is complex, the array arguments must be complex
+too.
+
+The operation carried out on an typical element is shown as the
+corresponding Pop-11 code after the argument descriptions.
+
+3.2  Copying and type conversion
+--------------------------------
+
+Note that the routines in this section are atypical in allowing
+different types for different arguments, allowing type conversion.
+
+Acop(A,ar,as, B,br,bs)
+AMcop(M,mr,ms, A,ar,as, B,br,bs)
+AIcop(N, A,Ia, B,Ib)
+        A: input, b,i,s,d,c,z
+        B: output, b,i,s,d,c,z but if A is complex, B must be complex.
+            a -> b;
+        Copies each element, doing type conversion if necessary. If
+        converting from double precision to single precision, from float
+        to integer or byte, or from integer to byte, information may be
+        lost. Assignments from floats to integers truncate any
+        fractional part. Assignments to bytes are modulus 256.
+
+Actori(C,cr,cs, A,ar,as, B,br,bs)
+AMctori(M,mr,ms, C,cr,cs, A,ar,as, B,br,bs)
+AIctori(N, C,Ic, A,Ia, B,Ib)
+        C: input, c,z
+        A: output, b,i,s,d
+        B: output, same type as A
+            realpart(c) -> a; imagpart(c) -> b;
+        Converts from complex to real, putting the real and imaginary
+        parts into separate arrays. Same possible loss of information as
+        with Acop.
+
+Aritoc(A,ar,as, B,br,bs, C,cr,cs)
+AMritoc(M,mr,ms, A,ar,as, B,br,bs, C,cr,cs)
+AIritoc(N, A,Ia, B,Ib, C,Ic)
+        A: input, b,i,s,d
+        B: input, same type as A
+        C: output, c,z
+            a +: b -> c;
+        Combines two real arrays into the real and imaginary parts of a
+        complex array. Information may be lost if double precision reals
+        or integers are converted to single precision complex.
+
+Areal(C,cr,cs, A,ar,as)
+AMreal(M,mr,ms, C,cr,cs, A,ar,as)
+AIreal(N, C,Ic, A,Ia)
+        C: input, c,z
+        A: output, b,i,s,d
+            realpart(c) -> a;
+        Same possible loss of information as with Acop.
+
+Aimag(C,cr,cs, A,ar,as)
+AMimag(M,mr,ms, C,cr,cs, A,ar,as)
+AIimag(N, C,Ic, A,Ia)
+        C: input, c,z
+        A: output, b,i,s,d
+            imagpart(c) -> a;
+        Same possible loss of information as with Acop.
+
+3.3  Reshaping
+--------------
+
+These routines are unique in that the active sets do not need to be
+consistent, allowing data to be reorganised into different "shapes".
+There are no masked versions. Areshape is for moving data between
+different grids. AIsetvals/AIgetvals are for moving data between indexed
+representations and grid representations. Reshaping from one indexed
+representation to another is done with AIcop.
+
+Areshape(A,ar,as, B,br,bs)
+        A: input, b,i,s,d,c,z
+        B: output, same type as A
+            a -> b;
+        The active sets of A and B must contain the same total number of
+        elements as each other. Otherwise they are not restricted; A and
+        B may even have different numbers of dimensions. Values are
+        taken from A in sequence, with the first index increasing
+        fastest, and are stored in B in the same sequence, again with
+        the first index increasing fastest. This ordering is not
+        affected by the internal storage formats of A and B ("by row" or
+        "by column").
+
+AIsetvals(V, N, A,Ia)
+        V: input, b,i,s,d,c,z, 1-dimensional
+        A: output, same type as V, any number of dimensions
+            v -> a;
+        V must have at least N elements; the first N are copied.
+
+AIgetvals(V, N, A,Ia)
+        V: output, b,i,s,d,c,z, 1-dimensional
+        A: input, same type as V, any number of dimensions
+            a -> v;
+        V must have at least N elements; the first N are updated.
+
+3.4  Finding locations of non-zero values
+-----------------------------------------
+
+Afind(I, A,ar,as) -> N
+AMfind(I, M,mr,ms, A,ar,as) -> N
+        I: output, i, with bounds as for an index array
+        A: input, b,i,s,d,c,z
+        N: integer, the number of non-zero values in the active set
+            if a /= 0 then (x,y,...) -> icol endif;
+        In the pseudo-Pop11 example icol stands for an unused column of
+        I and x,y,... stand for the Pop-11 indices of a in A. Thus the
+        indices of the non-zero elements of A are stored in I in the
+        same format as for an index array (see the section "Indexed
+        sets" above). N always returns the number of non-zero elements
+        in the active set of A. If I has P columns, then if N < P then
+        the columns from N+1 to P are not updated. If N > P then only P
+        sets of indices are stored; to obtain the remainder the
+        procedure must be called again with an array with at least N
+        columns. (In the above, I was assumed to be stored by column;
+        replace "column" by "row" if I is stored by row.)
+
+3.5  Setting values
+-------------------
+
+Azero(A,ar,as)
+AMzero(M,mr,ms, A,ar,as)
+AIzero(N, A,Ia)
+        A: output, b,i,s,d,c,z
+            0 -> a;
+
+Ak(k, A,ar,as)
+AMk(k, M,mr,ms, A,ar,as)
+AIk(k, N, A,Ia)
+        k: number
+        A: output, b,i,s,d,c,z
+            k -> a;
+
+Aindex(d, A,ar,as)
+AMindex(d, M,mr,ms, A,ar,as)
+        d: integer greater than 0 and less than or equal to the number
+                of dimensions of A
+        A: output, b,i,s,d,c,z
+        The d'th index of each element is assigned to that element. For
+        an N-dimensional array this may be represented as
+            id -> A(i1, i2, ... id, ...iN)
+        where id is the d'th index, and the indices run over the
+        elements of the active set. Note that the index is the actual
+        Pop-11 index of the array element, not, for example, an offset
+        into the active region.
+            Do not confuse these procedures with AIxxx procedures giving
+        indexed access to arrays for other operations.
+
+3.6  Arithmetic operations on single arrays
+-------------------------------------------
+
+See also "mathematical functions" below. No strong distinction is
+intended between the two terms; it is just convenient to split the list
+of procedures up somehow.
+
+Ainc(A,ar,as)
+AMinc(M,mr,ms, A,ar,as)
+AIinc(N, A,Ia)
+        A: input/output, b,i,s,d,c,z
+            a+1 -> a;
+
+Adec(A,ar,as)
+AMdec(M,mr,ms, A,ar,as)
+AIdec(N, A,Ia)
+        A: input/output, b,i,s,d,c,z
+            a-1 -> a;
+
+Aneg(A,ar,as)
+AMneg(M,mr,ms, A,ar,as)
+AIneg(N, A,Ia)
+        A: input/output, b,i,s,d,c,z
+            -a -> a;
+
+Aconj(A,ar,as)
+AMconj(M,mr,ms, A,ar,as)
+AIconj(N, A,Ia)
+        A: input/output, c,z
+            conjugate(a) -> a;
+
+Asqr(A,ar,as)
+AMsqr(M,mr,ms, A,ar,as)
+AIsqr(N, A,Ia)
+        A: input/output, b,i,s,d,c,z
+            a*a -> a;
+
+
+Aplusk(k, A,ar,as)
+AMplusk(k, M,mr,ms, A,ar,as)
+AIplusk(k, N, A,Ia)
+        k: number
+        A: input/output, b,i,s,d,c,z
+            a + k -> a;
+
+The following 15 procedures have the same details as Aplusk etc.
+
+Aminusk, AMminusk, AIminusk
+            a - k -> a;
+Akminus, AMkminus, AIkminus
+            k - a -> a;
+Atimesk, AMtimesk, AItimesk
+            a * k -> a;
+Adivk, AMdivk, AIdivk
+            a / k -> a;
+Akdiv, AMkdiv, AIkdiv
+            k / a -> a;
+
+
+Apowk(k, A,ar,as)
+AMpowk(k, M,mr,ms, A,ar,as)
+AIpowk(k, N, A,Ia)
+        k: number
+        A: input/output, b,i,s,d
+            a ** k -> a;
+
+The following 9 procedures have the same details as Apowk etc.
+
+Amodk, AMmodk, AImodk
+           mod(a,k) -> a;
+Amaxk, AMmaxk, AImaxk
+           max(a,k) -> a;
+Amink, AMmink, AImink
+           min(a,k) -> a;
+
+
+Alink(k1, k2, A,ar,as)
+AMlink(k1, k2, M,mr,ms, A,ar,as)
+AIlink(k1, k2, N, A,Ia)
+        k1: number
+        k2: number
+        A: input/output, b,i,s,d,c,z
+            k1 * a + k2 -> a;
+
+Aquadk(k1, k2, k3, A,ar,as)
+AMquadk(k1, k2, k3, M,mr,ms, A,ar,as)
+AIquadk(k1, k2, k3, N, A,Ia)
+        k1: number
+        k2: number
+        k3: number
+        A: input/output, b,i,s,d,c,z
+            k1 * a**2 + k2 * a + k3 -> a;
+
+3.7  Arithmetic operations on two arrays
+----------------------------------------
+
+Aplus(A,ar,as, B,br,bs)
+AMplus(M,mr,ms, A,ar,as, B,br,bs)
+AIplus(N, A,Ia, B,Ib)
+        A: input, b,i,s,d,c,z
+        B: input/output, same type as A
+            a + b -> b;
+
+The following 15 procedures have the same details as Aplus etc.
+
+Aminus, AMminus, AIminus
+            a - b -> b;
+Aminusrev, AMminusrev, AIminusrev
+            b - a -> b;
+Atimes, AMtimes, AItimes
+            a * b -> b;
+Adiv, AMdiv, AIdiv
+            a / b -> b;
+Adivrev, AMdivrev, AIdivrev
+            b / a -> b;
+
+
+Apow(A,ar,as, B,br,bs)
+AMpow(M,mr,ms, A,ar,as, B,br,bs)
+AIpow(N, A,Ia, B,Ib)
+        A: input, b,i,s,d
+        B: input/output, same type as A
+            a ** b -> b;
+
+The following 9 procedures have the same details as Apow etc.
+
+Amod, AMmod, AImod
+            mod(a,b) -> b;
+Amax, AMmax, AImax
+            max(a,b) -> b;
+Amin, AMmin, AImin
+            min(a,b) -> b;
+
+
+Asumsqr(A,ar,as, B,br,bs)
+AMsumsqr(M,mr,ms, A,ar,as, B,br,bs)
+AIsumsqr(N, A,Ia, B,Ib)
+        A: input, s,d
+        B: input/output, same type as A
+            a**2 + b**2 -> b;
+
+Alincomb(k1, k2, A,ar,as, B,br,bs)
+AMlincomb(k1, k2, M,mr,ms, A,ar,as, B,br,bs)
+AIlincomb(k1, k2, N, A,Ia, B,Ib)
+        k1: number
+        k2: number
+        A: input, b,i,s,d,c,z
+        B: input/output, same type as A
+            k1 * a + k2 * b -> b;
+
+3.8  Mathematical functions
+---------------------------
+
+Complex functions have mostly not yet been provided. They should be
+added in due course.
+
+Aabs(A,ar,as)
+AMabs(M,mr,ms, A,ar,as)
+AIabs(N, A,Ia)
+        A: input/output, b,i,s,d
+            abs(a) -> a;
+
+
+Alog(A,ar,as)
+AMlog(M,mr,ms, A,ar,as)
+AIlog(N, A,Ia)
+        A: input/output, s,d
+            log(a) -> a;
+
+The following 42 procedures have the same details as Alog etc. Where no
+description is given, the functions are as indicated by the procedure
+names. Trigonometric functions use radians, not degrees, regardless of
+the setting of *popradians.
+
+Aexp, AMexp, AIexp
+Asin, AMsin, AIsin
+Acos, AMcos, AIcos
+Atan, AMtan, AItan
+Aasin, AMasin, AIasin
+Aacos, AMacos, AIacos
+Aatan, AMatan, AIatan
+Asinh, AMsinh, AIsinh
+Acosh, AMcosh, AIcosh
+Atanh, AMtanh, AItanh
+Asqrt, AMsqrt, AIsqrt
+Aceil, AMceil, AIceil
+        The smallest integral value not less than a.
+Afloor, AMfloor, AIfloor
+        The largest integral value not greater than a.
+Alogistic, AMlogistic, AIlogistic
+            1/(1 + exp(-a)) -> a;
+
+
+Ahypot(A,ar,as, B,br,bs)
+AMhypot(M,mr,ms, A,ar,as, B,br,bs)
+AIhypot(N, A,Ia, B,Ib)
+        A: input, s,d
+        B: input/output, same type as A
+            sqrt(a**2 + b**2) -> b;
+        Note that Asumsqr may often be used instead, and is much faster.
+
+Aarctan2(A,ar,as, B,br,bs)
+AMarctan2(M,mr,ms, A,ar,as, B,br,bs)
+AIarctan2(N, A,Ia, B,Ib)
+        A: input, s,d
+        B: input/output, same type as A
+            arctan2(a, b) -> b;
+        Note that this follows the Pop-11 convention for argument
+        ordering: that is, if the first argument is an x-coordinate and
+        the second a y-coordinate in the usual frame, then the result is
+        the angle of the point measured anticlockwise from the x-axis.
+
+Acartopol(A,ar,as, B,br,bs)
+AMcartopol(M,mr,ms, A,ar,as, B,br,bs)
+AIcartopol(N, A,Ia, B,Ib)
+        A: input/output, s,d
+        B: input/output, same type as A
+            sqrt(a**2 + b**2), arctan2(a, b) -> (a, b);
+        Cartesian to polar coordinate transform.
+
+Apoltocar(A,ar,as, B,br,bs)
+AMpoltocar(M,mr,ms, A,ar,as, B,br,bs)
+AIpoltocar(N, A,Ia, B,Ib)
+        A: input/output, s,d
+        B: input/output, same type as A
+            a * cos(b), a * sin(b) -> (a, b);
+        Polar to Cartesian coordinate transform.
+
+3.9  Relational operations
+--------------------------
+
+Relational operations produce arrays of zeros and ones, which are stored
+in integer arrays, for use as masks or in logical operations. For this
+reason the output arrays are distinct from the input arrays for this
+class of operations.
+
+
+Akeq(k, A,ar,as, C,cr,cs)
+AMkeq(k, M,mr,ms, A,ar,as, C,cr,cs)
+AIkeq(k, N, A,Ia, C,Ic)
+        k: number
+        A: input, b,i,s,d,c,z
+        C: output, i
+            if k = a then 1 else 0 endif -> c;
+
+The following 15 procedures have the same details as Akeq etc.
+
+Akne, AMkne, AIkne
+            if k /= a then 1 else 0 endif -> c;
+Akgt, AMkgt, AIkgt
+            if k > a then 1 else 0 endif -> c;
+Akge, AMkge, AIkge
+            if k >= a then 1 else 0 endif -> c;
+Aklt, AMklt, AIklt
+            if k > a then 1 else 0 endif -> c;
+Akle, AMkle, AIkle
+            if k <= a then 1 else 0 endif -> c;
+
+
+Aeq(A,ar,as, B,br,bs, C,cr,cs)
+AMeq(M,mr,ms, A,ar,as, B,br,bs, C,cr,cs)
+AIeq(N, A,Ia, B,Ib, C,Ic)
+        A: input, b,i,s,d,c,z
+        B: input, same type as A
+        C: output, i
+            if a = b then 1 else 0 endif -> c;
+
+The following 15 procedures have the same details as Aeq etc.
+
+Ane, AMne, AIne
+            if a /= b then 1 else 0 endif -> c;
+Agt, AMgt, AIgt
+            if a > b then 1 else 0 endif -> c;
+Age, AMge, AIge
+            if a >= b then 1 else 0 endif -> c;
+Alt, AMlt, AIlt
+            if a > b then 1 else 0 endif -> c;
+Ale, AMle, AIle
+            if a <= b then 1 else 0 endif -> c;
+
+3.10  Logical operations
+------------------------
+
+Logical operations use the common convention of zero for <false> and
+non-zero for <true>. In Pop11, zero is non-<false>, so the results of
+these operations need to be tested against zero if they are to be
+interpreted as logical values in Pop-11.
+
+Anot(A,ar,as)
+AMnot(M,mr,ms, A,ar,as)
+AInot(N, A,Ia)
+        A: input/output, i
+            if a = 0 then 1 else 0 endif -> a;
+
+Aand(A,ar,as, B,br,bs)
+AMand(M,mr,ms, A,ar,as, B,br,bs)
+AIand(N, A,Ia, B,Ib)
+        A: input, i
+        B: input/output, i
+            if a /= 0 and b /= 0 then 1 else 0 endif -> b;
+
+Aor(A,ar,as, B,br,bs)
+AMor(M,mr,ms, A,ar,as, B,br,bs)
+AIor(N, A,Ia, B,Ib)
+        A: input, i
+        B: input/output, i
+            if a /= 0 or b /= 0 then 1 else 0 endif -> b;
+
+Axor(A,ar,as, B,br,bs)
+AMxor(M,mr,ms, A,ar,as, B,br,bs)
+AIxor(N, A,Ia, B,Ib)
+        A: input, i
+        B: input/output, i
+            if (a = 0) /== (b = 0) then 1 else 0 endif -> b;
+
+3.11  Scalar functions of arrays
+--------------------------------
+
+Asumof(k, A,ar,as) -> s
+AMsumof(k, M,mr,ms, A,ar,as) -> s
+AIsumof(k, N, A,Ia) -> s
+        k: number
+        A: input, b,i,s,d,c,z
+        s: number returned
+        Returns the sum of k and the values of the elements in the
+        active region of A, masked in the second case.
+
+Aminof(k, A,ar,as) -> s
+AMminof(k, M,mr,ms, A,ar,as) -> s
+AIminof(k, N, A,Ia) -> s
+        k: number
+        A: input, b,i,s,d
+        s: number returned
+        Returns the minimum of k and the minimum value of the elements
+        in the active region of A, masked in the second case. To find
+        the minimum of the elements in the active region of A, set k to
+        the value of one of the elements. (It is a very bad idea to set
+        it to some arbitrary large value.)
+
+Amaxof(k, A,ar,as) -> s
+AMmaxof(k, M,mr,ms, A,ar,as) -> s
+AImaxof(k, N, A,Ia) -> s
+        k: number
+        A: input, b,i,s,d
+        s: number returned
+        Returns the maximum of k and the maximum value of the elements
+        in the active region of A, masked in the second case. To find
+        the maximum of the elements in the active region of A, set k to
+        the value of one of the elements. (It is a very bad idea to set
+        it to some arbitrary small or negative value.)
+
+Aminmaxof(k1, k2, A,ar,as) -> (s1, s2)
+AMminmaxof(k1, k2, M,mr,ms, A,ar,as) -> (s1, s2)
+AIminmaxof(k1, k2, N, A,Ia) -> (s1, s2)
+        k1: number
+        k2: number
+        A: input, b,i,s,d
+        s1: number returned
+        s2: number returned
+        Returns the minimum of k1 and the minimum value of the elements
+        in the active region of A as s1, and the maximum of k2 and the
+        maximum value of the elements in the active region of A as s2,
+        masked in the second case. To find the min and max of the
+        elements in the active region of A, set k to the value of one of
+        the elements. (It is a very bad idea to set it to some arbitrary
+        value.)
+
+3.12  Miscellaneous
+-------------------
+
+Aspecv(A,ar,as, i,cdopt,ordopt) -> specv
+        A: input, any type including Pop-11 full vectors
+        i: non-negative integer
+        cdopt: boolean
+        ordopt: boolean
+        Returns a "specification vector" for the active set of the
+        array, as used internally by the external procedures. This is
+        for debugging and for possible use by related libraries. The
+        format of the vector and the meanings of cdopt and ordopt are
+        documented in LIB * ARRSCAN.C. If i is 0 a new vector is created
+        and returned; otherwise i must be a small positive integer in
+        which case a vector from a pool is returned and its contents may
+        be changed by other calls to ARPPACK procedures.
+
+Aindv(A, i) -> indv
+        A: input, any type including Pop-11 full vectors
+        i: non-negative integer
+        Returns an "indexing vector" for the array, as used internally
+        by the external procedures. Other comments, and the meaning of
+        i, are as for Aspecv.
+
+
+--- $popvision/help/arrpack
+--- Copyright University of Sussex 2004. All rights reserved.

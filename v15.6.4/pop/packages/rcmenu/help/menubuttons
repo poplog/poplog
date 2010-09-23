@@ -1,0 +1,1633 @@
+HELP MENUBUTTONS                             (Automatically Generated)
+                                          Monday July 24 07:57:34 BST 2000
+
+Sample Menu Button Entries (from the menu library)
+These may be copied and used in your own menus e.g. in ~/vedmenus
+See HELP * VED_MENU, TEACH * VED_MENU
+
+Use the ENTER indexify command to create an index
+
+-- MENU DEFINITION FILE menus/menu_case.p
+
+/* --- The University of Birmingham 1995.  --------------------------------
+ > File:            $poplocal/local/menu/menus/menu_case.p
+ > Purpose:			Case change
+ > Author:          Aaron Sloman, Jan 21 1995
+ */
+
+
+/*
+-- -- Menu concerned with case change
+*/
+section;
+
+define :menu case;
+	'Case Ops'
+	'Menu case'
+	 'Changing\ncase'
+	['HELP Commands' 'menu_doc ref vedcomms Case']
+	['HELP Keys' 'menu_doc help vedkeys Miscellaneous']
+	[LwrCaseWd ved_lcw]
+	[UpprCaseWd ved_ucw]
+	[LwrCaseLine ved_lcl]
+	[UpprCaseLine ved_ucl]
+	[CapWord ved_capword]
+	[ChangeWord ved_ccw]
+	[ChangeChar vedchangecase]
+	['WdLeft' vedwordleft]
+	['WdRight' vedwordright]
+	['WdStart' vedstartwordleft]
+	['WdEnd' vedendwordright]
+	['NextLine' vednextline]
+	['PrevLine' vedcharup]
+	
+;;;	[ChangeRange ved_ccr]	;;; not in library
+	['MENUS...' [MENU toplevel]]
+enddefine;
+endsection;
+
+-- MENU DEFINITION FILE menus/menu_compiling.p
+
+/* --- Copyright University of Birmingham 1999. All rights reserved. ------
+ > File:            $poplocal/local/rcmenu/menus/menu_compiling.p
+ > Purpose:         Drive compilation facilities via menu
+ > Author:          Aaron Sloman, Jan 21 1995 (see revisions)
+					See also LIB RC_PROCBROWSER
+-- Compiling stuff
+ */
+
+section;
+
+uses rclib
+
+uses rcmenulib
+uses menu_vedinput
+
+#_IF vedusewindows == "x"
+uses menu_xved_utils
+#_ENDIF
+
+
+define :menu compiling;
+    'Compiling'
+	{cols 2}
+	'Menu compiling'
+    'Mark, justify, compile'
+	['BrowseProcs*' ved_procbrowser]
+	['BrowseFiles*' menu_choosefile2]
+	['PageUp' vedprevscreen]
+	['PageDown' vednextscreen]
+    ['MarkStart' vedmarklo]
+    ['MarkEnd' vedmarkhi]
+    ['ClearMark' ved_crm]
+    ['TidyProcedure' ved_jcp]
+    ['CompileFile' [POP11 menu_vedinput(ved_l1)]]
+    ['CompileRange' [POP11 menu_vedinput(ved_lmr)]]
+    ['CompileProc' [POP11 menu_vedinput(ved_lcp)]]
+    ['CompileLine' [POP11 menu_vedinput(vedloadline)]]
+#_IF vedusewindows == "x"
+	['CompSelection' [POP11 menu_vedinput(menu_clipboard_compile)]]
+	['PasteSelection' menu_clipboard_paste]
+	['CopySelection' menu_clipboard_transcribe]
+	['CutSelection' [POPNOW menu_clipboard_cut()]]
+	['MoveSelection' [POPNOW menu_clipboard_move()]]
+	['ClearSelection' menu_clipboard_clear]
+	['XVedFonts...' [MENU xvedfonts]]
+#_ENDIF
+    ['ImmediateMode' ved_im]
+#_IF DEF MOTIF
+	['MotifBrowser*'
+    	;;; Button to invoke the Poplog file browser to select a file to compile.
+	    [POP11 pop_ui_compiletool(false,'~',false, false)]]
+#_ENDIF
+    ['Editor...' [MENU editor]]
+    ['Control...' [MENU control]]
+	['List Procs' 'headers']
+	['Go Proc' 'gp']
+    ['Mark...' [MENU mark]]
+    ['HELP Mark' 'menu_doc help mark']
+    ['HELP Lmr' 'menu_doc help lmr']
+	['HelpFor' '??']    ;;; get help for item to right of cursor
+    ['MENUS...' [MENU toplevel]]
+enddefine ;
+
+endsection;
+
+/* --- Revision History ---------------------------------------------------
+--- Aaron Sloman, Sep 15 1999
+	Made to invoke ved_procbrowser, which chooses the browser on the
+	basis of file_extension.
+--- Aaron Sloman, Aug 28 1999
+	Moved rc_procbrowser to a separate library
+--- Aaron Sloman, Jan 20 1998
+	Added List Procs and Go Proc buttons.
+--- Aaron Sloman, Oct 24 1997
+	Added stuff for Xved
+ */
+
+-- MENU DEFINITION FILE menus/menu_control.p
+
+/* --- The University of Birmingham 1995.  --------------------------------
+ > File:            $poplocal/local/menu/menus/menu_control.p
+ > Purpose:
+ > Author:          Aaron Sloman, Jan 21 1995
+ */
+
+/*
+-- -- "Control" menu
+*/
+section;
+
+define :menu control;
+	'Ved Control'
+	'Menu control'
+	'(Ved commands)'
+	[Refresh menu_refresh]
+	['EditFile*' [ENTER 'ved *' 'Editing a new file. Insert the name.']]
+	[Enter vedenter]
+	[Redo vedredocommand]
+	[SwitchStatus vedstatusswitch]
+	[Quit1 ved_q]
+	[ExitAll ved_xx]
+	['WindowSize' ved_setwindow]
+	['MarkStart' vedmarklo]
+	['MarkEnd' vedmarkhi]
+	['DelRange' ved_d]
+	['CopyRange' ved_t]
+	['Interrupt' {'interrupt()'}]
+	['PushLoc' vedpushkey]	;;; save current location
+	['SwapLoc' vedexchangeposition]	;;; swap with last saved location
+	['HELP Keys' 'help vedkeys']
+	['HELP NcdKeys' 'help ncdxtermkeys']
+	['HELP Commands' 'ref vedcomms']
+	['MENUS...' [MENU toplevel]]
+enddefine;
+
+endsection;
+
+-- MENU DEFINITION FILE menus/menu_delete.p
+
+/* --- The University of Birmingham 1995.  --------------------------------
+ > File:            $poplocal/local/menu/menus/menu_delete.p
+ > Purpose:
+ > Author:          Aaron Sloman, Jan 29 1995
+ */
+
+/*
+-- -- Delete menu
+*/
+
+section;
+uses menulib
+uses menu_check_deletefile;
+
+define global vars vedcharrightdelete();
+	vedcharright();veddotdelete();
+enddefine;
+
+define global vars vedjoinline();
+	;;; join current line with previous line, ignoring vedbreak and vedstatic
+	dlocal vedbreak = false, vedstatic = false;
+	1 -> vedcolumn;
+	vedchardelete()
+enddefine;
+
+
+define: menu delete;
+	'Delete'
+	{cols 2}
+	'Menu delete: Line,\nPart Line, Word, Cut'
+	['DelLine' vedlinedelete]
+	['YankLine' ved_yankl]
+	['DelLineLeft' vedclearhead]
+	['DelLineRight' vedcleartail]
+	['DelWordLeft' vedwordleftdelete]
+	['DelWordRight' vedwordrightdelete]
+	['YankPartLine' ved_yankw]
+	['DelCharHere' veddotdelete]
+	['DelCharLeft' vedchardelete]
+	['DelCharRight' vedcharrightdelete]
+	['JoinLine' vedjoinline]
+	['DelRange'	ved_d]
+	['YankRange' ved_y]
+	['PushLocation' vedpushkey]
+	['Cut' ved_cut]
+	['YankCut' ved_splice]
+	['ClearBuffer' ved_clear]
+	['DelMail' ved_ccm]
+	['DelThisFile*' menu_check_deletefile]
+	['PurgeFiles*'
+		[ENTER 'purgefiles *-'
+         ['To delete all files matching a pattern, give the command'
+			'below with a pattern. Edit the pattern if necessary'
+			'After pressing Do, you will get a request for confirmation'
+			'of the form:  "OK?(n=NO,RETURN=yes,s=show)"'
+			'Type s to show the files before deciding whether to delete.']]]
+	['Blocks...' [MENU vedblocks]]
+	['Marking...' [MENU mark]]
+;;;	['Undo...' [MENU undo]]
+	['Move...' [MENU move]]
+	['Editor (VED)...' [MENU editor]]
+	['HELP Keys' 'menu_doc help vedkeys Deleting']
+	['HELP Comms' 'menu_doc ref vedcomms Deletion']
+	['HELP Cut' 'menu_doc ref ved_cut']
+	['HELP Undo' 'help undo']
+	['MENUS...' [MENU toplevel]]
+enddefine;
+
+endsection;
+
+-- MENU DEFINITION FILE menus/menu_dired.p
+
+/* --- Copyright University of Birmingham 1999. All rights reserved. ------
+ > File:            $poplocal/local/rcmenu/menus/menu_dired.p
+ > Purpose:			VED's dired facilities via menu buttons
+ > Author:          Aaron Sloman, Aug 10 1999
+ > Documentation:
+ > Related Files:
+ */
+
+/* --- The University of Birmingham 1995.  --------------------------------
+ > File:            $poplocal/local/menu/menus/menu_dired.p
+ > Purpose:
+ > Author:          Aaron Sloman, Jan 21 1995
+ */
+
+/*
+-- -- Menu concerned with dired options
+*/
+
+section;
+
+uses rcmenulib
+
+uses ved_menu_doc;
+
+define :menu dired;
+   	'Dired Ops'
+	'Menu dired'
+	'File and\ndirectory\nbrowser\n(ved_dired)'
+	['HELP Dired' 'menu_doc help dired']
+	['ListFiles*'
+		[ENTER 'dired *'
+			['Use the "dired" command with a directory name'
+			'or a pattern, or give the command with a file or'
+			'directory name at right of current line in VED buffer'
+			'Format: dired <flags> <pattern>, e.g.:'
+			'dired  -lt  *.p']]]
+	['PrevLine' vedcharup]
+	['NextLine' vedchardown]
+	['GetFile' 'dired']
+	['ExpandDir' 'dired']
+	['UnExpandDir' 'do;ml;dired -dcd']	;;; Move down a line first
+	['ListDirs' 'dired -d']
+	['LatestFirst' 'dired -lt']
+	['ListLong' 'dired -l']
+	['Quit&List' 'qdired']
+	['MoveFile*' [ENTER 'dired -mv <target>'
+		['Move or rename the file to right'
+		'of current line to <target> see "man mv"'
+		'(also HELP DIRED)']]]
+	['RenameFile*' [ENTER 'dired -mvd <newname>'
+		['Rename the file to right' 'of current line to <newname>'
+		'(i.e. rename in same directory)'
+		'See "man mv" and HELP DIRED']]]
+	['CopyFile*' [ENTER 'dired -cp <newname>'
+		['Copy the file to right of current line to <newname>'
+		 '(<newname> can be either file path name or directory'
+		'see "man cp" (and HELP DIRED)']]]
+	['CopySameDir*' [ENTER 'dired -cpd <newfile>'
+		['Copy the file to right of current line to <newfile>'
+		'in the same directory See "man cp"(and HELP DIRED)']]]
+	['DeleteTheFile' 'dired -rm']
+	['PeekAtFile' 'dired -peek']
+;;;	[Readonly 'dired -r']
+;;;	[Writeable 'dired -w']
+	['MENUS...' [MENU toplevel]]
+enddefine;
+
+endsection;
+
+-- MENU DEFINITION FILE menus/menu_editor.p
+
+/* --- Copyright University of Birmingham 2000. All rights reserved. ------
+ > File:            $poplocal/local/rcmenu/menus/menu_editor.p
+ > Purpose:			Provide VED options as menu buttons
+ > Author:          Aaron Sloman, Aug 10 1999 (see revisions)
+ > Documentation:
+ > Related Files:
+ */
+
+/* --- The University of Birmingham 1995.  --------------------------------
+ > File:            $poplocal/local/menu/menus/menu_editor.p
+ > Purpose:
+ > Author:          Aaron Sloman, Jan 21 1995
+ > Documentation:
+ > Related Files:
+ */
+
+section;
+
+#_IF DEF MOTIF
+;;; uses puilib
+#_ENDIF
+
+uses rclib
+uses rcmenulib
+
+uses rc_control_panel
+uses rc_browse_files
+uses rc_getfile
+
+
+uses menu_choosefile1;
+uses menu_choosefile2;
+
+#_IF DEF MOTIF
+define rc_edittool(name, directory, filter, ref_widget);
+	lvars name, directory, filter, ref_widget;
+	lvars filename =
+		pop_ui_choose_file(false,
+				'Ved Open File', 'Open', directory, filter, name, true);
+
+	if filename then
+		;;; make relative to current directory, if possible
+		lvars path = sysfileok(filename);
+		if isstartstring(current_directory, path) then
+			allbutfirst(length(current_directory), path) -> filename;
+		endif;
+#_IF DEF VMS
+		;;; under VMS, we need remove the version number, otherwise
+		;;; trying to write the file gives an error
+		sys_fname(filename, 1, 5) -> filename;
+#_ENDIF
+		external_defer_apply(vededit(% filename %))
+	endif;
+enddefine;
+
+
+define menu_run_edittool();
+	rc_edittool(false, '.' ,'*', false)
+enddefine;
+
+#_ENDIF
+
+define :menu editor;
+	'VED Ops'
+	{cols 2}
+	 'Menu editor: Ved actions'
+	['Refresh' menu_refresh]
+	['EditFile*' [ENTER 'ved ' ['Editing a new file.' 'Insert the name on right.']]]
+    ;;; ['FastChoose*' menu_choosefile1]
+    ['BrowseFiles*' menu_choosefile2]
+	['BrowseProcs*' ved_procbrowser]
+#_IF DEF MOTIF
+	;;; ['MotifBrowse' [POP11 pop_ui_edittool(false,'.',false, false)]]
+	['MotifBrowse' menu_run_edittool]
+#_ENDIF
+	['Autosave*'
+		[ENTER 'autosave 5'
+		['Get VED to save all files,' 'e.g. every 5 minutes'
+		'See HELP VED_AUTOSAVE']]]
+	['PurgeFiles*'
+		[ENTER 'purgefiles *-'
+         ['To delete all files matching a pattern, give the command'
+			'below with a pattern. Edit the pattern if necessary'
+			'After pressing Do, you will get a request for confirmation'
+			'of the form:  "OK?(n=NO,RETURN=yes,s=show)"'
+			'Type s to show the files before deciding whether to delete.']]]
+	['ScanFiles*' ved_menu_grep]
+	['HelpScan' 'help ved_grep']
+	['VedProps...' [MENU vedprops]]
+	['Mark...' [MENU mark]]
+	['Search...' [MENU search]]
+	['Move...' [MENU move]]
+	['Delete...' [MENU delete]]
+	['Blocks...' [MENU vedblocks]]
+	['Printing...' [MENU print]]
+	['Control...' [MENU control]]
+	['CaseChange...' [MENU case]]
+	['SaveAll' ved_w]
+	['Save1' ved_w1]
+	['Quit1' ved_q]
+	['RotateBuffs' menu_rotate_files]
+	['SwapBuffer' [POP11 menu_apply(vedswapfiles)]]
+	['SelectBuffer' [POP11 rc_vedfileselect("middle", "top", '9x15')]]
+	['GoIndex...' [MENU index]]
+	['Compiling...' [MENU compiling]]
+	['Printing...' [MENU print]]
+	['Control...' [MENU control]]
+	['Dired...' [MENU dired]]
+	['KEYMAPS...' [MENU keys]]
+	['Ved Browser...' [MENU dired]]
+	['Indexing...' [MENU index]]
+	['XVED...'	[MENU xved]]
+	['HelpVED' 'help ved']
+	['HelpCommands' 'ref vedcomms']
+	['MENUS...' [MENU toplevel]]
+
+enddefine;
+
+endsection;
+
+/* --- Revision History ---------------------------------------------------
+--- Aaron Sloman, Mar  9 2000
+	Removed command to compile puilib
+	Introduced rc_edittool and used it to replace pop_ui_edittool
+	
+--- Aaron Sloman, Sep 27 1999
+	Added ved_procbrowser
+--- Aaron Sloman, Aug 11 1999
+	Converted to use rclib mechanisms
+ */
+
+-- MENU DEFINITION FILE menus/menu_index.p
+
+/* --- The University of Birmingham 1995.  --------------------------------
+ > File:            $poplocal/local/menu/menus/menu_index.p
+ > Purpose:
+ > Author:          Aaron Sloman, Jan 21 1995
+ > Documentation:
+ > Related Files:
+ */
+
+
+/*
+-- -- Indexify and related procedures
+*/
+section;
+
+define :menu index;
+	'Index Ops:'
+	'Menu index'
+	'(Indexify' 'Go to section)'
+	['TUTORIAL' 'help enter_g']
+	['Indexify' 'indexify']
+	['GoSection' 'g']
+	['IndexProcs' 'indexify define']
+	['GoProc'  'g define']
+	['Get headers' 'headers']
+	['GP' 'gp']
+	['Quit1' ved_q]
+	['RotateFiles' ved_rb]
+	['SwapFile' vedswapfiles]
+	['Teach...' [MENU teach]]
+	['Editor...' [MENU editor]]
+	['Files...' [MENU files]]
+	['HELP Indexify' 'help ved_indexify']
+	['HELP headers' 'help ved_headers']
+	['MENUS...' [MENU toplevel]]
+enddefine;
+
+endsection;
+
+-- MENU DEFINITION FILE menus/menu_keys.p
+
+/* --- Copyright University of Birmingham 1999. All rights reserved. ------
+ > File:            $poplocal/local/rcmenu/menus/menu_keys.p
+ > Purpose:			menu panel with information about keys
+ > Author:          Aaron Sloman, Aug 25 1999 (see revisions)
+ > Documentation:
+ > Related Files:
+ */
+
+
+/*
+-- Facilities for getting information about keys
+*/
+
+uses rcmenulib
+uses menu_new_menu
+
+uses menu_do_scroll
+
+uses ved_menu_hkey
+
+section;
+sysunprotect("vedinvedprocess");
+
+define lconstant ved_hkeytest();
+	dlocal vedusewindows;
+
+    ved_try_do_??('ved_hkey', false);
+	vedtopfile();
+	vedlineabove();
+	vedinsertstring('Interrupt with CTRL C when finished');
+	vedendfile();
+	vedcheck();
+	vedxrefresh();
+	ved_menu_hkey();
+	repeat
+		vedendfile();
+		vedcheck();
+		vedxrefresh();
+		ved_menu_hkey()
+	endrepeat;
+enddefine;
+
+
+define lconstant ved_testkeys();
+	;;; Put up an information panel
+	;;; Repeatedly call ved_hkey, until interrupted.
+
+	lvars oldinterrupt = interrupt;
+
+	lvars box;
+
+	define dlocal interrupt();
+		rc_kill_window_object(box);
+		vedputmessage('DONE');
+		oldinterrupt();
+	enddefine;
+
+	define :menu keys_inform;
+		'TESTKEYS'
+		{right top}
+		{cols 1}
+		'Move mouse cursor into'
+		'temporary VED window'
+		'Repeatedly press keys'
+		'to get information.'
+		'Interrupt with CTRL C'
+		'or press FINISH'
+		['FINISH' [POPNOW interrupt()]]
+	enddefine;
+
+
+	rc_current_window_object -> box;
+
+	ved_hkeytest();
+
+enddefine;
+
+define :menu keys;
+ 'Ved Keys'
+	'Information'
+	'About' 'VED Keys'
+	;;; this does not work well, so comment it out
+	;;; ['Testkeys' ^ved_testkeys]
+	['Test Key' 'menu_hkey']
+	['QuitFile' ved_q]
+	['PageUp' [POPNOW vedprevscreen()]]
+	['PageDown' [POPNOW vednextscreen()]]
+	['HalfUp' [POPNOW menu_do_scroll(-1, "vert")]]
+	['HalfDown' [POPNOW menu_do_scroll(1, "vert")]]
+	['Help Keys' 'help vedncdxtermkeys']  	
+	;;; ['Help Sun4Keys' 'help vedsunxtermkeys']
+	['HELP vedkeys' 'help vedkeys']
+	['HELP DefKey' 'help DK']
+	['HELP vedsetkey' 'help vedsetkey']
+	['HELP vedset' 'help vedset']
+	['HELP VED' 'help ved']
+	['HELP EmacsKeys' 'help vedemacs']
+	['REF VedComms' 'ref vedcomms']
+	['REF Vedprocs' 'ref vedprocs']
+	['Editor...' [MENU editor]]
+	['MENUS...' [MENU toplevel]]
+enddefine;
+
+endsection;
+
+/* --- Revision History ---------------------------------------------------
+--- Aaron Sloman, Sep 17 1999
+	made to work with rcmenu stuff
+--- Aaron Sloman, Aug 25 1999
+	Converted to use RC stuff, and content revised.
+ */
+
+-- MENU DEFINITION FILE menus/menu_latex.p
+
+/* --- The University of Birmingham 1995.  --------------------------------
+ > File:            $poplocal/local/menu/menus/menu_latex.p
+ > Purpose:
+ > Author:          Aaron Sloman, Jan 21 1995
+ > Documentation:
+ > Related Files:
+ */
+
+/*
+-- -- Menu to go with LIB VED_LATEX
+See HELP VED_LATEX
+*/
+
+section;
+
+define :menu latex;
+	'Latex Ops'
+	{cols 2}
+	'Menu latex: latex & xdvi'
+	['Latex*' [ENTER 'latex'
+		['This command runs the latex program.'
+		 'It will produce a new file showing errors and other'
+		 'messages. If there are no errors you can preview or print'
+		 '(See HELP VED_LATEX)']]]
+	['RunLatex' 'latex']
+	['Preview' 'xdvi']
+	['AsciiPreview' 'dvi2tty']
+	['Print' 'latex print']
+	['Pr ManualFeed' 'latex print -m']    ;;; manual feed
+	['PrToFile' 'latex print ps']
+	['ClearDviLogAux' 'latex clear']
+	['SetBold*'
+		[ENTER 'latex bold <item>'
+		['The <item> can be one of: range (or mr),'
+		 'line (or l), word (or w). Default is l']]]
+	['SetBoldMR' 'latex bold mr']
+	['CentreMR' 'latex centre mr']
+	['CenterLine' 'latex centre']
+	['ItalicWd' 'latex italic word']
+	['ItalicMR' 'latex italic mr']
+	['CommentMR' 'latex comment mr']
+	['TidyPara' 'jlp']
+	['Latex Demo' 'teach latex.tex']
+	['TEACH Latex' 'teach latex']
+	['HELP Latex' 'help latex']
+	['HELP VedLatex' 'help ved_latex']
+	['MENUS...' [MENU toplevel]]
+enddefine ;
+
+endsection;
+
+-- MENU DEFINITION FILE menus/menu_mail.p
+
+/* --- The University of Birmingham 1995.  --------------------------------
+ > File:            $poplocal/local/menu/menus/menu_mail.p
+ > Purpose:
+ > Author:          Aaron Sloman, Jan 21 1995
+ > Documentation:
+ > Related Files:
+ */
+
+/*
+-- -- Top Level Mail Menu
+(Currently specific to Birmingham)
+*/
+
+section;
+
+define :menu mail;
+	'Mail Ops'
+	{cols 2}
+	'Menu mail: Read Send'
+	['HELP GetMail' 'help ved_getmail']
+	['GetMail' ved_getmail]
+	['Check mail' 'checkmail']
+	['Checkmail off' 'checkmail off']
+	['Send' ved_send]
+	['Sendmr' ved_sendmr]
+	['Reply (all)' ved_Reply]
+	['Respond (all)' ved_Respond]
+	['reply (one)' ved_reply]
+	['respond (one)' ved_respond]
+	['NextMess' ved_nm]
+	['PrevMess' ved_lm]
+	['PageDown' vednextscreen]
+	['TidyMess' ved_tmh]
+	['MarkMess' ved_mcm]
+	['DelMessage' ved_ccm]
+	['ListMessgs' ved_mdir]
+	['GoMessage' ved_gm]
+	['NextFile' ved_nextmail]
+	['PrevFile' ved_prevmail]
+	['LatestFile' ved_lastmail]
+	['MergeFiles' ved_mergemail]
+	['SaveMess*'
+		[ENTER 'wappcm <file>'
+		'Give name of file to which message\nis to be saved (or appended)']]
+	['PurgeMail' ved_purgemail]
+	['AliasFor*'
+		[ENTER 'aliases <name>'
+		[
+'You can find the email aliases containing <name>\
+by giving the command below. To get several names\
+at once separate them with "|", as in\
+"ENTER aliases smith|jones"'
+		]]]
+	['ShowAliases' 'do;aliases -people']
+	['ShowLists' 'aliases -l']
+	['ShowLogfile' 'ved $MAILREC']
+	['HELP Send(mr)' 'help send']
+	['HELP Reply' 'do;help ved_getmail;#_/Replying']
+	['HELP Respond' 'do;help ved_getmail;#_/Replying']
+	['HELP Aliases' 'help ved_aliases']
+	['HELP Purge' 'do;help ved_getmail;#_/purgemail']
+	['HELP Checkmail' 'help ved_checkmail']
+	['MENUS...' [MENU toplevel]]
+enddefine ;
+
+endsection;
+
+-- MENU DEFINITION FILE menus/menu_mark.p
+
+/* --- The University of Birmingham 1995.  --------------------------------
+ > File:            $poplocal/local/menu/menus/menu_mark.p
+ > Purpose:
+ > Author:          Aaron Sloman, Jan 29 1995
+ > Documentation:
+ > Related Files:
+ */
+
+/*
+-- -- Menus concerned with marked ranges
+*/
+
+section;
+
+define :menu mark;
+	'Mark Ops'
+	{cols 2}
+	'Menu mark: marked range'	
+	['HELP mark' 'menu_doc help mark']
+	['TEACH mark' 'menu_doc teach mark']
+	['MarkStart' vedmarklo]
+	['GoStart' vedmarkfind]
+	['MarkEnd' vedmarkhi]
+	['GoEnd' vedendrange]
+	['DelRange' ved_d]
+	['YankBack' ved_y]
+	['CopyRange' ved_t]
+	['MoveRange' ved_m]
+	['MoveIn' ved_mi]
+	['CopyIn' ved_ti]
+	['MoveOut' ved_mo]
+	['CopyOut' ved_to]
+	['MarkAll' ved_mbe]
+	['ClearMark' ved_crm]
+	['MarkProc' ved_mcp]
+	['CompProc' ved_lcp]
+	['TidyProc' ved_jcp]
+	['CompRange' ved_lmr]
+	['FillRange' ved_j]
+	['FillPara' ved_jp]
+	['JustifyRange' ved_jj]
+	['JustifyPara' ved_jjp]
+	['UnJustify' ved_gobble]
+	['TidyRange' ved_tidy]
+	['Move...' [MENU move]]
+	['Editor...' [MENU editor]]
+	['Control...' [MENU control]]
+	['MENUS...' [MENU toplevel]]
+enddefine ;
+
+endsection;
+
+-- MENU DEFINITION FILE menus/menu_move.p
+
+/* --- The University of Birmingham 1995.  --------------------------------
+ > File:            $poplocal/local/menu/menus/menu_move.p
+ > Purpose:
+ > Author:          Aaron Sloman, Jan 21 1995
+ > Documentation:
+ > Related Files:
+ */
+
+/*
+-- -- Cursor move menus
+*/
+
+section;
+
+define :menu move;
+	'Move Ops'
+	{cols 2}
+	'Menu move: move cursor'
+	['PageUp' vedprevscreen]
+	['PageDown' vednextscreen]
+	['OtherFileUp' ved_xup]
+	['OtherFileDn' ved_xdn]
+	['UpLots' vedcharuplots]
+	['DownLots' vedchardownlots]
+	['TopFile' vedtopfile]
+	['EndFile' vedendfile]
+	['NextPara' vednextpara]
+	['PrevPara' vedprevpara]
+	['NextSent' vednextsent]
+	['PrevSent' vedprevsent]
+	['ScreenLeft' vedscreenleft]
+	['TextRight' vedtextright]
+	['NextLine' vednextline]
+	['MidWindow'  vedmidwindow]
+	['WdLeft' vedwordleft]
+	['WdRight' vedwordright]
+	['WdStart' vedstartwordleft]
+	['WdEnd' vedendwordright]
+	['Up' vedcharup]
+	['Down' vedchardown]
+	['Left' vedcharleft]
+	['Right' vedcharright]
+	['UpL' vedcharupleft]
+	['UpR' vedcharupright]
+	['DnL' vedchardownleft]
+	['DnR' vedchardownright]
+	['Switch' vedswapfiles]
+	['Editor...' [MENU editor]]
+	['HELP Procs' 'menu_doc ref vedprocs Changing']
+	['HELP Keys' 'menu_doc help vedkeys Moving']
+	['HELP Ncd' 'menu_doc help ncdxtermkeys']
+	['HELP Sun4' 'menu_doc help sunxtermkeys']
+	['MENUS...' [MENU toplevel]]
+enddefine ;
+
+endsection;
+
+-- MENU DEFINITION FILE menus/menu_news.p
+
+/* --- Copyright University of Birmingham 1999. All rights reserved. ------
+ > File:            $poplocal/local/rcmenu/menus/menu_news.p
+ > Purpose:
+ > Author:          Aaron Sloman, Jan 21 1995 (see revisions)
+ > Documentation:
+ > Related Files:
+ */
+
+/*
+-- -- Menu for' ved_gn (get news) and postnews
+Only works at Birmingham now.
+*/
+
+section;
+
+uses ved_gn;
+
+define :menu news;
+	'News reader'
+	{cols 2}
+	'Menu news'
+	'Reading and sending news'
+	['GetNewsGroups' [POP11 ved_gn(); veddo('ved ' <> vednewsrc)]]
+	['GetIt' [POP11 dlocal vedediting = true, vedargument = nullstring; ved_gn()]]
+	['PageUp' vedprevscreen]
+	['PageDown' vednextscreen]
+	['SameSubject' 'gns']
+	['SameAuthor' 'gna']
+	['Catchup' 'gn .']
+	['Howmany?' 'gn ?']
+	['Show all' 'gn new']
+	['Get 100' 'gn 100']
+	['Followup' 'followup']
+	['Reply' 'followup reply']
+	['Send' 'send']
+	['NewArticle' 'postnews new']
+	['PostThis' 'postnews']
+	['QuitThis' 'q']
+;;;	['SaveThis' 'save']	;;; needs dialogue to get an argument
+	['SaveNewsrc' 'w']
+	['CloseLink' 'gn close']
+	['HelpNews' 'menu_doc help ved_gn']
+	['HelpPost' 'menu_doc help ved_postnews']
+	['HelpSetup' 'help ved_gn_setup']
+	;;; this may not be optimal!
+	['DoSetup*' [ENTER 'gn_setup  news.announce cs comp.ai sci.cog bham. comp.lang comp'
+		'Specify the order in which you want news groups. See HELP VED_GN_SETUP']]
+	['MENUS...' [MENU toplevel]
+]
+enddefine;
+
+endsection;
+
+/* --- Revision History ---------------------------------------------------
+--- Aaron Sloman, Sep 16 1999
+	Minor change to make ved_gn fetch articles.
+ */
+
+-- MENU DEFINITION FILE menus/menu_nudge.p
+
+/* --- The University of Birmingham 1995.  --------------------------------
+ > File:            $poplocal/local/menu/menus/menu_nudge.p
+ > Purpose:
+ > Author:          Aaron Sloman, Jan 21 1995
+ > Documentation:
+ > Related Files:
+ */
+
+/*
+-- Nudge menu moving or re-sizing an XVED window
+*/
+
+section;
+
+uses menu_xved_utils
+
+define global vars procedure menu_window_changesize(amount);
+	;;; Vary screensize by amount. XVED only
+	lvars amount;
+	returnunless(vedusewindows == "x")(vedsetwindow());
+	dlocal vedwarpcontext = false;
+	vedscreenlength + amount -> xved_value("currentWindow", "numRows");
+	false -> wvedwindowchanged
+enddefine;
+
+define :menu nudge;
+	'X Window nudge menu'
+	{-80 20}
+	{fg 'yellow'}
+	{bg 'brown'}
+	{cols 0}
+	['Up' [POPNOW menu_xved_nudge("u")]]
+	['Down' [POPNOW menu_xved_nudge("d")]]
+	['Left' [POPNOW menu_xved_nudge("l")]]
+	['Right' [POPNOW menu_xved_nudge("r")]]
+	['Smaller' [POPNOW menu_window_changesize(-5)]]
+	['Bigger' [POPNOW menu_window_changesize(5)]]
+;;;	['HELP' 'help xved']
+enddefine;
+
+endsection;
+
+-- MENU DEFINITION FILE menus/menu_print.p
+
+/* --- The University of Birmingham 1995.  --------------------------------
+ > File:            $poplocal/local/menu/menus/menu_print.p
+ > Purpose:
+ > Author:          Aaron Sloman, Jan 21 1995
+ > Documentation:
+ > Related Files:
+ */
+
+/*
+-- Printing utilities at Birmingham
+
+Needs to be generalised and extended
+*/
+section;
+
+define :menu print;
+	'PRINTING'
+	'Menu print'
+	 'Printing\nFiles'
+	;;; Basic printing to ascii printer
+	['RnoPrint' 'rnoprint']
+	;;; Landscape printing using a2ps
+	['PsPrintMR' 'psprintmr']
+	['PsPrintAll' 'psprint']
+	;;; portrait printing using a2ps
+	['PsPrintP' 'psprint -p']
+	['PsPrintP MR' 'psprintmr -p']
+	['LatexPrint' 'latex print']
+	['Latex...' [MENU latex]]
+	['Editor...' [MENU editor]]
+	['Use LPR' 'lpr']
+	['Use LPR mr' 'lprmr']
+	['HELP' 'help printmenu']
+	['TEACH Printing' 'teach printing']
+	['HELP PsPrint' 'help ved_psprint']
+	['HELP Rno' 'help rno']
+;;;	['HELP Sun1Print' 'help sun1print']
+	['TEACH Latex' 'tach latex']
+	['HELP Latex' 'help latex']
+	['HELP LPR' 'help lpr']
+	['MENUS...' [MENU toplevel]]
+enddefine;
+
+endsection;
+
+-- MENU DEFINITION FILE menus/menu_search.p
+
+/* --- The University of Birmingham 1995.  --------------------------------
+ > File:            $poplocal/local/menu/menus/menu_search.p
+ > Purpose:
+ > Author:          Aaron Sloman, Jan 21 1995
+ > Documentation:
+ > Related Files:
+ */
+
+/*
+-- -- Search menu
+*/
+
+section;
+
+
+define :menu search;
+	'Search Ops'
+	'Menu search'
+	['Search*' ved_menu_search]
+	['Replace*' ved_menu_subs]
+	['SrchForwd*' [ENTER '/<string>' 'Search forward for string']]
+	['SrchBack*' [ENTER '\\<string>' 'Search backward for string']]
+	['SrchWrd*' [ENTER '"<word>"' 'Search forward for \nunembedded string']]
+	['SrchBackWrd*' [ENTER '`<word>' 'Search back for \nunembedded string']]
+	[ReSearch ved_re_search]
+	[BackReSearch ved_re_backsearch]
+	['Subs*' [ENTER 's/<string1>/<string2>/'
+		['Interactively replace all occurrences of one'
+		'string with another (Choose your own delimiter)'
+		'in place of "\")' 'See HELP VEDSEARCH']]]
+	['Subs_word*' [ENTER 's"<word1>"<word2>"'
+		['Interactively replace non-embedded string(word)'
+		 'See HELP VEDSEARCH']]]
+	['GlobalSubs*' [ENTER 'gs/<word1>/<word2>/'
+		['Global, non interactive substitution' 'of non-embeeded strings.'
+		 'See HELP VEDSEARCH']]]
+	['SubsInRange*'  [ENTER 'gsr/<string1>/<sstring2>'
+		['Global substitution in a range.'
+		 'Use \'"\' as delimiter for non-embedded strings']]]
+	['SubsInLine*'  [ENTER 'gsl/<string1>/<string2>'
+		['Global substitution in a line.'
+		 'Use \'"\' as delimiter for non-embedded strings']]]
+	['SubsInProc*'  [ENTER 'gsp/<string1>/<string2>'
+		['Global substitution in a procedure'
+		 'Use \'"\' as delimiter for non-embedded strings'
+		 'See TEACH VEDSEARCH']]]
+	['Browse...' [MENU dired]]
+	['Editor...' [MENU editor]]
+	[TEACH 'menu_doc teach vedsearch']
+	['TEACH Search' 'menu_doc teach vedsearch']
+	['REF Search' 'menu_doc ref vedsearch']
+	['TEACH regexp' 'teach regexp']
+	['MENUS...' [MENU toplevel]]
+enddefine;
+
+endsection;
+
+-- MENU DEFINITION FILE menus/menu_teach.p
+
+/* --- Copyright University of Birmingham 1999. All rights reserved. ------
+ > File:            $poplocal/local/rcmenu/menus/menu_teach.p
+ > Purpose:
+ > Author:          Aaron Sloman, Jan 21 1995 (see revisions)
+ > Documentation:
+ > Related Files:
+ */
+
+/*
+-- -- "Teach" menu
+*/
+
+section;
+uses menu_xterm.p
+
+
+define :menu teach;
+	'Teach menu'
+	'Menu teach'
+	'TEACH files\n and demos'
+	;;; ['WindowSize' ved_setwindow]
+	['PageUp' vedprevscreen]
+	['PageDown' vednextscreen]
+	['GoSection' 'g']
+	['StartTeach' 'teach quickved']
+	['Windowmanager' 'teach ctwm']
+	['TeachVed' 'teach ved']
+	['TeachMoreVed' 'teach moreved']
+	['TeachMark' 'teach mark']
+	['TeachVedPop' 'teach vedpop']
+	['TeachLoadMark' 'teach lmr']
+	['TeachRiver' 'teach river']
+	['TEACH Email' 'teach email']
+    ['ElizaDemo*' [POP11 menu_xterm(false,'eliza')]]
+	['TeachRespond' 'teach respond']
+	['TeachDefine' 'teach define']
+	['TeachMatches' 'teach matches']
+	['TeachDatabase' 'teach database']
+	['TeachSets' 'teach sets']
+	['PopCore'	'teach popcore']
+	;;; ['Tower'	'teach tower']
+	;;; ['Searching'	'teach searching']
+    ;;; ['LogicTutor*' [POP11 menu_xterm(false,'pop11 +prolog +logic')]]
+	;;; next one assumes that a saved image has been set up for LIB LOGIC1
+    ['PopLogic*' [POP11 menu_xterm(false,'pop11 +poplogic')]]
+	['EditFile*' [ENTER 'ved ?' 'Editing a new file']]
+	['Enter' [POP11 vedenter();vedrefreshstatus()]]
+	['MENUS...' [MENU toplevel]]
+enddefine;
+
+endsection;
+
+/* --- Revision History ---------------------------------------------------
+--- Aaron Sloman, Oct  1 1999
+	Slightly reorganised.
+ */
+
+-- MENU DEFINITION FILE menus/menu_toplevel.p
+
+/* --- Copyright University of Birmingham 2000. All rights reserved. ------
+ > File:            $poplocal/local/rcmenu/menus/menu_toplevel.p
+ > Purpose:         Top level menu
+ > Author:          Aaron Sloman, Jan 21 1995 (see revisions)
+ > Documentation:	HELP VED_MENU, HELP RCLIB
+ > Related Files:	LIB rcmenulib
+ */
+
+/*
+-- The top level menu
+*/
+
+uses rcmenulib
+
+uses menu_do_scroll
+
+
+define :menu toplevel;
+	'Toplevel'
+	menu_toplevel_location
+	{cols 1}
+	
+	 'Toplevel'
+	['TUTOR' 'teach quickved']
+	['ExitAll' 'qq']
+	['TEACH...' [MENU teach]]
+	;;; ['TEACH EMAIL' 'teach email']
+	;;; next one no longer needed for Xved
+	;;; ['WindowSize' ved_setwindow]
+	['PageUP' vedprevscreen]
+	['PageDown' vednextscreen]
+	['HalfUp' [POP11 menu_do_scroll(-1, "vert")]]
+	['HalfDown' [POP11 menu_do_scroll(1, "vert")]]
+	['GoSection' 'g']
+	['ENTER' [POP11 vedenter();vedrefreshstatus()]]
+	['Editor(Ved)...' [MENU editor]]
+	['XVED...' [MENU xved]]
+	['Marking...' [MENU mark]]
+	['Compiling...' [MENU compiling]]
+	['Move...' [MENU move]]
+	['Delete...' [MENU delete]]
+	['Mail...' [MENU mail]]
+	['Utilities...' [MENU utilities]]
+	['UserMenu...' [MENU user]]
+	['KeysInfo...' [MENU keys]]
+;;;	['TUTORIAL' 'teach ved_menu']
+	['UNIX...'	[MENU unix]]
+	{blob DismissAll menu_dismiss_all}
+enddefine;
+
+/* --- Revision History ---------------------------------------------------
+--- Aaron Sloman, Jul 22 2000
+	Changed to use menu_toplevel_location
+--- Aaron Sloman, Sep 17 1999
+	Replaced news with unix
+	Removed email, and moved TEACH to the top.
+--- Aaron Sloman, Aug 19 1999
+	Added scrollup and scrolldown options
+--- Aaron Sloman, Aug 10 1999
+	Altered to use new rclib facilities
+--- Aaron Sloman, Oct  1 1998
+	Added XVED menu
+--- Aaron Sloman, Jan 22 1997
+	Added link to key menu
+ */
+
+-- MENU DEFINITION FILE menus/menu_unix.p
+
+/* --- Copyright University of Birmingham 2000. All rights reserved. ------
+ > File:            $poplocal/local/rcmenu/menus/menu_unix.p
+ > Purpose:			Sample menu interface to Unix.
+ > Author:          Aaron Sloman, Jul 22 2000 (see revisions)
+ > Documentation:	HELP VED_MENU, RCLIB
+ > Related Files:	LIB rcmenulib
+ */
+
+/* --- The University of Birmingham 1995.  --------------------------------
+ > File:            $poplocal/local/menu/menus/menu_unix.p
+ > Author:          Aaron Sloman, Jan 21 1995
+ */
+
+ /*
+-- A set of Unix commands
+ */
+section;
+uses rcmenulib
+uses ved_menu
+uses menu_xterm.p
+
+define :menu unix;
+	'Unix Ops'
+	{cols 1}
+	;;; {font '6x13'}
+	;;; {textbg 'brown'}
+	;;; {textfg 'white'}
+	{width 90}
+	'Menu unix' 'See also \nUser Menu'
+  	['Who' 'menu_doc sh who']
+  	['MachineStatus' 'menu_doc sh w']
+  	['LS Files*'
+	 	[ENTER 'ls -ld *'
+		 	'Get a long listing of files matching pattern\Edit the pattern']]
+  	['Newest Files*'
+	 	[ENTER 'ls -ltd *'
+		 	'Get a long listing of files matching pattern'
+		 	'with newest files shown first, oldest last']]
+  	['ShellCommand*'
+	 	[ENTER 'csh <command>'
+		 	'Run an arbitrary C Shell command, and have'
+			'The output read into a VED buffer']]
+
+	;;; Re-design this portion?
+	if readable('/usr/ucb/ps') then
+	  	['MyProcs' 'sh /usr/ucb/ps -ux ']
+	else
+	  	['MyProcs' 'sh ps -fu $USER']
+	endif;;;
+	;;; this one may not be relevant to everyone	
+    ['LocalXterm'
+        [POP11 menu_xterm(false, 'csh')]]
+	;;; This is an example: replace Lap and lap with some other
+	;;; machine's name
+    ['Xterm Lap'
+        [POP11 menu_xterm('lap', 'csh')]]
+  	['TopProcs' [POP11 menu_xterm(false,'top')]]
+  	['DaliClock' [POP11 sysobey('xdaliclock &')]]
+  	['XClock' [POP11 sysobey('xclock &')]]
+  	['ListMail' [UNIX 'from']]
+  	['Csh in Ved' 'imcsh']
+  	['Sh in Ved' 'imsh']
+  	['HELP pipeutils' 'menu_doc help pipeutils']
+  	['MENUS...' [MENU toplevel]]
+enddefine;
+
+endsection;
+
+/* --- Revision History ---------------------------------------------------
+--- Aaron Sloman, Jul 22 2000
+	Slightly revised. Still quite arbitrary.
+ */
+
+-- MENU DEFINITION FILE menus/menu_user.p
+
+/* --- Copyright University of Birmingham 1999. All rights reserved. ------
+ > File:            $poplocal/local/rcmenu/menus/menu_user.p
+ > Purpose:
+ > Author:          Aaron Sloman, Jan 21 1995 (see revisions)
+ > Documentation:
+ > Related Files:
+ */
+
+/*
+ -- -- User defined menu
+
+Start this menu by
+	ENTER menu user
+or selecting UserMenu... from the top level menu
+
+*/
+
+section;
+uses menu_xterm.p
+
+define lconstant toggle_clock();
+	;;; this must run in the right context
+	if vedinvedprocess then
+		veddo('clock');
+	else
+		vedinput(veddo(%'clock'%))
+	endif;
+enddefine;
+
+
+;;; This can easily be redefined by users
+;;; For more examples of possibly helpful user buttons see
+;;; HELP Menubuttons
+
+define :menu user ;
+  	'UserMenu'
+	{cols 2}
+    'Menu user'
+	'(To get a copy of this,'
+	'select EdUserMenu.'
+	'Edit then compile.)'
+    [HELP 'menu_doc help ved_menu']
+    [Refresh menu_refresh]
+	;;; Run top on local machine. To run it remotely use full path name
+	;;; e.g. menu_xterm('sun5' '/usr/local/bin/top')
+    [TOP [POP11 menu_xterm(false, 'top')]]
+    ['Xclock' [POP11 sysobey('xclock &')]]
+	;;; The next one does not work in XVed if invoked from a menu
+	['VedClock on/off' ^toggle_clock]
+	['HELP Clock' 'help ved_clock']
+    ['Eliza'
+        [POP11 menu_xterm(false,'eliza')]]
+	['Xved'
+        [POP11 menu_xterm(false,'xved')]]
+    ['Prolog'
+        [POP11 menu_xterm(false,'prolog')]]
+    ['Prolog tutor'
+        [POP11 menu_xterm(false,'prolog +logic')]]
+	;;; To create saved image for this run $usepop/pop/lib/demo/mkms
+    ['Shrdlu'
+        [POP11 menu_xterm(false,'pop11 +msblocks')]]
+	;;; Start up a local xterm running tcsh (Edit for bash, etc.)
+    ['LocalXterm'
+        [POP11 menu_xterm(false, 'tcsh')]]
+	;;; Get this file into VED and run the editor menu
+    ['EditMenu' 'do;showmenu user;menu editor']
+	;;; Make a user-owned copy of a system menu
+    ['CopyMenu*'
+        [ENTER 'copymenu <name>'
+         [
+			'To copy one of the system menus and make it'
+			'your own, put the menu name in place of "<name>"'
+			'in the command line below.'
+			'Alternatively if you are already examining'
+			'a menu file, give no <name>.'
+			'Your \'vedmenus\' directory will be created,'
+			'if necessary, and the menu copied into it.'
+			'You can then edit it and load it'
+			'with the "ENTER l1" command.']]]
+	;;; Make a user-owned copy of this menu
+    ['EdUserMenu' 'copymenu user']
+	;;; Compile and rebuild the menu in the current file
+    ['Compile' 'l1']
+	['HELP menubuttons' 'help menubuttons']
+	;;; Go back to top level menu
+    ['MENUS...' [MENU toplevel]]
+enddefine;
+
+endsection;
+
+/* --- Revision History ---------------------------------------------------
+--- Aaron Sloman, Sep 18 1999
+	Converted for rcmenus
+ */
+
+-- MENU DEFINITION FILE menus/menu_utilities.p
+
+/* --- Copyright University of Birmingham 1999. All rights reserved. ------
+ > File:            $poplocal/local/rcmenu/menus/menu_utilities.p
+ > Purpose:			Sample menu panel with utilities
+ > Author:          Aaron Sloman, Jan 21 1995 (see revisions)
+ > Documentation:
+ > Related Files:
+ */
+
+/*
+
+-- Utilities menu
+
+A menu to access several other utilities menus
+
+*/
+section;
+
+uses rcmenulib
+
+uses menu_choosefile2
+
+
+define :menu utilities;
+	'Utilities'
+	'Menu utilities'
+	'Available in'
+	'Ved and Xved'
+	['XVED...' [MENU xved]]
+	['TextBlocks...' [MENU vedblocks]]
+	;;; ['NudgeMenu...' [MENU nudge]]
+    ['Browser*' menu_choosefile2]
+	['ReadMail...' [MENU mail1]]
+	['SendMail...' [MENU mail2]]
+    ['Usenet(News)...' [MENU news]]
+	['Print...' [MENU print]]
+	['Control...' [MENU control]]
+	['Latex...' [MENU latex]]
+	['UNIX...' [MENU unix]]
+	['UserMenu...' [MENU user]]
+	['Autosave*'
+		[ENTER 'autosave 5'
+		['Get VED to save all files, e.g. every 5 minutes']]]
+	['HELP Autosave' 'help ved_autosave']
+	['MENUS...' [MENU toplevel]]
+enddefine;
+
+endsection;
+
+/* --- Revision History ---------------------------------------------------
+--- Aaron Sloman, Aug 26 1999
+	Converted to use rcmenus
+ */
+
+-- MENU DEFINITION FILE menus/menu_vedblocks.p
+
+/* --- The University of Birmingham 1995.  --------------------------------
+ > File:            $poplocal/local/menu/menus/menu_vedblocks.p
+ > Purpose:
+ > Author:          Aaron Sloman, Jan 29 1995
+ > Documentation:
+ > Related Files:
+ */
+
+/*
+-- -- Menu to go with LIB VEDBLOCKS
+See HELP VEDBLOCKS
+*/
+
+section;
+
+uses vedblocks;
+
+define :menu vedblocks;
+	'Vedblocks'
+	{cols 2}
+	'Menu vedblocks: Text blocks'
+	['PageUP' vedprevscreen]
+	['Push' vedpushkey]
+	['PageDown' vednextscreen]
+	['CharUp' vedcharup]
+    ['CharLeft' vedcharleft]
+	['CharDown' vedchardown]
+    ['CharRight' vedcharright]
+	['WdLeft' vedwordleft]
+	['WdRight' vedwordright]
+	['DelBlock' ved_dtb]
+	['StaticDel' ved_sdtb]	;;; static delete
+	['MoveBlock' ved_mtb]
+	['StaticMove' ved_smtb]
+	['CopyBlock' ved_ttb]
+	['StoreBlock' ved_stb]
+	['YankBlock' ved_ytb]
+	['StaticYank' ved_sytb]
+	['YankOverlay' ved_yotb]		;;; overlay
+	['InsertSpaces'  ved_itb] 	;;; insert spaces
+	['StaticInsert' ved_sitb]
+	['Mouse' vedxgotomouse]	;;; in case not loaded
+	['HELP VedBlocks' 'menu_doc help vedblocks']
+	['MENUS...' [MENU toplevel]]
+enddefine ;
+
+endsection;
+
+-- MENU DEFINITION FILE menus/menu_vedprops.p
+
+/* --- The University of Birmingham 1995.  --------------------------------
+ > File:            $poplocal/local/menus/menu_vedprops.p
+ > Purpose:			Control VED environment
+ > Author:          Aaron Sloman, Jan 24 1995
+ > Documentation:
+ > Related Files:
+ */
+
+
+define global vars ved_indent();
+	;;; system version leaves number on stack
+	;;; change the indentation step
+	unless vedargument == nullstring then
+		strnumber(vedargument) -> vedindentstep
+	endunless;
+	vedputmessage(vedindentstep sys_>< nullstring);
+	vedsetcursor();
+enddefine;
+
+define ved_winsize;
+	;;; set or show vedstartwindow
+	lvars num;
+	if strnumber(vedargument) ->> num then
+		num -> vedstartwindow
+	endif;
+	vedputmessage(vedstartwindow sys_>< nullstring);
+	vedsetcursor()
+enddefine;
+		
+
+section;
+
+define :menu vedprops;
+	'VED Ops'
+	'Menu''vedprops'
+	'(Set or''toggle'
+	'variables)'
+	['Tabs' ved_tabs]
+	['Static' ved_static]
+	['Break' ved_break]
+	['SetWindow' vedsetwindow]
+	['LMargin*' [ENTER 'lcol 1' 'Set left margin (default 1)']]
+	['RMargin*' [ENTER 'rcol 72' 'Set right margin (default 72)']]
+;;;	['WindowLength' [ENTER 'winsize 12' 'Set number of lines in window']]
+	['TabStep*' [ENTER 'indent 4' 'Set vedindent - tab set. Default 4']]
+	['Control...' [MENU control]]
+	['Editor...' [MENU editor]]
+	['HELP Vars' 'ref vedvars']
+	['MENUS...' [MENU toplevel]]
+enddefine;
+
+endsection;
+
+-- MENU DEFINITION FILE menus/menu_xved.p
+
+/* --- Copyright University of Birmingham 1998. All rights reserved. ------
+ > File:            $poplocal/local/menu/menus/menu_xved.p
+ > Purpose:         Menu to help drive an XVED window
+ > Author:          Aaron Sloman, Jan 21 1995 (see revisions)
+ > Documentation:
+ > Related Files:	MENU xvedfonts
+ */
+
+/*
+-- Menu facilities to drive XVED
+
+For reasons that I don't understand some of these work only in
+	[POP11 <action>]
+format
+
+
+*/
+
+
+section;
+
+uses menu_xved_utils;
+
+define :menu xved;
+   'XVED Menu'
+	'Menu xved'
+	'Xved Options'
+	['HELP ThisMenu' 'menu_doc help menu_xved']
+	['PasteSelection' menu_clipboard_paste]
+	['CopySelection' menu_clipboard_transcribe]
+	['CutSelection' [POPNOW menu_clipboard_cut()]]
+	['MoveSelection' [POPNOW menu_clipboard_move()]]
+	['ClearSelection' menu_clipboard_clear]
+	['UNDO???'	menu_clipboard_undo]
+	['CompSelection' [POP11 menu_vedinput(menu_clipboard_compile)]]
+	['NudgeUp' [POPNOW menu_xved_nudge("u")]]
+	['NudgeDown' [POPNOW menu_xved_nudge("d")]]
+	['NudgeLeft' [POPNOW menu_xved_nudge("l")]]
+	['NudgeRight' [POPNOW menu_xved_nudge("r")]]
+	['WindowSize' ved_setwindow]
+	['NudgeMenu' [MENU nudge]]
+	['XVED fonts' [MENU xvedfonts]]
+	['HELP Selection' menu_clipboard_help]
+	['HELP XVED' 'menu_doc help xved']
+	['TEACH XVED' 'menu_doc teach xved']
+	['REF XVED' 'menu_doc ref xved']
+	['MENUS...' [MENU toplevel]]
+enddefine;
+
+endsection;
+
+/* --- Revision History ---------------------------------------------------
+--- Aaron Sloman, Oct  1 1998
+	Added font menu
+ */
+
+-- MENU DEFINITION FILE menus/menu_xvedfonts.p
+
+/* --- Copyright University of Birmingham 1998. All rights reserved. ------
+ > Purpose:         Easy font changes, and related activities
+ > File:            $poplocal/local/menu/menus/menu_xvedfonts.p
+ > Author:          Aaron Sloman, Oct  1 1998
+ > Documentation:	
+ > Related Files:   HELP * VED_WINDOW, REF * XVED
+ */
+
+
+section;
+
+uses menu_xved_utils;
+
+define global vars procedure menu_window_changesize(amount);
+	;;; also in menu nudge. Should move out
+	;;; Vary screensize by amount. XVED only
+	lvars amount;
+	returnunless(vedusewindows == "x")(vedsetwindow());
+	dlocal vedwarpcontext = false;
+	vedscreenlength + amount -> xved_value("currentWindow", "numRows");
+	false -> wvedwindowchanged
+enddefine;
+
+define :menu xvedfonts;
+   'XVEDFONTS Menu'
+	{cols 2}
+	'Menu xvedfonts'
+	'Xved font and size options'
+	['Font 12x24' 'window font 12x24']
+	['Default 12x24' 'window default font 12x24']
+	['Font 10x20' 'window font 10x20']
+	['Default 10x20' 'window default font 10x20']
+	['Font 9x15' 'window font 9x15']
+	['Default 9x15' 'window default font 9x15']
+	['Font 8x13' 'window font 8x13']
+	['Default 8x13' 'window default font 8x13']
+	['Font 6x12' 'window font 6x12']
+	['Default 6x12' 'window default font 6x12']
+	['10 lines' 'window 10']
+	['20 lines' 'window 20']
+	['30 lines' 'window 30']
+	['40 lines' 'window 40']
+	['Smaller' [POPNOW menu_window_changesize(-2)]]
+	['Bigger' [POPNOW menu_window_changesize(2)]]
+	['NudgeUp' [POPNOW menu_xved_nudge("u")]]
+	['NudgeDown' [POPNOW menu_xved_nudge("d")]]
+	['NudgeLeft' [POPNOW menu_xved_nudge("l")]]
+	['NudgeRight' [POPNOW menu_xved_nudge("r")]]
+	['NudgeMenu' [MENU nudge]]
+	['XVED menu' [MENU xved]]
+	['HELP WINDOW' 'menu_doc help ved_window']
+	['HELP XVED' 'menu_doc help xved']
+	['TEACH XVED' 'menu_doc teach xved']
+	['REF XVED' 'menu_doc ref xved']
+	['MENUS...' [MENU toplevel]]
+enddefine;
+
+endsection;
+
+-- MENU DEFINITION FILE menus/menuindex.p
+
+nil -> proglist; ;;; prevent compilation
+$poplocal/local/rcmenu/menus/menuindex.p
+Files in $poplocal/local/rcmenu/menus
+menu_case.p       menu_compiling.p  menu_control.p    menu_delete.p
+menu_dired.p      menu_editor.p     menu_index.p      menu_keys.p
+menu_latex.p      menu_mail.p       menu_mark.p       menu_move.p
+menu_news.p       menu_nudge.p      menu_print.p      menu_search.p
+menu_teach.p      menu_toplevel.p   menu_unix.p       menu_user.p
+menu_utilities.p  menu_vedblocks.p  menu_vedprops.p   menu_xved.p
+menu_xvedfonts.p  menuindex.p
+

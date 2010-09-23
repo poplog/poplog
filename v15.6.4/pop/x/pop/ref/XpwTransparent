@@ -1,0 +1,209 @@
+REF XpwTransparent                              Jonathan Meyer, Nov 1991
+
+        COPYRIGHT University of Sussex 1991. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<        XPWTRANSPARENT       >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+Xpw is the Poplog Widget Set.  It contains a variety of object  oriented
+user interface components (called widgets) which are controlled  through
+the X Windows Toolkit (Xt). For an introduction to Xpw, see HELP * Xpw.
+    This file  describes  the  XpwTransparent  widget,  and  the  Pop-11
+interface to XpwTransparent. See the section on associated documentation
+for a list of other documents describing Xpw.
+    This file assumes a basic understanding of the Xt toolkit.  Concepts
+such as resources, actions, translations, etc. are all introduced in the
+X Toolkit Intrinsics - C Language Interface manual.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   XpwTransparent Widget
+      1.1   Synopsis
+
+  2   Example
+
+  3   Resources
+
+  4   Related Documentation
+
+
+
+------------------------
+1  XpwTransparent Widget
+------------------------
+
+    Superclass:   Core
+
+XpwTransparent is used  to create transparent  'InputOnly' windows.  You
+can never draw  on an InputOnly  window - you  can, however, define  its
+location, stacking order,  cursor, and  event handlers.  This is  useful
+when you want to create a 'hotspot' over some area of a parent composite
+widget. Many of the attributes  associated with standard widgets do  not
+apply to XpwTransparent (eg. the depth, the colormap, colours, etc),  so
+it should be used with care.
+
+XpwTransparent uses the same event handling interface as XpwGraphic.  It
+also provides  the  same  pointerShape resource  settings  as  found  in
+XpwCore.
+
+
+1.1  Synopsis
+-------------
+In C:
+
+        #include <Intrinsic.h>
+        #include <StringDefs.h>
+        #include <X11/Xpw/XpwTransparent.h>
+        widget = XtCreateWidget(name, xpwTransparentWidgetClass, ...);
+
+
+In Pop-11:
+
+
+xpwTransparentWidget -> widgetclass                           [constant]
+        A member of the Poplog Widget Set.
+
+        To  make  available   both  the  Xpw   library  directory,   and
+        xpwTransparentWidget from it, requires
+
+            uses Xpw, xpwTransparentWidget;
+
+        (which also makes * XpwCallMethod available). Then either of
+
+            XtCreateWidget(name, xpwTransparentWidget, ...) -> w;
+            fast_XtCreateWidget(name, xpwTransparentWidget, ...) -> w;
+
+        will create an instance of the XpwTransparent widget.
+
+
+
+
+----------
+2  Example
+----------
+
+The following example  code creates  a transparent area  in a  composite
+widget and the sets the cursor and a motion callback for that area:
+
+        uses popxlib, Xpw;   ;;; using X and Xpw
+        max(popmemlim, 400000) -> popmemlim; ;;; give us some space.
+
+        exload_batch;
+
+        include xpt_xtypes.ph;
+
+        uses
+            xt_widget,
+            xt_callback,
+            xt_resource,
+            xpwCompositeWidget,
+            xpwTransparentWidget,
+        ;
+
+        define example();
+            XptDefaultSetup();
+
+            lvars shell = XtAppCreateShell('xpw', 'Xpw',
+                                xtApplicationShellWidget,
+                                XptDefaultDisplay,
+                                XptArgList([]) );
+
+            lvars composite = XtCreateManagedWidget('composite',
+                             xpwCompositeWidget, shell,
+                             XptArgList([ {width 300} {height 200} ]) );
+
+            lvars transparent = XtCreateManagedWidget('transparent',
+                                xpwTransparentWidget, composite,
+                                XptArgList([ {x 100} {y 50}
+                                            {width 100} {height 100}]));
+
+            XtRealizeWidget(shell);
+
+          ;;; change cursor in transparent area
+          'cross' -> XptVal transparent(XtN pointerShape <TYPE=string>);
+
+            ;;; track mouse motion in transparent area
+            XtAddCallback(transparent, XtN motionEvent,
+                procedure(a,b,c);
+                    lvars a,b,c;
+                    XptVal a(XtN mouseX) =>
+                endprocedure, false);
+        enddefine;
+
+        endexload_batch;
+
+        ;;; now do it
+        example();
+
+
+
+
+------------
+3  Resources
+------------
+
+XpwTransparent inherits all of the Core widget resources, and adds a few
+additional resources.  Note that  many  of the  Core resources  are  not
+applicable to  XpwTransparent  widgets. The  following  table  indicates
+which resources are applicable:
+
+    The following resources are retrieved from the argument list or  the
+resource database when XpwTransparent widgets are created.
+
+ Name                    Class                   Type            Access
+ ----                    -----                   ----            ------
+ XtNancestorSensitive    XtCSensitive            Boolean           G*
+ XtNdestroyCallback      XtCCallback             XtCallbackList    SI
+ XtNheight               XtCHeight               short             SGI
+ XtNmappedWhenManaged    XtCMappedWhenManaged    Boolean           SGI
+ XtNsensitive            XtCSensitive            Boolean           GI*
+ XtNtranslations         XtCTranslations         XtTranslations    GI
+ XtNwidth                XtCWidth                short             SGI
+ XtNx                    XtCPosition             short             SGI
+ XtNy                    XtCPosition             short             SGI
+ XtNmodifiers            XtCModifiers            int               G
+ XtNpointerShape         XtCCursor               Cursor            SGI
+ XtNpointerForeground    XtCForeground           Pixel             SGI
+ XtNpointerBackground    XtCBackground           Pixel             SGI
+ XtNmouseX               XtCMouseLocation        Int               SG
+ XtNmouseY               XtCMouseLocation        Int               SG
+ XtNbuttonEvent          XtCCallback             XtCallbackList    GI
+ XtNkeyboardEvent        XtCCallback             XtCallbackList    GI
+ XtNmouseEvent           XtCCallback             XtCallbackList    GI
+ XtNmotionEvent          XtCCallback             XtCallbackList    GI
+
+The Access Column is interpreted as follows:
+
+         S   Value can be set by XtSetValues
+         G   Value can be read by XtGetValues
+         I   Value can be set at initialization
+         *   Value set in other ways
+
+The XpwTransparent widget shares  part of the  behaviour of the  XpwCore
+and  the   XpwGraphic  widget.   It  copies   the  XtNpointerShape   and
+XtNpointerForeground/Background resources from XpwCore. The translations
+and callbacks  are as  for the  XpwGraphicWidget. XpwTransparent  itself
+does not introduce  any new  behaviour, resource names  or classes.  See
+REF * XpwCore and  REF * XpwGraphic  for details  of  all of  the  above
+resources.
+
+
+
+------------------------
+4  Related Documentation
+------------------------
+
+HELP * Xpw
+    An overview of the Poplog Widget Set
+
+REF * XpwResources
+    An index of resources
+
+
+
+
+--- C.x/x/pop/ref/XpwTransparent
+--- Copyright University of Sussex 1991. All rights reserved.

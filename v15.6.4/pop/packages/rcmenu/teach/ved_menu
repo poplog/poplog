@@ -1,0 +1,945 @@
+TEACH VED_MENU                                      A.Sloman 21 Sep 1993
+                                                     Updated 22 Jul 2000
+
+To use this you need to have installed the RCLIB and RCMENU library
+packages. These are available from the Birmingham Free Poplog site
+in these two files:
+    ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/rc.tar.gz
+    ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/rcmenu.tar.gz
+
+
+If the RCLIB and RCMENU libraries have been installed you can make them
+available with the commands:
+
+    uses rclib
+    uses rcmenulib
+
+This makes available a collection of libraries, including
+    LIB VED_MENU
+    LIB MENU_NEW_MENU
+
+This provides an implementation of the Recursive Hypermenu System, a
+mechanism intended to make it easier to provide menus and control panels
+to help beginners to learn to drive the Poplog editor VED and to use the
+Pop-11 compiler from inside VED.
+
+Finally, it can be used to drive non-poplog facilities, including
+starting up new X applications, running Unix utilities, and so on. A
+full specification is in HELP VED_MENU
+
+An earlier version of this package was based on LIB PROPSHEET, which
+requires motif libraries to be available. They are not available on all
+Unix systems (e.g. linux systems), so the menu facilities were modified
+to run without using motif.
+
+To make the menu package available do
+
+    uses rclib
+    uses rcmenulib
+
+You can put that into your init.p or vedinit.p file.
+
+All the examples below should then work. Your site may include a saved
+image which has the facilities pre-compiled.
+
+
+-- A first example ----------------------------------------------------
+
+To try it out, and get a feel for what it offers, mark and load the
+following (or put the cursor in the middle and type ESC c). That will
+build a menu. You can try clicking on some of the buttons, then
+read on.
+
+define :menu test;
+    'TEST'                  ;;; The label, for the window manager
+    ;;; location vector
+    {1 -1}                  ;;; make it appear near the bottom left
+    {font '7x13bold'}       ;;; font specification
+    {width 125}             ;;; increase width
+    {bg 'white'}            ;;; background white
+    {fg 'black'}            ;;; foreground black
+    {textbg 'pink'}         ;;; text background
+    {textfg 'blue'}         ;;; text foreground
+    {cols 1}                ;;; orientation vertical, single column
+    ;;; Three strings at the top
+    'This is'
+    'Your very'
+    'first MENU!'
+    ;;; Now button definitions
+    ['EXAMPLES' 'help menubuttons']
+    ['PageUp' vedprevscreen]
+    ['PageDown' vednextscreen]
+    ['MENU DEMO' 'teach menu_demo.p']
+    ['NEWS' 'help menunews']
+    ['ExitPOPLOG' 'qq']
+    ['Quit1' ved_q]
+    ['INFO'
+        [POP11
+            rc_message_wait("middle", "middle",
+                ['You are using' 'LIB VED_MENU'], 0, true,
+                    '10x20', 'yellow', 'blue')]]
+    ['ListFiles...' [MENU dired]]
+    ['EditFile*' [ENTER 'ved <filename>' 'Editing a new file']]
+    ['SearchFiles*' ved_menu_grep]
+    ['HELPSearchFiles' 'help ved_grep']
+    ['Autosave*'
+        [ENTER 'autosave 5'
+        ['Get VED to save all files, every 5 minutes'
+        'See HELP VED_AUTOSAVE']]]
+    ['SwapFile' [POP11 menu_apply(vedswapfiles)]]
+    ['RotateFiles' menu_rotate_files]
+    ['MENUS...' [MENU toplevel]]
+enddefine;
+
+Experiment in various ways, by editing then recompiling that menu
+definition (Use ENTER lcp or ESC c)
+
+1. Try changing the location vector to {-20 25}
+    then recompile the definition. Then try
+        {-1 0}
+        {left top}
+        {right top}
+        {right 20}
+        etc.
+
+2. Try changing background to 'brown' foreground to 'yellow'
+    then recompile, etc.
+
+3. Try commenting out some buttons.
+
+4. Try turning it into a two column display, using {cols 2}
+
+5. With several buttons commented out try {cols 0}, for a horizontal
+    control panel.
+
+6. Re-set it to {cols 1}
+
+Try adding and testing this button
+    ['BrowseFiles*' menu_choosefile2]
+
+Notice that the button defined as
+
+    ['MENU DEMO' 'teach menu_demo.p']
+
+invokes a demonstration file that you can invoke directly from VED as
+
+    TEACH * MENU_DEMO.P
+
+After loading and playing with that, read on.
+
+-- Introduction -------------------------------------------------------
+
+A full specification of the menu package is given in HELP VED_MENU. This
+teach file merely provides a tutorial introduction to the key ideas.
+
+It can be used either with XVed or with the ordinary VED xterm
+interface.
+
+XVed allows each file to be in a separate window on the screen. The
+ordinary VED interface uses only one window for all files, though
+it can show two files at a time in that window (or more if you use
+LIB WINDOWS).
+
+Use the SCREENDOWN key or the PAGEDOWN key or the "Move..." menu
+to read on.
+
+         CONTENTS
+
+ -- A first example
+ -- Introduction
+ -- Invoking the toplevel menu from VED
+ --    ENTER menu
+ -- -- Changing default location using menu_default_location
+ -- -- If the font is not the right size
+ -- Format of the menus: three types of buttons
+ -- o Menu selectors:
+ -- o Dialogue selectors:
+ -- -- Dismissing a dialogue box.
+ -- o Action buttons
+ -- Re-invoking or displaying the toplevel menu
+ -- Ensuring that VED always starts up with menus
+ -- Defining some simple menus
+ -- -- Defining menu test1 as a list
+ -- -- The value of menu_test1 has changed
+ -- There is more convenient syntax for defining a menu
+ -- -- Using define :menu test1;
+ -- Getting back the toplevel menu from a user menu
+ -- Defining menu test2
+ -- -- define :menu test2;
+ -- -- Rebuilding  the test2 menu
+ -- Extending the test2 menu
+ -- -- A button to open a new xterm window.
+ -- -- A button to start an xterm logged into another machine
+ -- -- Adding other options to menu2
+ -- An example in the library: nudgemenu
+ -- The Utilities menu
+ -- Adding your own menus in directory ~/vedmenus
+ -- -- Tools for editing menu definitions
+ -- -- ENTER edmenu <name>
+ -- Example definition of a more complex menu
+ -- -- define :menu demo
+ -- -- Notes on the previous menu definition
+ -- SEE ALSO
+
+-- Invoking the toplevel menu from VED --------------------------------
+
+The command
+
+--    ENTER menu
+or
+    ENTER menu toplevel
+
+Starts off the top level menu. This creates a menu which should appear
+in the lower or upper right portion of your screen, leaving space to the
+one side of it for other menus.
+
+Click on one of the buttons with three dots, e.g. 'Files...' to see
+where the default location for menus other than the toplevel menu is.
+
+You may find the menu locations acceptable. Alternatively you may wish
+to change the default menu location, as described later, by assigning to
+the variable menu_default_location, a vector with two positive or
+negative integers, or an appropriate combination of one of "left",
+"middle", "right", and one of "top", "middle" "bottom"
+
+If the menu locations are acceptable, skip the next section;
+
+-- -- Changing default location using menu_default_location
+
+It is probably easier to set the default location entirely inside
+Pop-11, by assigning a vector of two positive or negative integers to
+menu_default_location. E.g. one of these can go into your vedinit.p file.
+
+Set on top left corner
+    vars menu_default_location = {0 0};
+
+or
+    vars menu_default_location = {left top};
+
+Mark and load that line and then do
+    ENTER menu r files
+to reload the files menu.
+
+Set on top right corner
+    vars menu_default_location = {-1 0};
+    vars menu_default_location = {right top};
+
+Set at bottom left
+    vars menu_default_location = {0 -1};
+    vars menu_default_location = {left bottom};
+
+Set at bottom right
+    vars menu_default_location = {-1 -1};
+    vars menu_default_location = {right bottom};
+
+Set at top middle
+    vars menu_default_location = {middle top};
+
+You can try compiling each of those lines in turn then after each
+one do:
+
+    ENTER menu r files
+
+to reload the files menu. If you leave out the "r" it may simply pop up
+an existing version of the menu.
+
+To see how the toplevel menu gets located relative to the other menus,
+do
+    ENTER menu r toplevel
+instead.
+
+I find the top right and bottom right corners most useful, as I keep my
+VED windows to the left of the screen.
+
+The "toplevel" menu always appears in a slightly different location from
+the default for other menus. That is because it controls the other menus
+and should remain visible while the others pile up on top of one
+another.
+
+
+-- -- If the font is not the right size
+
+If you wish to have a different default font set from inside Poplog, in
+your vedinit.p file do something like one of these:
+
+vars menu_font = '-adobe-helvetica-bold-r-normal-*-10-*-*-*-p-*-*-*' ;
+
+or
+
+vars menu_font = '7x13';
+
+It is better to use a proportionally spaced font, like the first one,
+since otherwise menus can become too bulky.
+
+Then, in order to see the effect of the different font, rebuild the
+toplevel menu thus:
+
+    ENTER menu r
+or
+    menu_new_menu('toplevel', true);
+
+This builds or re-builds the menu defined in the variable called
+menu_toplevel. The second argument determines whether an existing
+menu should be replaced by recompiling the source file and rebuilding
+it. Contrast
+
+    menu_new_menu('unix', false);
+
+which, the first time it is used will autoload the menu menu_unix,
+and the second time will do nothing, unless the menu has been hidden, in
+which case it will redisplay it.
+
+
+-- Format of the menus: three types of buttons ------------------------
+
+Before proceeding, click on the button labelled 'Files...' on the
+top level menu to get the Files menu, if you have not already got it.
+
+Each button on the menu represents an action which will occur if you
+click on the button with the left mouse button. One of the actions is
+always "Dismiss" which will make the menu go away. If you wish to get a
+menu back, the command "ENTER menu" will always reinvoke the top level
+menu, from which you should be able to access all others.
+
+The buttons have labels with slightly different formats, corresponding
+to buttons that invoke other menus, buttons that invoke dialogue
+boxes that you can use to set parameters for an action, and buttons
+tbat directly perform an action. The formats are described in the next
+sections. However, they are purely conventional: users can change the
+formats in their own menus. See the example at the top of this file.
+
+-- o Menu selectors:
+Labels indicating other menus all end with '...', e.g.
+
+    'Files...'
+
+When you click on such a button you will get a new menu, or bring a
+previous menu to the top of the "menu-pile".
+
+-- o Dialogue selectors:
+Labels that correspond to VED ENTER commands with an explanation box, or
+require a dialogue to specify exactly what is to be done, include an
+asterisk, e.g.
+
+    'EditFile*'
+
+If you click on one of these you will obtain a "dialogue box" probably
+near the centre of the screen. It may include some buttons offering you
+selections, but will usually include a STRING field where you have to
+type something, e.g. the name of the file you wish to use. When you then
+click on the DO or other action button in the dialogue box (or press the
+RETURN key, in some cases) then the action will be performed and also
+the command to do it wil go onto VED's status line so you can see how
+you could have given the command directly.
+
+Some of the dialogue boxes are more complex and allow you to choose
+between various options before you click on the DO button. An example of
+a particularly complex one can be seen as follows:
+
+    1. Selecting the Search... button from the toplevel menu, to get the
+        Search and Replace menu,
+    2. On the new menu click on Replace* to get the "search and replace"
+        dialogue box.
+
+(Don't bother trying to use it just now, so simply click on Dismiss to
+get rid of it.)
+
+Try other asterisked buttons to see what happens. None will actually DO
+anything directly: they all give you a dialogue box first.
+
+-- -- Dismissing a dialogue box.
+
+On Suns running OpenWndows you can make a dialogue box go away by typing
+ESC with the mouse pointer in the box. Otherwise click on the Dismiss
+button.
+
+-- o Action buttons
+
+Buttons without '...' and without the asterisk are action buttons. These
+immediately invoke a VED command, a named procedure, or a Pop-11 or Unix
+command, unlike the other buttons, which simply get other menus or
+dialogue boxes.
+
+For example buttons labelled HELP or TUTORIAL or PageDown, are (usually)
+direct action buttons. Try PageDown and GoSection on the toplevel menu,
+then come back to this line.
+
+You could try the WindowSize button several times: it makes the window
+cycle through various sizes.
+
+Gradually more and more documentation about these actions will be
+provided, but in most cases the action should be fairly clear from the
+type of menu. (Ideally each menu should have its own help file. Only
+some do at present - Jan 1995 ***).
+
+-- Re-invoking or displaying the toplevel menu
+
+Nearly all menus will, by convention, include a button labelled
+
+    MENUS...
+
+near the bottom.
+
+Clicking this will invoke or re-invoke the "top level" menu, which
+in itself mainly provides access to other menus. For example:
+
+    1. Make sure you have a menu other than the toplevel menu
+       visible, e.g. the Files menu.
+
+    2. Click on the Dismiss button on the toplevel menu. It should
+       disappear.
+
+    3. Click on the MENUS... button on any other menu. That should bring
+       back the toplevel menu.
+
+Another way to bring back the toplevel menu is to give the ENTER menu
+command, or in a program, use the following command to get it back:
+
+    veddo('menu');
+
+Try that: Dismiss the toplevel menu then compile that line.
+
+
+-- Ensuring that VED always starts up with menus ----------------------
+
+You can ensure that the menus always start up when you start VED if you
+put into your vedinit.p file a call of
+
+    if systranslate('DISPLAY') then
+        vedinput(veddo(%'menu'%))
+    else
+        ';;; WARNING Cannot run menus, $DISPLAY not set' =>
+    endif;
+
+If you wish to start up with a specific autoloadable menu of your own,
+defined in a file called menu_mymenu.p in your vedmenus directory,
+then you can replace the second line above with
+
+        vedinput(veddo(%'menu mymenu'%))
+
+This puts the equivalent of the command "ENTER menu mymenu" into the VED
+input stream, so that it is invoked as soon as VED starts up.
+
+Alternatively you can call ved_menu() directly in your vedinit.p file.
+It will start up VED. (Perhaps that should be changed. ***)
+
+
+-- Defining some simple menus -----------------------------------------
+
+LIB VED_MENU provides many default menus, but it is very easy to add new
+menus to the system. The file HELP * VED_MENU gives full details on how
+to define menus. This file gives some simple examples first and then a
+more complex example later on.
+
+-- -- Defining menu test1 as a list
+
+Below is a definition of a menu that can be referred to as test1. It
+requires a variable menu_test1, which at first holds a list
+containing the specification for the menu but which is later replaced
+by the menu data-structure.
+
+The list defining menu test1 starts with a string, which is the label on
+the title bar, then an optional set of vectors that can override
+default values for location, font, orientation, and colour, then a
+string to be displayed at the top of the menu, possibly giving
+instructions or information, and finally a collection of lists each
+defining a button on the menu.
+
+The three vectors in this example set screen coordinates for the menu,
+the orientation of the menu ("horizontal") and the font.
+
+vars menu_test1 =
+    [
+        'TEST1'
+        {right top}                ;;; make it appear top right
+        {cols 0}                ;;; horizontal orientation
+        {font '8x13bold'}       ;;; font 8x13bold
+        'This is'               ;;; Two description strings
+        'Menu Test1'
+        ['HELP' 'help ved_menu']
+        ['TEST2...' [MENU test2]]
+        ['MENUS...' [MENU toplevel]]
+    ];
+
+Mark and load that, and then do
+
+    ENTER menu test1
+
+or mark and load this line:
+
+    menu_new_menu('test1', false);
+
+The menu should appear near the top right of the screen.
+
+You can click on the Dismiss button to make the menu go away, and then
+make it come back by repeating the "ENTER menu test1" command, or the
+menu_new_menu command.
+
+-- -- The value of menu_test1 has changed
+
+The variable now has as its value the widget structure:
+
+menu_test1 =>
+** <window_obj TEST1 785 -2 361 57 items: 4>
+
+The global property menu_lists provides an association from the menu
+back to its defining list and its name, as well as giving a handle on
+all currently existing menus, whether visible or not.
+
+menu_lists(menu_test1) ==>
+** {menu_test1
+    [TEST1 {right top}
+           {cols 0}
+           {font 8x13bold}
+           This is Menu Test1
+           [HELP help ved_menu]
+           [TEST2... [MENU test2]]
+           [MENUS... [MENU toplevel]]]}
+
+-- There is more convenient syntax for defining a menu
+
+Most of the menus in the autoloadable libraries use the syntax based on
+the format
+
+    define :menu <name>
+        <string for title bar>
+        ....properties....
+        <strings for text field>
+        ....button specifications....
+    enddefine;
+
+-- -- Using define :menu test1;
+
+Instead of creating a list and then getting it transformed into a
+menu you can do everything in one go using the following (note the
+semicolon at the end of the top line):
+
+define :menu test1;
+    'TEST1'
+    {right top}                 ;;; make it appear top right
+    {textbg 'blue'}
+    {textfg 'yellow'}
+    {cols 0}                    ;;; horizontal orientation
+    {font '8x13bold'}           ;;; font 8x13bold
+    'This is'                   ;;; Two description strings
+    'Menu Test1'
+    ['HELP' 'help ved_menu']
+    ['TEST2...' [MENU test2]]
+    ['MENUS...' [MENU toplevel]]
+enddefine;
+
+Note than you leave out the opening and closing list brackets of the
+original version. Apart from that everything is the same. This is more
+convenient because you can use commands like
+    ENTER mcp
+        To mark the current definition
+
+    ENTER lcp
+        To load it, (often associated with the "ESC c" key sequence)
+
+    ENTER jcp
+        To tidy it up.
+
+(See HELP * MARK). Try loading that menu definition, using either
+ENTER lcp, or ESC c.
+
+If it is recompiled it will get rid of any previous version of the menu
+test1, and build a new version according to the new definition.
+
+E.g. try altering the description strings and then rebuilding. Or
+replace {cols 0} with {cols 1}}, or add specifications for
+background and foreground colours after the vector specifying layout,
+e.g.
+
+    {textbg 'blue'}
+    {textfg 'yellow'}
+
+
+-- Getting back the toplevel menu from a user menu
+
+Click "Dismiss" on the toplevel menu to make it go away. You can then
+make it return by clicking on the MENUS... button of the TEST1 menu. Try
+that. If you click on HELP you will get a help file. Try it. Then click
+a few times on the PageDown key of the toplevel menu to see what
+happens. Then immediately quit the help file to get back here (e.g.
+ENTER q).
+
+
+-- Defining menu test2 ------------------------------------------------
+
+If you click on TEST2... you will get an error because you have not yet
+defined a menu called menu_test2. You may find after the error
+message that the Poplog Base window hides this window. To get back here,
+click again on the TUTORIAL button on the toplevel menu.
+
+-- -- define :menu test2;
+
+An example definition for menu test2 is as follows. Notice that the
+default layout is to use a single column of buttons. So if you omit the
+{cols ...} specification it will come out in a vertical column, unlike
+the TEST1 menu.
+
+If you are using a monochrome terminal you should delete or comment
+out the lines with 'brown' and 'yellow' in them before running the next
+example.
+
+define :menu test2;
+    'TEST2'
+    {0 20}                  ;;; make it appear near the top left
+    {font '9x15bold'}       ;;; font 9x15bold
+    {textbg 'brown'}        ;;; background brown
+    {textfg 'yellow'}       ;;; foreground yellow
+    'This is\nMenu Test2'   ;;; This 2 line string above the buttons.
+    ['HELP' 'help menubuttons']
+    ['TEACH' 'teach ved_menu']
+    ['PageUp' vedprevscreen]
+    ['PageDown' vednextscreen]
+    ['TEST1...' [MENU test1]]
+    ['TEST3...' [MENU test3]]
+    ['MENUS...' [MENU toplevel]]
+enddefine;
+
+Mark and load that definition, then click on TEST2 on the TEST1 menu.
+The TEST2 menu will appear top left of the screen, with the background
+and foreground colours as specified.
+
+Note that this creates a variable menu_test2, which has the new menu
+as its value:
+    menu_test2 =>
+    ** <window_obj TEST2 0 20 94 204 items: 8>
+
+You can now click on the PageUp and PageDown buttons to invoke the
+procedures vedprevscreen() and vednextscreen() on this file. Try them.
+
+Note that the button labelled HELP on this new menu gets a different
+help file from that on test1. The "HELP MENUBUTTONS" file gives all the
+default menu definitions that come with this package, so that you can
+copy some of them into your own menus.
+
+-- -- Rebuilding  the test2 menu
+
+If you wish to change the TEST2 menu, e.g. by re-ordering the buttons,
+changing the labels, changing colours, or location, or adding an extra
+button, just edit the definition then do ESC c, or ENTER lcp, or mark
+and load the definition. (ESC c, and ENTER lcp will work only if the
+initial "define" starts at the beginning of a line. If it is indented
+they will not work.)
+
+
+-- Extending the test2 menu
+
+Note that the menu structure is circular: you can invoke test1 from
+test2 and vice versa.
+
+There are many additional features that could be provided.
+
+-- -- A button to open a new xterm window.
+
+Try extending menu2 with an extra button specified by the following
+list, then rebuild the menu, and try it out (after reading the following
+paragraph):
+
+    ['LocalXterm' [POP11 menu_xterm(false, 'csh')]]
+
+When you click on the LocalXterm button after rebuilding menu2 you
+should get a new xterm window running csh. (If your system doesn't
+support the xterm command ask for help.) If the new window covers up
+this help file when it comes you can iconise it, or type "exit" in it to
+get rid of it. (You may have problems if you are using a remote
+machine.)
+
+
+-- -- A button to start an xterm logged into another machine
+
+If you replace "false" with a string containing the name of another
+machine on your network on which you can run remote shells you can then
+start up a shell on that machine, e.g. if you have access to a machine
+called 'sun5' you can rebuilding menu2 after adding a button like this:
+
+    ['Xterm Sun5' [POP11 menu_xterm('sun5', '/bin/csh')]]
+
+Thus the Poplog menus can perform the same sort of function as menus
+provided by a window manager, but Poplog provides a lot more power
+than most window managers.
+
+Also rebuilding a single menu is usually much faster than re-reading the
+file that defines your window manager's menus (e.g. .twmrc or
+.openwin-menu )
+
+-- -- Adding other options to menu2
+
+Try adding extra commands to MENU2 e.g. to mark the current line as
+beginning of range (vedmarklo) or end of range (vedmarkhi), or to move
+the cursor down a line (vedchardown) or up (vedcharup), or to compile
+the marked range (use the string 'lmr' to simulate the ENTER lmr
+command).
+
+Every button specification is a list with two items. The first is a word
+or string to appear on the button label. The second item, the action
+specification, can take various formats. The two simplest are
+
+    - The name of a Pop-11 procedure to be run.
+
+    - A string containing a VED ENTER command. The string is given
+        to veddo to be run.
+
+Try adding a button called 'SaveFiles' that runs the VED command ENTER
+w, i.e. veddo('w') so that you can save all your current VED files by
+clicking on that button.
+
+-- An example in the library: nudgemenu
+
+An example of a control panel for changing size and location of files
+for XVed users can be obtained if you do
+
+    ENTER menu nudge
+
+(This may not work on a monochrome screen). It should put a horizontal
+menu near the top right of your screen with buttons labelled
+    Up Down Left Right Smaller Bigger Dismiss
+
+If you are using XVED you can use those buttons to resize or relocate
+your current XVED window. To look at the menu definition do
+    ENTER showmenu nudge
+
+-- The Utilities menu --------------------------------------------------
+
+If you select the utilities menu from the toplevel menu it enables
+you to invoke the nudge menu, as well as a more comprehensive XVED
+menu for manipulating the current "selection" (highlighted).
+
+The Browser*' button in the Utilities menu will invoke the RCLIB
+file browsing tool, and enable you to search among your files to find
+one to edit. If you have motif installed you can change it to invoke
+one of the POP_UI utilities described in REF POP_UI.
+
+An alternative set of file and directory browsing facilities based on
+LIB * VED_DIRED can be obtained by invoking the "dired menu", i.e.
+    ENTER menu dired
+
+Alternatively select the Editor(Ved) option on the top level menu and
+try the browsing options there. The 'Ved Browser...' button will invoke
+the dired menu.
+
+
+-- Adding your own menus in directory ~/vedmenus ----------------------
+
+If you create a directory called vedmenus in your login directory, then
+you can add menu definitions of your own in there. The format for
+menu definitions is described in detail in
+
+    HELP * VED_MENU
+
+Many examples are given in
+
+    HELP * MENUBUTTONS
+
+Note the "ENTER copymenu" command automatically creates your vedmenus
+sub-directory if it does not already exist.
+
+-- -- Tools for editing menu definitions
+
+If you have a menu called 'mymenu' then it could go into a file called
+'menu_mymenu.p' in your vedmenus directory. Such a menu can later be
+invoked with the command
+
+    ENTER menu mymenu
+
+or inside a procedure using the command:
+
+    veddo('menu mymenu');
+
+You can later edit such files with the command
+
+    ENTER edmenu <name>
+
+or merely look at them with the command
+
+    ENTER showmenu <name>
+
+or recompile one of them with
+
+    ENTER menu r <name>
+
+or use
+
+    ENTER l1
+
+If you already have the file in the current VED buffer.
+
+
+-- -- ENTER edmenu <name>
+
+Is useful for starting up a new autoloadable menu file. However it
+assumes in that case that you have a directory called ~/vedmenus, which
+is by default the first element of the list menu_user_menus, used for
+searching for menus.
+
+-- Example definition of a more complex menu --------------------------
+
+Here is an example of what a more complex menu specifier could look
+like. You can mark and load the whole definition, between the lines with
+asterisks (or use ESC c):
+
+-- -- define :menu demo
+
+            /* *********************************** */
+define :menu demo;
+    ;;; First the title for the menu box, used by the window manager.
+    'Sample menu'
+
+    ;;; Optional specification of location on screen
+    {700 20}
+
+    {cols 1}    ;;; vertical
+
+    ;;; Optional button colour specification.
+    ;;; Delete if on monochrome terminal
+    {textbg 'blue'}
+    {textfg 'yellow'}
+
+    ;;; Optional font specification. They default may be better
+    ;;; {font '7x13bold'}
+
+    ;;;  Description of menu, to go in a box at the top. Use \n for
+    ;;;     line breaks in the description, or use separate strings.
+    'Some actions\navailable in VED.\nUse left button\nto activate'
+
+    ;;; Button specifications follow
+
+    ;;; Button labelled "Refresh" which, if pressed, causes the VED
+    ;;; window to be refreshed.
+    ['Refresh' vedrefresh]
+
+    ;;; A button labelled QuitPoplog which, if pressed, takes you right
+    ;;; out of ved and Poplog by invoking ved_qq, which first asks you
+    ;;; About any  changed and writeable files.
+    ['QuitPoplog' ved_qq]
+
+    ;;; The next button, if pressed, does the equivalent of
+    ;;;        ENTER help helpfiles (veddo is applied to the string).
+    ['HELP' 'help helpfiles']
+
+    ;;; Some buttons invoke a dialogue box to do something.
+    ;;; By convention the label ends with an asterisk.
+    ;;; This one gives information about string searches in VED
+    ['Search*'
+        ;;; The word ENTER flags help for an ENTER command to be put on
+        ;;; the command line
+        [ENTER '/<string>'
+            ;;; This list of strings is used to compose an explanation
+            ['Search forward' 'for the string' '(See HELP VEDSEARCH)']]]
+
+    ;;; The next button tells you how to do substitution.
+    ['Substitute*'
+      [ENTER 's/<string1>/<string2>/'
+        ;;; optional specification of location for explanation box
+        {400 20}
+        ['Interactively replace all occurrences of one'
+        'string with another (Choose your own delimiter)'
+        'in place of "/"). See HELP VEDSEARCH']]]
+
+    ;;; A button that can be used in a HELP file with an index (e.g.
+    ;;; TEACH VED_MENU, to go to the next section.
+    [NextSection ^(ved_g <> ved_g)]
+
+    ;;; Another version of the same, with the action expressed as a string
+    ;;; to be given  as argument to veddo
+    [NextSection2 'do;g;g;']
+
+    ;;; Another version of the same, with the action expressed as a string
+    ;;; to be treated as Pop-11 text and compiled
+    [NextSection3 {'ved_g();ved_g();'}]
+
+    ;;; Another version of the same, with the action expressed as a
+    ;;; list of Pop-11 instructions
+    [NextSection4 [POP11 ved_g();ved_g()]]
+
+    ;;; A button to invoke an xterm window running csh, using menu_xterm
+    ['LocalXterm' [POP11 menu_xterm(false, 'csh')]]
+
+    ;;; A button to invoke an xterm window running Eliza
+    ['ElizaDemo' [POP11 menu_xterm(false,'eliza')]]
+
+    ;;; A button to invoke the Poplog file browser to select a file
+    ;;; to edit. See REF * pop_ui. This works only with Motif.
+    ['EditFile*'
+            [POP11 pop_ui_edittool(false,'~',false, false)]]
+
+    ;;; A Button to invoke the Poplog file browser to select a file
+    ;;; to compile.
+    ['CompileFile*'
+            [POP11 pop_ui_compiletool(false,'~',false, false)]]
+
+    ['Mark1...' [MENU mark1]]        ;;; invoke "mark range" menu
+
+    ['Move1...' [MENU move1]]        ;;; invoke "move cursor menu"
+
+    ['MENUS...' [MENU toplevel]]     ;;; invoke top level menu
+enddefine;
+
+            /* *********************************** */
+
+-- -- Notes on the previous menu definition
+
+Note that by convention, labels for sub-menus end with "...".
+
+Labels can be either words or strings.
+
+Mark and load that menu definition (e.g. ENTER lcp).
+
+The menu should appear at the middle top of your screen, and will stay
+there till you press the Dismiss button with the left mouse key.
+
+You can try invoking the buttons by clicking on them with left mouse
+key. Don't press the "QuitPoplog" button if you wish to continue!
+
+As before you can edit the definition then recompile it, and it will
+automatically rebuild the menu.
+
+If the whole definition between the asterisked lines is moved to a file
+called menu_demo.p in your vedmenus directory, then next time you log
+in you can give the VED command
+
+    ENTER menu demo
+
+or the Pop-11 command
+
+    veddo('menu demo')
+
+to recreate that menu. You can do that sort of thing to make your own
+control panel for Pop-11, or VED or an application.
+
+
+-- SEE ALSO -----------------------------------------------------------
+
+A lot more examples can be found in the library
+
+HELP * MENUBUTTONS
+    This file gives a complete listing of all the menu definitions
+    provided in the VED_MENU library. The these can then be copied and
+    edited to suit your needs.
+
+
+HELP * VED_MENU
+    This file provides more detailed information about all the
+    facilities described here, including the format of menu definitions,
+    and tools for browsing and recompiling menus.
+
+
+LIB * VED_MENU
+    Shows the main procedures used in the menu mechanism. Others are
+    in the "auto" directory of the ved_menu library, whose pathname
+    is held in the variable
+        menu_root =>
+
+REF * POP_UI
+    Describes additional tools that are available, and can be linked to
+    menu buttons. these tools are not based on RCLIB and they require
+    motif. They are based on Propsheet. See TEACH * PROPSHEET
+
+
+[SUGGESTIONS FOR IMPROVING THIS TEACH FILE WELCOME]
+
+--- $poplocal/local/rcmenu/teach/ved_menu
+--- Copyright University of Birmingham 2000. All rights reserved. ------

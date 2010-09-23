@@ -1,0 +1,1214 @@
+HELP VED_GN (Unix only)                         Aaron Sloman 28 May 1997
+                                                     Revised 16 Jan 2005
+
+LIB VED_GN
+
+To make the facilities in this package available do
+
+    uses vedgn;
+
+A VED interface for reading UNIX  net news, using the NNTP client-server
+news protocol. This library defines a procedure ved_gn (GetNews), and a
+small number of related procedures.
+
+See * VED_POSTNEWS for preparing news files, which can now be posted
+using
+    ENTER gn p
+as explained below.
+
+CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Notes and news
+ -- Introduction
+ -- Prerequisites
+ -- The basic "ENTER gn" command
+ -- Reading one article, e.g. <ENTER> gn comp.lang.lisp 2600
+ -- If you already have a .newsrc file
+ -- The structure of news files: pathnames
+ -- More general facilities
+ -- Additional commands
+ -- the vednewsrc file
+ -- The vednewsrc file format
+ -- -- How ved_gn changes the .newsrc file
+ -- -- Lines containing "!" are ignored.
+ -- Information in .newsrc can get out of date
+ -- -- Finding out numbers of unread messages (gn ?)
+ -- Listing available news groups
+ -- Controlling timeout and re-reading of active file
+ -- -- gn_timeout_secs  (default 5)
+ -- -- gn_read_active_interval = 30*60, ;;; 30 minutes
+ -- Controlling the maxmum number of articles shown: gn_max_articles
+ -- The "subject index" file format
+ -- <ENTER> gn (Get News)
+ -- 1. <ENTER> gn <newsgroup>
+ -- --    <ENTER> gn comp.ai
+ -- --    <ENTER> gn comp.ai 265
+ -- 2. <ENTER> gn (in an ordinary file - get vednewsrc file)
+ -- 3. <ENTER> gn (in vednewsrc file - get "subject index file")
+ -- 3.a <ENTER> gn ? (in vednewsrc file - show number of articles)
+ -- 3.b <ENTER> gn 100 (show only 100 latest articles)
+ -- 3.c <ENTER> gn - (show only the gn_index_limit latest articles)
+ -- 4. <ENTER> gn (in "subject index file" - get news file)
+ -- 5. <ENTER> gn (in news file - go back to Subject index file)
+ -- 6. <ENTER> gn . (Bring current group up to date)
+ -- 7. <ENTER> gn new (List numbers of unread articles
+ -- 8. <ENTER> gn renew (Ditto but force re-reading of active file)
+ -- 9. <ENTER> gn active (List the active news file)
+ -- <ENTER> gna (Get next article by same author)
+ -- <ENTER> gns (Get next article on same subject)
+ -- <ENTER> gnn (Get next article in the same news group)
+ -- <ENTER> gn close (or gn quit): close telnet connection
+ -- <ENTER> gn p (or gn post): post news article
+ -- Mapping gn commands onto key sequences
+ -- Using the variable gn_next to specify gns or gna as default
+ -- Saving a "subject index file" for future use
+ -- News articles and index files are ordinary VED files
+ -- Invoking ved_gn from outside VED
+ -- Error messages
+ -- <ENTER> save <filename>
+ -- Sending news: <ENTER> postnews
+ -- <ENTER> followup (prepare followup article)
+ -- <ENTER> followup reply (prepare reply to original poster)
+ -- Renaming <group>.general -> <group>.followup
+ -- Procedures provided
+ -- Acknowledgements
+ -- Further reading
+
+-- Notes and news -----------------------------------------------------
+NOTE: 10 Jan 2001
+The ved_gn program now uses the Pop-11 socket library to communicate
+with the news server, having previously used telnet, and various other
+mechanisms.
+
+The ved_postnews program uses "inews" to post messages. However not all
+installations provide inews, so LIB ved_gn has been extended with the
+option "ENTER gn p" or "ENTER gn post" to post the current file as a
+news article. It must previously have been given an appropriate header,
+as explained in HELP ved_postnews
+
+NOTE: 26 Nov 1994
+The index file format has been changed to include Author in shortened
+form, before Subject.
+
+=======================================================================
+
+An earlier VED-based news reader, known as VED_NET assumed that the news
+directories were available on the same machine as the user's Poplog
+process. In general this is rarely the case, and so LIB VED_GN was
+completely re-written in 1994 to support remote access from VED to a
+news server. (A previous version had existed at Birmingham since 1992,
+which made use of Gregory Gulick's "nntptools" package. However this was
+relatively slow to use, and could not easily be extended, compared with
+the latest version.)
+
+=======================================================================
+
+News: 24th October 1994
+There is a new program for starting up your .newsrc file, called
+ved_gn_setup, invoked as ENTER gn_setup. For more details, and draft
+documentation try
+    ENTER showlib ved_gn_setup.p
+
+News: 11th Jun 1994
+There is now (at Birmingham) a menu-driven front end to reading
+and posting news. To invoke it try (provided you are running X):
+
+    <ENTER> menu news
+
+It provides a convenient way to invoke most of the facilities described
+below. It can be used outside Birmingham if you fetch the rclib
+and rcmenu packages from
+    http://www.cs.bham.ac.uk/research/poplog/freepoplog.html
+=======================================================================
+
+-- Introduction -------------------------------------------------------
+
+The facilities described below allow VED-users to browse through news
+bulletin boards under the control of a file specifying which news groups
+interest you. Since you are always in VED, all normal VED commands
+remain available, including ved_mail, ved_send, etc. You can also,
+without leaving VED, prepare a followup posting to a news message, or
+a reply to a poster of a message.
+
+There is one main command that drives everything, namely
+
+    <ENTER> gn
+
+which you can use repeatedly. This calls the procedure ved_gn, which
+accepts certain optional arguments to control the news-reader's
+behaviour, as described below.
+
+-- Prerequisites ------------------------------------------------------
+
+(a) Before using the system you need to know which machine is the news
+server for your site. You can specify the news server, either by
+assigning its name to the Unix environment variable $NNTPSERVER, or, if
+you have not done that, by assigning a stuiable string to the Pop-11
+variable
+
+    gn_nntp_server
+
+At the University of Birmingham the latter defaults to
+
+    'news.cs.bham.ac.uk'
+
+and elsewhere (as the library is currently written) to
+
+    'news.sussex.ac.uk'
+
+since at present ved_gn is in use only at Birmingham and at Sussex.
+
+If it is installed anywhere else it would be useful for a system
+administrator to edit the file to change the default. Otherwise
+just use the standard environment variable.
+
+If you wish to set the Unix environment for ved_gn and other news
+readers, you can set the environment variable NNTPSERVER, which will
+override the value of the variable gn_nntp_server.
+
+In order to do this put something of the following form in your .login
+file:
+
+    setenv NNTPSERVER  <name of news server>
+
+or if you use a .profile file rather than a .login file, use:
+
+    NNTPSERVER=<name of news server>
+    export NNTPSERVER
+
+Further details concerning the use of ved_gn follow the table of
+contents below.
+
+(b) The second prerequisite is that you should have a "news control"
+file called .newsrc in your top level directory which lists the news
+groups that you wish to read. You could either ask your local system
+administrator for help in setting up your .newsrc file or else copy one
+from another person who already reads news. As a default you could try
+creating a file called .newsrc containing only the following 6 lines:
+
+    news.announce.newusers: 0-0
+    comp.lang.pop: 0-0
+    comp.ai: 0-0
+    comp.lang.prolog: 0-0
+    sci.cognitive: 0-0
+    news.software.readers: 0-0
+
+Then you can put the VED cursor on each of these in turn and use the
+command
+
+    ENTER gn 50
+
+to get a list of the 50 most recent articles in each group (if they are
+available from your news server). Use the "ENTER gn" command (or VED's
+REDO key) to select a particular article to read.
+
+(c) The third prerequisite is that you are using a machine on which the
+"telnet" command is available. ved_gn uses telnet to communicate with
+the news server, using the NNTP protocol.
+
+Further details are given below. (The .newsrc file is referred to as the
+vednewsrc file, as you may prefer to give the file a different name for
+reading news in VED.).
+
+
+-- The basic "ENTER gn" command ---------------------------------------
+
+The command
+
+    <ENTER> gn
+
+Starts off by reading your ./newsrc file.
+
+If you have specified the news reader as indicated in the Prerequsites
+section above, and have created your news control file .newsrc, then
+by repeatedly using the ENTER gn command, and using VED cursor-move
+keys, and the REDO key, you can browse for hours,
+
+Further options are based on extra arguments for gn, as described below.
+
+The commands that you use most often can easily be mapped onto function
+keys or key sequences.
+
+LIB VED_GN defines a procedure ved_gn which extends VED with a "gn"
+command (i.e. Get News) enabling VED to function as an interface for
+reading NET news files on a remote NEWS server, using the NNTP protocol.
+It assumes that the local system provides a telnet facility which it
+uses to make the connection.
+
+Unlike most news readers, this one (like the Gnu Emacs news reader)
+leaves you permanently in the editor and always free to mix ordinary
+edit commands with news reading commands.
+
+You are never in the grip of a special program: you are always in VED
+and free to switch between reading news and doing anything else then
+coming back to exactly where you were. So you can easily reply to a
+message (using ved_followup), copy a bit of a news item into a file,
+send some or all of a news item to someone else, using ved_send, etc.
+
+The program also allows you easily to go back to an earlier file, or to
+scan up and down the current file, to copy bits of files in or out, etc.
+I.e. you are always in control.
+
+Facilities provided include the following:
+
+    o finding out how many new articles there are in all the groups
+      to which you "subscribe" in your .newsrc file
+    o findout out how many new articles there are in a particular news
+      group
+    o getting an index of all the new articles in a group in your
+      .newsrc file
+    o the same, but asking only for the last N articles, where N is an
+      integer
+    o getting an index of all the articles in a named group
+    o getting an article selected from an index
+    o getting an article specified by group and article number
+    o getting the next article on the same subject
+    o getting the next article with the same author
+    o looking back at an article previously read
+    o responding to an article by posting a followup article
+    o responding by emailing the author
+    o looking at the complete list of current news groups (the "active"
+      list), and finding out which ones are moderated.
+
+(Threading facilities and other options may be added later. The Pop-11
+procedures already provided in LIB VED_GN make this quite easy to do.)
+
+The command forms for using ved_gn are described below.
+
+At Birmingham the VED menu system has been extended to offer these
+facilities (see HELP * VED_MENU). The commands can also be attached to
+keyboard sequences or function keys, using vedset or vedsetkey. (See the
+section on tailoring VED in HELP * INITIAL, and the examples using
+vedsetkey, below).
+
+
+-- Reading one article, e.g. <ENTER> gn comp.lang.lisp 2600 -----------
+
+If you just want to read one news article, perhaps recommend by a
+friend, or if you don't want to bother with setting up the environment
+for regular use, as described below, you can use the news group
+and article number as an argument for <ENTER> gn. E.g. to read the
+article 2600 in group comp.lang.lisp (if it exists) type
+
+    <ENTER> gn comp.lang.lisp 6000
+
+If you mis-type part of the "path name" e.g. comp.lng.lisp, or if you
+give an article number that does not correspond to any current article
+in the group, then you will get an error message.
+
+Generally articles are kept only for a limited period, which may be as
+short as a day or two or as long as months, depending on the
+arrangements at your server. To find out which articles are available in
+which groups see the commands described below
+    <ENTER> gn active
+    <ENTER> gn ?
+
+-- If you already have a .newsrc file ---------------------------------
+
+If you already have a .newsrc file set up by a friend, you can try
+out the newsreader simply by giving the command
+    <ENTER> gn
+then selecting a news group by means of the VED cursor, and repeating
+the command, possibly in the form
+    <ENTER> gn 50
+if you wish to be shown only the 50 latest articles in the group.
+
+You'll then get an "index" of available articles. Select one with the
+VED cursor and repeat the gn command to read the article. If you find
+it interesting and want to read the next article on the same subject, do
+    <ENTER> gns
+
+If at any time the program appears not to be responding within a few
+seconds, you can try interrupting (usually CTRL C) and then try again.
+
+Further details are explained below.
+
+Note: because of the way the news reader works any time you interrupt
+Poplog it also interrupts the current link to the news server, and the
+next command you give will be slightly delayed while the link is
+restored.
+
+-- The structure of news files: pathnames -----------------------------
+
+The news files are divided into groups, e.g. comp, sci, soc, uk, eunet,
+etc. Each group can be further subdivided, and the subdivisions are
+further subdivided, giving a tree structure, which is mapped onto
+the Unix directory structure. Here are examples of some group names
+that may or may not be available on your machine:
+
+    comp.ai
+    comp.sys
+    comp.sys.sequent
+    comp.sys.dec
+    comp.sys.sun
+    comp.editors
+    comp.lang.prolog
+    comp.lang.lisp
+    comp.lang.lisp.franz
+    comp.lang.c
+    sci.psychology
+    sci.physics
+    cs.test
+    cs.announce
+
+Thus, if the news directory is in the location /var/spool/news (where
+it often is) the article comp.lang.lisp.2600 will be in the file
+
+    /var/spool/news/comp/lang/lisp/2600
+
+The news reading software automatically does the translation for you.
+
+If the news is on a remote machine, then it is normally accessible only
+via the "Network News Transfer Protocol" known as NNTP. ved_gn uses this
+protocol.
+
+You won't be able to tell which directories are used by the remote
+machine, nor will you be able to acces the files directly. But ved_gn
+will still be able to get them for you,
+
+
+-- More general facilities --------------------------------------------
+
+The NEWS browsing facilities allow you to define a top level menu of
+news groups that interest you (your "vednewsrc" file), and then when you
+select one of those groups the program will check to see whether there
+are any new news items in that group, and if so create a VED file, the
+subject index file for that group, giving a menu of unread news items in
+the group, so that you can select the ones you wish to read. The menu
+shows the subject and the sender's name, for each news item.
+
+All the commands are based on invoking ved_gn in one of the two formats:
+
+<ENTER> gn <command>
+<ENTER> gn
+
+Depending on the command, ved_gn may make use of the contents of the
+line in the current file to determine what to do. For example if you are
+looking at a news group index file that was previously created by
+ved_gn, and the cursor is on a line specifying one of the articles, then
+the command
+    <ENTER> gn
+will get that article.
+
+Because of the way ved_gn is context sensitive you may find that you can
+use the REDO button to invoke ved_gn repeatedly, and it will take
+appropriate action depending on the current context.
+
+
+-- Additional commands ------------------------------------------------
+
+Three additional commands are provided, which take no arguments
+
+    <ENTER> gna
+        Gets next news article with the same author
+
+    <ENTER> gns
+        Gets next news article with the same Subject
+
+These commands can be given either while you are reading a news article,
+or else while you are looking at a subject index file for a particular
+news group, with the VED cursor on a line whose subject interests you.
+
+After using one of the above the command is left on VED's command line,
+so that the REDO key can be used to get the next article.
+
+    <ENTER> gnn
+        Gets the next news article in the same news group as the
+        current article.
+
+-- the vednewsrc file -------------------------------------------------
+
+The <ENTER> gn command needs to know which is the user's "newsrecord"
+file, i.e. the file that keeps a record of which news groups you are
+interested in and which numbers for each group you have already been
+told about. This file is stored in the global variable
+
+    vednewsrc, which defaults to:  '$HOME/.newsrc'
+
+If you wish you can use another file, e.g. if you wish to use different
+files with different news readers.
+
+
+-- The vednewsrc file format ------------------------------------------
+
+The vednewsrc file defines the set of news groups you are interested in,
+and for each group contains two numbers separated by a hyphen,
+indicating the range of artiles you have hread. The first number is
+usually 0 or 1, and the second one gives the number of the latest
+message in that group that you have read. E.g. the line specifying that
+you want to see news in group comp.ai and that the last one you read was
+number 2493 would be
+
+    comp.ai: 0-2493
+
+Other news readers leave gaps in ranges indicating which articles you
+have not yet read. The VED news reader ignores articles whose numbers
+are included in the ranges mentioned as read, for that group, as it
+looks only at the last number on the line.
+
+Thus if you use tin, or trn, and read a subset of articles available,
+you may find the above line changed to something like,
+
+    comp.ai: 0-2493,2496,2501-4,2510
+
+Only the last number in the line will be taken note of or changed
+by the VED news reader.
+
+If you use ved_gn regularly it is best to change that back to VED's
+format, i.e. something like
+    comp.ai: 0-2510
+
+
+Each line in the vednewsrc file starts with the name of a news group,
+followed by a colon then a space then the range indicator.
+
+E.g. the file might include lines like the following, in any order:
+
+cs.announce: 0-5
+cs.misc: 0-6
+comp.ai: 0-1250
+comp.lang.lisp: 0-0
+uk.lisp: 0-50
+comp.lang.prolog: 0-1800
+comp.misc: 0-46
+comp.sys.atari.st: 0-553
+
+WARNING: don't include any spurious spaces (e.g. before the colon).
+
+Later ved_gn may be changed so that ranges with gaps can be recorded and
+articles in those gaps read later.
+
+-- -- How ved_gn changes the .newsrc file
+
+The numbers after the colon will be altered when you browse. E.g. if a
+line contains
+    comp.ai: 0-239
+
+and there are new items with numbers 240 to 260, and you happen to
+read only items 240, 251 and 253, then the line will be changed
+automatically to
+    comp.ai: 0-253
+
+indicating that in future you don't want to be shown any earlier comp.ai
+news files. If you do want to go back to earlier numbers, then edit the
+vednewsrc file yourself, to change the number, so that you can go back
+to old messages later and re-read them.
+
+If you do not write the vednewsrc file, then it is left with the numbers
+unchanged and you can look at all the same news entries again next time.
+
+
+-- -- Lines containing "!" are ignored.
+
+If a line contains the exclamation mark "!" instead of a colon then it
+is assumed that you wish that newsgroup to be ignored by the <ENTER>gn
+command, and the next line will be examined instead. You can therefore
+also use "!" to insert comments.
+
+So if you temporarily wish to stop reading articles in the group
+comp.lang.lisp, change the colon to "!", thus
+
+    comment! temporarily not using lisp, but remember last item read
+    comp.lang.lisp! 0-6500
+
+Later if you wish to start reading it again you can replace "!" with ":"
+
+Alternatively "#" at the beginning of a line will be treated as
+indicating a comment line, which is ignored. Blank lines are also
+ignored.
+
+-- Information in .newsrc can get out of date
+
+Generally the system manager will not keep all news files indefinitely,
+so you may find that although the last item you read in a group was
+number 305, the currently available items start from 530 and to up to
+750. I.e. items 306-529 have been deleted to save space because they
+arrived some time ago, and you have missed them forever - unless someone
+has archived them.
+
+-- -- Finding out numbers of unread messages (gn ?)
+
+You can find out how many unread articles there are in the news group
+in the current line in your .newsrc file, with the command
+
+    <ENTER> gn ?
+
+This will display, on the status line, a message something like
+
+    Up to 87 new messages in comp.ai
+
+(If necessary ved_gn will first check the news "active" list to find out
+what the current range of numbers is.)
+
+You can get a complete list of how many new messages there are in all
+the news groups in your .newsrc, by means of the commands
+
+    <ENTER> gn new
+    <ENTER> gn renew
+
+The latter will force ved_gn to re read the active file. The former
+will not re-read it if has been read within the previous time interval
+specified by
+
+    gn_read_active_interval
+
+in seconds.
+
+
+-- Listing available news groups --------------------------------------
+
+You can examine a list of available groups to choose from by looking at
+the current "active" news file, by means of the command:
+
+    <ENTER> gn active
+
+This will produce a temporary VED file which starts off something like
+this (from the second line):
+    215 Newsgroups in form "group high low flags".
+    news.announce.newusers 0000000535 0000000484 m
+    alt.3d 0000006050 0000003735 y
+    alt.abortion.inequity 0000015672 0000007779 y
+    alt.activism 0000034819 0000026232 y
+    comp.admin.policy 0000003215 0000002803 y
+    comp.ai 0000008816 0000007460 y
+    comp.ai.edu 0000001072 0000000868 y
+    comp.ai.neural-nets 0000009489 0000007684 y
+    comp.ai.nlang-know-rep 0000000106 0000000100 m
+    comp.ai.philosophy 0000011076 0000009458 y
+
+Ignore the number "215" if it appears: that is merely a code indicating
+successful access of the active file. Each of the following lines starts
+with the name of a news group, then a number indicating the latest
+article available in that group, then a number indicating the oldest
+article in the group, then a letter indicating the status of the group,
+i.e. one of
+    "m" -- the group is moderated
+    "y" -- posting is allowed to the group locally
+    "n" -- posting to the group is not allowed
+    "x" -- the group is not available locally
+
+The "<ENTER> gn new" command, described below shows how to list
+information about numbers of unread articles in the groups mentioned in
+your .newsrc file.
+
+It would not be hard to extend ved_gn with a utility that keeps a list
+of news groups that you have decided you want to ignore, and on request
+shows you all groups that are neither in your ignore list nor in your
+.newsrc file, e.g. because they have only been created recently.
+
+
+-- Controlling timeout and re-reading of active file ------------------
+
+-- -- gn_timeout_secs  (default 5)
+
+Occasionally the telnet connection stops working, e.g. because you have
+interrupted a loop and this has sent a signal to the waiting telnet
+process. As it is hard to detect this situation, apart from a long wait
+with no response, a timeout mechanism has been provided, which restarts
+the connection if there is no response after the number of seconds
+specified in the variable gn_timeout_secs, which defaults to 5. If your
+news server or network connection is very slow this may be too small a
+number, so you can increase it, e.g. for a 10 second wait put the
+following into your vedinit.p file:
+
+    vars gn_timeout_secs = 10;
+
+If you are using a very fast system, you might prefer a smaller time,
+e.g.
+
+    vars gn_timeout_secs = 1;
+
+
+-- -- gn_read_active_interval = 30*60, ;;; 30 minutes
+
+Some of the commands described below inform you about the number of
+unread articles in a particular group, or in all the groups you have
+subscribed to. As the information about number of unread articles can
+get out of date this variable specifies the time in seconds after which
+the "active" list should be re-read if the information is needed. It
+defaults to 30*60 seconds, i.e. 30 minutes. If you wish to have it
+accurate to within a minute do
+
+    60 -> gn_read_active_interval;
+
+This will not cause the active file to be read every sixty seconds,
+unless you are frequently using the commands that require it to be read,
+e.g.
+    gn new
+    gn ?
+
+Either of these commands will cause the active file to be re-read if
+they are invoked longer than the specified interval after the last read.
+
+To force the active file to be re-read, use the
+
+    gn renew
+
+command, described below.
+
+-- Controlling the maxmum number of articles shown: gn_max_articles ---
+
+If there is a very large number of unread articles you may wishi to
+limit the number read in. One way is to use a number in the argument
+    ENTER gn 150
+
+Another is to use the
+    ENTER gn -
+format, as explained below.
+
+Another is to use the global variable gn_max_articles, which sets an
+upper bound to the number of articles read in. The default is 1000
+
+You may wish to make it lower, e.g.
+
+    global vars gn_max_articles = 200;
+
+
+-- The "subject index" file format ------------------------------------
+
+If you put the VED cursor on a line in your .newsrc file corresponding
+to a particular news group, then the command
+
+    <ENTER> gn
+
+will create a "subject index file" for that news group. Each line in the
+subject index file describes a message, in terms of its article number,
+its subject and its author. VED attempts to hide the number by using a
+reading window offset slightly.
+
+You can then select which message you wish to read, by putting the VED
+cursor on the corresponding message descriptor, and re-using the 'gn'
+command.
+
+The first line of the subject index file for a particular news group has
+the following format: I.e. it starts with an indication of how the file
+was produced, followed by the group name, e.g.:
+
+       OUTPUT FROM: nntplist comp.ai
+
+The rest of the file lists the articles in that news group whose numbers
+are not yet recorded in your vednewsrc file.
+
+Each entry is of the form
+
+    article-number  Author ][ Subject
+
+The variable gn_divider specifies what should appear between the Subject
+and the Author. By default it is the string ' ][ '.
+
+If the author's real name is present in the From: line, indicated by
+parentheses enclosing it, then only the real name is used. Otherwise
+the email name indicated in the From: line is used. If gn_short_author
+is true (the default) then the part of the email address after "@" is
+omitted.
+
+So, if the cursor is on the comp.lang.prolog line in the vednewsrc file,
+and the default value is used for gn_divider, the 'gn' command might
+create, in VED, a subject index file containing something like this:
+
+       OUTPUT FROM: nntplist comp.lang.prolog
+5385    Arman Ali Anwar <anwar ][ PROLOG for X
+5386    Jianjun ZHAO ][ Development Environment for FCP Programs
+5387    Michael Chung ][ help needed again
+5388    Christian Moensted ][ Is ther a Prolog for linux??????
+5389    kcr ][ Re: help need.
+
+And so on.
+
+An asterisk is visible to the left of the Subject if you have already
+selected that file for reading, from that index in the current session.
+
+If you wished the lines to have a different appearance you could assign
+a different string to gn_divider, though you should ensure that it is
+not a string that is likely to occur in a subject! For example, this
+assignment
+
+    '#||#' -> gn_divider;
+
+would produce an effect like this:
+    5391    Fergus Henderson#||#Re: Prolog standardization -- What now?
+    5392    Lee Naish#||#Re: Prolog standardization -- What now?
+    5393    Michael Covington#||#Re: Prolog standardization -- What now?
+    5394    Nicholas Liebmann#||#PD Prologs
+
+The subject index file can be treated as a menu of options: to select
+an article for reading, simply put the cursor on the line in question
+and then type
+
+    <ENTER> gn
+
+(or press REDO)
+
+You can use <ENTER> gns to get the next article on the same subject, or
+<ENTER> gna to get the article by the same author. To make one of these
+actions the default see gn_next below.
+
+
+All the gn commands available will now be summarised,
+
+-- <ENTER> gn (Get News) ----------------------------------------------
+
+This is the basic command for reading news. It has several modes
+determined either by context or by extra arguments.
+
+
+-- 1. <ENTER> gn <newsgroup> ------------------------------------------
+
+If you give it a path name as argument, it gets a list of all the unread
+articles in the group, using your .newsrc file.
+
+-- --    <ENTER> gn comp.ai
+
+To get a single article in the group, add its number, after a space e.g.
+
+-- --    <ENTER> gn comp.ai 265
+
+
+-- 2. <ENTER> gn (in an ordinary file - get vednewsrc file) ----------
+
+If it is in a type of VED file that it does not recognise, i.e. not a
+VED news file, then ved_gn uses the file name held in the variable
+-vednewsrc- to find your news record file and reads it in to VED.
+(See the section above on the format for this file.)
+
+This gives you a menu of news groups to choose from, using the
+REDO key or the 'gn' command.
+
+
+-- 3. <ENTER> gn (in vednewsrc file - get "subject index file") -------
+
+Use the current line in vednewsrc file to select a news group, and build
+a subject index file for that group.
+
+If you are already in the vednewsrc file, then the gn command uses the
+current line to identify a news group and the number of the last news
+item read in that group.
+
+If there is nothing new in the group named on the current line, 'gn'
+prints out a message and moves to the next line.
+
+The subject index file and the individual news files are read in with
+VEDWRITEABLE false, so re-name the file if you want to save it.
+
+If there are very many news files in the group this can take quite a
+long time. Typing any character will cause it to abort (after a short
+time). The index entries so far read in will then be displayed.
+
+
+
+-- 3.a <ENTER> gn ? (in vednewsrc file - show number of articles)
+
+This command, given in the vednewsrc file will show the number of
+unread articles in the newsgroup indicated by the current line.d
+
+-- 3.b <ENTER> gn 100 (show only 100 latest articles)
+If done in the vednewsrc file this will get a subject index file for the
+newsgroup on on the current line, but will not list more than the last N
+articles, where N is an integer given in the command (e.g. 100 above).
+
+-- 3.c <ENTER> gn - (show only the gn_index_limit latest articles)
+The variable gn_index_limit defaults to 100, but can be made larger
+or smaller.
+
+Compare gn_max_articles, below
+
+-- 4. <ENTER> gn (in "subject index file" - get news file) ------------
+
+<ENTER> gn
+<ENTER> gn <number>
+If you are already in a NEWS index file created by gn with the above
+format, then the gn command will Get the News file corresponding to the
+current line, or corresponding to the number given as argument.
+
+If you are at the end of the file and no argument is given it quits the
+file and goes to the vednewsrc file.
+
+In the first case it will also mark the current line with an asterisk to
+the left of the subject, and move the cursor to the next line. Since the
+same file can occur in other news groups, the program remembers the
+inode number of the file so that if you build an index for another group
+it will mark the corresponding file with an asterisk to tell you that
+you have already looked at it.
+
+When gn gets the news file it puts the sender's name and the subject on
+the status line. The newsfile will been displayed from the start of the
+main text, i.e. hide the header lines by scrolling them off the screen.
+The header lines remain in the file if you wish to see thim.
+
+The number of the last file read in this group is updated in the
+vednewsrc file, unless a bigger number was previously recorded.
+
+
+-- 5. <ENTER> gn (in news file - go back to Subject index file) -------
+
+When you have finished reading a news file then <ESC> q, or <ENTER> q
+will make it go away. You can also use <ENTER> gn for this (or the
+<REDO> key if 'gn' was your previous command): i.e. it quits the current
+file and takes you back to teh Subject index file.
+
+The news files are read in with VEDWRITEABLE false, so rename then if
+you want to save them, or use <ENTER> save <filename>.
+
+Whenever you come back to a subject index file in which gn was used, the
+cursor will have moved to the next line, ready to be used on the next
+newsgroup or index entry.
+
+You can also quit the current news file and return to the index using
+<ENTER> gn (or the REDO button).
+
+
+-- 6. <ENTER> gn . (Bring current group up to date) -------------------
+
+Suppose you have not read a group for a long time and there are very
+many message numbers to catch up on. If you want to skip them all,
+and update the .newsrc file AS IF you had read them all, do
+
+    <ENTER> gn .
+
+You can do this in a particular news file or in the subject index file
+for a group or in the vednewsrc file. In the latter case it will
+"update" the group on the current line.
+
+In other contexts the "." is ignored.
+
+-- 7. <ENTER> gn new (List numbers of unread articles -----------------
+-- 8. <ENTER> gn renew (Ditto but force re-reading of active file) ----
+
+These two commands show for all news groups listed in your vednewsrc
+file how many unread articles there are in each group. The difference is
+merely that the second form forces ved_gn to read the very latest
+version of the active file, whereas the first version will not re-read
+the active file unless the interval since last time exceeds the number
+of secondsin the variable
+    gn_read_active_interval
+which defaults to 30*60 seconds, i.e.  30 minutes
+
+
+-- 9. <ENTER> gn active (List the active news file) -------------------
+
+The active list gives full information about all currently available
+articles on your news server. You may wish to scan it yourself, e.g.
+to find out if there are any groups concerned with "ai", or with
+"politics", etc. You can obtain a copy of the active list as follows
+
+    <ENTER> gn active
+
+
+-- <ENTER> gna (Get next article by same author) ----------------------
+
+This command can be given either when reading an article, or when in the
+news subject index file.
+
+If given while reading an article it will go back to the subject index
+file and look for another article by the same author as the original.
+
+If given in the subject index file it will look at the author on the
+current line and try to find another article by the author.
+
+In both cases it looks only for a later article.
+
+If there isn't one you'll get a warning message. You can then search the
+index file for articles that you have not read. The ones you have read
+will be marked with asterisks.
+
+to make gna the default "next" behaviour, use gn_next, described below.
+
+
+-- <ENTER> gns (Get next article on same subject) ---------------------
+
+This is like gna except that it uses the current subject rather than the
+current author. To make it the default "next" behaviour use gn_next,
+described below.
+
+-- <ENTER> gnn (Get next article in the same news group) --------------
+
+This simply gets the next article. It can be invoked either in
+the subject index file or in a news article.
+
+-- <ENTER> gn close (or gn quit): close telnet connection -------------
+
+ <ENTER> gn close
+ <ENTER> gn quit
+
+Either of these will close the connection with the nntpserver (in the
+new version of this program that keeps a connection open).
+
+
+-- <ENTER> gn p (or gn post): post news article -----------------------
+
+The command
+
+    ENTER gn p
+
+or
+    ENTER gn post
+
+will run the procedure gn_sendnews which takes the current Ved buffer
+and attempts to post it to the via the news server. The file must
+already have the appropriate header lines, e.g. as produced by
+the "ENTER postnews" command, or by ENTER followup. It must include a
+From: line now.
+
+The previous posting facility, LIB ved_postnews, works only if the inews
+program is available, and not all systems will provide it.
+
+gn_sendnews does more error checking, and keeps a log of messages
+received from the news server when you post, which it displays in a
+temporary ved buffer after posting.
+
+It automatically looks for a signature file in vednewssig, which
+defaults to '~/.signature', and adds the contents to the end of
+the message file before posting.
+
+However if the file has more than vedmaxsig lines (default 5) it
+adds only that number (and shows a warning message for a few seconds).
+[The original convention was to limit news signatures to 4 lines, but
+I thought a 25% increase acceptable given the huge advances in
+technology since then! :-) ]
+
+
+-- Mapping gn commands onto key sequences -----------------------------
+
+If you find typing the above ENTER commands too tedious you can map
+them onto key sequences or function keys, using vedset or vedsetkey
+(See HELP * VEDSET, *VEDSETKEY, for details)
+
+For example, if you wanted to use the following (using the ESC key
+followed by an upper case letter, X, Y or Z):
+
+    ESC X       equivalent to ENTER gn
+    ESC Y       equivalent to ENTER gn ?
+    ESC Z       equivalent to ENTER gn new
+
+You could put the following inside a definition of a procedure vedinit
+in your vedinit.p file.
+
+    vedsetkey('\^[X', veddo(%'gn'%));
+    vedsetkey('\^[Y', veddo(%'gn ?'%));
+    vedsetkey('\^[Z', veddo(%'gn new'%));
+
+For more on tailoring VED see the section on VED in HELP * INITIAL.
+See also HELP * VEDDO
+
+
+-- Using the variable gn_next to specify gns or gna as default --------
+
+The global variable gn_next can be used to specify whether after reading
+an article you wish the default to be that the next article to be read
+should be one with the same subject, or one with the same author.
+
+After the <ENTER>gn command has been used to read an article it looks at
+the variable gn_next to decide what to make the next default command.
+
+For example if you do the following in your vedinit.p file
+
+    vars gn_next = 'gns';
+
+then by default after reading in an article ved_gn will put the command
+'gns' on the status line, so that pressing the REDO button will get you
+the next article with the same subject.
+
+The variable has by default the string 'gn' as its value. If you would
+like the REDO button to be used for following up the next article on the
+same subject in the current news group, you can set this up as follows,
+in your vedinit.p file, for example.
+
+    global vars gn_next = 'gns';    ;;; for reading news
+
+
+-- Saving a "subject index file" for future use -----------------------
+
+If the gn command presents you with a long list of articles in a group
+and you wish to read one of them now, while saving some of the earlier
+ones for browsing at another time you can save the subject index file,
+using a command like
+
+    <ENTER> name news_to_read
+
+to change the name of the file.
+
+Delete the entries that don't interest you, then, PROVIDED that you
+leave the first line of the file untouched i.e. the header line, you can
+later use the <ENTER> gn command to go directly from this file to the
+news articles (if they have not been purged!).
+
+
+-- News articles and index files are ordinary VED files ---------------
+
+When a newsfile has been read in, it is treated like any ordinary VED
+file, apart from having vedwriteable FALSE. You can mark ranges, copy
+bits, save the file somewhere, print it out, etc.
+
+When you have finished reading it do either
+
+    <ENTER> q
+or
+    <ESC> q
+
+or <ENTER> gn
+
+Similarly subject index files are ordinary VED files.
+
+
+-- Invoking ved_gn from outside VED -----------------------------------
+
+The library program defines a syntax word "gn" that can be invoked
+directly from Pop-11, simply by typing
+
+    gn
+
+to Pop-11. This will start VED off, and read the .newsrc file.
+
+-- Error messages -----------------------------------------------------
+
+If you leave your Poplog process connected to the server for a long
+time, and especially if you switch between using it to read news and do
+other things, it is possible for problems to arise regarding the
+connection to the news server or the telnet sub-process. This may simply
+mean that the attempt to read from the server times out, in which
+case ved_gn will automatically restart the connection.
+
+Occasionally it can get into a state in which you get a mishap message
+concerned with attempting to close a "broken pipe". In that state if
+you merely re-do the gn command, it should fix itself.
+
+Sometimes, in current versions of Poplog, up to and including V14.5 the
+problem can recur when you are leaving Poplog: the system tries to close
+open devices and fails, giving an error message. This will be fixed in
+later versions of Poplog, but for now if it gets to that state nad you
+appear to be unable to leave Poplog, you can exit by typing to Pop-11
+
+    fast_sysexit();
+
+or typing the QUIT control character (often implemented as CTRL \, or
+CTRL Y), depending on your terminal setting.
+
+
+-- <ENTER> save <filename> --------------------------------------------
+
+When you are reading a news file bits of the file can easily be copied
+to another file, using marked ranges in the normal way. (HELP *MARK)
+
+Since VED can interfere with some files, e.g. by converting TABS or
+removing trailing blanks, the comand <ENTER> save is provided to copy
+the original news file to a named user file. If the file already exists
+the news file is appended.
+
+If you wish to store the whole file as it is in the VED buffer, then
+    <ENTER> name myfile
+
+will re-name file as 'myfile' and make VEDWRITEABLE TRUE. Then
+
+    <ENTER> w1
+
+will store it on the disk.
+
+
+
+-- Sending news: <ENTER> postnews -------------------------------------
+
+The <ENTER> postnews command can be used to send news.
+ See HELP * VED_POSTNEWS for details
+
+-- <ENTER> followup (prepare followup article) ------------------------
+-- <ENTER> followup reply (prepare reply to original poster) ----------
+
+<ENTER> followup
+    Makes a copy of message in a temporary non-writeable file,
+    prepares a header, and then globally indents original message
+    with '> '. Delete bits you don't want to quote, add your stuff
+    then <ENTER> postnews
+    (See HELP * VED_POSTNEWS)
+
+<ENTER> followup reply
+    Is similar but prepares an email heading to go to the sender
+    using ved_send. To: line and Cc: line may need some editing.
+
+If you find these commands too verbose, you can, of course, define
+abbreviations in your vedinit.p or your private autolodable library
+of ved extensions. E.g.
+
+To make '<ENTER> fup' prepare a followup article do
+    vars ved_fup = ved_followup;
+
+To make '<ENTER> fr' prepare a followup reply to sender do:
+
+    define ved_fr;
+        dlocal vedargument = 'reply';
+        ved_followup();
+    enddefine;
+
+To assign these procedures to a VED key sequence use VEDSETKEY. See
+HELP * VEDSETKEY
+
+<ENTER> followup (with or without "reply') sets vedlinemax to 68,
+so that your messages are not too 'wide', in case others wish to
+quote them by indenting. (This number may be reduced).
+
+-- Renaming <group>.general -> <group>.followup -----------------------
+
+There is a convention according to which if a newsgroup name ends in
+'.general' then replies and followups should be addressed to the
+corresponding '.followup' news group. However, not all .general
+groups have .followup groups corresponding to them, so whether
+ved_postnews attempts to conversion depents on whether the variable
+
+    followup_general
+
+has been set to TRUE (don't rename) or FALSE (rename). It defaults to
+FALSE, but users can change it to TRUE to prevent the
+automatic conversion.
+
+-- Procedures provided ------------------------------------------------
+
+define gn_reset_connection(dowait);
+    ;;; close current connection, and try to reconnent
+    ;;; dowait determines whether to do syswait for old telnet process
+
+define global procedure gn_kill_telnet(dowait);
+    ;;; Close the connection without reconnecting.
+    ;;; dowait determines whether to do syswait for old telnet process
+
+define global procedure gn_repeater() -> (string, len);
+    ;;; String repeater that uses gn_indev as global variable
+    ;;; "gn_indev" is pipe output device from nntp process
+    ;;; string will be a string or termin
+    ;;; len the length of the string.
+
+define global procedure gn_consumer(string);
+    ;;; Send the string to the news server
+
+define gn_close_idle();
+    ;;; a timer procedure used to close the connection if unused for
+    ;;; gn_idle_interval seconds. Re-starts itself using sys_timer.
+    ;;; gn_idle_interval defaults to 10*60
+
+-- Acknowledgements ---------------------------------------------------
+
+Information and suggestions were provided by Chris Thornton, Leila
+Burrell-Davis and Ben Rubinstein.
+
+-- Further reading ----------------------------------------------------
+
+See HELP * VED_POSTNEWS for sending news.
+
+On some machines you can find out about alternative mechanisms by
+looking at various Unix 'man' files
+    man readnews
+    man rn
+    man vn
+    man trn
+    man xrn
+    man tin
+    man xvnews
+
+To see the actual code for ved_gn do
+
+    <ENTER> showlib ved_gn
+
+Suggestions for improvement welcome. It still could do with a lot
+of tidying up and improved comments.
+
+
+--- $poplocal/local/help/ved_gn
+--- Copyright University of Birmingham 2001. All rights reserved. ------

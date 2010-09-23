@@ -1,0 +1,957 @@
+TEACH XTOOLKIT                                  Jonathan Meyer, Jan 1991
+
+This document provides some general information about using the X
+toolkit and widgets. It also introduces the toolkit event handling and
+timer facilities.
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- What is the X Toolkit?
+ -- What are widgets?
+ -- What types of widget are there?
+ -- What is a widgetset?
+ -- ... X Toolkit Widgets
+ -- ... Poplog Widgets
+ -- What is the life cycle of a widget?
+ -- ... Widget Lifecycle
+ -- ... Toolkit Lifecycle
+ -- How do I make a widget?
+ -- ... Loading Widgets
+ -- ... Starting the Toolkit
+ -- ... Creating Widgets
+ -- What can I do to a widget?
+ -- ... Toolkit Procedures
+ -- ... Setting Resources
+ -- ... Core Resources
+ -- ... Shell Resources
+ -- ... Mapping a widget
+ -- ... Popups
+ -- ... Composite and Constraint widgets
+ -- ... Callbacks
+ -- ... Actions and Translations
+ -- ... Destroying Widgets
+ -- What else is in the X Toolkit?
+ -- ... Managing Events
+ -- ... Toolkit Timers
+ -- Where do I go from here?
+
+-- Introduction -------------------------------------------------------
+
+This file answers some of the common questions that people ask when they
+start to program with the X Toolkit. It is not intended as a guide to
+the whole toolkit, or to all widgets, or as a definitive definition of
+widgets. However, programmers new to user-interface programming or to
+the X Toolkit may find the information useful.
+
+This tutorial falls into two parts: the first part introduces the
+concept of a widget and describes what sorts of widgets there are. The
+second part is a practical 'hands on' lesson about using and
+manipulating widgets. Note that the tutorial assumes that you have
+worked your way though each example, so examples assume that you have
+already compiled earlier code.
+
+
+-- What is the X Toolkit? ---------------------------------------------
+
+(this section is taken from REF *XTOOLKIT).
+
+At the lowest level, X Windows consists of a "protocol" for
+communicating between applications (or "clients") and an X Windows
+Server, which manages displays, keyboards and pointers. The C
+language interface to this protocol is called "Xlib", and includes low
+level calls for creating and managing windows. Poplog includes a set of
+libraries for loading and accessing these C libraries, allowing any
+Xlib function to be called.
+
+Built on top of Xlib is the X Toolkit, called Xt, which is a C based
+high level object oriented toolkit for creating and manipulating
+"widgets". Widgets are grouped into widgetclasses. Classes of widgets
+are in turn bundled into widgetsets, each of which usually provides an
+implementation of a specific "look and feel". Typically, a widgetset
+includes menu, pushbutton, text and scrollbar widgets.
+
+The X toolkit defines only a few basic widgetclasses, mainly used in the
+management of other widgets.  A manufacturer supplying X will normally
+supply a set of widgetclasses (a "widgetset") for common types of screen
+object such as buttons, text areas, menus and scroll-bars.  Typical
+manufacturer-supplied widgetsets are the Motif widgetset and the Open
+Look widgetset; the Athena widgetset is also widely used.
+
+In addition to widgets, the X Toolkit provides a number of other
+data-structures.  Some of these "parallel" the widget data-structures;
+for example, some widgetsets provide data-structures called "gadgets",
+which are similar to widgets by can be used with less space overhead in
+certain contexts.  The X Toolkit also provides a variety of
+data-structures representing things other than objects on the screen.
+The most important of these are "display" objects which represent
+connections to X servers, and "application contexts" which are used to
+group together all the X-related objects used within a single
+application.
+
+
+-- What are widgets? --------------------------------------------------
+
+A widget is the most important part of the X Toolkit, an object oriented
+toolkit for building user interfaces for the X Window System.
+
+A widget encapsulates three things: an X window on which it displays
+information, a set of procedures governing behaviour, and state
+information.
+
+The window might for example display a text label. The behaviour might
+state that when the mouse button is pressed within the window the
+contents of the window will be highlighted (perhaps using a different
+colour) and the application will be notified of the users action. The
+state information would include such things as the current colours,
+the text label, whether the widget is 'activated' by the mouse or not,
+etc.
+
+In summary, the widget is a small and very simple user interface. In
+this case, we've described what's known as a button widget - something
+that looks like a button, that users can activate by clicking on it with
+the mouse. Other common widgets include such things as sliders,
+scrollbars, toggle buttons, radio buttons, and menus, but can extend all
+the way up to full blown text editors and file browsers.
+
+
+-- What types of widget are there? ------------------------------------
+
+Each widget is an 'instance' of a class of widgets: it gets its
+behaviour a default state from its class when it is created.
+
+By creating instances of different classes of widget and displaying them
+together on the screen, it is possible to rapidly develop a
+sophisticated user interface. However, without some additional support,
+the code to manage the layout of all of those widgets would quickly
+become cumbersome.
+
+Because of this, a special category of widget was designed especially to
+help widget programmers control such collections of widgets: composite
+widgets. Composite widgets are used as containers for other widgets.
+Like other widgets, they also contain code specifying behaviour: a
+composite widget can display the widgets it contains (its 'children') in
+an infinite variety of ways: stacked horizontally, vertically, organised
+in rows and columns, placed randomly, stacked on top of each other, etc.
+Each class of composite widget therefore has its own policy for ordering
+its children. Indeed, a very useful specialisation of composite widgets,
+called constraint widgets, include a language for specifying this
+policy. This allows you to control the layout of the children by saying
+things like: I want this widget to the left of that one, below the top
+edge of this one, resized according to the size of that widget...
+
+Widgets are therefore often children of a composite widget. In fact,
+what the toolkit designers decided was that each widget would not only
+have a 'class' but a 'parent'. You specify the parent of a widget when
+it is created. A widget appears within its parent's window. What this
+allows you to do is nest composite widgets within other composite
+widgets - for example, adding a fixed-row composite widget to a
+fixed-column composite widget, and so on.
+
+This raises the question - what is the parent of all of these widgets?
+The "grandparent" of the X toolkit is a special kind of widget, called a
+'shell' widget. Shell widgets do not have a parent, but are instead
+attached to a specific X Display. Shell widgets are experts at talking
+"protocols" - they communicate with the X Server and the window manager,
+stating where they want to be positioned, what their icon should look
+like, whether they even have an icon, what their minimum and maximum
+size should be, etc. Each shell widget manages only a single child, but
+of course this child can be any widget, including the composite or
+constraint widgets that were discussed above.
+
+There are several kinds of shell widget. The two main categories are
+"Application" shells and "Popup" shells. Each application has an
+application shell, which the window manager is likely to decorate with a
+border and a menu, perhaps including a 'Quit' option. Popup shells on
+the other hand are usually given less decorations and menu options. They
+are simply things that appear for a brief time within the life of the
+application. Menus are commonly placed in a popup shell widget. In fact,
+popup shells can be created as children of other widgets - and so do
+have a parent. However, the popup widgets do not appear inside their
+parents window, and so the child-parent relationship is different from
+the ordinary widget-parent relationship.
+
+In summary, there are three main categories of widgets in the X toolkit:
+controls (such as buttons, scrollbars), containers (composite and
+constraint widgets) and shells (popups and base windows).
+
+
+-- What is a widgetset? -----------------------------------------------
+
+We have mentioned that each widget belongs to a class. In fact, the
+class is organised into hierarchy - each class has a superclass and zero
+or more subclasses.
+
+The basic X Toolkit only includes a handful of widget classes. They are
+organised into the following hierarchy:
+
+
+-- ... X Toolkit Widgets ----------------------------------------------
+
+               Constraint
+              /
+Core-Composite
+             \         OverrideShell
+              \      /
+               Shell
+                     \                     TransientShell
+                       WmShell-VendorShell<
+                                           TopLevelShell-ApplicationShell
+
+
+Most of these widgets are shell widgets - none of the widgets have any
+display policy, so they don't look like anything when you create them.
+They are just blank widgets.
+
+But what about the scrollbars, buttons, text editors, and row-column
+widgets that you've just read about? Those widgets are bundled into
+whats called a 'widgetset'. Each widgetset implements a specific look
+and feel - the widgets have a certain defined appearance, and follow a
+set of behaviour rules that are determined by a 'style guide'. Several
+widgetsets are free software, such as the Athena widgetset which is
+supplied by MIT on their X11 tape. Others must be paid for: Motif and
+OpenLook widgetsets are two examples of commercially available
+widgetsets that require a software licence to be bought.
+
+Poplog includes its own small widgetset (see HELP *Xpw). This widgetset
+includes a general purpose graphics widget, and a widget for supporting
+the Poplog editor, VED. The following tree shows the widgets in the
+Poplog Widget Set, and where they are attached to the X Toolkit widgets:
+
+
+-- ... Poplog Widgets -------------------------------------------------
+
+              Composite --------> XpwComposite
+            /                     ^^^^^^^^^^^^
+           /
+          /                     / XpwScrollText
+         /                     /  ^^^^^^^^^^^^^
+Core ---{-- XpwCore   --------{
+            ^^^^^^^            \
+                                \ XpwPixmap    --------> XpwGraphic
+                                  ^^^^^^^^^              ^^^^^^^^^^
+
+In addition, Poplog supports the widgets found in other widgetsets. See
+HELP *OPENLOOK and HELP *ATHENA for information about these widgetsets.
+
+
+-- What is the life cycle of a widget? --------------------------------
+
+Widgets are dynamically created objects. They therefore have a lifetime
+which is shorter than the process that creates them. The following
+diagram illustrates the stages that a widget goes through:
+
+
+-- ... Widget Lifecycle -----------------------------------------------
+
+    Create             - creation & initialization of memory & resources
+
+        Manage         - adding to parent's list of 'managed' widgets
+
+             Realize   - construction of X window
+
+                Map    - displaying X window on screen
+               (
+                Unmap  - hiding X window, removing it from screen
+
+             Unrealize - destruction of X window
+
+        Unmanage       - removal from parent's list of 'managed' widgets
+
+    Destroy            - freeing memory and resources
+
+
+This life cycle illustrates the complexity of a widget. However, the
+toolkit supplies several 'convenience' procedures that make moving from
+one state to another much easier.
+
+In addition to a widgets life cycle, the X Toolkit itself has a
+life cycle, based around the creation and destruction of application
+contexts, display connections and widgets:
+
+
+-- ... Toolkit Lifecycle ----------------------------------------------
+
+    Initialize
+
+        Create Application Context
+
+            Open Display Connection
+
+                    Create Widgets
+                    Destroy Widgets
+
+            Close Display Connection
+
+        Destroy Application Context
+
+    (exit process)
+
+
+An application context is treated as an individual 'logical' application
+within the process. A display is a connection to a specific screen of an
+X server, based on the display name, which might be something like
+'sun:0.1'.
+
+The toolkit can manage multiple application contexts, and each
+application context can have connections to multiple X server displays.
+Widgets are created on a specific display, leading to the following
+hierarchy:
+
+    Application Context -> Display -> Shell Widget -> Widget -> ...
+
+
+-- How do I make a widget? --------------------------------------------
+
+At this stage, it is worth getting some hands-on experience with
+widgets. We'll start by loading in the basic X Toolkit widgets. See HELP
+*X for details of how to get access to X Windows facilities in Poplog if
+you have not already done so.
+
+
+-- ... Loading Widgets ------------------------------------------------
+
+We can load all of the X Toolkit widgets using the command:
+
+    XptLoadWidgetSet("Toolkit");
+
+The -XptLoadWidgetSet- procedure is a convenience function built using
+the -XptWidgetSet- library. It used -XptWidgetSet- to call the Poplog
+external loader with the relevant libraries and symbol names to load all
+of the widgets in the specified widgetset. Individual widgets can be
+loaded simply using the line:
+
+    XptWidgetSet("Toolkit")(<WIDGETNAME>)
+
+
+-- ... Starting the Toolkit -------------------------------------------
+
+Before we can create widgets, we need an application context and a
+display. These things are returned by the toolkit procedures
+-XtCreateApplicationContext- and -XtOpenDisplay-. The convenience
+function -XptDefaultSetup- can be used to perform a basic default
+initialization:
+
+    XptDefaultSetup();
+
+-XptDefaultSetup- is the initial value of the procedure identifier
+-sysxsetup-. -sysxsetup- is the procedure that is called when you type
+
+    pop11 %x
+
+to your command line to start Poplog, so if you started Poplog in this
+way calling -XptDefaultSetup- is not necessary (although calling it
+twice does not do any damage).
+
+
+-- ... Creating Widgets -----------------------------------------------
+
+Next we need to create a new shell widget. Shell widgets are special in
+that they are created on a specific Display, and don't have a parent.
+Thus we need to use the toolkit procedure XtAppCreateShell, passing it
+the name of the application, the class of the application, a shell
+widget class, a display and a list of arguments:
+
+    uses xt_widget;
+
+    vars
+        ;;; get a shell widget class
+        shell_class = XptWidgetSet("Toolkit")("ApplicationShellWidget"),
+
+        shell = XtAppCreateShell('myapp', 'MyAppClass',
+                            shell_class,
+                            XptDefaultDisplay,
+                            XptArgList([]));
+
+After this, we want to create an instance of some other widget within
+the shell. The convenience procedure -XtCreateManagedWidget- will both
+create a widget and manage it. Lets make an instance of the "Core"
+widget class:
+
+    vars
+        widget_class = XptWidgetSet("Toolkit")("CoreWidget"),
+        widget = XtCreateManagedWidget('name',
+                            widget_class,
+                            shell,  ;;; parent
+                            XptArgList([{width 100}{height 100}]));
+
+The next stage is to realize the widget. Because widgets will map
+themselves by default at this stage, we don't have to explicitly map the
+widget as well. Passing the top level shell widget to the procedure
+-XtRealizeWidget- will realize the shell and all its children:
+
+    XtRealizeWidget(shell);
+
+You should now have a widget on your screen - it should just be a blank
+window. This is because the core widget doesn't have any specified
+appearance. If however you had created a label widget, or a scrollbar
+widget, then the widget would have graphics drawn in it by its built in
+procedures.
+
+
+-- What can I do to a widget? -----------------------------------------
+
+The following sections give examples of ways that you can manipulate
+widgets. The examples are intended to show you the diversity of widgets,
+as well as giving you practical experience of using widgets in Poplog.
+
+
+-- ... Toolkit Procedures ---------------------------------------------
+
+The toolkit includes a number of procedures for getting from one toolkit
+object or representation to another. Below is a small sample of such
+procedures:
+
+Moving through the class Hierarchy
+
+    uses xt_widgetclass;
+
+    shell =>
+    ** <Widget myapp>
+
+    ;;; shells widgetclass
+    XtClass(shell) =>
+    ** <Xt WidgetClass ApplicationShellWidget>
+
+    ;;; the superclass of shell's widgetclass
+    XtSuperclass(shell) =>
+    ** <Toolkit WidgetClass TopLevelShellWidget>
+
+Class recognition procedures:
+
+    XtIsShell(shell) =>
+    ** <true>
+
+    XtIsShell(widget) =>
+    ** <false>
+
+    ;;; shells are composite widgets
+    XtIsComposite(shell) =>
+    ** <true>
+
+    ;;; Generic subclass test:
+    XtIsSubclass(shell, shell_class) =>
+    ** <true>
+
+Moving through the widget hierarchy:
+
+    uses xt_widgetinfo;
+
+    ;;; shells don't have parents:
+    XtParent(shell) =>
+    ** <false>
+
+    ;;; but -widget- does:
+    XtParent(widget) =>
+    ** <Widget myapp>
+
+Some other widget information:
+
+    XtName(widget) =>
+    ** name
+
+    XtWindow(widget) =>
+    ** <Window>
+
+    XtIsRealized(widget) =>
+    ** <true>
+
+
+-- ... Setting Resources ----------------------------------------------
+
+Widgets have a set of "resources" which specify their appearance, size,
+and other state information.
+
+To look at the values of some of these resources, use the
+convenience procedure XptValue - this accesses or updates a single
+resource. It takes two arguments - a widget and a resource name (we use
+the macro -XtN- to convert a word into a resource name). It takes an
+optional extra argument telling it what type of object the resource is -
+by default it assumes that the resource is an integer. Note that
+XptValue expects you to provide the resource value in its correct
+representation - see XtVaSetValues below for an example of how to
+use strings to set resource values.
+
+The background colour for the widget is:
+
+    XptValue(widget, XtN background) =>
+    ** 0
+
+We can change the background colour, but first lets find out how many
+colours there are. We work this out by determining the number of planes
+on the screen, which is also the number of bits for each pixel on the
+screen. This information is stored in a resource called depth:
+
+    vars num_planes = XptValue(widget, XtN depth),
+         num_colours = (2 ** num_planes);
+
+    num_colours =>
+    ** 258
+    (NOTE: the number of colours is, of course, system dependent)
+
+Now lets make the widget flash. For this we also need the procedure
+-XptAppTryEvents-. This procedure will flush any buffered events or
+actions for widgets in an application context - thereby causing the
+change to the background colour to become visible:
+
+    uses xt_event;
+    vars i;
+    for i from 0 to num_colours do
+        i -> XptValue(widget, XtN background);
+        XptAppTryEvents(XptDefaultAppContext);
+        syssleep(10);   ;;; short pause
+    endfor;
+
+You could also try using the Varargs interface to resources. This lets
+you specify things as strings, with the X toolkit performing resource
+conversions to turn the strings into the correct types. The convenience
+procedure XptVaArgList is used to turn a Pop-11 list into the correct
+set of arguments for an ArgList. It will automatically specify an
+argument as 'Typed' if it is a string, so all we have to do is:
+
+    uses xt_resource;
+    ;;; green :
+    XtVaSetValues(widget, XptVaArgList([{background 'green'}]));
+    ;;; black :
+    XtVaSetValues(widget, XptVaArgList([{background 'black'}]));
+
+
+-- ... Core Resources -------------------------------------------------
+
+We've now seen an example of setting one of a widget's resources. The
+following table shows some of the other resources in common with all
+widgets. This is the resource set for the Core widget class, and so all
+widgets have at least these resources. Most widgets have many more
+resources that you can set and retrieve.
+
+
+========================================================================
+Name                     Class                    Type
+==================================================================
+XtN ancestorSensitive    XtC Sensitive            XptBoolean
+XtN background           XtC Background           Pixel
+XtN backgroundPixmap     XtC Pixmap               XptPixmap
+XtN borderColor          XtC BorderColor          XptPixel
+XtN borderPixmap         XtC Pixmap               XptPixmap
+XtN borderWidth          XtC BorderWidth          short
+XtN depth                XtC depth                short
+XtN destroyCallback      XtC Callback             XtCallbackList
+XtN height               XtC Height               short
+XtN mappedWhenManaged    XtC MappedWhenManaged    XptBoolean
+XtN sensitive            XtC Sensitive            XptBoolean
+XtN translations         XtC Translations         XtTranslations
+XtN width                XtC Width                short
+XtN x                    XtC Position             short
+XtN y                    XtC Position             short
+
+
+-- ... Shell Resources ------------------------------------------------
+
+Lets examine some shell resources for our widget:
+
+The window's title is a string - so we use the XptString typespec as the
+third argument:
+
+    XptValue(shell, XtN title, TYPESPEC(:XptString)) =>
+    ** myapp
+
+We can also change this resource, with magical effects to the windows
+appearance (the window's title bar should change, although you may not
+have a title bar):
+
+    'fooBaz' -> XptValue(shell, XtN title, TYPESPEC(:XptString))
+
+The basic x, y, width and height resources can all be accessed and
+updated:
+
+    2 -> XptValue(shell, XtN x, "short");
+    50 -> XptValue(shell, XtN width, "short");
+
+See the X Toolkit Intrinsics manual for a description of other shell
+resources.
+
+
+-- ... Mapping a widget -----------------------------------------------
+
+The X Toolkit procedures XtMapWidget and XtUnmapWidget can be used to
+make a widgets window appear and disappear from the screen. Try:
+
+
+    XtUnmapWidget(widget);
+
+    XtMapWidget(widget);
+
+Compare this to:
+
+    XtUnmapWidget(shell);
+
+    XtMapWidget(shell);
+
+The first one only displays and hides the widget, leaving the border
+visible. Unmapping the shell on the other hand removes the window from
+the screen altogether.
+
+
+-- ... Popups ---------------------------------------------------------
+
+To create a Popup you need to make a popup shell, specifying the
+previously created shell widget as its parent. We need to use the
+toolkit procedure -XtCreatePopupShell- to create this widget, because it
+is related to its parent in a different way from ordinary widgets.
+
+    uses xt_popup;
+    vars
+        ;;; get a popup shell widget class
+        popup_class = XptWidgetSet("Toolkit")("TransientShellWidget"),
+
+        popup_shell = XtCreatePopupShell('popup',
+                            popup_class,
+                            shell,
+                            XptArgList([]));
+        ;;; put a widget within the shell
+
+    vars
+        popup_widget = XtCreateManagedWidget('name',
+                            widget_class,
+                            popup_shell,
+                            XptArgList([{width 100}{height 100}]));
+
+    XtRealizeWidget(popup_shell);
+
+Notice that no window has appeared. This is because a popup window will
+only become visible when the procedure -XtPopup- is called. -XtPopup-
+takes two arguments: a widget, and a 'grab mode'; sometimes a popup
+'grabs' the applications events, stopping the user from doing anything
+until they have dealt with the popup widget (ie. its a modal widget). In
+our case, we want a modeless widget, so we pass the -XtGrabNone-
+constant, which is defined in the include file INCLUDE *XT_CONSTANTS:
+
+    loadinclude xt_constants;   ;;; permanently load include file
+
+    XtPopup(popup_shell, XtGrabNone);
+
+now try:
+
+    XtPopdown(popup_shell);
+
+Notice the difference in appearance between the popup and the shell
+widget, and also any differences in the menu given it by the window
+manager.
+
+In fact, the Popup that we have just created is very primitive. Much
+more sophisticated Popup shells are provided in each of the common
+widgetsets.
+
+
+-- ... Composite and Constraint widgets -------------------------------
+
+The basic toolkit includes a Composite and a Constraint widget. However,
+neither widget does anything very interesting with the children widget
+it contains. The following information therefore applies more generally
+to composite and constraint widgets.
+
+Making a composite widget is as easy as making any other widget - in
+fact you have already made two; the shell widget and popup_shell widget
+are composite widgets that only contain a single child widget. The
+toolkit Composite widget on the other hand can have lots of child
+widgets. The following code creates a composite widget:
+
+
+    vars
+        shell2 = XtAppCreateShell('widgets', 'MyAppClass',
+                            shell_class,
+                            XptDefaultDisplay,
+                            XptArgList([])),
+
+        composite_class = XptWidgetSet("Toolkit")("CompositeWidget"),
+
+        composite = XtCreateManagedWidget('composite',
+                            composite_class,
+                            shell2,  ;;; parent
+                            XptArgList([{width 200}{height 200}]));
+
+    XtRealizeWidget(shell2);
+
+Now you simply add widgets to the composite widget by specifying -composite-
+as the parent widget:
+
+        vars i, widgets =
+            [%for i from 1 by 10 to 100 do
+                XtCreateManagedWidget('widget',
+                        widget_class,
+                        composite,  ;;; parent,
+                        XptArgList([
+                                {background ^(i div 10)}
+                                {width 30}
+                                {height 30}
+                                {x ^i}{y ^i}]))
+            endfor; %];
+
+Each composite widget class has a different way of managing its
+children, so the appearance of the widget created above would look very
+different if the "composite_class" referred to for example a row-column
+composite widget.
+
+The X Toolkit Constraint widget does not include any constraint
+specification language, and so is of little value except as a place for
+widget writers to hang their constraint widgets. Each major widget set
+includes a constraint widget, usually called a Form widget. Constraint
+widgets work by 'adding' resources to their child widgets. So in
+addition to the basic resources that the widget has, it will also
+respond to additional resources that are specified and controlled by the
+constraint widget. Common constraint resources will include things such
+as pointers to reference widgets (for referring to other widgets on the
+form), integers containing distances measured either in pixels or
+proportional to the forms size, booleans specifying whether the widget
+can be resized or should remain a fixed size, and so on.
+
+
+-- ... Callbacks ------------------------------------------------------
+
+A callback is a way for the widget to inform the application of some
+important change in state. Popup widgets have a callback list associated
+with them that they use to notify the application when the widget is
+popped up, and another when the widget is popped down. Lets attach a
+procedure to the popdown callback. Callback procedures take 3 arguments:
+the first is the widget the callback is coming from. The second is a
+piece of data that you pass in when you first add the callback to the
+widget. The third is a piece of data produced by the widget that can
+contain useful information about the callback.
+
+    uses xt_callback;
+
+    define example_callback(widget, client_data, call_data);
+        'POPDOWN !' =>
+    enddefine;
+
+    XtAddCallback(popup_shell, XtN popdownCallback,
+                        example_callback, false);
+
+Try it out by first calling:
+
+    XtPopup(popup_shell, XtGrabNone);
+    XtPopdown(popup_shell);
+
+Callbacks are one of the main ways that widgets communicate state-change
+information with the application or "client".
+
+
+-- ... Actions and Translations ---------------------------------------
+
+Each widget has a set of built in 'actions', and a translation mechanism
+that maps between X events in the window belonging to the widget and
+actions to perform. Actions and translations are used to specify the
+behaviour of the widget when it is in a normal visible state. Some
+actions are used to redraw the widget, others to handle mouse button or
+keyboard events, and so on.
+
+Most of the time you are not involved with writing actions, since any
+given widget has a set of pre-written actions that are usually enough to
+use the widget. You will however come across translation tables, since
+you can specify them in your .Xdefaults resource file, or when you
+create a widget. The following example shows you how to add an action
+and a translation to the widget you created above, but you can skip this
+section unless you are interested.
+
+First, we need to write an action procedure. This takes four arguments:
+a widget, an array of parameter strings, a number indicating the number
+of parameters, and an X Event structure. Our procedure is:
+
+
+    define example_action(widget, event, params, num_params);
+        lvars widget, event, params, num_params;
+        l_typespec params :XptString[];
+        ;;; above l_typespec specifies params as being an array of
+        ;;; strings for the scope of this procedure
+
+        unless num_params = 1 then
+            warning('INVALID PARAMETER COUNT');
+        endunless;
+
+        ;;; get the parameter
+        vars colour = exacc params[1];
+
+        ;;; change the background colour of the widget:
+        XtVaSetValues(widget, XptVaArgList([{background ^colour}]));
+    enddefine;
+
+Next we need to add the action to the application context. The
+convenience procedure -XptAppAddActionList- takes a Pop-11 list and
+registers the actions specified in the list. Each action consists of a
+name and a procedure:
+
+    uses xt_action;
+    XptAppAddActionList( XptDefaultAppContext,
+                [['SetBackground' ^example_action]]);
+
+Now we can add a translation table to our widget. First we have to
+parse a translation table, then we add the new translations to the
+widget. Note that the example translations won't work very well on a
+monochrome X server.
+
+    uses xt_trans;
+
+    vars trans = XtParseTranslationTable(
+        '<Btn1Up>:      SetBackground(red)\
+        <Btn2Up>:       SetBackground(green)\
+        <Btn3Up>:       SetBackground(blue)\
+        <EnterWindow>:  SetBackground(white)\
+        <LeaveWindow>:  SetBackground(black)\
+    ');
+
+    XtOverrideTranslations(widget, trans);
+
+
+-- ... Destroying Widgets ---------------------------------------------
+
+By now you have a rough idea of the parts of a widget: resources,
+translation tables, actions, state information, and callbacks.
+The final thing we want to do with a widget is destroy it. There are
+several things to note about destroying widgets:
+
+    o   destroying a composite or shell widget will also destroy all of
+        its children
+
+    o   destroying a widget calls a callback called XtN destroyCallback.
+
+    o   Poplog will destroy any widgets you create automatically when
+        they are garbage collected.
+
+    o   Some window managers implement a protocol called
+        'WM_DESTROY_WINDOW'. Poplog responds to this protocol by
+        destroying the relevant widget.
+
+To destroy the widget from a procedure, use -XtDestroyWidget-. For the
+moment, lets only destroy the popup_shell, since later sections will use
+the other widgets:
+
+    XtDestroyWidget(popup_shell);
+
+Note that destroyed widgets print out differently:
+
+    popup_shell =>
+    ** <(NULL) Widget popup>
+
+
+-- What else is in the X Toolkit? -------------------------------------
+
+The next two sections include some details of the event handling and
+timer facilities in the X Toolkit. There are other aspects of the
+toolkit that are not covered in this document - for details the
+programmer should consult the X Toolkit Intrinsics Programmers Guide.
+
+
+-- ... Managing Events ------------------------------------------------
+
+So far, we've talked about concepts such as 'event' and 'action', and
+even seen some events causing actions. But this event handling appears
+to be invisible to the Poplog programmer. This is because Poplog is
+continuously waiting for and processing X Toolkit events when you are
+not typing and when Poplog is not involved in event processing.
+
+Sometimes, however, it is useful to manually manage events. We have seen
+one example of that so far: using the procedure -XptAppTryEvents- to
+flush the toolkits buffers, causing any output to be displayed:
+
+    XptAppTryEvents(XptDefaultAppContext);
+
+Another toolkit event handling routine is called -XtAppMainLoop-. This
+simply goes into a loop doing nothing but handling events. You could try
+it using:
+
+    ;;; NOTE - executing this will mean that Poplog will stop responding
+    ;;; to standard input events.
+
+    XtAppMainLoop(XptDefaultAppContext);
+
+On the opposite end of the scale, you could get Poplog to manage events
+entirely in the background. This involves telling Poplog to respond to
+events "asynchronously" - meaning that whenever an event arrives, Poplog
+will interrupt whatever it is doing, process the event, and then return
+to what it was doing. This is easy to enable, and is specified on a
+per-application basis:
+
+    true -> XptAsyncAppContext(XptDefaultAppContext);
+
+To test this, go into an infinite loop, and then try manipulating a
+widget (for example, press a button in the widget we created above,
+after adding the action and translation described in the last section).
+
+    ;;; Use CTRL-C or your interrupt character to stop this:
+    repeat forever endrepeat;
+
+It is sometimes necessary to go into an event processing loop until
+some event has occurred. To do this you can use the procedure
+-XtAppProcessEvent-. This takes an application context and a mask
+specifying what kinds of events we are interested in. We will use the
+-XtIMAll- mask, which is defined in INCLUDE *XT_CONSTANTS. The shape of
+the event processing is loop will therefore be something like:
+
+    until <cond> do
+        XtAppProcessEvent(XptDefaultAppContext, XtIMAll);
+    enduntil
+
+Usually, <cond> would be set by some callback that you registered for a
+widget. However, since the toolkit widgets don't define very many
+callbacks, the following example will instead use a toolkit timer:
+
+
+-- ... Toolkit Timers -------------------------------------------------
+
+The toolkit includes multiple timers. These timers are 'polled' by the
+event handling routines, so for them to work properly your application
+must spend the majority of its time within the toolkit event handling
+routines. See REF *TIMES for details of timer facilities built into
+Poplog that do not rely on the X toolkit.
+
+First, we need to define our timer procedure. This will simply set a
+global variable to true:
+
+    vars done;
+
+    define timer_example(client_data, timer_id);
+        true -> done;
+    enddefine;
+
+Now, we will use the -XtAppProcessEvent- procedure described above to
+write a simple program to flash the widget we created above for a period
+of 1/2 a second:
+
+    define example;
+        false -> done;
+        ;;; set background to black
+        XtVaSetValues(widget, XptVaArgList([{background 'black'}]));
+
+        ;;; register timer
+        XtAppAddTimeOut(XptDefaultAppContext, 500,
+                    timer_example, false)->;
+
+        ;;; go on processing events until the timer fired
+        until done do
+            XtAppProcessEvent(XptDefaultAppContext, XtIMAll);
+        enduntil;
+
+        ;;; set background to white
+        XtVaSetValues(widget, XptVaArgList([{background 'white'}]));
+    enddefine;
+
+    example();
+
+
+-- Where do I go from here? -------------------------------------------
+
+You should now look at the manual pages for the widgetset that you will
+be using, and also at the following documentation:
+
+    REF *XTOOLKIT     - Overview of Poplog X Toolkit Interface
+
+    TEACH *OPENLOOK   - Tutorial for OpenLook Widget Set
+    TEACH *MOTIF      - Tutorial for Motif Widget Set
+    TEACH *ATHENA     - Tutorial for Athena Widget Set
+    TEACH *PROPSHEET  - High level dialog box building tool tutorial
+    TEACH *RC_GRAPHIC - High level graphics library tutorial
+    TEACH *Xpw        - Example of using Poplog widgets
+
+--- C.x/x/pop/teach/xtoolkit
+--- Copyright University of Sussex 1991. All rights reserved. ----------

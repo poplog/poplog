@@ -1,0 +1,384 @@
+HELP VED_DECODE                                    Aaron Sloman Jan 1999
+                                                     Revised 14 Dec 2002
+
+Revised to use antiword instead of lhalw to convert word files to text.
+
+LIB VED_DECODE
+
+ENTER decode
+ENTER decode doc
+
+Use of these facilities requires
+
+    uses vedmail
+    (E.g. in your $poplib/vedinit.p file)
+
+
+CONTENTS
+
+ -- Overview
+ -- Requirements
+ -- Warning
+ -- Decode an existing doc file
+ -- Attachments in email messages.
+ -- File names
+ -- How to deal with an attachment
+ -- Dealing with "inline" uuencoded files
+ -- What happens after extracting the file?
+ -- Different types of files
+ -- WARNING
+
+-- Overview -----------------------------------------------------------
+
+There are two types of use, one for handling attachments in a mail file,
+and one for decoding a Word (.doc) file already on disc.
+
+ENTER decode
+    Deals with attachments in unix mail files. Invoke this with the
+    ved cursor on an attachment boundary. It will attempt to work out
+    what sort of attachment it is, and will write the attachment to
+    disk, then if appropriate decode it (e.g. using mimencode, or
+    uudecode), and if the the resulting file needs further processing
+    will either automatically do the processing, or else will ask you
+    about various options.
+
+    In particular if the file is a word file, it will attempt to run the
+    lhalw program (which should be installed on your system) to get the
+    text out.
+
+    If the file saved is a html file it will attempt to run "lynx -dump"
+    to get a text file, as well as offering to run netscape.
+
+    If the file is in quoted printable format it will use mimencode -u
+    -q to get the original text back. And so on.
+
+    After writing an encoded file to disc and decoding it, it will ask
+    you if you want the encoded (e.g. the mimencoded) file deleted. It
+    is usually safe to answer "y", but if you are cautious answer "n"
+    and delete by hand later.
+
+    Likewise it will ask whether you want the text in the attachment
+    deleted from the mail file you are reading. Answer "y" or"n".
+
+    New users may prefer to answer "n" till they have built up
+    confidence and are familiar with the operations of the program.
+
+
+ENTER decode doc
+    Use of this is not restricted to a mail file. It can, for instance
+    be used in a Ved buffer containing the output of ved_dired, or
+    ved_ls.
+
+    If the Ved cursor is to the left of the name of a word file this
+    will attempt to use a unix/linux utility to decode the file, and
+    read the text into a new VED buffer.
+
+    If that fails you can try this
+
+        ENTER sh strings ^f | fmt -72
+
+    Though the text will not be well formatted and may contain some
+    junk.
+
+-- Requirements -------------------------------------------------------
+
+LIB VED_DECODE makes use of various utilities, that may or may not be
+available on your system.
+
+    antiword
+        An excellent utility available from
+            http://www.winfield.demon.nl/
+
+       Antiword is a free MS Word reader for Linux, Unix and RISC OS.
+       There are also ports to BeOS, OS/2, Mac OS X, Amiga, VMS, NetWare
+       and DOS. Antiword converts the binary files from Word 2, 6, 7,
+       97, 2000 and 2002 to plain text and to PostScript.
+
+        If you don't wish to fetch it or do not have it avaiable, put a
+        shell script in a bin directory that is in your $PATH, where the
+        shell script includes this text:
+            strings $1 | fmt -72
+
+
+    lhalw
+        Perl utility for extracting text from Word files. See
+            http://wwwwbs.cs.tu-berlin.de/~schwartz/pmh
+
+            Should add an option to run something like
+                strings wordfile.doc | fmt -62 > outfile
+
+    mimencode
+        Standard unix/linux utility
+
+    uudecode
+        Standard unix/linux utility, for uuencded files
+
+    ved_fixuu (for use with uuencoded files), since Ved can remove
+            trailing spaces.
+            Also requires ved_fixuu, available from Birmingham
+            http://www.cs.bham.ac.uk/research/poplog/auto/ved_fixuu.p
+
+    lynx
+        for getting text from html files.
+            http://lynx.browser.org
+
+    xbin
+        Horrible utility for decoding binhex files (.bhx)
+
+    pc file viewer
+        Available free from www.sun.com. Reads some word files,
+        wordperfect files, rtf files, powerpoint files etc.
+
+Does anyone know of packages other than Framemaker and Sun's
+PC File Viewer to read RTF files under Unix?
+
+The latter is available from
+   http://www.sun.com/desktop/products/software/pcviewer.html
+   http://www.sun.com/desktop/products/software/pcviewer/tour.html
+
+Perhaps ved_decode should use rtftohtml ??
+
+
+-- Warning ------------------------------------------------------------
+
+I have so far tested this program ONLY on suns and on Linux PCs.
+Some of the facilities will work on alphas, but others may not.
+Transferring an attachment to a file will definitely work. Decoding it
+may not.
+
+-- Decode an existing doc file ----------------------------------------
+
+ENTER decode doc
+    Attempt to use lhalw to decode an existing doc (Word) file whose
+    name is to the right of the VED cursor.
+
+    E.g. at Birmingham put the cursor to the left of the filename that
+    follows and do "ENTER decode doc" :
+
+    /bham/doc/esprit/fp5-sp5.doc
+
+This will not work with all doc files, and cannot cope with figures and
+some tables. It may fail on files saved with "fast-save".
+
+There is a simpler way to get the ascii text out of any Word file,
+though it will not be nicely formatted. Put a line of the following form
+into VED, and give the "ENTER dounix" command. The number 72 in this
+case, sets 72 columns as the maximum line width:
+
+    strings <file.doc> | fmt -72
+
+E.g. try ENTER dounix with the VED cursor on this line:
+
+    strings /bham/doc/esprit/fp5-sp5.doc | fmt -72
+
+The result will require some hand formatting, and there may be quite a
+lot of junk, especially at the end. But for short word files it can work
+very well.
+
+If you want to view a doc file in its natural state on a sun, or linux
+machine try OpenOffice, available from www.openoffice.org, and also now
+distributed with some linux systems.
+
+
+-- Attachments in email messages. -------------------------------------
+
+ENTER decode
+    Extract and if necessary decode and delete an attachment in the current
+    email file.
+
+The command "ENTER decode" can be used separately with each attachment.
+Typically the attachements are separated by "boundary" lines, which may
+be long or short but are designed to be unique.
+
+E.g. it may be a line something like this:
+--============_-1296560607==_ma============
+
+It will typically be followed by a few lines like this:
+
+Content-Type: text/plain; charset="us-ascii"
+Content-transfer-encoding: 7BIT
+
+E.g. you could have a message containing several attachments of
+different kinds, with the same boundary line, like this:
+
+--=====================_911423585==_
+Content-Type: image/gif; name="Image2.gif";
+ x-mac-type="47494666"; x-mac-creator="4A565752"
+Content-Disposition: attachment; filename="Image2.gif"
+Content-Transfer-Encoding: base64
+
+    <stuff removed>
+
+--=====================_911423585==_
+Content-Type: image/gif; name="Image3.gif";
+ x-mac-type="47494666"; x-mac-creator="4A565752"
+Content-Disposition: attachment; filename="Image3.gif"
+Content-Transfer-Encoding: base64
+
+    <stuff removed>
+
+--=====================_911423585==_
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Disposition: attachment; filename="Qexperts.html"
+Content-Transfer-Encoding: quoted-printable
+
+    <stuff removed>
+
+--=====================_911423585==_
+
+
+-- File names ---------------------------------------------------------
+
+Where appropriate the ENTER decode command will use the value of the
+"name" field if there is one, or failing that the value of the
+"filename" field, to work out the name of the file to be put on disk. If
+appropriate it will use the suffix of the file name to work out the
+type of file and whether it requires to be decoded.
+
+You can change the file name if you wish, before running ENTER decode.
+Just edit it where it is, in the attachment header, after name=.
+If editing causes the line to wrap, make sure you insert a space or tab
+before "name" so that it does not begin the line.
+
+If the file name contains spaces, as often happens with attachments sent
+from PCs, dots will be inserted instead of the spaces.
+
+By default the file will go into the same directory as the email message
+containing the attachment. You can put it somewhere else, e.g. by
+changinging the name "foo.ps" to ../papers/foo.ps"
+
+Here ".." will be interpreted relative to the directory containing the
+mail message, not relative to your current directory.
+
+If you are reading the message in your system mail file e.g.
+    /var/mail/john.smith
+then it will attempt to put the message in your ~/mail or ~/Mail
+directory or failing that your home directory.
+
+
+-- How to deal with an attachment -------------------------------------
+
+To process an attachment, put the VED cursor on the boundary (separator)
+line preceding the attachment. (I.e. NOT on one of the Content- lines.)
+
+Then give the command
+
+    ENTER decode
+
+VED will then mark the attachment and try to work out how to process it,
+from the information immediately after the boundary line.
+
+There may be some ambiguity, in which case it will ask you some Yes/No
+questions, to which you should reply by pressing the "Y" or the "N" key.
+
+It will copy the attached portion of the file into a new file whose
+name will, if possible be derived from the text in the attachment
+description, or may be an arbitrary name that starts with "decode".
+
+By default it will put that file in the same directory as the mail file
+you are reading as explained above.
+
+The extracted undecoded file will by default be protected from reading
+by others. You can prevent that by
+
+    false -> decode_protect;
+
+The copied file will be given a suffix like .html, or .mime, or
+.uu or .text, or .ps or .pdf, .bhx, etc. to indicate what sort of file
+it is.
+
+If it is an encoded file (.mime, .bhx, .uu) the ved_decode procedure
+will attempt to decode the file, and that will create a new file (whose
+name may also start with "decode" if no alternative file name can be
+inferred from the attachment description) and whose suffix will indicate
+the type of the extracted file.
+
+If the file was quoted printable, the substring 'noqp' may be added to
+the file name, e.g. giving
+    foobaz.noqp.html
+
+
+-- Dealing with "inline" uuencoded files ------------------------------
+
+You may be sent an email message containing a uuencoded file which does
+not have the standard attachment separators. You can recognize a
+uuencoded insert by the fact that it starts something like this:
+
+    begin 644 filename.tar.gz
+
+and ends with a blank line followed by a line containing only "end".
+
+You can process the insert by putting an arbitrary (unique) separator
+line just above the uuencoded file, e.g. a line like this
+
+=-0=-0=-0=-0=-0=-0=-0=-0=-0=-0
+
+followed by a blank line (before the "begin" line), and then put an
+identical line to that one immediately after the uuencoded file.
+
+Then move the Ved cursor to the first separator line and give the
+    ENTER decode
+command. ved_decode will read on, find "begin" and draw its own
+conclusions.
+
+
+-- What happens after extracting the file? ----------------------------
+
+You will be asked whether you want the original attachment deleted from
+your mail file. Answer "Y" or "N". The attachment header will be left in
+the mail file. You might wish to insert there the name of the file
+to which the insert was copied.
+
+You will be shown the names of the newly created files.
+
+If the file is a doc file VED will try to use the antiword program to
+read it as text: this may not work. You could then try using the
+"strings" command, or "openoffice", "staroffice", or framemaker, or
+Sun's PC File viewer.
+
+In other cases you may be asked whether you want to read the file into
+VED.
+
+If it is a postscript file you'll be reminded that you can use gv
+to read it. If it is a PDF file you'll be reminded that you can use
+acroread to read it.
+
+There may be types of file which VED_DECODE does not yet know about. If
+you find a gap, please email A.Sloman@cs.bham.ac.uk with information.
+
+-- Different types of files -------------------------------------------
+
+The decoded/extracted attachments may be of many different types, as
+indicated above. Some of them (e.g. plain text files and perhaps html,
+latex, etc.) can be read in VED, or at least partly read in VED.
+Others will need a special viewer.
+
+MS Word/Doc files can be read in staroffice, openoffice, or framemaker,
+or Sun's PC File Viewer. See
+
+Postscript ".ps" files can be printed (using lpr) or viewed in
+gv, e.g.
+
+    gv <filename> &
+
+Graphical files ".gif" ".pbm" can be read with "xv"
+or "display" on linux.
+
+HTLP files ".html" can be read using netscape or mozilla or lynx or
+links.
+
+RTF files ".rtf" can be read using FrameMaker or Openoffice.
+
+-- WARNING ------------------------------------------------------------
+
+This is first draft experimental software, derived empirically by
+examination of common attachments. I have not tried to read or implement
+a MIME specification. There may be better ways of doing all this by
+invoking standard MIME tools. However doing it in VED does give a
+certain amount of flexibility.
+
+There are probably important cases not catered for. However the program
+is easily extendable.
+
+--- $poplocal/local/help/ved_decode
+--- Copyright University of Birmingham 2002. All rights reserved. ------

@@ -1,0 +1,152 @@
+#!/bin/sh
+# --- Copyright University of Sussex 1998. All rights reserved. ----------
+# File:             C.unix/com/get_archive_args
+# Purpose:          Get arguments for building archives/shared libraries
+# Author:           John Gibson, Feb 27 1997 (see revisions)
+# Documentation:
+# Related Files:
+
+# Usage: get_archive_args [sh|csh] [ -I<directory> ... ]
+
+Shell=$1
+shift
+
+# Get Poplog configuration
+CONFIG=`$popsys/basepop11 %noinit << \EEOOFF
+	printf('%p%p%p.%p.%p\n', [%
+		if lmember("elf", sys_os_type) then
+			'elf_'
+		else
+			nullstring
+		endif;
+		sys_os_type(2),                     ;;; e.g. "sunos"
+		if length(sys_os_type) > 2
+		and isnumber(sys_os_type(3))
+		then
+			intof(sys_os_type(3))           ;;; e.g. 5
+		else
+			nullstring
+		endif,
+		if isdefined("XLINK_TYPE") then
+			valof("XLINK_TYPE")             ;;; e.g. "openlook"
+		else
+			undef
+		endif,
+		sys_processor_type(1),              ;;; e.g. "sparc"
+	%]);
+EEOOFF
+`
+
+# Which C compiler to use
+CC=${POP__cc:-cc}
+
+# Where to find include files
+IDIRS=-I.
+while [ $# -ne 0 ]; do
+	case $1 in
+		-I*) IDIRS="$IDIRS $1";;
+	esac
+	shift
+done
+
+# Compiler flags
+CFLAGS=-O
+case $CONFIG in
+	sunos4*)
+		;;
+	sunos*)
+		# SunOS 5+
+		CFLAGS="-Kpic $CFLAGS";;
+	ncr*)
+		# NCR SVR4
+		CFLAGS="-Kpic $CFLAGS";;
+	dgux*)
+		# DG/UX
+		CFLAGS="-K PIC $CFLAGS";;
+	svr4*)
+		CFLAGS="-DSYSV -DSVR4_0 -Kpic $CFLAGS";;
+	hpux9*)
+		# PIC and no optimisation
+		CFLAGS="-Ae +z";;
+	riscos*)
+		CFLAGS="-systype bsd43 $CFLAGS";;
+	irix*)
+		CFLAGS="-cckr $CFLAGS";;
+	elf_linux*)
+		CFLAGS="-fpic $CFLAGS";;
+	linux*)
+		CFLAGS="-w $CFLAGS";;
+	aix*)
+		CC_FLAGS="-DUNIX -DAIX $CFLAGS";;
+esac
+case $CONFIG in
+	*.mips)
+		CFLAGS="-G 0 $CFLAGS";;
+esac
+
+# Archive commands
+LIBEXTN=.a
+AR='ar crv $LIBNAME'
+RANLIB='ranlib $LIBNAME'
+LDLIBS=
+case $CONFIG in
+	sunos4*)
+		;;
+	sunos*|svr4*|ncr*|dgux*)
+		# SunOS 5+ (SVR4)
+		LIBEXTN=.so
+		AR='/usr/ccs/bin/ld -G -o $LIBNAME'
+		RANLIB=
+		;;
+	irix4*)
+		RANLIB=
+		;;
+	irix*)
+		# IRIX 5+
+		LIBEXTN=.so
+		AR='ld -shared -o $LIBNAME'
+		RANLIB=
+		;;
+	hpux8*)
+		RANLIB=
+		;;
+	hpux*)
+		# HP-UX 9+
+		LIBEXTN=.sl
+		AR='ld -b -o $LIBNAME'
+		RANLIB=
+		;;
+	elf_linux*)
+		LIBEXTN=.so
+		AR='gcc -shared -o $LIBNAME'
+		RANLIB=
+		;;
+	osf1*)
+		LIBEXTN=.so
+		AR='ld -shared -o $LIBNAME'
+		LDLIBS="-lc"
+		RANLIB=
+		;;
+	aix*)
+		LIBEXTN=.so
+		AR='ld -G -bexpall -bnoentry -bsymbolic -o $LIBNAME'
+		LDLIBS="-lc"
+		RANLIB=
+esac
+
+# Output commands to set variables in caller shell -- this must be
+# eval'ed by the caller. AR and RANLIB must then be eval'ed after
+# setting LIBNAME.
+if [ $Shell = "csh" ]; then
+	echo "set CC='$CC'; set IDIRS='$IDIRS'; set CFLAGS='$CFLAGS'; set LIBEXTN='$LIBEXTN'; set AR='$AR'; set LDLIBS='$LDLIBS'; set RANLIB='$RANLIB'"
+else
+	echo "CC='$CC'; IDIRS='$IDIRS'; CFLAGS='$CFLAGS'; LIBEXTN='$LIBEXTN'; AR='$AR'; LDLIBS='$LDLIBS'; RANLIB='$RANLIB'"
+fi
+
+
+
+# --- Revision History ---------------------------------------------------
+# --- Robert Duncan, Nov  3 1998 Added definition of CC
+# --- Robert Duncan, Aug 10 1998  Added cases for DG/UX (SVR4)
+# --- Julian Clinton, Aug  7 1998  Added '-Ae' to HP/UX CFLAGS
+# --- John Gibson, May 12 1998  Added AIX code

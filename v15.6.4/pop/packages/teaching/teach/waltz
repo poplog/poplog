@@ -1,0 +1,601 @@
+TEACH WALTZ                                        Aaron Sloman Jan 1981
+                                                    Updated October 1994
+
+AN INTRODUCTION TO WALTZ FILTERING AND CONSTRAINT PROPAGATION
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- Some background reading
+ -- Waltz filtering
+ -- -- The problem
+ -- -- Waltz' contribution
+ -- An overview of the algorithm
+ -- -- What Waltz found
+ -- Generalized constraint propagation
+ -- Two-way consistency
+ -- A programming task
+ -- -- LIB SEEPICTURE
+ -- A simple example picture
+ -- -- Paper exercise
+ -- Using the library programs
+ -- -- The notation for individual junctions
+ -- -- The notation for interpretation rules
+ -- -- The (incomplete) set of interpretation rules
+ -- -- Making your own copy of the program
+ -- -- Varying trace output when running the program
+ -- Filtering Interpretations
+ -- The library subroutines
+ -- -- filter
+ -- -- prune
+ -- -- somebadlabel
+ -- -- nointerp
+ -- -- labelfitsinterp
+ -- Possible exercises
+ -- -- Exercise 1
+ -- -- Exercise 2 (Harder)
+ -- -- Exercise 3 (possible mini-project)
+ -- -- Others (less programming)
+ -- See also:
+
+-- Introduction -------------------------------------------------------
+
+This file describes a possible mini-project concerned with the process
+of filtering out impossible interpretations of junctions in an image,
+using the sort of technique described by David Waltz in his PhD thesis
+at MIT over 20 years ago.
+
+A Pop-11 library is introduced, some examples given, and a mini-project
+of variable extent described.
+
+-- Some background reading --------------------------------------------
+
+In order to understand this document and tackle the exercise, you will
+need to be familiar with the line-labelling approach to interpreting line
+drawings. For introductory reading see:
+
+    TEACH * LABELLING
+        Poplog teach file
+
+    D. Waltz, PhD Thesis, reprinted in
+    P.H. Winston, The Psychology of Computer Vision
+    McGraw Hill, 1975
+
+    M. Boden AI and Natural Man,
+    (look up Clowes, Huffman and Waltz, in index). You'll get
+    only a very "qualitative" explanation.
+
+    A. Bundy et.al. AI, an Introductory Course,
+    read chapter by Weir on Vision, especially pp. 147 - 153
+        (May be hard to get hold of now)
+
+    P H Winston, Artificial Intelligence,
+        First, second, or third edition.
+
+    E.Kant and K Knight, Artificial Intelligence
+        Second edition, section 14.3
+
+Other text books on AI and on Vision are likely to have sections on
+line-labelling (sometimes indexed under Huffman or Clowes, who
+independently invented the idea), and on Waltz filtering and constraint
+manipulation, which is a very general and powerful idea.
+
+The original line-labelling approach was first described independently in
+papers by Huffman (in Machine Intelligence 6) and Clowes (in Artificial
+Intelligence Journal 1971).
+
+-- Waltz filtering ----------------------------------------------------
+
+-- -- The problem
+
+The key ideas of line labelling are described in TEACH LABELLING. A
+picture made of straight lines depicting 3-D polyhedra can be
+interpreted by attaching labels to the lines saying what sorts of scene
+edges they depict. The problem is that you cannot work out from the
+local context of a line in a simple black and white line drawing, what
+sort of edge it represents: e.g. concave, convex, occluding, abutting (a
+crack), a shadow edge, etc. Yet the human visual system usually
+immediately assigns a unique interpretation (except in the case of some
+nasty pictures.) How does our brain do this?
+
+Locally you can tell from knowledge of possible scene structures that a
+particular line may have only three possible interpretations, another
+line only 2, another line only 4, etc. Also because of the ways the
+lines meet at junctions in the picture (representing corners in the
+scene) there are CONSTRAINTS, such as "this line cannot be concave if
+that one is convex" etc.
+
+The earliest work, by Huffman and by Clowes did a depth first search for
+an assignment of interpretations to the lines that was globally
+consistent, i.e. did not violate any of the constraints. This could be
+horrendously slow, and in fact the time required typically grew
+exponentially with the size of the picture (numbers of lines and
+junctions).
+
+-- -- Waltz' contribution
+
+The program by Waltz, mentioned in the above books, and described in far
+more detail in his thesis, reprinted in P H Winston 1975, both extended
+the sets of possible line labels for polyhedral scenes, by introducing
+cracks and shadows, and also addressed the problem of reducing the
+combinatorial explosion encountered when searching for sets of
+consistent labellings of a complex picture. He did the latter by showing
+that by analysing the constraints and the possible alternatives we could
+"prune" some of the alternatives as impossible. Eliminating some
+alternatives then meant that the constraints ruled out other
+alternatives which no longer had consistent neighbours in the network of
+lines and junctions. Repeated pruning sometimes led to unique solutions.
+Waltz and others were very surprised.
+
+
+-- An overview of the algorithm ---------------------------------------
+
+The essential idea is this. Assume you are given:
+
+    = a set of data D, (e.g. junctions or lines in a picture)
+
+    = a set of rules R, specifying for each element of D, given its
+      context, one or more possible interpretations for d.
+        I.e. if d is an element of D then R generates a set Int(d)
+        containing possible interpretations of d. (If d is a line
+        then Int(d) is a set of possible labels for d, e.g.
+        [convex concave left-occluding, ...]
+
+    = a set of consistency rules C specifying conditions under which
+      interpretations of neighbouring items of D are consistent. I.e.
+      if I1 is one interpretation of a data item d1, and and I2 is
+      one possible interpretation of a neighbouring item d2, then
+      rules C can be checked to see if I1 and I2 are consistent with
+      each other or not.
+
+THEN, for each interpretation I of an item d in D (that is for each I in
+Int(d)), look at each of the neighbours n of d, and ask: "does n have at
+least one possible interpretation (according to R), which is consistent
+with I, i.e. does not violate any rule in C?"
+
+If the answer is NO, then remove I from the possible interpretations of
+d: for it can never be part of a globally consistent interpretation.
+
+Keep on doing this until nothing more can be removed.
+
+-- -- What Waltz found
+
+Waltz demonstrated the surprising result that even in quite complex
+pictures, with his extended labelling set, this filtering process could
+sometimes reduce the set of possible interpretations for each element of D
+(i.e. for each junction) down to one.
+
+In that case, the whole picture has only one interpretation consistent
+with C. In some cases the remaining possible interpretations are not
+unique, but since the sets are reduced in size, the search space of
+possible combinations of interpretations is much reduced.
+
+-- Generalized constraint propagation ---------------------------------
+
+In principle, the consistency rules C may refer to constraints on two,
+three, or more elements of D at a time. But Waltz considered rules
+dealing with only two at a time, and they were all reduced to the single
+consistency rule that if two junctions are joined by a line, then the
+interpretations of those junctions are consistent only if they assign
+the same label to that line. Later work by Mackworth and others extended
+the investigation to three-way, four-way and N-way consistency rules.
+
+Work by Hinton (in his PhD thesis at Edinburgh University 1977)
+and others extended the ideas to systems where violations of consistency
+could be tolerated, but some violations were worse than others, and the
+task of the system was to minimise the total "cost" of violation
+according to some agreed cost functions. This also leads into some ideas
+found in neural networks, and also a technique known as "relaxation"
+which is widely used for gradually homing in on a solution to complex
+problem by getting a succession of more and more accurate estimates. (As
+far as I know relaxation was first used by Ivan Sutherland in the 60s,
+e.g in trying to find stresses in the girders in a bridge.)
+
+-- Two-way consistency ------------------------------------------------
+We shall restrict ourselves to consistency rules that mention only two
+nodes at a time, as Waltz did.
+
+We also restrict ourselves to the following sorts of labels for lines in
+an image:
+
+    [cnvx point1 point2] - edge from point1 to point2 is convex
+    [cncv point1 point2] - edge from point1 to point2 is concave
+    [occ  point1 point2] - the edge is occluding, and attched to the
+        surface which is on the right as you go from point1 to
+        point2. The surface on the other side is then in the background
+        and goes behind the visible attached surface.
+
+-- A programming task -------------------------------------------------
+
+There are two main parts to a programming exercise exploring these ideas.
+
+FIRST, you need a program which, given a picture, or at least a database
+D of information about lines and junctions, and a set of rules R will
+produce a new database associating possible interpretations with each
+element of D. This is provided, in an incomplete form, in LIB LABELS.
+The set of rules R, given there is incomplete. Your task is to complete
+it. NB make sure that if your database includes a type of junction, then
+that type of junction is catered for in your set of rules. Otherwise
+you'll get errors.
+
+SECOND, you need a program which will filter the sets of
+interpretations, removing those for which there are no consistent
+neighbouring interpretations. This is provided in LIB WALTZ. A possible
+task is to complete an incomplete version of this, or re-implement it
+all.
+
+There is a simulated SEEPICTURE database available in LIB TETRA; which you
+can use to test the library programs and your own programs. You can see it
+by looking at SHOWLIB * TETRA
+
+-- -- LIB SEEPICTURE
+
+LIB SEEPICTURE is a Pop-11 library program that is capable of finding
+lines and junctions in a simple binary image. LIB TETRA shows the sort
+of output it can produce. For now you don't need to know anything about
+LIB SEEPICTURE, but if you want to be able to draw some images and get
+the database of lines and junctions generated automatically, then see
+TEACH VTURTLE, for drawing pictures in a VED buffer, and TEACH
+SEEPICTURE for a library that will analyse such pictures, provided that
+all the lines are vertical, horizontal or diagonal (at 45 degrees).
+SEEPCTURE is divided into findlines, findjuncs, and paintpicture, the
+last of which provides visual feedback.
+
+-- A simple example picture -------------------------------------------
+
+Here is a simple picture of a 3-D object, included in LIB TETRA, which
+represents the picture by a list of junctions found in the picture
+(not edges in the scene).
+
+The list simulates the result of running the seepicture program on a
+picture of a tetrahedron with a corner of another object visible behind
+it:
+
+          2
+         /|\
+        / | \__6
+       /  | 5\ |
+      /   |   \|7
+    1/    |    \
+     \    |    / 3
+      \   |   /
+       \  |  /
+        \ | /
+         \|/4
+
+Using the sets of possible junction interpretations described in the
+text books (and below) see how many interpretations each junction has
+without taking context into account.
+
+Note: there are three ell junctions, two tee junctions and two arrow
+junctions here. Make sure you can identify each type. These are 2-D
+characterisations of lines in the picture. The question is what sorts of
+3-D configurations of surfaces, edges and corners might these represent.
+
+Assume that the whole thing is seen against an infinite flat background
+surface, to which things may be stuck, or not.
+
+Not all the 3-D surfaces, edges, and corners will actually be VISIBLE:
+e.g. the far side of a tetrahedron is not visible. Some edges and
+surfaces may be PARTIALLY visible if they are "occluded" (or "occulted"
+as some prefer to say).
+
+-- -- Paper exercise
+Try to work out what sort of 3-D configuration of intersecting surfaces
+each junction could possibly represent, if the scene is made only of
+polyhedra with no more than three surfaces meeting at each point
+(allowing the corners of a cube, but not a six-sided pyramid).
+
+Then see how many consistent interpretations there are for the above
+picture. See how the interpretations increase if you remove the
+junctions labelled 5, 6, 7, and the lines (5-6) and (6-7).
+
+Work all this out with pencil and paper.
+
+
+-- Using the library programs -----------------------------------------
+
+You will probably understand the issues better if you play with the
+library programs involved in this exercise, as follows. The result
+of doing the following will be hard to understand unless you have first
+read later sections describing the notations used.
+
+    lib tetra;      ;;; get the list of junctions in the picture
+    junctions ==>   ;;; the notation for junctions is explained below
+
+    ENTER showlib tetra
+        To look at the picture from which they were derived,
+        reproduced above
+
+Note that since none of the programs uses the actual locations of the
+junctions, they are here called J1, J2, etc. instead of giving
+coordinates. I.e. the constraints are all topological (to do with
+connectivity and ordering) not geometric (to do with actual lengths and
+angles, except for the difference between obtuse and acute angles.)
+
+Now get the interpretation procedures and rules thus:
+
+    lib labels;
+    rules ==>    ;;; print out interpretation rules (explained below)
+
+    interpall(junctions) -> interps;    ;;; get interpretations
+    interps ==>                ;;; print them out
+
+INTERPALL uses the list RULES globally. The rules have the following format
+
+-- -- The notation for individual junctions
+
+Each junction type is represented by a type label and a set of numbers
+indicating the points in the order in which they would be produced by
+seepicture. (See the SEEPICTURE demo for details of the conventions), e.g.
+
+    [tee 1 2 3 4]
+
+with lines 1-2 and 1-4 forming the crossbar, and 1-3 the stem, as in
+
+    1--------2-------4
+             |
+             |
+             3
+
+Similarly, an arrow junction might be
+
+    [arw 1 2 3 4]
+
+          /2
+         /
+       1-----------3
+        \
+         \
+          \4
+
+Note that the first number is always the one with the label given. The
+others represent neighbouring junctions in a fixed clockwise order round
+the main junction.
+
+Here a possible interpretation for the line [1 2] could be concave
+or occluding on the left as you go from 1 to 2.
+
+-- -- The notation for interpretation rules
+
+Associated with each junction type is a list of possible
+interpretations, where a possible interpretation assigns a label to each
+line at the junction. Each line is represented by its end points. So a
+labelled line might be
+
+    [occ 4 1]
+
+meaning the line from 4 to 1 depicts an occluding edge belonging to the
+surface on the right as you go from point 4 to point 1.
+
+-- -- The (incomplete) set of interpretation rules
+
+Here is the set of rules provided by LIB LABELS. Try to draw pictures
+for each case to convince yourself that you agree with the rules and see
+if there are other cases left out:
+
+;;; Rules for possible interpretations of ell junctions
+[[[ell 1 2 3]
+        ;;; first possible interpretation, type ell1
+        [ ell1 [occ 2 1] [occ 1 3]]
+        ;;; second possible interpretation, type ell2
+        [ ell2 [occ 3 1] [occ 1 2]]
+        ;;; rules for further possible ell labellings to be completed by
+        ;;; you, either by thinking about polyhedra, or reading about
+        ;;; line labelling
+ ]
+;;; Rules for possible interpretations of tee junctions
+ [[tee 1 2 3 4]
+        ;;; first possible interpretation, type tee1
+        [ tee1 [occ 1 2] [occ 4 1] [cnvx 1 3]]
+        ;;; second possible interpretation type tee2, etc.
+        [ tee2 [occ 1 2] [occ 4 1] [cncv 1 3]]
+        [ tee3 [occ 1 2] [occ 4 1] [occ 1 3]]
+        [ tee4 [occ 1 2] [occ 4 1] [occ 3 1]]
+ ]
+;;; Rules for possible interpretations of arrow junctions
+ [[arw 1 2 3 4]
+    [arw1 [occ 2 1] [cnvx 1 3] [occ 1 4]]
+        ;;; other possible arrow labellings to be completed by you
+ ]
+;;; Rules for possible interpretations of fork junctions
+ [[frk 1 2 3 4] ]    ;;; fork labellings to be provided by you
+] -> rules;
+
+If you wished to include ends in your pictures you'd have to add a rule
+
+    [[end 1 2] ........]
+
+with the possible interpretations for the ends. The list of
+interpretations could be empty. (See below.)
+
+Note that each interpretation (set of labels) is given a name for easy
+reference, e.g. tee1, ell2, etc., though the programs don't actually use
+the names.
+
+-- -- Making your own copy of the program
+
+You can make a copy of a library program, in order to edit the rules, as
+follows: Examine SHOWLIB * LABELS, Then,  <ENTER> name labels.p
+
+You will then have a version of the library file, called 'labels.p'.
+
+-- -- Varying trace output when running the program
+
+Try all the above commands, including this:
+
+    interpall(junctions) -> interps;    ;;; get interpretations
+
+If you wish to reduce the verbosity of INTERPALL, do
+
+    false -> chatty;
+
+If you wish to see more of what's going on inside the procedure
+INTERPALL you can do:
+
+    trace getinterps buildinterp labelline;
+    interpall(junctions) -> interps;
+
+You can try the procedure INTERPALL on a different list of junctions.
+For instance, use vturtle to make a picture of a cube, or a square with
+a diagonal across it, using the turtle. Then
+
+    findlines();
+    findjuncs();
+    flush([line ==]);
+    database ==>
+    interpall(database) ==>
+
+-- Filtering Interpretations ------------------------------------------
+
+We can now explore how to get rid of interpretations that cannot be part
+of a globally consistent set, by repeated checking whether any
+interpretations have no consistent neighbour according to the
+consistency rules for 2-D pictures of 3-D polyhedral scenes. (They may
+have other kinds of 3-D interpretations.)
+
+To load the filtering programs do
+
+    lib waltz;
+
+Note that this makes CHATTY true again.
+
+You can now apply the procedure FILTER to the list INTERPS, produced by
+INTERPALL, thus
+
+    filter(interps) ==>
+
+As before, making CHATTY FALSE will reduce printout.
+
+-- The library subroutines --------------------------------------------
+
+-- -- filter
+The procedure FILTER repeatedly calls PRUNE with different junctions as
+input, until PRUNE cannot reduce the interpretation sets any more.
+
+-- -- prune
+
+PRUNE takes a set of interpretations of the sort produced by procedure
+BUILDINTERP in LIB LABELS, and gives each of the interpretations to
+procedure SOMEBADLABEL to see if it can find a labelling in the
+interpretation which is no good.
+
+-- -- somebadlabel
+
+SOMEBADLABEL uses the point at the junction to access all the linked
+junctions in the list of all interpretations, and for each of them in turn
+sees whether its set of interpretations contains something consistent
+with the given interpretation. It uses NOINTERP for this. SOMEBADLABEL
+returns TRUE if at least one of the labels cannot be accepted, otherwise
+false. If the result is true, then some pruning is possible.
+
+-- -- nointerp
+
+NOINTERP takes a labelled line, a neighbouring junction, and the set of
+all possible interpretations. It looks to see if there is no
+interpretation of the neighbour consistent with the label. If so it
+returns TRUE, but FALSE if there is at least one consistent neighbouring
+interpretation. To check whether the label is consistent with a
+neighbouring interpretation it uses LABELFITSINTERP.
+
+-- -- labelfitsinterp
+
+LABELFITSINTERP takes a label and an interpretation of a neighbouring
+junction, and sees if they are consistent, using the procedure CONSISTENT
+to compare the label with the individual labels in the interpretation.
+
+-- Possible exercises -------------------------------------------------
+
+-- -- Exercise 1
+1. Least ambitious: produce a report, of about 1000 words showing how
+LIB LABELS and LIB WALTZ work, with examples of pictures other than the
+one provided in LIB TETRA. If possible extend the set of rules in LIB
+LABELS, and include a picture with a FORK junction.
+
+Possible extension: Show what happens if, before you give a list of
+possible interpretations to FILTER, you remove some of the information
+about one of the junctions (as might happen in a picture with noise). The
+result can be that some other junctions end up with no possible
+interpretations. This process whereby a flaw in part of a picture is
+propagated to ruin the interpretation of the whole picture is described as
+'gangrene' by Hinton, in his paper in AISB conference proceedings 1976.
+
+(This is why he recommended a less strict form of constraint
+manipulation, which allowed some constraints to be violated, but still
+try to find the best interpretation.)
+
+You can also demonstrate this by using pictures with junctions for which
+the list of possible interpretations in the list RULES, is empty. E.g.
+in a 'noisy' picture where some lines don't meet as they should, but
+have free ends, you can produce gangrene. (But you must then have an
+entry for 'end' in the list RULES.
+
+Is there any way of modifying the filtering process to deal with this?
+(Hard question)
+
+-- -- Exercise 2 (Harder)
+
+2. There is an incomplete version of LIB WALTZ in the library,
+called TEACH * WALTZ2  You can make a copy of this in your directory by
+first examining TEACH * WALTZ2 and then change the file to have the name
+WALTZ.P, in your directory, by doing:
+
+        <ENTER> name waltz.p
+
+Your task is to complete this version of the program so that it works
+like LIB WALTZ, and to write a report on the exercise.
+
+-- -- Exercise 3 (possible mini-project)
+
+3. Most ambitious: produce your own version of LIB WALTZ (and LIB
+LABELS?)!! The library version does not use the most efficient control
+strategy. It repeatedly looks through the WHOLE list of junctions to
+see if any possibilities can be pruned, until a complete scan yields no
+pruning. You could try to avoid the repeated examination of junctions by
+doing a single scan and subsequently only looking at neighbours of
+'pruned' junctions. (That is what Waltz did.)
+
+-- -- Others (less programming)
+
+4. Read the account of the 'depth-first' lamina-labelling program
+provided in the LABELLING demo, and play with the program. Then write a
+description of the relationship between the two approaches (depth-first
+and Waltz filtering), illustrated with printout from both programs.
+
+5. The technique of filtering out possibilities using 'local'
+considerations is not restricted to the process of analysing pictures.
+
+Discuss its relationship to various search strategies used in problem
+solving and show with an example how it might be applied to a non-visual
+problem. (A still more general form of local 'co-operative' computation
+used for some kinds of problem solving is called relaxation, used by
+Hinton in his Edinburgh 1977 PhD thesis, described in pages 420-430 of
+Ballard and Brown (see below).
+
+In particular, Hinton claims that use of relaxation is a good way to
+avoid the 'gangrene' problem sketched in question 1).
+
+6. More difficult exercise:  (optional) The filter procedure sketched in
+TEACH WALTZ2 is very inefficient. It repeatedly cycles through the
+database looking to see if anything can be filtered out, until there is
+'no change'. Instead it could be done in a single pass throught the list
+of vertices looking to see if something can be filtered, and each time a
+vertex has interpretations filtered out all the neighbouring vertices
+could be put on a list of vertices to be looked at. Before moving to the
+next database entry, process vertices on this list. For any one of them
+which can be pruned, put ITS neighbours on the list, unless it is there
+already.
+
+    (a) Try programming this.
+    (b) Analyse the difference between this method and the one in TEACH
+        WALTZ2.
+    (c) Prove that a single pass through the database is all that is
+            needed.
+
+-- See also:
+
+Ballard D.H. & Brown C.M. (1982). 'Computer Vision'. Englewood Cliffs,
+    NJ: Prentice-Hall.
+
+--- $poplocal/local/teach/waltz
+--- The University of Birmingham 1994.  --------------------------------

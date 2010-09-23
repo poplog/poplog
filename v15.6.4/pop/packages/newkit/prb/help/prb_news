@@ -1,0 +1,1236 @@
+HELP PRB_NEWS                                      Aaron Sloman Aug 2002
+
+http://www.cs.bham.ac.uk/research/poplog/newkit/prb/help/prb_news
+ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/newkit/prb/help/prb_news
+
+POPRULEBASE (and SIM_AGENT) NEWS FILE
+
+Version 5.0 of Poprulebase and Sim_agent was introduced in July 1999.
+The main changes are described in the HELP NEWKIT file included with
+Sim_agent. They enabled rules and rulesets operating on the database
+to be in the database, supporting more meta-management capabilities.
+
+Information about changes to Poprulebase will be added in this news
+file, in reverse chronological order. See also change notes at the end
+of each of the main program library files.
+
+CONTENTS - (Use <ENTER> g to access required sections)
+
+
+ -- 2003
+ -- 7 Nov 2003 prb_check_cycle_limit_and_vars
+ -- 29 Aug 2003 HELP prb_DADD modified to be clearer
+ -- 2002
+ -- 28 Aug 2002 Added isruleset, isrulefamily, isrulesystem
+ -- 22 Jul 2002 Fixed IMPLIES conditions
+ -- 4 Jul 2002 Bug in prb_flush fixed
+ -- May 19 2002 Extra syntactic test in conditions and actions
+ -- 21 Feb 2002 Checking for typos with prb_checkpatterns
+ -- 20 Feb 2002 Changes concerned with tracing ruleset changes
+ -- 2001
+ -- 13 Dec 2001 Avoid bugs due to asynchronous event handling
+ -- 18 Mar 2001  Added prb_save_database, prb_restore_database
+ -- 2000
+ -- 16 Sep 2000  Fixed [INDATA ...] bug with prb_allrules set true
+ -- 18 Aug 2000  (See also HELP sim_agent_news)
+ -- -- More informative printing by database printing routines
+ -- -- Other minor changes
+ -- -- New tracing/self-monitoring facilities
+ -- 1 Aug  2000 Version 6.0 of LIB * SIM_AGENT introduced.
+ -- -- [INDATA ?db [.....]] conditions and actions
+ -- -- bug fixed in prb_MODIFY (actions of form [MODIFY ...] )
+ -- 27 Apr 2000 Added pattern prefix libraries and documentation
+ -- 1999
+ -- 16 Oct 1999: increased prb_max_keys
+ -- Jul  9 1999: prb_sortrules error handling improved
+ -- Jul  4 1999: Poprulebase version 5.0
+ -- 1998
+ -- Aaron Sloman, 29 Sep 1998 new TEACH SIM_FEELINGS
+ -- Aaron Sloman, 27 Sep 1998 empty [DLOCAL]
+ -- Aaron Sloman 26 Jun Documentation fixes
+ -- Aaron Sloman, 18 Feb 1998 DDEL DADD
+ -- 1997
+ -- Poprulebase Version 4.5 Dec 1996
+ -- Poprulebase Version 4.0 May 1996
+ -- VERSION 3 April 1996
+ -- Version 3.3 31 March 1996
+ -- 1994 First release of Poprulebase
+ -- Aaron Sloman Nov 12th 1994 (Various changes)
+ -- Aaron Sloman Nov 7th 1994 Filter conditions fixed
+ -- Oct 1994 Summary of changes from NEWPSYS to POPRULEBASE
+ -- Older news items
+ -- Optional third argument for prb_run (formerly psys_run)
+
+-- 2003
+-- 7 Nov 2003 prb_check_cycle_limit_and_vars
+    Brian Logan detected a bug in
+        prb_check_cycle_limit_and_vars
+    which could cause it to loop forever when there are no rules in a
+    ruleset. Now fixed.
+
+-- 29 Aug 2003 HELP prb_DADD modified to be clearer
+
+-- 2002
+-- 28 Aug 2002 Added isruleset, isrulefamily, isrulesystem
+    Suggested by Mark Gemmell
+    These three new recognizers (all implemented as properties) are now
+    used by the
+        define :ruleset, define :rulefamily and define :rulesystem
+    syntax forms.
+
+    In each case the name given is declared as a variable and assigned
+    the new entity as a value (ruleset, rulefamily or rulesystem).
+    In addition the property isruleset if applied to the name of
+    a ruleset returns true, and if applied to a ruleset defined by
+    define :ruleset it returns the name. Likewise isrulefamily, and
+    isurelsystem.
+
+-- 22 Jul 2002 Fixed IMPLIES conditions
+        See LIB * poprulebase/Revision
+
+-- 4 Jul 2002 Bug in prb_flush fixed
+    Nick Hawes discovered that sometimes prb_flush will not remove
+    all instances of a pattern containing "==". This was due to a bug
+    in the non-exported procedure prb_no_variables in LIB Poprulebase.
+    This has now been fixed.
+
+-- May 19 2002 Extra syntactic test in conditions and actions
+    Put in test to complain if WHERE/POP11 conditions and actions have
+    spurious ")" at end, or if expressions in LVARS and VARS declarations
+    have spurious closing brackets. Bug reported by Nick Hawes, 14 May 2002.
+    Required change to procedure read_in_items(), used in conditions, actions,
+    DLOCAL expressions, etc.
+    (Revealed previously undetected spurious occurrences of ")"
+        in TEACH sim_sheepdog.p)
+
+-- 21 Feb 2002 Checking for typos with prb_checkpatterns
+    A new library, makes it much easier to track down errors due to
+    mis-typing something in a rule condition or action. See
+        HELP PRB_CHECKPATTERNS
+        LIB PRB_CHECKPATTERNS,
+        prb_checkpatterns(infile, oklist, outfile);
+        prb_checkpatterns(infile, oklist, outfile, true);
+
+    This procedure can be used to create a file of information (outfile)
+    about keywords and other symbols used in conditions and actions in a
+    file defining rulesets (infile), excluding symbols defined by
+    the list oklist. The optional fourth argument suppresses line
+    numbers and duplicate occurrences.
+
+
+-- 20 Feb 2002 Changes concerned with tracing ruleset changes
+    Added facilities for tracing switch of ruleset, as suggested by
+    Nick Hawes. Introduced
+        Two new global variables
+            prb_trace_ruleschanged:  boolean (if true turn tracing on)
+            prb_family_name: possibly given name of rulefamily
+
+        New user definable procedure
+         define global vars prb_ruleschanged_trace(ruleset, family);
+         If prb_trace_ruleschanged is true, and if ruleset changes
+         during a run of the rule interpreter, then this procedure will
+         be run. By default it does nothing.
+
+
+-- 2001
+
+-- 13 Dec 2001 Avoid bugs due to asynchronous event handling
+
+    Put in code to ensure pop_asts_enabled is set false just before exitto
+        or exitfrom starts to unwind the control chain and set to its previous
+        value each time a high level mechanism is restarted.
+    This prevents asynchronous event handlers running while the stack is
+    being unwound, e.g. if mouse events are detected. Otherwise horrible
+    and mysterious crashes can occur.
+
+-- 18 Mar 2001  Added prb_save_database, prb_restore_database
+    At the suggestion of Catriona Kennedy
+
+-- 2000
+-- 16 Sep 2000  Fixed [INDATA ...] bug with prb_allrules set true
+        Suggested by Catriona Kennedy
+
+    prb_save_database(db, include_keys, exclude_keys) -> dblist;
+
+        db is a poprulebase database (a property). Return the list
+        of lists of items whose keys are in include_keys.
+
+        If include_keys is false then return all those that are
+        neither in exclude_keys nor in the value of the global variable
+        prb_noprint_keys.
+
+    prb_restore_database(dblist, db, atfront);
+
+        Given a dblist as produced by prb_save_database
+        splice the items in it into the database db.
+
+        atfront is a boolean: if true splice them at the front,
+        otherwise at the end of the lists of items already in
+        dblist.
+
+
+-- 18 Aug 2000  (See also HELP sim_agent_news)
+-- -- More informative printing by database printing routines
+
+    The procedure prb_newdatabase(hashlen, userlist) -> newdb;
+    can now take an optional extra argument, a word, which will be the
+    name of the database, stored in the pdprops of the property.
+
+    prb_print_database will print that as the name of the database
+    if it exists.
+
+
+    The procedure prb_print_table now sorts the keys before printing
+    a database, unless keys are provided by the user, in which case
+    they are used in the order provided. This allows more consistent
+    printing to be done.
+
+-- -- Other minor changes
+
+    changed %P to %p in printf commands, so that user versions of
+    print_instance are used, etc.
+
+    The prbrule recordclass field-name name prb_ruletype has been
+    changed to prb_ruleset for consistency with other parts of the
+    toolkit. prb_ruletype remains a synonym for that.
+
+    Removed sim_*debugging. HELP sim_agent_news will explain
+
+-- -- New tracing/self-monitoring facilities
+
+    Considerable changes to poprulebase, mainly in support of additional
+    self-tracing/self-monitoring capabilities. Previously all trace
+    printing went to the terminal only. The new facilities (based
+    partly on suggestions by Catriona Kennedy) consist of a collection
+    of procedures and a global variable that can turn them on or off.
+
+In each case the first argument agent, will be the current value of
+sim_myself, which defaults to undef, but can be the current objectlass
+instance if the sim_agent toolkit is used. That means that these
+procedures can be redefined as methods that do different things for
+different classes of objects or agents.
+
+prb_checking_conditions_trace(agent, ruleset, rule);
+    ;;; invoked when about to check conditions, before call of prb_forevery
+
+prb_checking_one_condition_trace(agent, condition, rule);
+    ;;; invoked in prb_forevery_sub just before the condition is processed
+
+prb_all_conditions_satisfied_trace(agent, ruleset, rule, matchedvars);
+    ;;; invoked if all conditions satisified.
+    ;;; matchedvars is the list of variables bound
+
+prb_condition_satisfied_trace(agent, condition, item, rule, matchedvars);
+    ;;; invoked when one condition is satisified.
+    ;;;; matchedvars is the list of variables bound at the time
+    ;;; if the condition is a simple pattern, then item will be the item in the
+    ;;; database that matched it. Otherwise item may be undef, e.g. for
+    ;;; an [OR ...] or [NOT ...] or other complex condition.
+
+prb_doing_actions_trace(agent, ruleset, rule_instance);
+    ;;; invoked when about to run actions of rule after conditions checked
+
+prb_do_action_trace(agent, action, rule_instance;
+    ;;; invoked in prb_do_action with each individual action
+    ;;; just before it is performed.
+
+prb_adding_trace(agent, item);
+    ;;; invoked when adding item to the current database
+
+prb_deleting_trace(agent, item);
+    ;;; deleting one item from the current database
+
+prb_deleting_pattern_trace(agent, deleted, pattern);
+    ;;; Deleting everything that matches the pattern, e.g. prb_flush
+    ;;; deleted is a list of the items deleted. May not be available if
+    ;;; the global variable prb_recording is false (the default)
+
+prb_modify_trace(agent, item, action, rule_instance);
+    ;;; action is a list of form [MODIFY <item> <key> <value> <key> <value> ...]
+    ;;; where <item> should refer to item, though it may be a number
+    ;;; it may be necessary to apply prb_instance to the action to find
+    ;;; the actual values.
+
+prb_condition_failed_trace(agent, condition, rule);
+    ;;; invoked in many places where a condition has not succeeded.
+    ;;; It is difficult to ensure that all of them are captured.
+
+prb_pattern_matched_trace(agent, pattern, item);
+    ;;; not yet used, in case prb_condition_satisfied_trace
+    ;;; suffices. There are many additional places where the
+    ;;; matcher is invoked, and it is not clear whether they should
+    ;;; all be monitored.
+
+Controlling the trace procedures:
+Each invocation of any of the above procedures is preceded by
+"IFTRACING". This means that if the pop-11 variable prb_ prb_tracing_on
+(default true) is made false before LIB poprulebase is compiled, the
+trace procedure calls will not be included in the code.
+
+If that variable is true at compile time then the global variable
+prb_self_trace (default false) can be made true to turn on the trace
+procedures. This can also be done in [DLOCAL ...] expressions in
+individual rules or rulesets.
+
+-- 1 Aug  2000 Version 6.0 of LIB * SIM_AGENT introduced.
+    See HELP * SIM_AGENT_NEWS
+    The new version of sim_agent required the following change to
+    poprulebase.
+
+-- -- [INDATA ?db [.....]] conditions and actions
+    Added support for conditions and actions of the form
+        [INDATA ?db [...]]
+    where db must be a database of the type produced by
+    prb_newdatabase (a property), and [...] must be one of the
+    other types of conditions or actions described in
+        HELP POPRULEBASE.
+
+    If this facility is not used, it should not affect functionality or
+    performance.
+
+-- -- bug fixed in prb_MODIFY (actions of form [MODIFY ...] )
+    Fixed bug that can occur when prb_allrules = 1 and prb_sortrules is false.
+    Put extra check in prb_MODIFY for cases that can mishap because of
+    inappropriately successful conditions.
+
+-- 27 Apr 2000 Added pattern prefix libraries and documentation
+
+   Added LIB !.p LIB READPATTERN and LIB DOESMATCH to the standard
+    poprulebase distribution, as some of the examples use the "!"
+    pattern prefix. Also included HELP READPATTERN and HELP DOESMATCH
+
+-- 1999
+-- 16 Oct 1999: increased prb_max_keys
+    New default value is 64, previously 32. See
+        HELP POPRULEBASE/prb_max_keys
+
+-- Jul  9 1999: prb_sortrules error handling improved
+    If prb_sortrules is non-false and not a procedure a more useful
+    error message is provided (as suggested by Catriona Kennedy)
+
+-- Jul  4 1999: Poprulebase version 5.0
+    New version to support changes in Sim_agent. See HELP NEWKIT
+    (included with Sim_agent)
+    Added prb_noprint_keys. to support changes for Verstion 5.
+    See HELP POPRULEBASE/prb_noprint_keys
+
+-- 1998
+-- Aaron Sloman, 29 Sep 1998 new TEACH SIM_FEELINGS
+    This file has been much improved, as an introduction to
+    poprulebase and sim_agent. (Further improved in April 1999).
+
+-- Aaron Sloman, 27 Sep 1998 empty [DLOCAL]
+
+In define :ruleset, define :rulefamily, define :rulesystem,
+and also in individual rules, allowed empty [DLOCAL] lists, to simplify
+commenting in and commenting out trace control.
+
+-- Aaron Sloman 26 Jun Documentation fixes
+
+[TESTADD ...] had not been documented in HELP POPRULEBASE, and the
+documentation for [ADD ...] was wrong. Both now fixed.
+
+-- Aaron Sloman, 18 Feb 1998 DDEL DADD
+Two new action forms for managing dependencies.
+    [DADD ...]
+    [DDEL ...]
+This provides a simple form of "reason maintenance" mechanism.
+Described in HELP prb_DADD
+
+-- 1997
+
+--- Aaron Sloman, 12 Nov 1997
+
+Various gaps and errors in HELP * POPRULEBASE fixed. New features
+documented therein:
+
+    [ADD ...] and prb_auto_add
+        For explicit addition of items to the datbase, and automatic
+        checking for unrecognised action keywords.
+
+    [ADDIF [<pattern>] [<data item>] [<data item>] ...]
+    [ADDUNLESS [<pattern>] [<data item>] [<data item>] ...]
+
+    [RMODIFY ....]
+        Recursive version of [MODIFY ...] action.
+        See LIB * prb_RMODIFY
+
+    Changed prb_valof to accept idents. This means that the value
+    associated with an action keyword in prb_action_type can now be
+    an identifier, instead of having to be a word or procedure.
+
+    Made prb_do_DEL and prb_assoc available to users.
+
+
+--- Aaron Sloman, 6 Apr 1997
+
+Installed new HELP files for recently introduced procedures
+    HELP * PRB_COLLECT_VALUES, HELP * PRB_WHICH_VALUES
+
+The command
+    uses new_family_limit
+
+makes available the action form
+
+    [NEWLIMIT <integer>]
+
+This extension, originally requested by Peter Waudby, allows the current
+cycle limit associated with a rulefamily to be changed dynamically.
+It may later be replaced by more general mechanisms. This will probably
+require a change in the implementation of cycle limit mechanisms.
+
+--- Aaron Sloman, Mar 18 1997
+    Fixed bug in poprulebase compiler reported by Jeremy Baxter.
+    [IMPLIES...] conditions could not have embedded POP11 or WHERE
+    conditions
+
+--- Aaron Sloman Feb 1997
+HELP PRB_DATABASE
+
+This file provides information and advice for users who are already
+familiar with the ordinary Pop-11 database and are now switching to
+using LIB POPRULEBASE. This file enlarges on the information provided in
+    HELP  * POPRULEBASE
+    TEACH * RULEBASE
+    TEACH * POPRULEBASE
+
+(Thanks to Monika Sester in Stuttgart for identifying the need.)
+
+-- Poprulebase Version 4.5 Dec 1996
+
+Added prb_walk_fast in lib prb_interact
+
+Corrected faulty documentation of actions of form
+        [RULE ....]
+    The new rule is added to the end of the ruleset, not the
+    front as previously stated. This is consistent with
+    prb_new_rule
+
+Added two autoloadable procedures:
+
+    prb_saverules(<ruleset>, <rulesetname>, <filename>)
+
+        This is intended only for saving relatively simple rulesets in a
+        file. For details SHOWLIB prb_saverules
+
+    prb_storedata(filename);
+
+        Stores the current poprulebase database in a format which can later
+        be read and edited, or recompiled to create a new database.
+
+--- Nov 1996 prb_collect_values(Spec) -> List;
+
+This procedure takes a list which contains a pattern variable (indicated
+by "?" followed by an identifier) followed by one or more patterns. It
+finds all possible ways of consistently matching the patterns against
+items in the database, and for each of them it remembers the value of
+the identifier. It returns a list, possibly empty, of all the values.
+Repeated values are pruned. See HELP * PRB_COLLECT_VALUES
+
+--- Nov 1996 prb_which_values(Vars, Patternlist) -> List;
+
+This takes a list of pattern variables, each indicated by "?" followed
+by a word or identifier, and a list of patterns. It tries all possible
+ways of consistently matching the patterns in Patternlist against items
+in the database (prb_database), and for each of them it makes a list of
+the values of the variables in the Vars list. All such lists are then
+put into a single large list, in the order in which they are found, and
+that list is returned as the value of prb_which_values.
+    See HELP * PRB_WHICH_VALUES
+
+--- October 1996
+
+Teach files (POPRULEBASE, RULEBASE) updated again
+
+-- Poprulebase Version 4.0 May 1996
+
+Detailed documentation of the changes since earlier versions will be
+added later. For now, all the most important points are to be found in
+    HELP RULESYSTEMS
+
+The main changes are
+
+o Allowing a new hierarchy of rule-based programming structures, i.e.
+rules, rulesets, rulefamilies and rulesystems (for use with SIM_AGENT)
+
+o New syntax for defining rulesets, rulefamilies and rulesystems
+
+This makes "define :rule" redundant.
+
+o Lexical scoping of pattern variables in Poprulebase
+
+o Provision of [LVARS ...] forms to make new lexical variables
+accessible in patterns or actions.
+
+o Provision of [DLOCAL ...] forms for more general control of the
+environment of a rule, ruleset, rulefamily or rulesystem.
+
+o A more principled way of specifying cycle limits for the rule
+interpreter.
+
+o [DO ..] conditions, allowing actions to be interleaved with
+conditions.
+
+o Considerable efficiency improvements, e.g. if prb_sortrules is false,
+so that there's no user-specified conflict resolution procedure, and
+where prb_allrules is true. In these cases the actions of rules are run
+without first creating a list of rule instances. Also matching of
+conditions has been speeded up by doing more instantiation in advance.
+
+o New profiling and tracing options
+    See LIB * PRB_PROFILE
+
+o POP11 and WHERE conditions could previously cause obscure errors. The
+previously anonymous procedures now have names, so that they will show
+up in the calling chain in error messages, making it much easier to
+localise bugs.
+
+o There is now far more stack checking, so that stack errors will be
+more easily localised.
+
+o Several new forms of actions are provided, giving users more control.
+    [ADD ...]
+    [TESTADD ...]
+    [STOPIF ...]
+    [QUIT ...]
+    [QUITIF ...]
+    [STOPAGENT ...]
+    [STOPAGENTIF ...]
+
+o A new variable prb_auto_add (default true) which can be made false, in
+which case actions adding information to the database MUST have the form
+    [ADD ...]
+This will avoid obscure bugs due to mis-typing other action keywords.
+
+o A facility for detecting that an agent had no runnable rules in a time
+slice, or that no agents had any runnable rules. See
+    HELP * SIM_AGENT/sim_agent_terminated_trace
+    HELP * SIM_AGENT/no_objects_runnable_trace
+
+o New facilities for adding or removing objects from the scheduler's
+list. See
+    HELP * SIM_AGENT/sim_edit_object_list
+
+Extra stack checking.
+
+rulefamilies
+rulesystems
+sections
+allowed ruleset to specify sections
+added define_ruleset, define_rulefamily, define_rulesystem
+
+rewrote a lot of documentation
+TEACH SIM_DEMO
+
+Updated TEACH * RULEBASE and TEACH * POPRULEBASE
+
+
+-- VERSION 3 April 1996
+
+added prb_run_with_matchvars
+
+--- Aaron Sloman,  5 Apr 1996
+    At request of Jeremy Baxter set up support for rule*systems and
+    rulesets to have associated matchvars, using
+    [LVARS ...] and [VARS ...] expressions.
+
+    Separated code for rulefamilies into LIB * RULEFAMILY and
+    LIB * DEFINE_RULEFAMILY
+
+--- Aaron Sloman, Mar 30 1996
+    Introduced prb_no_rule_found_action
+    Fixed in case prb_rules at the end is an identifier, e.g. result of
+    [RESTORERULESET ... ] action. The idval is used instead.
+    Allowed rulesets to start with an integer, to determine number
+    of cycles in prb_run
+    Added prb_forget_rules
+
+-- Version 3.3 31 March 1996
+
+--- Aaron Sloman  31 March 1996
+
+There have been many changes to POPRULEBASE to accommodate a rulesystem
+mechanism and other things. This news file will be updated. Meanwhile
+please look at
+
+    HELP * SIM_AGENT_NEWS
+    HELP * RULESYSTEMS
+    TEACH * SIM_DEMO
+
+and the revision notes at the end of LIB * POPRULEBASE
+
+--- Aaron Sloman, Mar 30 1996
+    Introduced prb_no_rule_found_action
+    Fixed in case prb_rules at the end is an identifier, e.g. result of
+    [RESTORERULESET ... ] action. The idval is used instead.
+    Allowed rulesets to start with an integer, to determine number
+    of cycles in prb_run
+    Added prb_forget_rules
+
+--- Aaron Sloman, Mar 24 1996
+    Added prb_show_ruleset: if true will show which ruleset is being used.
+    Introduced library for creating rule*systems See HELP ?????
+    Modified prb_run to allow prb_rules to be a word or identifier
+        so that valof or idval can be used to get the ruleset.
+        This allows rulesets to be edited without recreating agents.
+
+    Made prb_check_section user definable, so that it can be redefined
+    as erase if sections are not used.
+
+--- Aaron Sloman,  19 Mar 1996 (V3.2)
+    As suggested by Jeremy Baxter optimised NOT actions of the form
+        [NOT <item> ==]
+    By changes to prb_flush and prb_subflush_fixed. This sort of
+        deletion is now handled by [] -> prb_database(<item>)
+
+--- Aaron Sloman, Feb 18 1996
+    Optimised NOT conditions, using abnormal exit, and instantiated pattern
+    Replaced wrong call of old_sysmatch
+
+--- Aaron Sloman, Feb 15 1996 (V3.1)
+    Added trace_match, trace_match_prop, show_trace_match, clear_trace_match
+    for finding out how often different rules are checked and which
+    patterns succeed and which files. An addition to LIB * PROFILE
+    See HELP * PRB_TRACE_PROCS
+
+--- Aaron Sloman, Feb 1 1996 (V3)
+    Added prb_no_rule_found_trace(prb_rules, prb_database)
+    Removed spurious assignment for "FILTER" action.
+    Removed global $-prb$-prb_possibles. It was previously needed only for
+        FAIL actions and backtracking, now removed.
+
+    Moved the following action types to property 29 Jan 1996:
+        MODIFY DEL REPLACE PUSH POP STOP ADDALL RULE SAVE RESTORE POP11 SAY
+        SAYIF NOT
+
+--- Aaron Sloman  15th Dec 1995
+    Added information about prb_match_apply and an example use to
+    HELP * POPRULEBASE. Slightly reorganised the latter, and added
+    entries for some more previously undocumented procedures
+        prb_database_keys(dbtable) -> keys;
+        prb_is_var_key(key);
+        prb_del1(pattern, data) -> (item, data);
+        prb_in_data(pattern, data) -> item;
+        prb_newdatabase(hashlen, userlist) -> newdb;
+        prb_match_apply_keys(dbtable, pattern, keys, proc);
+        prb_empty(dbtable);
+        prb_present_keys(pattern, keys) -> item;
+
+--- Aaron Sloman 4th Nov 1995
+    Faulty explanation of the structure of MENU actions corrected in
+    HELP * POPRULEBASE
+
+    TEACH * RULEBASE has been introduced as a simple introduction to
+    Poprulebase, with some associated files
+        TEACH * PRBWINE
+        TEACH * PRBZOO
+        TEACH * PRBGROCERIES
+        TEACH * DIAGNOSIS
+
+    TEACH * POPRULEBASE is more detailed.
+
+    Minor printing bug fixed in
+        $poplocal/local/prb/auto/prb_trace_rule.p
+
+
+    [VARS ...] actions and conditions now can include initialisations.
+    They don't need to be followed by [POP11... actions]. For example
+
+        [VARS v1 v2 [v3 = <exp1>] v4 [[v5 v6] = <exp2>] v7]
+
+    This declares v1, v2, v4 and v7 without initialising them. It also
+    does the equivalent of
+        [POP11 <exp1> -> v3; <exp2> -> (v5, v6)]
+
+--- Aaron Sloman 30th Aug 1995
+    Added prb_in_database
+
+    Made various additions and corrections to HELP * POPRULEBASE
+    Fixed compilation errors in LIB * PRB_EXTRA
+
+--- Aaron Sloman 17th July 1995
+    Updated TEACH * POPRULEBASE
+
+    Allowed [VAL var] in actions to evaluate to the value of var as a
+        global variable.
+
+    Also allowed it in simple patterns.
+
+    Allowed VARS conditions and VARS actions to have initialised
+    variables, including multiple assignments. (Later generalised
+    to LVARS.)
+
+    Allowed prb_position_stack and prb_rule_stack to be in the
+    property table prb_database. Introduced the list
+        $-prb$-private_keys
+    to ensure that the keys used for these stacks are not confused with
+    normal database keys.
+
+--- Aaron Sloman & Darryl Davis 14th July 1995
+
+prb_show_conditions has been changed. Instead of being only true or
+false, it can contain a list of rule names. Only those rules will have
+their condition testing shown.
+
+prb_database can contain a rule stack and a database stack, for use
+with facilities described in HELP * PRB_EXTRA
+
+There is now a 'version' indicator, the variable prb_version. Its value
+is a list, with two strings: a major version name, and date last
+changed, e.g.
+
+    global constant prb_version = ['V2' '95.07.02'];
+
+THERE HAVE BEEN MAJOR CHANGES TO THE POPRULEBASE LIBRARY SINCE MAY 1995
+
+These flow from the decision to replace the single list held in the
+variable prb_database with a property held in the same variable (which
+is now declared as a procedure variable). The database items are now
+stored in separate lists in the property. Each list contains items that
+all start with the same first element. That element can be used as a key
+to the property in order to access the list. Thus if a database contains
+the following four items:
+    [father joe mary] [father fred joe]
+    [mother sue mary] [mother ruth sally]
+
+then the first two will be in a list associated with the word "father"
+and the last two in a list associated with the word "mother". The first
+element of a database item determines its key.
+
+The property can be accessed directly using the form
+    prb_database(key) -> list
+
+but it is generally better to use the procedures provided for accessing
+or updating the database. Several different databases can be
+constructed, using the procedure
+    prb_newdatabase(number, list) -> property
+
+This use of properties effectively `partitions' the database into a
+number of smaller lists, enabling some programs to run very much faster.
+
+There are several consequences of this change.
+
+1. The most important is that you can no longer use prb_database as a
+list. Instead use the procedures provided for accessing, updating and
+printing a database. E.g. instead of
+
+    prb_database ==>
+
+use
+
+    prb_print_database();
+
+This new procedure is roughly equivalent to
+    prb_print_table(prb_database)
+
+with a bit of extra formatting.
+
+2. prb_memlim has been withdrawn. When there's no longer a single
+database list, but a lot of separate lists, it no longer makes sense to
+specify a maximum length. For the same reason prb_truncate is no longer
+useful.
+
+3. You should avoid using patterns that start with a variable element,
+i.e. one of "=", "==", "?" or "??", for these will have to be matched
+against items in all the lists in the database, whereas if there's a
+fixed first element then the pattern will only be matched against items
+that start with that element, which are stored in a separate list.
+
+(There's a subtle exception: when a pattern starts with ?<variable> or
+??<variable> and the <variable> is already in the list popmatchvars
+because it has been bound by an earlier match, e.g. in testing
+conditions for a rule, then this variable will sometimes be treated as
+if it were a constant element, because the value already assigned to the
+variable will be used as the key, e.g. in prb_flush(<pattern>).
+
+4. The notion of selecting rules on the basis of the recency of the
+items which match their conditions is no longer well defined, as recency
+was previously measured in terms of how near items were to the front of
+the single list prb_database. Since there are now several lists which
+can be changed at different times, measuring how close an item is to the
+front of the list containing it may be of little value. Thus users
+wishing to make use of recency information to select rule instantiations
+will have to devise their own way of keeping a chronological record of
+database assertions. (There are many options.) The portion of
+HELP POPRULEBASE that showed how to define prb_sortrules has been
+re-written, with suitable warnings.
+
+5. prb_run has been amended so that it can accept as its second
+argument, the database argument, either a list or a property table.
+In the former case a new property table will be created with the lists
+stored in it. The formats for prb_run are now:
+    prb_run(prb_rules, list);
+    prb_run(prb_rules, property);
+    prb_run(prb_rules, list, integer);
+    prb_run(prb_rules, property, integer);
+
+where the optional integer gives the maximum number of cycles of the
+rule interpreter before the system stops.
+
+6. New procedures
+    TO BE DESCRIBED
+ define global constant procedure prb_database_keys(dbtable) -> keys;
+ define global constant procedure prb_is_var_key(key);
+ define global procedure prb_del1(pattern, data) -> (item, data);
+ define global procedure prb_in_data(pattern, data) -> item;
+ define global procedure prb_newdatabase(hashlen, userlist) -> newdb;
+ define global vars procedure prb_match_apply(dbtable, pattern, proc);
+ define global vars procedure prb_match_apply_keys(dbtable, pattern, keys, proc);
+ define global vars procedure prb_print_database();
+ define global vars procedure prb_print_table(dbtable, /*keys*/);
+ define prb_add_condition_vars(list);
+ define prb_empty(dbtable);
+ define procedure prb_add_db_to_db(db1, db2, /*copying*/);
+ define procedure prb_add_to_db(item, dbtable);
+ define procedure prb_present_keys(pattern, keys) -> item;
+ define vars prb_run(prb_rules, database, /*limit*/);
+ define vars procedure prb_flush1(pattern);
+
+New autoloadable procedures
+
+ define prb_add_list_to_db(list, dbtable);
+ define prb_add_rule_vars(rule_instance, action);
+ define global procedure prb_list_data( dbtable ) -> list;
+
+7. [FAIL ...] actions and the corresponding stacks are probably of no
+use, and are withdrawn.
+
+OTHER CHANGES (July 1995):
+1. prb_valof has been changed to derefence only once. So there are now
+contexts in which the value of a variable can be a word.
+
+2. Various minor bugs have been fixed, e.g. the tracing due to
+prb_show_conditions inside prb_forevery.
+
+3. The define :default mechanism in lib poprulebase has been generalised
+to allow arbitrary expressions to specify default values. This required
+the syntax to be changed.
+
+4. The variable prb_recording, which determines whether various
+procedures keep information about database changes in the variable
+prb_found, has been made accessible to users.
+
+
+--- Aaron Sloman, Jun 16 1995
+    Extended OR conditions to allow complex sub-conditions.
+
+    Changed reader to cope with compilation of POP11 or WHERE in
+    "OR" conditions.
+
+    Improved error handling when rule name is omitted.
+
+    Made VARS variable declarations and [->> var] check whether
+    the variable is already in popmatchvars and if so give an error.
+
+--- Aaron Sloman June 15 1995
+
+There have been many changes to increase expressive power and
+efficiency.
+
+1. Conditions of the form [WHERE ....] now have their code compiled when
+rules are read in, rather than at run time when the rule is tested. This
+leads to a considerable increase in speed in some programs. There's a
+slight loss in generality. In particular it is no longer possible for
+some of the code in a condition to be expanded at run time into new
+forms by using "??" variables that have picked up values from earlier
+conditions. (Up to a point, this sort of effect can be achieved in other
+ways.) Instead of "?var" just use "var".
+
+[Provisionally I have left prb_readcondition so that if a WHERE
+condition includes "?" or "??" it is handled as before and compiled at
+run time. I think this may be withdrawn. So let me know if you find
+it essential.]
+
+2. It is now possible to include additional global variable declarations
+in the conditions or actions of a rule, by using a pseudo-condition or
+pseudo action of the form:
+
+        [VARS var1 var2 ....]
+
+This will allow var1, var2, to be used with "?" or "??" inside
+subsequent conditions or actions, to access their current global values.
+Previously that could be done ONLY for variables that were introduced in
+ordinary conditions. One advantage of this is that the syntax for
+actions that need to access values of global variables is considerably
+simplified. Another is that testing of conditions can
+be speeded up. E.g. the conditions
+
+    .... [location obj1 ?loc] [WHERE loc == myloc] ....
+
+can be replaced by
+
+    .... [VARS myloc] [location obj1 ?myloc] ....
+
+(However, there's a slight garbage collection overhead because
+popmatchvars gets extended by the use of VARS. This may be
+compensated by elimination of some other variables, as in the
+above example.)
+
+
+3. There is a new type of pseudo-condition that allows Pop-11 code to be
+run between conditions.
+
+    .... [POP11 <pop-11 code>] ....
+
+This is equivalent to
+
+    .... [WHERE <pop-11 code>; true] ....
+
+I.e. a POP11 condition will always succeed. It allows values of
+VARS to be changed, trace printing to be generated while conditions
+are being tested, items outside the current database to be altered
+during testing of conditions, etc. This provides one way to allow the
+value of a slot of a structure found in one condition to be used in
+subsequent conditions.
+
+e.g. a set of conditions might look like this:
+    .....
+    [VARS obj_name]
+    [.... ?obj ....]
+    [POP11 name_of(obj) -> obj_name]
+    [ ... ?obj_name ....]
+
+and in that case ?obj_name could also be used in the actions of that
+rule.
+
+Similar uses of VARS can be made in actions of this form
+
+    [POP11 ....]
+
+(POP11 actions are already supported).
+
+
+4. In order to allow a pointer to a database item matching a condition
+to be used in subsequent conditions or in actions, without having to
+reconstruct the item from its parts, I have introduced another
+pseudo-condition (suggested by Darryl Davis and Riccardo Poli). A
+condition of this form will always succeed
+
+    [ ->> var ]
+
+and will cause the variable var to have as its value the database item
+that matched the previous condition (which must be a simple condition).
+It is then possible for subsequent conditions and subsequent actions to
+use ?var or ??var to refer to that database item.
+
+5. DEL actions are now allowed to take a variable. E.g. a variable
+set by a condition of the form [->> var] can be used in actions of the
+form:
+
+    [DEL ?var]
+    [REPLACE ?var ....]
+    [MODIFY ?var ...]
+
+6. A new pseudo condition type has been added
+    [CUT]
+
+The effect of this is to ensure that if all possible ways of satisfying
+the conditions to the right of the [CUT] have been tried then no further
+attempts will be made to check whether alternative matches for
+conditions to the left will be found. This is partly analogous to the
+use of the cut operator "!" in Prolog.
+
+
+7. An optional experimental change has been installed, which may be
+replaced by a better mechanism later. In order to allow rules to be
+compiled within a section and run later within the same section, the
+global variable prb_use_sections has been provided. It defaults to
+false, but if set true before rules are compiled then the sections in
+which they are compiled are recorded and is temporarily re-instated both
+when the conditions of the rule are being tested and when the actions
+of a rule instance are being run. This mechanism can be used to prevent
+clashes between variables in rules and other variables. But the cost of
+switching sections is rather high, so a better mechanism may be provided
+later.
+
+
+--- Aaron Sloman May 21st 1995
+    Fixed stack bug in [RULE ...] action type
+    Allowed optional weight to be specified in [RULE ... action type]
+
+--- Aaron Sloman March 12th 1995
+
+    Substantially improved documentation in HELP POPRULEBASE
+
+    Added tests for type of weight, conditions, actions, in prb_new_rule.
+
+--- Aaron Sloman and Riccardo Poli, Mar 2 1995
+    Changed the handling of popautolist so that (a) the version
+    "remembered" is not the one that existed at compile time but at
+    the time that prb_run starts up, and (b) it is restored inside
+    prb_do_action, as well as inside prb_valof and prb_check_pop_code.
+    This restores autoloading fully when actions are evaluated and in
+    WHERE conditions.
+
+--- Aaron Sloman, Jan 11 1995
+    Replaced "compile" with "pop11_compile" throughout.
+        (The former is obsolete)
+
+    Made WHERE conditions use read_list_of_items() instead if listread()
+        so that use of embedded "^", etc. in lists will work.
+
+    This is intended as a bug fix, but may have unintended side effects
+    due to the delayed construction of embedded lists.
+
+
+-- 1994 First release of Poprulebase
+(Originally LIB NEWPSYS)
+
+-- Aaron Sloman Nov 12th 1994 (Various changes)
+
+Applied prb_instance to lists after SAY, SAYIF, EXPLAIN
+
+Modified the install_prb command so that it creates index files
+    prb/auto/prbautoindex.p
+        Accessible via SHOWLIB PRBAUTOINDEX
+    prb/help/prbhelpindex
+        Accessible via HELP PRBHELPINDEX
+    prb/lib/prblibindex.p
+        Accessible via SHOWLIB PRBLIBINDEX
+    prb/ref/prbrefindex
+        Accessible via REF PRBREFINDEX
+        (currently still no REF FILES)
+    prb/teach/prbteachindex
+        Accessible via TEACH PRBTEACHINDEX
+
+
+-- Aaron Sloman Nov 7th 1994 Filter conditions fixed
+        Corrected documentation on FILTER conditions, in HELP PRB_FILTER
+        and added more checking for stack errors in a few places.
+
+-- Oct 1994 Summary of changes from NEWPSYS to POPRULEBASE
+Here is a summary of major changes made since the switch of name from
+NEWPSYS to POPRULEBASE.
+
+The prefix 'psys_' has been replaced by 'prb_' throughout, and there are
+also several new identifiers with the prefix.
+
+-- Older news items
+
+-- Optional third argument for prb_run (formerly psys_run)
+prb_run can take a n optional 3rd argument, an integer specifying
+the maximum number of cycles. This is to prevent invocations looping
+forever. (It could be generalised to permit a procedure to be passed,
+which will return true if prb_run should finish.)
+
+--- Weights
+The option to associate numerical weights with rules, originally
+suggested by Tim Read, was added. I.e. the format for a rule definition
+can now be
+
+    define :rule <name> weight <weight> in <ruleset>
+        <conditions>
+        ;
+        <actions>
+    enddefine;
+
+The weight specification and the ruleset specification are optional.
+The multiplier 19 can be applied to prb_chatty to allow the use of
+weights to be traced.
+
+If prb_useweights is false weights are disregarded. If it is true, then
+only the highest weight applicable rule is selected. For more
+sophisticated use of weights the user can define prb_sortrules to do the
+sorting taking weights into account.
+
+The identifier prb_default_rule_weight, which has pop_min_int as its
+default value, specifies the default weight for rules which are not
+explicitly given a weight. Thus weighted rules will always have higher
+priority than unweighted rules.
+
+--- Pushing and popping of rulesets and databases.
+
+The following action types were added in LIB PRB_EXTRA, as described in
+HELP * PRB_EXTRA, in order to facilitate switches of context by changing
+rulesets and/or changing databases by means of a stack of contexts.
+(This might, for example, support some SOAR-like processes.)
+
+    [PUSHRULES <ruleset>]
+
+    [POPRULES]
+    [POPRULES <ruleset>]
+
+    [PUSHDATA <database>]
+    [PUSHDATA [<patternlist>] <database>]
+
+    [POPDATA]
+    [POPDATA [<patternlist>] ]
+    [POPDATA <database>]
+    [POPDATA [<patternlist>] <database>]
+
+The following procedures were added:
+    prb_clear_stacks()
+
+    prb_current_data_stack() -> list
+    list -> prb_current_data_stack()
+
+    prb_current_rule_stack() -> list
+    list -> prb_current_rule_stack()
+
+The identifier prb_extra indicates that these have been loaded.
+
+--- FILTER CONDITIONS
+--- MAP AND SELECT ACTIONS
+
+These new features, described in HELP * PRB_FILTER, allow "sub-symbolic"
+processes to interact with condition action rules. This may be useful
+for implementing hybrid architectures.
+
+--- User-defined condition types
+
+prb_condition_type is a property. It can be used to associate condition
+keywords with procedures. A user procedure my_check is associated
+with the condition type [MY_CHECK ...] by setting up an association
+thus:
+
+    my_check -> prb_condition_type("MY_CHECK");
+
+Then if a condition of the form [MY_CHECK ...] is tested, the procedure
+my_check will be applied to the back of the condition. It should return
+the result true or false.
+
+--- [DOALL ...] actions
+This allows an embedded action in a rule to be composed of several
+sub-actions, which will all be executed as if they were top-level
+actions in the rule.
+
+--- Allowed empty actions.
+Empty action, i.e. [], will now be treated as a null action, instead
+of causing an error.
+
+--- Additional run-time checks
+As user programs can leave extra items on the stack, or remove items
+they should not remove, additional run time tests for unwanted stack
+manipulation have been added. These produce error messages such as
+
+    FILTER PROCEDURE ALTERED STACK
+    FILTER PROCEDURE PRODUCED NO RESULT
+    FILTER PROCEDURE PRODUCED EXTRA RESULTS
+    STACK CHANGED BY <number>
+    STACK REDUCED in prb_run
+    ITEMS LEFT ON STACK in prb_run
+    SPURIOUS ITEMS LEFT ON STACK BY MAP PROCEDURES
+
+Later it may be possible to turn these off with a compile-time switch.
+
+--- New tracing via SAYIF actions
+Conditional print instructions can now occur in rule actions of type
+
+    [SAYIF <keyword> <message>]
+
+If <keyword> is a member of the list prb_sayif_trace, then [<message>]
+is printed out.
+
+--- New syntax for invoking Pop-11 facilities and values
+
+    Allowed [$$ ...] as an alternative to [popval ...] in actions and in
+    instances of patterns.
+
+    Allowed [$: ...] as an alternative to [apply ...] in actions and in
+    instances of patterns.
+
+--- Additional new procedures.
+
+    prb_show_rules(rule_list);
+        Prints out all the rules in the list.
+
+--- prb_prwarning
+
+prb_prwarning now defaults to erase, but could be given sysprwarning
+as its value, in which case undeclared identifiers (e.g. pattern
+variables) will be announced when they are declared.
+
+
+--- restructured, moving stuff to separate autoloadable files
+
+In order to reduce compilation time for users of minimal facilities,
+the main file was reduced and several procedures put into an
+autoloadable directory.
+
+The whole package was split up into several subdirectories of:
+    $poplocal/local/prb
+namely
+
+    $poplocal/local/prb/auto/
+        for autoloadable procedures
+
+    $poplocal/local/lib/
+        for the main file and non-autoloadable extras
+
+    $poplocal/local/prb/teach/
+        includes this prb_news file
+
+    $poplocal/local/prb/help/
+
+    $poplocal/local/prb/ref/
+        (This one is still empty)
+
+    $poplocal/local/prb/test/
+        For test procedures. May be withdrawn.
+
+An installation script is provided for setting up links
+    $poplocal/local/prb/install_prb
+
+
+--- Use of section for system pattern variables
+
+Copying an alteration made to LIB NEWPSYS by John Gibson, a section
+$-psys was added, and all pattern variables used by the library are in
+that section. This required adding the macro WID, which is not intended
+for use by users.
+
+--- New defaults format
+
+Altered "define :defaults" to allow lists as default values. This
+is not intended for users.
+
+
+--- New identifiers
+
+Here are the identifiers in all the files in prb/auto/*.p and
+prb/lib/*.p as of 8th Nov 1994.
+
+prb_DEL   prb_MODIFY   prb_action_type   prb_actions
+prb_add   prb_allpresent   prb_allrules   prb_applicable
+prb_assoc   prb_assoc_memb   prb_backtrack   prb_chatty
+prb_check_condition   prb_clearstacks
+prb_condition_terminators   prb_condition_type
+prb_conditions   prb_copy_modify
+prb_current_data_stack   prb_current_rule_stack
+prb_data_stack   prb_database   prb_debugging
+prb_default_rule_weight   prb_delete_rule
+prb_displayrule   prb_divides_chatty   prb_dl
+prb_do_POPDATA   prb_do_POPRULES   prb_do_PUSHDATA
+prb_do_PUSHRULES   prb_do_action   prb_do_actions
+prb_do_all   prb_do_rule   prb_do_rules   prb_eval
+prb_eval_list   prb_explain_trace   prb_expound
+prb_extra   prb_failed   prb_filter_action   prb_finish
+prb_flush   prb_foreach   prb_forevery
+prb_forevery_sub   prb_found   prb_foundof
+prb_get_input   prb_has_variables   prb_implies
+prb_instance   prb_interact   prb_istraced
+prb_make_rule   prb_map_action   prb_max_conditions
+prb_member   prb_memlim   prb_menu_interact
+prb_new_rule   prb_pause_read   prb_pausing
+prb_possibles   prb_pr_rule   prb_present
+prb_print_menu   prb_print_rule   prb_prwarning
+prb_push_or_pop   prb_read_and_add   prb_read_info
+prb_readaction   prb_readcondition   prb_recency
+prb_recof   prb_recording   prb_remember
+prb_remove_all   prb_repeating   prb_replace
+prb_rule_named   prb_rule_stack   prb_rule_weight
+prb_rulename   prb_ruleof   prb_rules   prb_ruletype
+prb_run   prb_save_or_restore   prb_sayif_trace
+prb_select_action   prb_show_conditions
+prb_show_rules   prb_sortrules   prb_statestack
+prb_trace   prb_trace_rule   prb_truncate   prb_untrace
+prb_useweights   prb_valof   prb_valsof   prb_value
+prb_varsof   prb_walk   prb_walk_trace   prb_weight
+
+
+--- Oct 30 1994
+
+        Added DOALL action types
+
+--- $poplocal/local/newkit/prb/help/prb_news
+--- Copyright University of Birmingham 2003. All rights reserved. ------

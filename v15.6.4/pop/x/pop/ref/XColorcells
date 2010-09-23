@@ -1,0 +1,502 @@
+REF XColorcells                                     A. Schoter, Jul 1991
+                                        Revised: Adrian Howard, Jun 1993
+
+        COPYRIGHT University of Sussex 1993. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<< MANIPULATION OF COLOR CELLS >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+In X colors are specified as a  pixel number which points to a  specific
+color cell in  a colormap.  The functions detailed  here define  various
+operations on colors and  color cells. See  REF * XColor for details  of
+the structure used  to represent color  cells. See REF * XColormaps  for
+details on the manipulation of colormaps.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Color Cells, Pixels, and Color Planes
+
+  2   LIB XColorcells
+      2.1   XColor flags constants
+      2.2   Allocating, Modifying, and Freeing Color Cells
+      2.3   Reading Colormap Entries
+      2.4   Parsing the Color Specification
+
+  3   Also of Interest
+
+
+
+----------------------------------------
+1  Color Cells, Pixels, and Color Planes
+----------------------------------------
+
+As mentioned  in the  overview, in  X colors  are specified  as a  pixel
+number which points to a particular color cell in a colormap.  Different
+windows can  have  their  own  colormaps, but  usually  they  share  the
+colormap of the root window of the screen (see * DefaultColormap.)
+
+It is very important to  realise that the pixel  number of a color  cell
+has no relation to the actual color stored in that cell. The association
+between pixel  numbers  and  RGB  (Red Green  Blue)  values  is  usually
+arbitrary (see REF * XVisuals for more information.)
+
+The number of bits per-pixel is the number of "planes" available. It  is
+sometimes useful to associate groups of  pixels by having a sequence  of
+bits set. For example, the first three bits of a pixel could be used  to
+indicate the "color" while the forth is used to indicate the "group"  to
+give the following:
+
+        Pixel   Group   Color
+        ----    -----   -----
+        2:0000  0       0
+        2:0001  0       1
+        2:0010  0       2
+        2:0011  0       3
+        ...     ...     ...
+        2:1000  1       0
+        2:1001  1       1
+        2:1010  1       2
+        2:1011  1       3
+        ...     ...     ...
+
+If the second group of colors corresponded to "highlighted" versions  of
+the first group, you  could "highlight" a  pixel merely by  manipulating
+the forth  bit. You  often mask  bits in  this way  using integer  plane
+masks. This kind of manipulation of  the colormap is only possible  when
+the visual of the display being  used has sufficient planes, and  allows
+the RGB values of color cells to be changed (see REF * XVisuals.)
+
+
+
+
+------------------
+2  LIB XColorcells
+------------------
+
+To load LIB * XColorcells do:
+
+        uses xlib;
+        uses XColorcells;
+
+The procedures  and  constants  supplied  by  this  library  are  direct
+equivalents of the Xlib  C functions and  constants. For information  on
+the C functions see sections  5.1.2 'Allocating, Modifying, and  Freeing
+Color Cells', 5.1.2 'Reading Entries  in a Colormap', and 10.4  'Parsing
+the Color Specifications' in:
+
+                      Xlib - C Language X Interface
+                        MIT X Consortium Standard
+                         X Version 11, Release 4
+
+        Copyright (C) 1985, 1986, 1987, 1988, 1989 Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+
+2.1  XColor flags constants
+---------------------------
+The following constants are defined by LIB * XColorcells.
+
+
+DoRed   -> (1 << 0)                                     [constant macro]
+DoGreen -> (1 << 1)                                     [constant macro]
+DoBlue  -> (1 << 2)                                     [constant macro]
+        These flags are used in  the * XColor structures flags field  to
+        indicate which of the red, green,  and blue fields is used.  See
+        * XColor for details.
+
+
+
+2.2  Allocating, Modifying, and Freeing Color Cells
+---------------------------------------------------
+Color  cells  can  either  be  allocated  as  read-only  entries  with a
+specified color  that cannot  be changed,  or read/write  where the  RGB
+values of the cell  can be changed. Any  read/write cells do not  have a
+defined color until they are set with * XStoreColor or * XStoreColors.
+
+NOTE: while it is possible to alter a read/write color cell allocated by
+another application, this is considered to be "antisocial" X programming
+behaviour.
+
+Read-only color  cells can  be more  space efficient  because  different
+clients requesting the same color will be allocated the same color cell.
+
+X has a  color database  which allows colors  to be  specified by  name.
+Using color  names makes  it  more likely  that different  clients  will
+request the same colors,  and therefore make more  efficient use of  the
+colormap. See HELP * XCOLOURS for information on possible color names.
+
+See the  sections on  Standard  Colormaps in  REF * XColormaps  another
+mechanism to increase efficent use of color cells and colormaps.
+
+
+XAllocColor(displayptr, colormap, colorptr) -> status        [procedure]
+        XAllocColor allocates  a  single  read-only color  cell  in  the
+        colormap referred to by the XID colormap of the display referred
+        to by displayptr.
+
+        colorptr should  be an  * XColor structure  which specifies  the
+        color that is wanted.  The actual color  allocated will be  the
+        closest one  to  the  one  specified in  colorptr  that  can  be
+        supported by the hardware currently being used. The actual color
+        allocated will be stored in colorptr after the procedure exits.
+
+        status will  be 0  if the  attempt to  allocate the  color  cell
+        failed, non-zero otherwise.
+
+
+XAllocNamedColor(displayptr, colormap, string,               [procedure]
+                screen_colorptr_ret, exact_colorptr_ret) -> status
+        XAllocNamedColor allocates a single read-only color cell in  the
+        colormap referred to by the XID colormap of the display referred
+        to by displayptr.
+
+        string should be  the name  of the  color to  be allocated.  See
+        HELP * XCOLOURS for possible color names.
+
+        Both  screen_colorptr_ret  and   exact_colorptr_ret  should   be
+        * XColor structures. The  value of the  color cell allocated  is
+        returned in  screen_colorptr_ret. The  exact definition  of  the
+        color named  string (from  the color  database) is  returned  in
+        exact_colorptr_ret.
+
+        status will  be 0  if the  attempt to  allocate the  color  cell
+        failed, non-zero otherwise.
+
+        XAllocNamedColor  can   give  a   "BadColor"  X   error  if   an
+        inappropriate argument is supplied.
+
+
+XLookupColor(displayptr, colormap, string,                   [procedure]
+                exact_colorptr_ret, screen_colorptr_ret) -> status
+        Applications often  need to  know what  the exact  value of  the
+        color named 'red'  in the color  database may be  on display  to
+        provide  a  good  user  interface.  XLookupColor  performs  like
+        * XAllocNamedColor but does not allocate a color cell. This  can
+        be used to query named colors in the color database. For details
+        of  the   arguments   see   * XAllocNamedColor.   Compare   with
+        * XParseColor.
+
+
+XAllocColorCells(displayptr, colormap, contig,               [procedure]
+                plane_mask_ret, nplanes, pixels_ret, npixels) -> status
+        XAllocColorCells is the recommended way of allocating color cell
+        and color  plane  combinations for  * PseudoColor  visuals  It's
+        arguments are:
+
+            displayptr
+                The display to be used.
+
+            colormap
+                The XID of the colormap to be used.
+
+            contig
+                A boolean  value which,  if true  indicates whether  any
+                allocated planes should  be contiguous. For  * GrayScale
+                and * PseudoColor visuals this implies the  inclusive-OR
+                of all plane masks will produce a single contiguous  set
+                of bits set to 1.  For * DirectColor visuals there  will
+                be three  sets  of contiguous  bits,  one for  each  RGB
+                sub-field.
+
+            plane_mask_ret
+                An external pointer class object which will point to  an
+                array of nplanes plane-masks after the procedure exits.
+
+            nplanes
+                An integer which specifies the number of plane-masks  to
+                be returned via plane_mask_ret.  nplanes should be  zero
+                or greater.
+
+            pixels_ret
+                An external pointer class object which will point to  an
+                array of npixels pixel values after the procedure exits.
+
+            npixels
+                An integer which  specifies the number  of pixels to  be
+                returned via pixels_ret. npixels should be greater  than
+                zero.
+
+        No plane-mask returned in plane_mask_ret will have any bits  set
+        in common with any other plane-mask, or any of the pixel  values
+        returned in pixels_ret. This enables a total of
+
+            npixels * (2 ** nplanes)
+
+        color cells to be accessed by inclusive ORing pixel values  from
+        pixels_ret with zero  or more  plane-masks from  plane_mask_ret.
+        All  these   color  cells   are  allocated   by  the   call   to
+        XAllocColorCells.
+
+        The  actual  RGB  values  of   the  color  cells  allocated   by
+        XAllocColorCells is undefined.
+
+        For  * GrayScale   or  * PseudoColor   visuals  each   mask   in
+        plane_mask_ret  has  exactly  one  bit  set.  For  * DirectColor
+        visuals, each mask has three bits set.
+
+        status will be  0 if  the attempt  to allocate  the color  cells
+        failed, non-zero otherwise.
+
+        XAllocColorCells can generate "BadColor" and "BadValue" X errors
+        if given incorrect arguments.
+
+        Compare with * XAllocColorPlanes.
+
+
+XAllocColorPlanes(displayptr, colormap, contig, pixels_ret,  [procedure]
+                ncolors, nreds, ngreens, nblues, rmask_ret, gmask_ret,
+                bmask_ret) -> status
+        XAllocColorPlanes is  the recommended  way of  allocating  color
+        cell combinations for * DirectColor visuals. It's arguments are:
+
+            displayptr
+                The display to be used.
+
+            colormap
+                The XID of the colormap to be used.
+
+            contig
+                If this is true then the bit-masks rmask_ret, gmask_ret,
+                and bmask_ret will have contiguous  sets of bits set  to
+                1.
+
+            pixels_ret
+                An external pointer class object which will point to  an
+                array of ncolors pixel values after the procedure exits.
+
+            ncolors
+                An positive  integer  specifying  the  number  of  pixel
+                numbers returned in pixels_ret.
+
+            nreds, ngreens, nblues
+                The (non-negative) number of red, green, and blue planes
+                to be allocated.
+
+            rmask_ret, gmask_ret, bmask_ret
+                These should be external pointer class objects to ulongs
+                as produced, for example, by:
+
+                    initexptr_mem(SIZEOFTYPE(:int))
+
+                After the procedure  exits these will  point to the  bit
+                masks for the red, green, and blue planes. Their  values
+                can be recovered using:
+
+                    exacc :ulong mask_ret -> mask_val
+
+                For * DirectColor visuals the bits set within each  mask
+                will correspond with the corresponding RGB sub-field.
+
+        No mask will have any bits set in common with any other mask, or
+        any of the pixel values  returned in pixels_ret. This  enables a
+        total of
+
+            ncolors * (2 ** (nreds + ngreens + nblues))
+
+        color cells to be accessed by inclusive ORing pixel values  from
+        pixels_ret with zero or  more masks. All  these color cells  are
+        allocated by  the call  to  XAllocColorPlanes. However,  in  the
+        colormap there will only be "ncolors * (2 ** nreds)" independent
+        red  entries,  "ncolors * (2 **   ngreens)"  independent   green
+        entries, and "ncolors * (2 ** nblues)" independent blue entries.
+        This is true for all visual types.
+
+        When the colormap entry of a pixel value is changed (using,  for
+        example, * XStoreColors,  * XStoreColor, or  * XStoreNamedColor)
+        the  pixel  is  decomposed  according  to  the  masks  and   the
+        corresponding independent entries are updated.
+
+        status will be  0 if  the attempt  to allocate  the color  cells
+        failed, non-zero otherwise.
+
+        XAllocColorPlanes can produce "BadValue" and "BadColor" X errors
+        if inappropriate arguments are given.
+
+
+XStoreColors(displayptr, colormap, colorptr, ncolors)        [procedure]
+        XStoreColors changes the RGB values  of the pixels specified  in
+        the array of * XColor structures pointed to by colorptr. ncolors
+        should be an integer indicating the number of XColor  structures
+        colorptr points to. colormap  is the XID of  the colormap to  be
+        updated on the display referred to by displayptr.
+
+        The color  components to  be changed  are specified  by  setting
+        * DoRed, * DoGreen,  and  * DoBlue in  the  flags field  of  the
+        XColor structures pointed  to by  colorptr. If  the colormap  is
+        installed any changes are visible immediately.
+
+        An attempt is made to change all the color cells referred to  by
+        colorptr, even if some of them cause errors.
+
+        A "BadValue" X  error if one  of the specified  pixels is  not a
+        valid index into the specified  colormap. A "BadAccess" X  error
+        occurs if one of the  specified pixels refers to an  unallocated
+        or read-only color cell. If more than one pixel is in error,  it
+        is arbitrary  which  one gets  reported.  A "BadColor"  X  error
+        occurs if an invalid color is specified.
+
+
+XStoreColor(displayptr, colormap, colorptr)                  [procedure]
+        XStoreColor changes the RGB values of the pixel specified by the
+        * XColor structure  pointed  to  by  colorptr  in  the  colormap
+        colormap of the  display referred to  by displayptr.  Equivalent
+        of:
+
+            XStoreColors(%1%);
+
+
+XStoreNamedColor(displayptr, colormap, string, pixel, flags) [procedure]
+        XStoreNamedColor changes  the RGB  values  of the  pixel  number
+        pixel to that of the color named string (see HELP * XCOLOURS for
+        possible color names.) colormap is the XID of the colormap to be
+        used. displayptr specifies the display.
+
+        flags is an integer bit-mask used  to specify which of the  red,
+        green, and blue components of the color cell are to be  changed.
+        It should be an inclusive-OR of some of * DoRed, * DoGreen,  and
+        * DoBlue.
+
+        XStoreNamedColor   can    generate   "BadAccess",    "BadColor",
+        "BadName",  and  "BadValue"  X  errors  if  given  inappropriate
+        arguments.
+
+
+XFreeColors(displayptr, colormap, pixelsptr, npixels, planes)[procedure]
+        XFreeColors frees the color cells pointed to by pixelsptr  which
+        should point  to npixels  ulong numbers  representing the  pixel
+        numbers to be freed. Such a structure could be created with:
+
+            vars pixelsptr = initexptr_mem(SIZEOFTYPE(:ulong) * npixels)
+
+        and accessed with
+
+            pixel_N -> exacc :ulong[] pixelsptr[N];
+
+        colormap is the XID of the colormap to be used while  displayptr
+        specifies the display.
+
+        planes should be an integer bit-mask specifying any planes  that
+        should be freed. planes should not  have any bits set in  common
+        with the pixels pointed to by pixelsptr.
+
+        The  actual   color  cells   to  be   freed  are   produced   by
+        inclusive-ORing together subsets  of planes  with the  specified
+        pixel numbers.
+
+        All specified pixels  are freed, even  if one (or  more) of  the
+        pixels produces an error.
+
+        Freeing a single  pixel allocated  with * XAllocColorPlanes  may
+        not actually allow  it to  be reused  until all  of its  related
+        pixels are also freed.
+
+        A read-only colormap entry is not  freed for reuse until it  has
+        freed by every  client which  allocated it. If  a single  client
+        allocates a  read-only colormap  entry multiple  times, then  it
+        must be freed multiple times before it can be reused.
+
+        XFreeColors can generate "BadAccess", "BadColor", and "BadValue"
+        X errors if inappropriate arguments are supplied.
+
+
+
+
+2.3  Reading Colormap Entries
+-----------------------------
+The following  procedures  allow  the  RGB value  of  color  cells  in a
+colormap to be queried.
+
+
+XQueryColors(displayptr, colormap, colorptr, ncolors)        [procedure]
+        XQueryColors returns the RGB values of all the pixels  specified
+        by the  array of  * XColor structures  pointed to  by  colorptr.
+        ncolors should be the number of XColor structures in this array.
+
+        The RGB  values  of  the  specified pixels  are  stored  in  the
+        appropriate fields of the  XColor structures when the  procedure
+        exits.  The  values  returned  for  an  unallocated  entry   are
+        undefined. The  * DoRed, * DoGreen  and  * DoBlue bits  of  each
+        XColors flags field are also set.
+
+        colormap is the XID of the colormap to be used, while displayptr
+        specifies the display.
+
+        XQueryColors can generate "BadColor" and "BadValue" X errors  if
+        inappropriate arguments are given.
+
+
+XQueryColor(displayptr, colormap, colorptr)                  [procedure]
+        XQueryColor returns the RGB value of the pixel specified by  the
+        * XColor structure pointed to by colorptr. Equivalent to:
+
+            XQueryColors(%1%)
+
+
+
+2.4  Parsing the Color Specification
+------------------------------------
+XParseColor(displayptr, colormap, string, colorptr_ret)      [procedure]
+                -> status
+        This procedure is provided to make a standard user interface  to
+        color simple. It  takes a  string specification of  a color  and
+        returns the corresponding  red, green,  and blue  values in  the
+        * XColor structure pointed to  by colorptr_ret. colormap is  the
+        XID of the colormap  to be used  while displayptr specifies  the
+        display.
+
+        The  color  can  be  specified  either  as  a  color  name  (see
+        HELP * XCOLOURS), or as an initial hash sign character following
+        by a numeric specification, in one of the following formats:
+
+                String          Num. of bits
+                ------          ------------
+                #RGB            4
+                #RRGGBB         8
+                #RRRGGGBBB      12
+                #RRRRGGGGBBBB   16
+
+        where R, G, and B represent single hexadecimal digits (upper  or
+        lower case). When fewer  than 16 bits  each are specified,  they
+        represent the most significant bits  of the value. For  example,
+        #3A7 is the same as #3000A0007000.
+
+        This routine will fail if the  initial character is a hash  sign
+        and the string otherwise fails to fit any of the above  formats,
+        or if the  initial character is  not a hash  sign and the  named
+        color does not exist in the server's database.
+
+        status will  be 0  if the  attempt to  parse the  color  failed,
+        non-zero otherwise.
+
+        XParseColor can generate a "BadColor" X error if given incorrect
+        arguments.
+
+        Compare with * XLookupColor
+
+
+
+
+-------------------
+3  Also of Interest
+-------------------
+
+The following functions may also be of interest:
+
+ #  * WhitePixel, and * BlackPixel
+ #  * DefaultColormap
+ #  * PlanesOfScreen
+ #  * CellsOfScreen
+ #  * MinCmapsOfScreen, and * MaxCmapsOfScreen
+
+See REF * XlibMacros for details.
+
+
+
+
+--- C.x/x/pop/ref/XColorcells
+--- Copyright University of Sussex 1993. All rights reserved.

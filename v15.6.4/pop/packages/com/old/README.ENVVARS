@@ -1,0 +1,157 @@
+
+FILES FOR SETTING ADDITIONAL LOCAL ENVIRNOMENT VARIABLES
+
+The files in this directory are described individually below.
+Their sequence of use is summarised at the end.
+
+
+The files without .sh are for users of csh and tcsh
+The files with .sh are for users of sh, bash, ksh, etc.
+
+
+The files in this directory (poplog, poplog.sh, popenv, popenv.sh)
+should be moved or copied to $poplocal/local/com, as that is where
+the system startup files look for local modifications.
+
+
+The two files in the bin subdirectory should go into a directory
+that is on the $PATH of users if they are to be run as scripts to
+launch poplog, e.g.
+    poplog pop11
+    poplog xved myfile.lsp
+
+If they are only going to be sourced, e.g.
+
+    source  ..../poplog
+        for csh/tcsh users
+
+    .  ..../poplog.sh
+        for sh/bash/ksh users
+
+then they can go anywhere, as long as users (or their startup
+scripts) know where they are.
+
+=======================================================================
+LIST OF FILES IN THIS PACKAGE
+
+    README.ENVVARS
+        This file
+
+    Files to go in $poplocal/local/com
+
+        Files "sourced" by $popcom/poplog{.sh}
+            poplog
+            poplog.sh
+
+        Files "sourced" by $poplocal/local/com/poplog{.sh}
+            popenv
+            popenv.sh
+            ## See also $usepop/pop/pop/popenv{.sh}
+
+        Additional, inessential files:
+
+        A file that can be "sourced" to unset poplog variables.
+        Not guaranteed to unset all of them, and or all changes to
+        $PATH
+
+            poplogout
+                For users of csh/tcsh (use "source)"
+
+            poplogout.sh
+                For users of sh/bash/ksh (use ".")
+
+
+    Files to go in a directory where they can be executed or sourced by
+    users, before anything else.
+
+        bin/poplog
+           for csh/tcsh users
+
+
+        bin/poplog.sh
+            for sh/bash/ksh, etc. users
+
+
+    There are two modes of use of these last two files.
+
+    A.  "source" them e.g. at login time, or when starting a shell in an
+        xterm window. The environment variables will then last through
+        the life of the login session, or the shell process, and will be
+        inherited by sub-processes
+
+
+        for csh/tcsh users
+            source  bin/poplog
+
+        for sh/bash/ksh users
+            .  bin/poplog.sh
+
+
+
+    B.  "Run" them as commands with one or more arguments specifying
+        which poplog system to run. The same version will work for
+        all users, as a subshell need not be the same as its supershell.
+        So examples are
+
+            bin/poplog pop11
+            bin/poplog prolog
+            bin/poplog pop11 +clisp
+            bin/poplog pop11 +xvedlisp myfile.lsp
+            bin/poplog pop11 +eliza
+            bin/poplog ved myfile
+
+        The exact set of available commands will depend on the saved
+        images in $popsavelib and in $poplocalbin or the user's directory.
+
+
+
+NOTE:
+    For the xvedlisp command defined here (see popenv, and popenv.sh) to
+    work a link must be set in an executable directory from
+        $usepop/pop/pop/basepop11
+    to a file called xvedlisp. Likewise xvedpro, for prolog users.
+
+
+NOTE on options A and B
+
+    Whichever of these is invoked, a collection of environment variables
+    well be set. This is done by the script first sourceing files in
+        $usepop/pop/com (i.e. $popcom)
+    namely
+        $popcom/poplog      for csh/tcsh users
+        $popcom/poplog.sh   for others
+
+    This file (whichever it is) looks for and sources
+        popenv or popenv.sh
+            in the same directory,
+        popenv or popenv.sh
+            in the $popsys directory ($usepop/pop/pop, where the
+            executabls are)
+        and then it looks for a local version in
+            $poplocal/local/com/poplog (or poplog.sh)
+            Those are the files provided here.
+            They also look for popenv or popenv.sh
+            in the same directory.
+
+
+    Summary (for csh/csh users):
+
+        $popcom/poplog
+            $popcom/popenv
+            $popsys/popenv
+
+            $poplocal/local/com/poplog
+                $poplocal/local/com/popenv
+
+
+This is more complex than absolutely necessary, but it has been set up
+so as to allow the standard saved images to coexist with the locally
+extended versions of the same images, with the startup scripts by
+default going to the local versions. It also means that the main
+poplog directory tree can be write protected while the local directory
+tree is not.
+
+I hope that is useful.
+
+Aaron
+24 Aug 2001

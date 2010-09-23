@@ -1,0 +1,1381 @@
+/*
+TEACH RC_CONTROL_PANEL                            Aaron Sloman June 1997
+                                                     Updated 10 Aug 2002
+
+Revision notes are now added at the end.
+    Additional changes in HELP rclib_news
+
+
+
+
+LIB * RC_CONTROL_PANEL
+
+Provides a tool for creating control panels involving vertically layered
+alternating text fields and button fields, with most of the formatting
+done automatically, and mechanisms provided for overriding defaults
+easily. It is possible to leave parts of the panel clear for drawing
+using rc_graphic facilities, or other rclib facilities. It is also
+possible to use rc_widen_window_by and rc_lengthen_window_by to widen or
+lengthen the window to add graphical objects. it is even possible to
+have movable graphical objects as described in TEACH * RC_LINEPIC that
+move over the control panel, either under mouse control or under program
+control.
+
+This file is compileable. Compile the whole file (ENTER l1), before
+attempting any of the commands demonstrated.
+
+Then, for a quick demonstration of what rc_control_panel can do, try
+this:
+
+    vars panel = rc_control_panel(600, 10, field_specs, 'Demo Panel');
+
+For more detailed information follow instructions below. This will
+explain how to alter the format of the panel created.
+
+NB
+THIS FILE CONTAINS ONE LONG AND COMPLEX EXAMPLE.
+SHORTER EXAMPLES MAY BE FOUND IN THESE FILES:
+
+    TEACH * RCLIB_DEMO.P/rc_control_panel
+    HELP  * RC_CONTROL_PANEL
+    TEACH * RC_CONSTRAINED_PANEL
+    TEACH * POPCONTROL
+    LIB   * RC_POLYPANEL
+
+CONTENTS
+
+ -- Running the demonstration
+ -- Building the panel
+ -- Redrawing the panel if it gets corrupted
+ -- Drawing inside the panel
+ -- Adding a mobile draggable object to the panel
+ -- Constrained movers and sliders
+ -- The structure of a panel
+ -- Killing the panel
+ -- How the panel is built up
+ -- First we start with commands to get the libraries compiled.
+ -- Now the panel defaults specification
+ -- -- The first text field
+ -- -- Two fields specifying map types
+ -- -- Building a featurespec for the someof buttons
+ -- -- The plans menu
+ -- -- Utilities for the plan selection and plan drawing buttons
+ -- -- Action buttons for managing the rc_graphic scratchpad
+ -- -- Radio buttons for selecting a colour
+ -- A slider field with two sliders, one with a reactor
+ -- An action field with some counters, toggles, etc.
+ -- A dials field with three identifiers, one with a reactor
+ -- Combine all the field specifications to form the field_specs list
+ -- Tracing the field construction
+ -- Some exercises
+ -- See also
+ -- Revision notes
+ -- . August 2000
+
+-- Running the demonstration ------------------------------------------
+
+This is a compileable file. I.e. do
+    ENTER l1
+
+to compile the whole thing. This creates the list field_specs,
+and other things. The first time it may be a bit slow as it may have to
+compile objectclass and much of the RCLIB library.
+
+The commands below create a list called field_specs, whose length you
+can print out
+    length(field_specs) =>
+
+also the list itself, which is quite long, and built up piecemeal, in
+what follows:
+
+    field_specs ==>
+The list starts with a few vectors which specify the default background,
+foreground and font of the panel window:
+
+vars x;
+    for x from 1 to 3 do field_specs(x) ==> endfor;
+
+After the vectors specifying properties of the panel, subsequent
+items are lists specifying individual fields of the panel. These include
+TEXT fields ACTION button fields, RADIO button fields, etc.
+
+It will be easier to see which components are strings if you do
+
+    true -> pop_pr_quotes;
+
+before giving the following commands:
+
+You can examine the first text field specification:
+
+    ;;; Make print instructions show strings;
+    true -> pop_pr_quotes;
+    field_specs(4) ==>
+
+This starts with some vectors specifying properties of the field, then,
+after a colon there are two strings.
+
+Examine other fields in a similar way, e.g.
+    field_specs(6) ==>
+    field_specs(10) ==>
+
+Note that between the vectors specifying the properties of a field and
+the other items specifying the contents of a field there is always a
+colon.
+
+
+-- Building the panel -------------------------------------------------
+
+Having looked at the list field_specs, you can now use the list to
+create the demonstration panel, based on that list. rc_control_panel
+requires two numbers specifying the screen location for the top left
+corner of the panel, the list of field specifications, and a title for
+the panel. Run this command:
+
+    vars panel =
+        rc_control_panel("right", "top", field_specs, 'Demo Panel');
+
+It should create a multi-field control panel, with alternating text
+fields and button fields, as defined by the list field_specs created
+below. There is a portion left blank at the top for drawing in.
+
+The instructions for building up the list field_specs, which gives a
+declarative specification of the contents of the panel, are explained in
+detail below. Field specs is quite a complex list, with portions
+defining differe panel fields, e.g. text fields, graphic fields,
+slider fields, etc.
+
+For now you can try clicking on the various buttons to see what happens.
+
+Details are explained below. The KILL button destroys the panel,
+but you can rebuild it using the above command, possibly after editing
+some of the field specifications below, and recompiling this file.
+
+You can re-size the panel using the mouse.
+
+Clicking on the REDRAW button will invoke the rc_redraw_this_panel
+procedure, which redraws the panel.
+
+The colours, fonts and layouts shown are not intended to be
+aesthetically pleasing. They merely result from the use of examples
+shown below to illustrate what is possible.
+
+If you move the sliders (using mouse button 1 on the slider's "blob"),
+or by clicking on the slider bars, try examining their values:
+
+slider1 =>
+slider2 =>
+
+You can also alter the sliders by typing new values into the number
+panel on the right of the slider. When the new number is complete click
+with button 1 or press the RETURN key to "consolidate" the number. The
+slider will move to the corresponding location and the associated
+variable will have a new value.
+
+One of the sliders has an associated reactor procedure that prints
+out information about new values whenever you change the slider value.
+
+You can also change the dials by using the mouse to move the dial's
+pointer, thereby changing the associated value. The values can be
+found frome these variables
+
+dial1 =>
+dial2 =>
+dial3 =>
+
+One of the dials also has been given a reactor procedure.
+
+The button labelled "Counter" is associated with a variable called
+"num_val" whose value you can check after clicking on the button with
+mouse button 1 or 3 to decrement or increment the value (by a minimum
+amount specified in the button field):
+
+num_val =>
+
+The button labelled "Switch flag" is associated with a variable called
+"test_flag" whose value will switch between true and false when you
+click on it with mouse button 1:
+
+test_flag =>
+
+If you click on the SCRATCHPAD button it will create a scratchpad
+graphic window if there is not one already. If there is one it will make
+it the current window, so that drawing commands will work on it, such as
+this.
+
+    repeat 10 times
+        rc_draw_blob(
+            random(500) - 250,
+            random(500) - 250,
+            random(50),
+            oneof(['red' 'blue' 'green' 'orange' 'black']))
+    endrepeat;
+
+
+-- Redrawing the panel if it gets corrupted ---------------------------
+
+You can also draw on the panel itself.
+    SETWINDOW panel;
+
+That does the equivalent of this:
+    panel -> rc_current_window_object;
+
+Now give some drawing commands to mess up the panel.
+
+    repeat 10 times
+        rc_draw_blob(
+            random(450),
+            random(600),
+            random(30),
+            oneof(['red' 'blue' 'green' 'orange' 'black']))
+    endrepeat;
+
+This will clear the panel (if you have not killed it):
+
+    rc_start();
+
+Now redraw it
+    rc_redraw_panel(panel);
+
+That may redraw only the panel components.
+Try
+    rc_redraw_window_object(panel);
+
+That command does roughly what the REDRAW button does.
+
+Or hide it and then redraw and then show it. Some window managers may do
+strange things when you show the panel after hiding it.
+    rc_hide_window(panel);
+    SETWINDOW panel;
+    rc_redraw_panel(panel);
+    rc_show_window(panel);
+
+The ability to redraw makes use of the fact that the panel contains
+information about the text fields and button fields in it, and where
+each of them is located, and what fonts, colours and sizes they have.
+
+Notice that the rc_redraw_panel command will not re-draw extraneous
+pictures added, such as those drawn in the next section.
+
+-- Drawing inside the panel -------------------------------------------
+
+Note that you can use rc_graphic commands to draw on this, e.g. in
+the top gap, remembering that by default for a control panel the
+rc_graphic origin is top left, x increases to the right y downwards, and
+the scales are both 1.
+
+    SETWINDOW panel;
+    vars x;
+    for x from 30 by 30 to 400 do
+        rc_draw_blob(x, 10, 10, 'blue');
+        rc_draw_blob(x, 70, 10, 'green');
+    endfor;
+
+    vars x, radius = 4;
+    for x from 20 by 30 to 400 do
+        rc_draw_blob(x, 40, radius, 'red');
+        radius + 2 -> radius;
+    endfor;
+
+You can also draw at the bottom, using the following command to discover
+the width and height of the panel (ignoring the location coordinates
+of the top left corner):
+
+    vars
+        width = rc_panel_width(panel),
+        height = rc_panel_height(panel);
+
+    ;;; increase the height by 50
+    false, false, false, height+50 -> rc_window_location(panel);
+
+    ;;; do some drawing on the new bit
+    rc_draw_ob(width div 2 - 75, height + 5, 150, 40, 5, 5);
+    rc_draw_blob(width div 2, height + 25, 20, 'black');
+
+Clicking on the REDRAW button, or giving the command
+
+    rc_redraw_window_object(panel);
+
+Will redraw the panel getting rid of all the extra pictures
+drawn. However:
+
+    rc_redraw_panel(panel);
+
+Will merely redraw the non-blank panel fields.
+
+-- Adding a mobile draggable object to the panel ----------------------
+
+The following sort of example is illustrated in more detail in
+TEACH * RC_LINEPIC
+
+define :class draggable;
+    ;;; this class inherits from three different "mixins"
+    is rc_keysensitive rc_selectable rc_linepic_movable;
+    slot pic_name;
+    slot rc_picx == 20;
+    slot rc_picy == 20;
+    slot rc_pic_lines ==
+        [WIDTH 3 COLOUR 'black'
+            [SQUARE {-15 -15 30}]
+            [rc_draw_blob {0 0 10 'red'}]
+        ];
+enddefine;
+
+vars p1 = newdraggable();
+
+'p1' -> pic_name(p1);
+
+define :method print_instance(obj:draggable);
+    printf('<draggable %P %P %P>', [%pic_name(obj), rc_coords(obj) %])
+enddefine;
+
+p1 =>
+;;; Draw the picture (it will appear at the top left corner)
+SETWINDOW panel;
+rc_draw_linepic(p1);
+
+;;; Note that movable pictures will not necessarily have the colours
+;;; specified except when drawn on plain white regions.
+;;; (See HELP * RCLIB_PROBLEMS for more on this.)
+
+;;; Move the picture object. Try this two or three times
+repeat 30 times rc_move_by(p1, 3, 5, true); syssleep(5); endrepeat;
+
+;;; Or this to move it back
+repeat 30 times rc_move_by(p1, -3, -5, true); syssleep(5); endrepeat;
+
+;;; Make the picture object draggable.
+rc_add_pic_to_window(p1, panel, true);
+
+;;; Now it should be possible to drag the picture around using the mouse
+
+Warning1: if there are coloured regions in the panel then the movable
+object will change its colour as it moves over the, because of the
+technique used for drawing movable objects. See HELP rclib_problems
+
+Warning2: if the draggable object is left on a mouse button and then the
+mouse-button is pressed the portion of the picture occupied by the
+draggable object may be corrupted.
+
+rc_start();
+rc_redraw_window_object(panel);
+
+
+-- Constrained movers and sliders -------------------------------------
+
+Note that although the motion of the picture object p1 is unconstrained,
+it is possible to have a constrained mover acting as a slider control.
+For examples see TEACH * RC_LINEPIC/Constrained
+
+To clear a portion of the background for a constrained mover, use
+the following procedure defined in LIB * RC_DRAWLINE_ABSOLUTE.
+
+    rc_drawline_absolute(x1, y1, x2, y2, colour, width)
+
+See HELP * RCLIB/rc_drawline_absolute
+
+Note that its coordinates are always absolute pixel units, with origin
+in top left and y increasing downwards.
+
+We can add a slider with a "square blob" at the bottom of the picture,
+as follows. First make available the modified slider library:
+
+    uses rc_square_slider
+
+Then extend the panel by 50, using a dark grey background:
+
+    rc_lengthen_window_by(panel, 50, 'grey5');
+    vars (, , width, height) = rc_screen_coords(panel);
+
+(If your screen is not large enough you may not see this
+extended portion.)
+
+Make a white rectangle in the new portion, leaving a dark surround:
+
+    rc_drawline_absolute(
+        5, height -25, width - 5, height -25, 'white', 40);
+
+;;; Now draw the slider using this format
+
+;;; rc_square_slider(x1, y1, x2, y2, range, radius, linecol, slidercol,
+;;;             strings, spec)
+;;;         -> slider;
+;;; x1,y1 and x2,y2 define the coordinates of the slider's ends. It does
+;;; not have to be horizontal, but we give an example where y1 = y2.
+;;; Where range can be either a number or a pair or a vector, giving
+;;; min max and default values
+
+
+vars slider =
+    rc_square_slider(
+      30, height-30, 300, height-30, {-500 500 0}, 7,
+       'red', 'black',
+          [[{-10 20 'MIN(-500)'}]
+            [{-60 20 'MAX(500)'}]],
+            { ^rc_slider_convert_out ^round});
+
+;;; try moving the blob on the slider and printing out the value
+    rc_slider_value(slider) =>
+    slider =>
+
+    3 -> rc_slider_value(slider);
+    -333 -> rc_slider_value(slider);
+    333 -> rc_slider_value(slider);
+    33.333 -> rc_slider_value(slider);
+    rc_slider_value(slider) =>
+
+;;; The value can be updated by program, and the slider will move
+
+    vars v;
+    for v from -500 by 5 to 500 do
+        v -> rc_slider_value(slider);
+        syssleep(1);
+    endfor;
+
+;;; Now try moving the slider blob with the mouse
+
+;;; Note: as explained in TEACH * RC_LINEPIC, once you have selected the
+;;; slider blob with mouse button 1, you can hold the shift key down and
+;;; click anywhere on the slider to make it jump to that location.
+;;; If you select another picture object that no longer works till you
+;;; again select the slider blob.
+
+A similar technique could be used to make a vertical slider on the
+right.
+
+See LIB * RC_SLIDER, HELP * RC_SLIDER
+
+
+-- The structure of a panel -------------------------------------------
+
+rc_control_panel is a subclass of rc_window_object, so each panel is
+also an instance of that class, and by default prints in the window
+object format, telling you how many live buttons there are:
+
+    panel =>
+
+However you can examine the fields in the panel, as they are stored in a
+list in the rc_panel fields slot of the panel.
+
+The rc_print_fields procedure will show all the field records in the
+panel, i.e. the text fields and various kinds of button fields, with
+each field preceded by "**". It takes two arguments, a panel and an
+integer. The second argument specifies the level of printing.
+
+Using level 1 gives a very rough overview
+    rc_print_fields(panel, 1);
+
+Using level 2 gives a bit more detail, including showing the labels
+of fields, where they have been specified.
+
+    rc_print_fields(panel, 2);
+
+The next level is probably as deep as you'll want to go:
+    rc_print_fields(panel, 3);
+
+To examine the specifications for a particular field you can select it
+thus, e.g. to look at the field contents of fields 3 amd 7:
+
+    rc_field_specs(rc_panel_fields(panel)(3)) ==>
+    rc_field_specs(rc_panel_fields(panel)(7)) ==>
+
+You can look at the actual contents created from the specifications
+using these commands:
+
+    rc_field_contents(rc_panel_fields(panel)(3)) ==>
+    rc_field_contents(rc_panel_fields(panel)(7)) ==>
+
+-- Killing the panel --------------------------------------------------
+
+The panel includes a button marked "KILL" at the bottom which can be
+used to kill the panel. After killing it you can always rebuild it by
+recompiling this file and repeating this command:
+
+    vars panel = rc_control_panel("right", 10, field_specs, 'Demo Panel');
+
+These commands may be used to try killing the panel if the KILL button
+does not work, or if something goes wrong before the panel has been
+fully constructed.
+
+    rc_kill_window_object(panel);
+    rc_kill_window_object(rc_current_window_object);
+    sysgarbage();
+
+
+-- How the panel is built up ------------------------------------------
+
+The panel is built up of several fields. At present the following field
+types are supported:
+
+    TEXT,
+        A text field displaying strings of text
+
+    SLIDERS,
+        A field containing one or more horizontal sliders
+
+    ACTIONS, SOMEOF, RADIO
+        Three sorts of button fields, for actions of many kinds,
+        for sets of options that can be turned on and off, and a
+        "radio buttons" field allowing at most one button to be "on"
+        at a time (e.g. the buttons with colour names at the bottom).
+
+    GRAPHIC
+        A field in which pictures can be drawn. For examples see
+        TEACH * RCLIB_DEMO.P/rc_control_panel
+        HELP * RC_CONTROL_PANEL/GRAPHIC
+        HELP * RC_CONTROL_PANEL/panel5
+
+    TEXTIN, NUMBERIN
+        These are fields into which you can type some text or a number.
+        Examples are in HELP * RC_CONTROL_PANEL
+
+Other types of fields may be added later. However the RC_GRAPHIC and
+RCLIB facilities allow many additional items to be added, including the
+movable and rotatable objects demonstrated in TEACH RC_LINEPIC and
+HELP RC_LINEPIC.
+
+Each field is specified by a list of information, starting with a word
+specifying the type of field, followed optionally by some property
+(resource) specifications, followed by a colon, followed by a list of
+contents specifiers for the field.
+
+The contents specifiers are strings in the case of TEXT fields and a
+button descriptors in the case of button fields. The permitted types of
+button descriptors depend on whether it is an ACTIONS field and SOMEOF
+field or a RADIO field. These cases are illustrated below, though more
+detailed examples are given in
+    HELP * RC_BUTTONS
+
+Other types of contents specifiers are illustrated below and defined in
+    HELP * RC_CONTROL_PANEL
+
+The rest of this file shows you how to build up the specifications of
+the fields, and how to combine the field specifications in one list.
+
+-- First we start with commands to get the libraries compiled.
+*/
+
+uses rclib
+uses rc_buttons
+uses rc_control_panel
+uses rc_scratchpad
+uses rc_message
+uses rc_slider
+
+/*
+-- Now the panel defaults specification -------------------------------
+*/
+
+vars panel_specs =
+    [
+        ;;; Default settings for the background and foreground of
+        ;;; the panel
+        {bg 'grey90'}
+
+        ;;; try other colours, e.g. 'grey75' 'pink', 'ivory'
+
+        ;;; These are not needed unless you leave blank spaces and
+        ;;; later print or draw directly into them, as above
+        {fg 'grey10'}
+        {font '10x20'}
+        ;;; specify that the window can be resized using the mouse
+        {resize true}
+        ;;; make sure that mouse movements do not trigger events in
+        ;;; the panel, except when dragging.
+        {events [dragonly]}
+    ];
+
+/*
+-- -- The first text field
+
+Note that the word "TEXT" is followed by some *optional* specifiers of
+field properties. In this case we include specification of a vertical
+gap of size 100, the font, and the margins of 5 pixels above and below
+the text in the background. The default dark grey background and light
+grey foreground for printing are used here. Note that a colon occurs
+at the end of the specifications. The following items are text strings
+in this case.
+
+*/
+
+vars panel_header =
+
+    [TEXT
+        ;;; Leave a big gap so that a drawing can be added
+        {gap 80}
+            ;;; Use a large font
+        {font '12x24'} {margin 4} :
+
+        ;;; Each string in a text field is presented on a
+        ;;; separate line.
+        'A DEMONSTRATION OF'
+        'rc_control_panel'
+    ];
+
+/*
+-- -- Two fields specifying map types
+
+This panel is derived from one that was prepared originally for a
+demonstration which included drawing maps of various kinds showing plans
+that had been found by a planner. The nex two fields are a TEXT field
+giving instructions, and a SOMEOF buttons field offering four types of
+maps that can be chosen in any combination.
+
+In this panel we want to specify four SOMEOF buttons which can be turned
+on or off individually. it is sometimes useful to have procedures that
+specify what to do when the button options are turned on or off. We
+demonstrate with two dummy procedures that merely print out what is
+happening, and later show how to install the procedures in the panel.
+
+(In this case they are redundant, since the selection and deselection
+are recorded internally by the buttons, and another procedure, defined
+later, will scan the button records making a list of the
+rc_informant_value values for the buttons that are turned on.)
+
+*/
+
+define selecting_someof(button);
+    ;;; Report selection of a someof button
+    [Selecting ^(rc_button_label(button)) ] =>
+enddefine;
+
+define deselecting_someof(button);
+    ;;; Report deselection of a someof button
+    [Deselecting ^(rc_button_label(button)) ] =>
+enddefine;
+
+/*
+-- -- Building a featurespec for the someof buttons
+
+In order to pass those procedures in to the SOMEOF buttons to be stored
+in their two relevant slots, i.e. rc_radio_select_action(button) and
+rc_radio_deselect_action(button) we can create a button featurespec
+(See HELP * FEATURESPEC) to be combined with the SOMEOF specification.
+
+At the same time we choose a different colour for the button borders,
+i.e. blue. (You can change this, or try removing it, to see the
+default.)
+*/
+
+;;; A featurespec to be used below. It associates button slot procedures
+;;; with desired non-default values.
+
+vars someof_button_spec =
+        {spec
+                {^rc_button_blobcolour 'blue'
+                ;;; Make buttons turn yellow when selected
+                ^rc_chosen_background 'yellow'
+        }};
+
+
+vars
+    ;;; A text field to precede the SOMEOF field
+    map_strings =
+      [TEXT
+        ;;; Give the field an internal label
+        {label instruct_maps}
+
+        ;;; Centre the strings (the default, so this is redundant)
+        {align centre}
+
+        ;;; Comment out the following to get defaults for
+        ;;; the foreground (text) and background
+        {fg 'blue'} {bg 'pink'}
+
+        ;;; text printed in the default font. Or try '10x20'
+        ;;; {font '10x20}
+
+        ;;; Margin above and below the text
+        {margin 2}
+
+        ;;; leave a gap of 2 after previous field, showing the panel
+        ;;; background
+        {gap 2} :
+
+        ;;; Now the strings
+        'Select types of display'
+        'in which plan should be shown'
+      ],
+
+
+    map_types =
+        ;;; The list of SOMEOF buttons
+      [SOMEOF
+        ;;; We want this field to have a label for future reference
+        {label maps}
+
+        ;;; leave small gaps between the buttons
+        {spacing 2}
+
+        ;;; insert the featurespec defined above
+        ^someof_button_spec
+        {height 16}
+        ;;; specify select and deselect actions
+        {select selecting_someof}
+        {deselect deselecting_someof}
+
+        {gap 2}     ;;; above the field
+
+        ;;; give it a coloured background different from
+        ;;; the default
+        ;;; {fieldbg 'pink'}
+
+        {margin 4}  ;;; above and below the buttons
+        {cols 2}
+        {align centre} :
+
+        ;;; Here we represent each map type as a list of two
+        ;;; elements, the string to be used on the button label,
+        ;;; and a word to be accessible if the button is turned
+        ;;; on. There are four map types. (If the map types were
+        ;;; data-structures rather than words, they could still be
+        ;;; inserted as the second elements of the button specifiers.)
+        ['TERRAIN MAP' terrain_map]
+        ['NOGO MAP' nogo_map]
+        ['VISIBLE MAP' visible_map]
+        ['ROADS' roads_map]
+      ] ;
+
+/*
+-- -- The plans menu
+
+The next two fields are concerned with two ACTION buttons, preceded by
+some text. The first of the action buttons will, if selected, use
+rc_popup-query to create a menu panel, showing a list of possible plans,
+in this case represented only as strings.
+
+*/
+
+vars
+  plan_action_strings =
+    [TEXT
+        {gap 2} {margin 5}
+        {align centre}  :
+        'Choose plan, then map types'
+        'then draw'
+    ],
+
+  plan_action_buttons =
+
+    [ACTIONS
+        {gap 2}
+        {margin 4}  ;;; above and below buttons
+        {cols 0}    ;;; I.e. use horizontal row
+        {fieldbg 'pink'}
+        {textbg 'blue'}{textfg 'yellow'}
+        {spacing 4} :
+
+        ;;; A button to invoke the menu to select a plan, via a
+        ;;; pop-11 action deferred till after the event handler is
+        ;;; finished, to prevent interactions between events.
+        ['SELECT PLAN'
+            [POP11 get_selected_plan(plan_strings)]]
+
+        ;;; A button to invoke a plan drawing procedure
+        ;;; defined below.
+        ['DRAW PLAN' draw_selected_plan]
+    ];
+
+/*
+-- -- Utilities for the plan selection and plan drawing buttons
+
+
+First some global variables controlling the plan selection pop up
+menu, invoked by the ACTION button specified above as
+
+        ['SELECT PLAN'
+            [POP11 get_selected_plan(plan_strings)]]
+
+When this button is selected it should pop up a menu of enumerated plan
+descriptions. You can then choose one by selecting its number, or select
+"None"
+
+
+First some global variables controlling the format of the popup menu.
+*/
+
+global vars
+    plan_menu_x = 300,
+    plan_menu_y = 5,
+    plan_menu_button_width = 45,
+    plan_menu_button_height = 25,
+    plan_menu_font = '9x15',
+    plan_menu_bg = 'grey90',
+    plan_menu_fg = 'grey10',
+
+    ;;; The set of strings describing plans might be incrementally
+    ;;; created by other procedures.
+    ;;; It would be possible to make each field a two element list, the
+    ;;; string and a plan label. Instead we get the menu to present
+    ;;; numerical options, and one of them will be returned after the
+    ;;; user has made a selection.
+    plan_strings =
+      [
+        'plan1 {10 100}{190 5} cost < 1110 avoid visibility slope < 3 nogo(2.4)'
+        'plan2 {30 40}{100 20} cost < 2000 avoid ridges slope < 3 '
+        'plan3 {20 40}{200 50}avoid values slope > 1.5 '
+        'plan4 {10 100}{190 5}avoid visibility slope < 3 nogo(2.4)'
+      ],
+    ;
+
+;;; Stuff for "persistent" message panel to display current plan
+;;; after the selection has been made
+global vars
+    message_panel_font = '8x13bold',
+    message_panel_bg = 'gray10',
+    message_panel_fg = 'gray90';
+    ;
+
+;;; A global variable to hold the selected plan description,
+;;; set via the menu created by get_selected_plan
+
+global vars current_selected_plan = false;
+
+lvars current_plan_message = false;
+
+/*
+;;; Now define the procedure to be invoked when the 'SELECT PLAN'
+;;; action button is selected. It will pop up a menu of plans, here
+;;; identified by strings.
+
+;;; Test the following procedure, and print the global variable
+;;; it updates when finished.
+
+get_selected_plan(plan_strings), current_selected_plan =>
+
+*/
+
+define get_selected_plan(strings);
+    ;;; Procedure to present list of plan options in a menu panel, to be
+    ;;; selected by using mouse button 1.
+
+    if current_plan_message then
+        rc_kill_window_object(current_plan_message);
+        false -> current_plan_message
+    endif;
+
+    ;;; Present the menu panel, and get the plan number
+    lvars
+        answer =
+            rc_popup_query(
+                plan_menu_x, plan_menu_y,
+                strings, "NUMBERS", false, false,
+                plan_menu_button_width,
+                plan_menu_button_height,
+                plan_menu_font,
+                plan_menu_bg,
+                plan_menu_fg, false, false);
+
+    if isinteger(answer) then
+        strings(answer)
+    else
+        ;;; It could be the word "None"
+        false
+    endif  -> current_selected_plan;
+
+    ;;; Now put up a "persistent" message with a reminder of the
+    ;;; chosen plan.
+    if isinteger(answer) then
+        rc_message(5,5,
+            ['CURRENT PLAN' ^current_selected_plan],
+                0, true,
+                    message_panel_font, message_panel_bg,message_panel_fg)
+                        -> current_plan_message ;
+    endif;
+enddefine;
+
+/*
+The specification for one of the action buttons to be shown on the
+control panel was as follows:
+
+        ['DRAW PLAN' draw_selected_plan]
+
+We need to define the procedure draw_selected_plan which will be run
+when the button is selected. In order to find which "map" to draw
+it has to find which one was selected in the field offering map
+selections. Fortunately this had the specifier {label maps}. So we can
+access that field as
+
+    rc_field_of_label(rc_current_window_object, "maps")
+
+since the variable rc_current_window_object will be set while the action
+is being performed.
+
+From the map type field we can extract the list of buttons using
+rc_field_contents, and we can use the procedure rc_options_chosen,
+which, if applied to alist of radio buttons returns the selected option,
+and for a list of someof buttons returns a list of selected options.
+
+The following procedure can be tested before and after selecting a plan,
+and selecting or deselecting map types, by clicking on the 'DRAW PLAN'
+button:
+*/
+
+
+define draw_selected_plan();
+    ;;; Dummy procedure, invoked by action button.
+    ;;; Find which map types have been selected by looking at the
+    ;;; maps option buttons. Makes use of the fact that the SOMEOF
+    ;;; field giving the options has the specifier {label maps}
+
+    if current_selected_plan then
+
+        lvars map_types =
+           rc_options_chosen(
+             rc_field_contents(
+               rc_field_of_label(rc_active_window_object, "maps")));
+               ;;; NB this cannot rc_current_window_object, because
+               ;;; button actions are "deferred"
+
+        if map_types == [] then
+            'Please select required map types first.' =>
+        else
+            ;;; Dummy action for demonstration purposes
+            [Drawing plan ^current_selected_plan ^map_types] ==>
+        endif;
+    else
+        'Please select a plan first'=>
+    endif;
+enddefine;
+
+/*
+
+-- -- Action buttons for managing the rc_graphic scratchpad
+
+The idea of a scratchpad for drawing on without clobbering current
+rc_window_object windows was due to Brian Logan.
+See LIB * RC_SCRATCHPAD
+
+We here define two fields, one text field introducing scratchpad buttons
+and one action buttons field.
+
+The four scratchpad control buttons are.
+
+'SCRATCHPAD'
+    makes the scratchpad window active, so that rc_graphic commands
+    will use it, and not clobber other windows
+'TEAROFF'
+    This saves the previous scratchpad (which then becomes
+    inaccessible though remaining visible, and starts a new one
+'KILL OLDPADS'
+    This gets rid of previously saved scratchpad windows
+'HIDE PAD'
+    Removes the current scratchpad window. A new one can be created
+    using the first button
+
+*/
+
+vars
+    scratchpad_strings =
+
+        [TEXT
+            {gap 2}
+            {align left} :
+            'Scratchpad actions:'
+        ],
+
+    picture_colours =
+        [ 'black' 'blue' 'brown' 'cyan' 'darkgreen'
+          'gold'  'green' 'grey20' 'grey40' 'grey60'
+          'grey80' 'ivory' 'lavender' 'lightyellow'
+          'navy' 'orange' 'pink' 'skyblue'
+          'tan' 'white' 'yellow' ],
+
+    scratchpad_buttons =
+        ;;; This time we include a featurespec in the list
+          [ACTIONS
+            {width 125}
+            {height 20}
+            {margin 2}  ;;; top and bottom margins
+            {offset 1} ;;; left and right margins
+            {spec
+                { ^rc_button_stringcolour 'yellow'
+                  ^rc_button_bordercolour 'red'
+                  ^rc_button_labelground 'brown'
+                  ^rc_button_blobcolour 'ivory' } }
+            {cols 3} :
+
+            ;;; a button to make the scratchpad current,
+            ;;; so that rc_graphic commands can be tried
+            ['SCRATCHPAD'
+               [POP11
+                    rc_make_current_window(rc_scratch_window)]]
+
+            ;;; This saves the previous scratchpad and starts a new one
+            ['TEAROFF'  rc_tearoff]
+
+            ;;; this kills all the saved tearoffs
+            ['KILL TEAROFFS' rc_kill_tearoffs]
+
+            ;;; This hides the current scratchpad window
+            ['HIDE PAD'
+                [POP11 false -> rc_scratch_window ]]
+
+            ['DRAW LINES'
+                [POP11
+                    rc_scratch_window -> rc_current_window_object;
+                    repeat 10 times
+                        oneof(picture_colours) -> rc_foreground(rc_window);
+                        random(15) -> rc_line_width(rc_window);
+                        rc_drawline(
+                            repeat 4 times random(600) - 300 endrepeat)
+                    endrepeat]]
+
+            ['DRAW BLOBS'
+                [POP11
+
+                    ;;; draw some blobs but get the number of blobs to
+                    ;;; draw from the user.
+
+                    lvars num;
+
+                    ved_read_from_file(
+                        'Type number of blobs, RETURN',
+                        'getnumber') -> num;
+
+                    ;;; if Ved is running, exit the temporary file
+                    if vedediting or vedusewindows = "x" then
+                        ved_q();
+                    endif;
+
+                    ;;; get a drawing panel ready
+                    rc_scratch_window -> rc_current_window_object;
+
+                    repeat hd(num) times
+                        rc_draw_blob(
+                            random(600) - 300,
+                            random(600) - 300,
+                            random(50),
+                            oneof(picture_colours))
+                    endrepeat]]
+          ];
+
+/*
+-- -- Radio buttons for selecting a colour
+
+This part of the panel assumes that you want to select a colour for some
+purpose. When you choose the colour, a textual window, with that colour
+as background appears and remains until either you click on it to get
+rid of it, or you select another colour, in which case the new window
+replaces the old one.
+
+*/
+
+;;; Use this to record previous message put up, in case it needs to be
+;;; removed
+vars last_colour_message = false;
+
+define show_selected_colour(button);
+    ;;; When a radio button has been selected with a colour name, put
+    ;;; up a message using the colour as the background.
+    lvars
+        label = rc_button_label(button),
+
+        strings = ['The selected item is now' ^label '' 'Thank you'];
+
+    if last_colour_message then
+        rc_kill_window_object(last_colour_message);
+        false -> last_colour_message;
+    endif;
+
+    rc_message(300,300, strings, 0, true, '10x20', label, 'black')
+        -> last_colour_message;
+enddefine;
+
+
+vars
+    colour_field_instructions =
+          [TEXT :
+            'Some radio buttons'
+            'Select one only'
+          ],
+
+    colour_field_radio_buttons =
+        [RADIO
+            ;;; a field label for these buttons
+            {label radio_buttons}
+            {gap 2} {spacing 2}
+            {width 70}{height 20} {margin 2}
+            {textbg 'yellow'}{textfg 'blue'}
+            {chosenbg 'ivory'}
+            {fieldbg 'red'}
+            {select show_selected_colour}
+            {cols 4} :
+            'yellow' 'pink' 'orange' 'gold'
+            'ivory' 'grey' 'green' 'blue'
+        ];
+
+/*
+-- A slider field with two sliders, one with a reactor
+*/
+
+;;; Define a demonstration reactor to be used in sliders
+;;; If a slider has this reactor all its changes will trigger
+;;; the reactor
+
+define slider_reactor(slider,val);
+    if vedediting then
+        vededit('Reactor_out', vedhelpdefaults);
+            vedendfile();
+        dlocal cucharout = vedcharinsert;
+    endif;
+    ['Slider' %rc_informant_ident(slider)% 'now set to:' ^val]==>
+enddefine;
+
+vars slider1, slider2;  ;;; identifiers changed by the sliders
+
+vars slider_fields =
+    [SLIDERS
+        {gap 2} {margin 4}
+        {fieldbg 'grey90'}
+        {width 360}
+        {height 25}
+        ;;; We need a label for the field, so that these sliders
+        ;;; can be accessed by programs to interrogate or set
+        ;;; their values
+        {label slider}
+        ;;; Uncomment this to disable the text input panels on sliders
+        ;;; {textin ^false}
+        ;;; Make sliders have white background to show true colour
+        {barcol 'white'} {blobcol 'red'}
+
+        ;;; Specify font for labels
+        {labelfont '6x13bold'}
+
+        {spacing 8} {radius 6}  :
+
+        [slider1
+            ;;; range and default    ensure integer value
+            {-500 500 0}             round
+            ;;; labels at ends of slider 1.
+            [[{-5 10 'MIN(-500) Slider1'}] [{-50 10'MAX(500)'}]]
+            ;;; give it an individual label to make accessing easy
+            {itemlabel S1}
+        ]
+
+        ;;; The next slider has range 0 to 10 but does not round values
+        ;;; its default value is 5, and changes are allowed only in
+        ;;; 0.25 steps. Consequently the value will always be a decimal
+        [slider2 {0 10 5 0.25} noround
+            ;;; labels on left and right
+            ['10x20'    ;;; override default labelfont
+                [{-5 10 'Lo     Slider2'}] [{-15 10 'Hi'}]]
+            {reactor slider_reactor itemlabel S2}
+        ]
+
+    ];
+/*
+-- An action field with some counters, toggles, etc. ------------------
+
+;;; after building the panel, click on the counter and
+;;; toggle buttons and check these variables
+num_val =>
+test_flag =>
+
+*/
+
+vars
+    num_val = 0,
+    test_flag = false;
+
+
+vars button_action_fields =
+    [ACTIONS
+        {gap 2} {margin 2}
+        {spacing 4} {width 110} {height 20}
+        {align left}:
+        ;;; A counter button, with num_val constrained to be >= 0
+        {counter 'Counter' ^(ident num_val) {5 0} {itemlabel Counter1}}
+        ;;; A toggle button controlling the variable test_flag
+        {toggle 'Switch flag' ^(ident test_flag) {itemlabel Toggle1}}
+
+    ];
+
+/*
+-- A dials field with three identifiers, one with a reactor -----------
+
+See TEACH rc_dial for more information.
+*/
+;;; some variables to be associated with three dials.
+
+vars dial1, dial2, dial3;
+
+;;; A reactor procedure to report movement of dials
+
+define dial_reactor(dial, val);
+    if vedediting then
+        vededit('Reactor_out', vedhelpdefaults);
+        vedendfile();
+        dlocal cucharout = vedcharinsert;
+    endif;
+    ['Dial changed:' ^(rc_informant_ident(dial)) 'New value:' ^val] ==>
+enddefine;
+
+vars dial_fields =
+    [DIALS
+        {label threedials}
+        {fieldbg 'grey95'}{spacing 5}{fieldheight 40}
+        {dialwidth 90} {dialheight 100} {dialbase 30}
+        {margin 4} {offset 60}{gap 3}:
+
+        [dial1 0 0 180 180 {0 10 5 1} 40 15 'yellow' 'blue'
+            [MARKS
+                ;;; {extra radius, angular gap, mark width, length, colour}
+                {5 18 2 8 'blue'}
+                {8 90 2 10 'black'}]
+            [LABELS
+                ;;; {extra radius, angular gap, initial value, increment,
+                ;;;         colour font}
+                {44 18 180 -18 'red' '6x13'}
+                {20 18 0 1 'blue' '6x13'}]
+            [CAPTIONS
+                ;;; {relative location, string, colour, font}
+                {-100 20 'Degrees shown in red' 'red' '9x15'}
+                {-80 40 'Values in blue' 'blue' '10x20'}]
+            {itemlabel D1}
+        ]
+
+        ;;; Offset 60 units to right of default location.
+        ;;; This dial has a reactor
+        [dial2 60 -40 -90.0 180 {0 50 25 1} 40 15 ^false ^false
+            [LABELS
+                {15 36 0.0 10 'blue' '6x13'}]
+            {reactor dial_reactor
+            itemlabel D2}
+        ]
+
+        [dial3 -10 -40 90 180 {0 50 40 1} 40 15 ^false ^false
+            [LABELS
+                {15 18 0 5 'blue' '6x13'}]
+            {itemlabel D3}
+        ]
+    ];
+
+
+/*
+-- Combine all the field specifications to form the field_specs list
+*/
+
+
+vars field_specs =
+   [
+        ^^panel_specs
+
+        ^panel_header
+
+        ^map_strings
+        ^map_types
+
+        ^plan_action_strings
+        ^plan_action_buttons
+
+        ^scratchpad_strings
+        ^scratchpad_buttons
+
+        ^colour_field_instructions
+        ^colour_field_radio_buttons
+
+        ^slider_fields
+
+        ^dial_fields
+
+        ^button_action_fields
+
+        ;;; Finaly a field containing a single button to kill
+        ;;; the window, offset a long way to the right.
+        ;;; and raised into the previous field, using a negative
+        ;;; gap
+          [ACTIONS
+            {align right} {width 85} {height 25}
+            {gap -25} :
+
+            ;;; Change defaults for this blob button
+            {blob 'KILL'
+                rc_kill_panel
+                {^rc_button_font '10x20'
+                  ^rc_button_stringcolour 'white'
+                  ^rc_button_bordercolour 'red'
+                  ^rc_button_labelground 'brown'
+                  ^rc_button_blobcolour 'ivory' } }
+            {blob 'REDRAW'
+                rc_redraw_this_panel
+                {^rc_button_font '10x20'
+                  ^rc_button_stringcolour 'white'
+                  ^rc_button_bordercolour 'red'
+                  ^rc_button_labelground 'brown'
+                  ^rc_button_blobcolour 'ivory' } } ]
+       ];
+
+/*
+-- Tracing the field construction -------------------------------------
+
+You can get more information on the construction process if you do this
+
+    trace rc_list_to_field;
+
+then rebuild the panel. Warning: there's a lot of trace printing, and
+it needs to be studied carefully if you want to see what goes
+into each field.
+    vars panel = rc_control_panel(400, 10, field_specs, 'Demo Panel');
+
+Turn it off with
+    untrace rc_list_to_field;
+*/
+
+/*
+
+-- Some exercises -----------------------------------------------------
+
+1. Try adding a button which draws without assigning the scratchpad to
+be the current window. It will then draw in the gap at the top of the
+panel.
+
+2. Make it use the selected colour in the radio button field to choose
+the colour with which to draw.
+
+3. Find a way to use the two sliders (or add more) to control the
+drawing parameters. For examples showing how to access slider values
+see TEACH RCLIB_DEMO.P/rc_control_panel
+
+*/
+
+/*
+-- See also -----------------------------------------------------------
+
+HELP  * RCLIB
+TEACH * RCLIB_DEMO.P
+HELP  * RC_CONTROL_PANEL
+LIB   * RC_POLYPANEL.P
+    This describes a more complex working example of a control panel
+
+TEACH * RC_CONSTRAINED_PANEL
+    This shows how to impose constraints on user editable components of
+    panels, and how to use reactors to set up linkages between
+    components of panels, e.g. between a number input field and a slider.
+
+HELP RCLIB_COMPATIBILITY
+
+*/
+
+/*
+
+-- Revision notes
+See HELP * RCLIB_NEWS for changes
+
+-- . 10 Aug 2002
+    New option to make panel re-sizable
+        {resize true}
+    Added [REDRAW] button.
+    Allowed individual labels for sliders, dials,
+        counter buttons, toggle buttons.
+    More facilities for accessing fields of panels, especially
+        via labels.
+
+-- . August 2000
+    New [DIALS ...] field type
+    See TEACH RC_DIAL
+
+
+--- $poplocal/local/rclib/teach/rc_control_panel
+--- Copyright University of Birmingham 2002. All rights reserved.
+
+*/

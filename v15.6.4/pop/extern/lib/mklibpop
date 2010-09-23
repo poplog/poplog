@@ -1,0 +1,170 @@
+#!/bin/sh
+# --- Copyright University of Sussex, University of Birmingham 2010. All rights reserved. ----------
+# File:             C.unix/extern/lib/mklibpop
+# Purpose:          Make pop external library libpop
+# Author:           John Gibson, May 21 1990 (see revisions)
+# Documentation:    Self explanatory
+
+# library name
+LIB="libpop.a"
+
+CC=${POP__cc:-cc}
+CC_FLAGS=
+AR="ar rc"
+RANLIB=
+
+case `uname -s -r` in
+
+	'SunOS 5'*)
+		# Solaris 2.*
+		CC_FLAGS="-DSVR4"
+		AR="/usr/ccs/bin/ar rc"
+		;;
+
+	'IRIX '[56]*)
+		# MIPS SVR4
+		# Defining _LONGLONG enables type 'long long' needed for some .h files
+		CC_FLAGS="-DSVR4 -D_LONGLONG"
+		AR="ar rcs"
+		;;
+
+	'UNIX_SV 4'*|dgux*)
+		# NCR Unix SVR4 on X86
+		CC_FLAGS=-DSVR4
+		# ar is linked into /usr/bin
+		;;
+
+	'unix 4'*)
+		# Vanilla System V Release 4.* (e.g on ICL DRS6000)
+		# Basically the same as Solaris, but with extra hacky flags to cc
+		CC_FLAGS="-DSYSV -DSVR4 -DSVR4_0"
+		AR="/usr/ccs/bin/ar rc"
+		;;
+
+	HP-UX*)
+		# HP9000
+		CC_FLAGS=-Ae
+		;;
+
+	OSF1*)
+		# OSF1
+		;;
+
+	Linux*)
+		# Linux
+          CC_FLAGS=-D_GNU_SOURCE
+		;;
+
+	ULTRIX*|IRIX*)
+		# MIPS
+		CC_FLAGS="-G 0"
+		AR="ar rcs"
+		;;
+
+	*3.2*)
+		# SCO 3.2 ??? System V Release 3.2
+		CC_FLAGS="-DSVR3 -DSCO -DSIM_ASYNC_IO"
+		;;
+
+	'AIX '*)
+		# AIX
+		CC_FLAGS="-DUNIX -DAIX"
+		;;
+
+	*)
+		# Default
+		RANLIB="ranlib $LIB"
+		;;
+
+esac
+
+rm -f $LIB
+
+# compile files and create library
+$CC -c -O $CC_FLAGS -I$POP_X_INCLUDE *.c && \
+$AR $LIB *.o && \
+$RANLIB
+
+# clean up
+rm -f *.o
+
+if [ "$1" = "-t" ]; then
+	# display definition of fd_set in $popsrc/unix_select.ph
+	cp print_types.cc temp.c
+	$CC $CC_FLAGS temp.c && ./a.out
+	rm -f temp.c a.out
+fi
+
+
+# --- Revision History ---------------------------------------------------
+# --- Joe Wood, Aug 28 2010
+#              Make linux use -D_GNU_SOURCE, required for getting register names
+# --- Robert Duncan, Nov  3 1998
+#		Uses C compiler from $POP__cc, or "cc" as default
+# --- Robert Duncan, Aug 11 1998
+#		Added case for DG/UX
+# --- Julian Clinton, Aug  7 1998
+#		Added '-Ae' to HP-UX CC_FLAGS.
+# --- John Gibson, Mar 25 1998
+#		Added case for AIX
+# --- Robert Duncan, Aug  9 1996
+#		Added case for NCR SVR4
+# --- Robert Duncan, Apr 25 1996
+#       Simplified Linux case; now also works for ELF
+# --- Robert John Duncan, Mar 23 1995
+#       Extended IRIX and SVR4 cases to cover higher version numbers
+# --- John Gibson, Mar  8 1995
+#       Added OSF1 case
+# --- Poplog System, Jan 18 1995 (Julian Clinton)
+#       Added Linux and SCO cases.
+# --- Robert John Duncan, Nov  2 1994
+#       Added -G 0 compilation option for all MIPS systems
+# --- Robert John Duncan, May 25 1994
+#       More flags for IRIX 5
+# --- Robert John Duncan, Mar 21 1994
+#       Added case for SG IRIX 5+
+# --- John Gibson, Nov 13 1993
+#       Rewritten to just create libpop.a
+# --- John Gibson, Sep 17 1993
+#       Changed "ar" for SunOS 5 to /usr/ccs/bin/ar
+# --- Simon Nichols, Aug  9 1993
+#       Compiled source files of libXpop.a on MIPS systems with -G 0,
+#       because of problems on IRIX resulting from __pop_xt_wakeup_struct
+#       being defined in a file compiled -G 0 but referenced in a file not
+#       compiled -G 0 (this appears to be a linker bug).
+# --- Simon Nichols, Aug  2 1993
+#       Removed unnecessary (and erroneous) occurences of ``&& \''
+#       resulting from last change
+# --- John Gibson, Jul 23 1993
+#       Removed creation of .olb symbolic links
+# --- Robert John Duncan, Jun  7 1993
+#       Added extra case for vanilla SVR4
+# --- Robert John Duncan, Jun  2 1993
+#       o Changed to create two libraries: libpop.olb & libXpop.olb
+#       o Removed dependence on system-type argument: now uses _____uname(1)
+#         instead
+#       o Separated the work out into disjoint cases, because they're all
+#         subtly different
+# --- Simon Nichols, May 25 1993
+#       o Changed test for Solaris 2
+#       o Added -DSVR4 to CFLAGS for Solaris 2
+# --- John Gibson, May 12 1993
+#       Changed to use POP_X_INCLUDE for include files
+#       (now set by $popcom/popenv)
+# --- John Gibson, May  6 1993
+#       Added -I$XROOT/include to cc commands
+# --- Simon Nichols, Jan 29 1993
+#       Changed to create both static archive and shared library on HP9000
+# --- Robert John Duncan, Aug  7 1992
+#       Changed to create both static archive and shared library on SunOS 5
+# --- Robert John Duncan, Jul 27 1992
+#       Added test for existence of ranlib on Sun 4
+# --- Robert John Duncan, Dec  2 1991
+#       Added case for SGI IRIS
+# --- Robert John Duncan, Jun 12 1991
+#       Changed to take system name as argument, to simplify tests
+# --- Simon Nichols, May 30 1990
+#       1) Changed test option from -x to -f, because Ultrix test(1)
+#          does not recognise -x.
+#       2) Checked for the existence of /usr/bin/ranlib, again for the
+#          benefit of Ultrix.

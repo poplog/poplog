@@ -1,0 +1,98 @@
+#!/bin/sh
+# --- Copyright University of Sussex 1997. All rights reserved. ----------
+# File:             C.unix/com/mkXpw
+# Purpose:          Build the Poplog widget set
+# Author:           Simon Nichols, Jun  5 1990 (see revisions)
+# Documentation:
+# Related Files:
+
+# Usage: mkXpw [ -I<directory> ... ]
+
+eval `$popcom/get_archive_args sh "$@"`
+
+IDIRS="$IDIRS -I$POP_X_INCLUDE"
+LIBNAME=libXpw$LIBEXTN
+if [ -n "$LDLIBS" ]; then
+	LDLIBS="-lXt -lX11 $LDLIBS"
+fi
+
+cd $usepop/pop/x/Xpw
+
+$CC -c $CFLAGS $IDIRS *.c   && \
+eval $AR *.o $LDLIBS        && \
+eval $RANLIB                && \
+rm *.o                      && \
+mv $LIBNAME $popexternlib
+
+
+# --- Revision History ---------------------------------------------------
+# --- John Gibson, Feb 28 1997
+#		All the hard work now done by $popcom/get_archive_args
+# --- Robert Duncan, Aug  9 1996
+#		Added cases for NCR SVR4
+# --- Robert Duncan, Apr 25 1996
+#		Added cases for ELF Linux
+# --- John Gibson, Jul 15 1995
+#       Replaced system-dependent include dir stuff with -I$POP_X_INCLUDE
+#       (defined by $popcom/popenv)
+# --- John Gibson, Apr 29 1995
+#       Added OSF1 case
+# --- Poplog System, Jan 18 1995 (Julian Clinton)
+#       Added Linux case.
+# --- Robert John Duncan, May 27 1994
+#       Changed to build a shared object under IRIX 5
+# --- John Gibson, Dec 19 1993  Added /usr/ccs/bin/ before ld for svr4
+# --- John Gibson, Jul 22 1993
+#       Changed so that libXpw has standard extension (.a, .so, .sl) on
+#       all systems
+# --- Robert John Duncan, Jun 30 1993
+#       Changes for HP-UX: assumes static linking for HP-UX 8 and dynamic
+#       linking for 9 and later. Also, disabled optimisation (again) for
+#        the 9.0 C compiler because of another compiler bug.
+# --- Robert John Duncan, Jun  7 1993
+#       Added cases for SVR4
+# --- Robert John Duncan, May 25 1993
+#       Added include directories for HP-UX (Motif)
+# --- Simon Nichols, Feb  1 1993
+#       Made XPWLIB a shared library on HP-UX if (and only if) Poplog is
+#       linked dynamically.
+#       Changed CFLAGS on HP-UX to be similar to other systems, as 8.0 cc
+#       copes with -O and automatically expands internal tables
+# --- Robert John Duncan, Aug 11 1992
+#       Added O/S version information to the CONFIG string;
+#       made XPWLIB a shared library on SunOS 5+
+# --- Robert John Duncan, Jun  1 1992
+#       Now runs $popsys/basepop11 to find out the machine type, OS type
+#       and X type of Poplog and sets compilation flags accordingly.
+#       Removed dependence on $Xroot but allowed explicit -I arguments to
+#       be given for specifying alternative include directories.
+# --- Simon Nichols, Mar 19 1992
+#       Added check for $Xroot != /usr before adding $Xroot/include to
+#       $IDIRS: -I/usr/include subverts -systype bsd43 on riscos.
+# --- Robert John Duncan, Dec  2 1991
+#       Added cases for IRIX
+# --- Simon Nichols, Sep 23 1991
+#       Removed -O flag for hpux -- caused C compiler to generate a
+#       temporary file of ever increasing size when compiling XpwPixmap.c.
+# --- Simon Nichols, Sep 23 1991
+#       Exported pop_pop11 after unsetting it (otherwise it has no effect
+#       in the HPUX shell).
+# --- Simon Nichols, Sep 18 1991
+#       Changed the way pop_pop11 is unset (the unset command is not
+#       available in all shells).
+# --- John Gibson, Sep  2 1991
+#       Added unset pop_pop11
+# --- Jonathan Meyer, Jul 31 1991
+#       Archive now in $popexternlib. Renamed libXpw.olb for consistency
+# --- John Gibson, Jul 23 1991
+#       Added -O to CFLAGS for sunos & hpux
+# --- Jonathan Meyer, May 30 1991
+#       Simplified to work with new Xpw version
+# --- Robert John Duncan, Mar 15 1991
+#       Revised to cope with strange MOTIF directories on Ultrix
+# --- Simon Nichols, Oct  5 1990
+#       Moved to $popcom.
+#       Changed to use $popcom/{pop_os,pop_processor,pop_system_v}.
+# --- Simon Nichols, Jun 19 1990 - added $IDIR/X11 and $IDIR/X11/Xaw
+# --- Simon Nichols, Jun 18 1990 - added "-systype bsd43" for RISC/os.
+# --- Simon Nichols, Jun  7 1990 - no longer uses $Xpop/Xpw/Makefile.

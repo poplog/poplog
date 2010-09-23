@@ -1,0 +1,167 @@
+TEACH WALTZ2                                      A. Sloman Dec 1982
+                                                    Reformatted 1996
+
+;;; Reduced version of LIB WALTZ.
+;;; See TEACH * WALTZ demo for details.
+;;;
+;;; See also LIB * LABELS and LIB * TETRA.
+
+;;; The procedure filter is given a set of possible junction
+;;; interpretations returns a filtered version. It repeatedly
+;;; tries to prune possible interpretations from junctions
+;;; by checking consistency, until nothing is left to be
+;;; filtered out.
+
+;;; Lines starting with **** are to be programmed by students
+
+;;;     ****    some utility programs   ****
+
+vars chatty; true -> chatty;
+
+define report(list);
+    if chatty then list ==> endif;
+enddefine;
+
+
+define sometrue(X, List, Pred) -> result;
+    ;;; apply Pred to X and one element of List at a time, to see if at
+    ;;; least one result is TRUE. If so return TRUE, otherwise FALSE.
+
+    until List==[] do
+        if      Pred(X,hd(List))
+        then    true -> result; return
+        else    tl(List) -> List
+        endif
+    enduntil;
+
+    false -> result
+
+enddefine;
+
+define otherpoint(point,line);
+    ;;; line is something like [label point1 point2]
+    ;;; return point2 if point=point1 otherwise return point1
+
+    **** complete this ****
+
+enddefine;
+
+;;;     ****    procedures for doing the Waltz filtering        ****
+
+vars consistent prune somebadlabel nointerp labelfitsinterp;
+
+define filter(interps) -> interps;
+    ;;; interps is a list of points associated with possible
+    ;;; interpretations. Filter out impossible interpretations.
+    ;;; the format of interps is the list produced by interpall.
+    vars list vertex new nochange;
+    false -> nochange;
+    until nochange do
+        true -> nochange;  ;;; remains true if nothing is pruned
+
+        ;;; repeatedly chug down list of vertex interpretations,
+        ;;; trying to prune interpretations for each vertex
+        interps -> list;
+        until   list == [] do
+            hd(list) -> vertex;
+            report([pruning ^vertex]);
+
+            if  (prune(vertex,interps) ->> new) then
+                false -> nochange;
+                report([pruned to ^new]);
+
+**** delete vertex from the list interps, and put new in its place
+
+            else    report([^(hd(vertex)) unchanged]);
+            endif;
+            tl(list) -> list;
+        enduntil;
+    enduntil;
+enddefine;
+
+define prune(vertex, interps) -> result;
+    ;;; vertex has a list of possible interpretations.
+    ;;; Remove all those not consistent with other vertices
+    ;;; in interps. Return false if no pruning possible.
+
+    vars point labels list newinterp;
+    false -> result;
+
+    hd(vertex) -> point; tl(vertex) -> list;
+    ;;; list is a list of possible interpretations,
+    ;;; each a set of line labels
+
+    [] -> newinterp;        ;;; will be the pruned interpretation
+
+    until list == [] do
+        hd(list) -> labels;     ;;; hd(labels) is type
+                                ;;; e.g. tee3 or ell2
+
+        if somebadlabel(point, tl(labels), interps)
+        then    true -> result  ;;; i.e. pruning needed
+        else    labels :: newinterp -> newinterp;
+            ;;; i.e. reuse this interpretation
+        endif;
+        tl(list) -> list
+    enduntil;
+
+    if result then point :: newinterp -> result endif
+
+enddefine;
+
+define somebadlabel(point, labels, interps) -> result;
+    ;;; if at least one of the labels associated with point
+    ;;; lacks a consistent interpretation at the opposite
+    ;;; vertex return TRUE otherwise FALSE
+
+**** Each label is of the form  [label point1 point2]
+**** use otherpoint to find the neighboring point,
+**** and use nointerp to see if none of the interpretations
+**** there is consistent with the label.
+**** Do this for all the labels.
+**** You may find it easy to use sometrue. but be carful
+**** about its arguments, especially the procedure to give
+**** to it as third argument
+
+enddefine;
+
+define nointerp(linelabel, neighbour, interps);
+    ;;;false if at least one interpretation of the
+    ;;; neighbour (a point) is consistent with the linelabel.
+    ;;; Otherwise true.
+
+    vars list ;
+    interps --> [ == [^neighbour ??list] == ];
+    not(sometrue(linelabel, list, labelfitsinterp))
+enddefine;
+
+define labelfitsinterp(linelabel, interp);
+    ;;; given a label, check that at least one element of
+    ;;; interp is consistent with it
+
+**** what should the third argument for sometrue be here:
+        sometrue(linelabel, tl(interp),  ???????)
+enddefine;
+
+define consistent(line1, line2) -> result;
+    ;;; Given two lines defined by a label and two points,
+    ;;; make sure they are consistent.
+    ;;; If the label is "occ" the points must be
+    ;;; in the same order. Otherwise they may be reversed.
+    vars label;
+    if      line1 = line2
+    then    true -> result
+    else
+        hd(line1) -> label;
+
+        **** and then?? ****
+
+    endif
+enddefine;
+
+;;; NOTE
+;;; The filter procedure is not very efficient.
+;;; TEACH WALTZ suggests a possible improvement.
+
+--- $poplocal/local/teach/waltz2
+--- Copyright University of Sussex 1996. All rights reserved. ------

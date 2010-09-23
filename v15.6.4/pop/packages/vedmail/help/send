@@ -1,0 +1,456 @@
+HELP SEND (UNIX Version)                               A.Sloman Aug 1989
+
+Use of these facilities requires
+
+    uses vedmail
+    (e.g. in your $poplib/vedinit.p file)
+
+
+There are two procedures for sending mail from inside VED, -ved_send- and
+-ved_sendmr-,  invoked as follows.
+
+<ENTER> send <name1> <name2> <name3>
+    Sends current file as mail to the named people.
+
+<ENTER> send
+    Sends whole file to people named in "To:" line at top of file.
+
+<ENTER> sendmr <name1> <name2> <name3>
+    Sends the marked range to the named people.
+
+<ENTER> sendmr
+    Sends marked range to people named in "To:" line at top of the
+    marked range.
+
+Within the file you can also specify a subject, "Cc:" and "Bcc:" lists,
+and other items to go into the mail header, as explained below.
+
+NB
+The Unix Poplog ved_send program was changed substantially after Poplog
+version 13.6. You are advised to note especially the sections of this
+file below concerned with -ved_send_mailer-, -ved_send_aliases-, and
+-ved_send_record-, vedindent_From.
+
+CONTENTS - (Use <ENTER> g to access sections)
+
+ -- Different versions of ved_send and ved_sendmr
+ -- Using ved_send and ved_sendmr with recipients named in the file
+ -- Sending copies and "blind copies": Cc and Bcc
+ -- Alternate forms
+ -- WARNING: check the marked range before <ENTER> sendmr
+ -- REMAINING FACILITIES NOT AVAILABLE IN VMS POPLOG
+ -- Alterations made to message to preserve Unix mail file format
+ -- Disabling "From" line insertion: vedinsert_From
+ -- Disabling "From" indentation: vedindent_From
+ -- Altering the mailer: ved_send_mailer
+ -- Aliases defined in vedmailrc (.mailrc)
+ -- Format for mail aliases file (.mailrc or vedmailrc)
+ -- Alias substitution in the VED file: ved_send_aliases
+ -- The "metoo" option
+ -- Keeping a summary log file: MAILREC
+ -- Keeping a copy of all mail: ved_send_record
+ -- Sending long files without waiting: ved_send_wait
+ -- RELATED DOCUMENTATION
+ -- Acknowledgements
+
+-- Different versions of ved_send and ved_sendmr ----------------------
+
+There are different versions of the library program, suiting different
+needs.
+
+On Unix systems with the Berkeley Unix mail system the most
+sophisticated options are available, using LIB * VED_SEND. It is
+included with all Unix versions of POPLOG, though some versions of Unix
+may not support all the facilities. If LIB * VED_SEND does not work,
+there is a simpler version in LIB * OLDSEND. The differences are
+indicated below.
+
+The version of LIB * VED_SEND on VMS is equivalent to LIB * OLDSEND.
+
+If you use a UNIX system on which the more sophisticated facilities
+don't work (try them in order to find out), then you can include the
+line
+
+    loadlib("oldsend");
+
+in your vedinit.p file, to get the older simpler version. See
+    HELP * INITIAL
+
+
+-- Using ved_send and ved_sendmr with recipients named in the file ----
+
+The first lines of the file or marked range should be of the form below,
+starting at the beginning of the line (permitted variations are
+described later):
+
+    To: tom dick fred
+    Re: the sending of mail
+    Cc: harry pop
+    Bcc: mark
+
+Followed by your message. (The last two options do not work in VMS
+or in LIB * OLDSEND).
+
+If both a 'To:' and a 'Re:' line are specified then the 'To:' line should
+be specified first.  (On VMS machines it is necessary to separate the
+names of recipients with commas.)
+
+
+-- Sending copies and "blind copies": Cc and Bcc ----------------------
+
+N.B. The Cc: and Bcc: options are not available in VMS or LIB OLDSEND.
+
+People specified in the To, Cc and Bcc slots will all receive a copy of
+the message.  However those mentioned in the Bcc slot get "blind"
+copies, i.e. they will not be included in the mail header, so other
+recipients will not know that they have received a copy of the message.
+
+
+-- Alternate forms ----------------------------------------------------
+
+The program is fairly relaxed about the form used for the field names,
+E.g. For the To: line you can use any of:
+
+    To: TO: to:
+
+For the Subject line, any of:
+
+    RE: Re: re: Subject: subject: Subj: SUBJ: SUBJECT: subj:
+
+For the Cc: line, any of:
+
+    Cc: cc: CC:
+
+For the Bcc: line, any of
+
+    Bcc: bcc: BCC:
+
+(For the full lists of options see LIB * VED_SEND)
+
+On VMS or using LIB OLDSEND, the message is written to VEDMESSAG.LIS, in
+the user's login directory, and is deleted after the message has been
+sent.
+
+For other UNIX systems the file is sent via a Unix "pipe" to the
+Unix mail program. (See -ved_send_mailer-, below).
+
+(Earlier versions of LIB VED_SEND piped the mail to the unix sendmail
+program, which was considerably slower.)
+
+
+-- WARNING: check the marked range before <ENTER> sendmr --------------
+
+It is often useful to keep a lot of messages in one big file, e.g.
+alternating mail read in (SEE HELP * VED_MAIL) and mail sent out in
+response.
+
+However, there is a danger that you may accidentally send out more than
+you intend, if you don't check that the beginning and end of the marked
+range start where you intend. This can sometimes lead to considerable
+embarrassment.
+
+
+-- REMAINING FACILITIES NOT AVAILABLE IN VMS POPLOG -------------------
+
+-- Alterations made to message to preserve Unix mail file format ------
+
+The format for a Unix mail file requires each mail message to be
+preceded by a blank line (if not at top of file) and start with a line
+containing 'From ' then the sender's name, date of receipt and possibly
+other information.
+
+It is also necessary for any line within a message that starts with
+'From ' to be indented so that it is not confused with the beginning of
+a message. The normal way to indent it is to insert ">" at the beginning
+of the line.
+
+The VED command <ENTER> mcm, described in HELP * VED_MAIL, assumes
+this format, as does the Unix mail reader.
+
+So, in order to preserve Unix mail file format, the command
+
+    <ENTER> sendmr      (but not <ENTER> send)
+
+when invoked with no arguments automatically inserts a 'From' line at
+the top of the message (if there is not one already), and inserts '>'
+where necessary at the beginning of lines in the message that start with
+'From '. (These alterations to the VED buffer can be prevented, as
+explained below.)
+
+The line inserted at the top of the message has the format:
+
+    From <user's full name> <date>
+
+The user's full name is obtained using the procedure -sysgetusername-
+which looks in the unix password file for your full name. If it does not
+find it there it will use the value of -popusername-
+    (See REF * SYSUTIL/popusername, REF * SYSUTIL/sysgetusername).
+
+Note that although these alterations are made, the procedures -ved_send-
+and -ved_sendmr- do not alter the value of the VED variable
+-vedchanged-. So if you do not make any changes yourself to the file
+before or after giving the <ENTER> sendmr command, then the file will
+not be written to disk when you leave VED.
+
+The Automatic changes to the file to preserve Unix mail format can be
+suppressed, as follows:
+
+
+-- Disabling "From" line insertion: vedinsert_From --------------------
+
+Insertion of a 'From ' header line to separate the current message from
+previous messages can be disabled by the Pop-11 command
+
+    false -> vedinsert_From,
+
+or, in your vedinit.p file:
+
+    vars vedinsert_From = false;
+
+which can be done either before or after compiling lib ved_send.
+
+Insertion of the From line is also disabled if you send the whole file,
+ie give the command
+
+    <ENTER> send
+
+Or if you give the recipient on the command line, e.g.
+
+    <ENTER> sendmr joe
+
+
+-- Disabling "From" indentation: vedindent_From -----------------------
+
+Insertion of ">" at beginnings of lines in the message that start with
+'From ' can be disabled by the Pop-11 command
+
+    false -> vedindent_From,
+
+or, in your vedinit.p file:
+
+    vars vedindent_From = false;
+
+which can be done either before or after compiling lib ved_send.
+
+
+-- Altering the mailer: ved_send_mailer -------------------------------
+
+The user-assignable variable -ved_send_mailer- has as its name a mail
+front end program capable of expanding aliases in the user's .mailrc
+file.
+
+On Unix system V the default value is '/usr/bin/mailx', otherwise
+'/usr/ucb/Mail', the Berkeley Unix mailer.
+
+If these mail front ends are not available users can assign a suitable
+pathname specifying a mail sending program to -ved_send_mailer- in their
+vedinit.p file.
+    (For full details see LIB * VED_SEND)
+
+The mailer program should be capable of being invoked by piping a mail
+message into a call of the form
+
+    MAILER name1 name2 name3 ....
+
+(with no extra flags). Header information will be in the mail message
+in lines starting with "~" in the following format
+
+    ~b for Bbc: list
+    ~c for Cc: list
+    ~s for Subject: list
+
+If your mailer cannot cope with this, then it may be necessary to define
+a suitable filter program. (See Unix 'man mail' for full specification of
+your mailer.) Alternatively use LIB * OLDSEND
+
+
+-- Aliases defined in vedmailrc (.mailrc) -----------------------------
+
+The user's login directory can contain a file called '.mailrc' in which
+aliases are defined, giving abbreviations for commonly used mail
+addresses. This is the file that is also used by the unix mail command.
+
+Alternatively you can set the Unix environment variable MAILRC to
+indicate a different file to be used. (See Unix 'man mail')
+
+If you wish to use a different aliases file for the VED-based mailer,
+assign the name of the file to the Pop-11 variable -vedmailrc-
+
+E.g. If you wished to share a collection of mail aliases with other
+users, you could do something like the following in your vedinit.p file:
+
+    vars vedmailrc = '/usr/grouplib/vedmailaliases';
+
+(The system wide unix mail aliases file will work automatically with
+this program, as 'mail' pipes the message through 'sendmail', and
+sendmail looks in /usr/lib/aliases.)
+
+
+-- Format for mail aliases file (.mailrc or vedmailrc) ----------------
+
+Aliases can be defined either for individual names or for lists of
+names. E.g. the following formats should all work:
+
+    alias julie fgin57@uk.ac.rl.gz
+    alias moonuk techhelp%moonuk@moon.com
+    alias progs alanj johng johnw benr richb kaths aledm julie joe
+    alias joe psunb!psunc!jsmith
+    alias gkt gkt%sysdes%alvey@uk.ac.rl.gm
+
+Notice that an alias defined in one place may be included in a list
+in another place: the aliases are all expanded fully.
+
+If you want to define an alias for a very long list of names in your
+vedmailrc file, you will need to get them all in one line (at present).
+This requires setting -vedbreak- false when editing your vedmailrc file.
+See HELP * VED_BREAK
+
+If an alias name starts with "|" then the rest of the name should be
+a program, as described in Unix 'man mail'.
+
+E.g. in your vedmailrc file, the line:
+
+    alias proc |process
+
+Will mean that if 'proc' is named as a recipient of the message, then
+the message should be piped to the program called 'process'.
+
+
+-- Alias substitution in the VED file: ved_send_aliases ---------------
+
+The boolean variable ved_send_aliases (default TRUE) tells the program
+whether to replace addresses in the VED file with their expanded
+versions. If it is made FALSE aliases will not be expanded in the file,
+though the Mail program will still expand them, provided that your
+-vedmailrc- file is the same as the one you use for the system mailer
+(e.g. '.mailrc' in your login directory).
+
+If you use different alias files for ved_send and ordinary unix then you
+should not make ved_send_aliases false.
+
+
+-- The "metoo" option -------------------------------------------------
+
+In your vedmailrc file you may have one of the following commands:
+    set metoo
+    unset metoo
+
+If it is set then if you send mail to any system wide alias and it
+includes your name you will receive a copy. If not you will not.
+
+
+-- Keeping a summary log file: MAILREC --------------------------------
+
+It is sometimes useful to keep brief records of whom you have sent mail
+to when and on what topic.
+
+You can ask the program to keep a record of each message you send
+in a file you specify. Each record will simply have the date, to whom
+mail was sent, and the subject, e.g. in a form like:
+        Sun Mar 24 23:43:46 GMT 1985
+        To: alanf
+        Cc: fred
+        Re: sending mail from ved
+        Sun Mar 24 23:49:58 GMT 1985
+        To: smith@svpb
+        Re: netmail
+        Sun Mar 24 23:54:35 GMT 1985
+        To: fred@uk.ac.ed.aiva joe@uk.ac.fgh.cs
+        Re: arpa mail
+        Bcc: local_arpa_boss
+
+You can specify the name of the file in which the records are to be kept
+by setting Unix environment variable $MAILREC. For example, if you
+wanted mail to go into your file called 'mailrec' in your 'mail'
+subdirectory you could put the following into your .login file:
+
+    setenv MAILREC $HOME/mail/mailrec
+
+That works if you are a CSH user. If you are a SH user, put into
+your .profile
+
+    MAILREC=$HOME/mail/mailrec
+    export MAILREC
+
+If you don't define MAILREC, no record is kept.
+
+The UNIX version of VED_SEND, VED_SENDMR may later be integrated into a
+complete VED-based package for reading and writing mail, saving folders,
+etc.
+
+
+-- Keeping a copy of all mail: ved_send_record ------------------------
+
+The Unix mailer allows you to have in your .mailrc file a line in the
+format
+    set record = <filename>
+
+in which case a copy of every message you send is stored in that file.
+
+If you wish to suppress this for mail sent from VED do the following.
+
+1. Remove the 'set record' line from .mailrc.
+
+2. In your .login do
+    setenv record <filename>
+
+    (This has the advantage that you can use environment variables in the
+    file name, which 'set' in .mailrc does not allow)
+
+Then if the variable ved_send_record has value FALSE (the default) then
+your mail will be piped to the mail program with the $record environment
+variable temporarily suppressed.
+
+In this way the record will be kept if you send mail without using VED,
+but will be suppressed if you send it from VED. If you want the record
+kept in both cases, then do
+
+    vars ved_send_record = true;
+
+in your vedinit.p
+
+
+-- Sending long files without waiting: ved_send_wait ------------------
+
+When ved_send or ved_sendmr sends mail, it creates a SENDMAIL process,
+and sends the mail to it via a pipe. It waits until all the message has
+been written. For a long message this can take some time. If you wish
+not to wait, then assign FALSE to the variable -ved_send_wait-, whose
+default value is TRUE. E.g. in your vedinit.p do
+
+    vars ved_send_wait = false;
+
+Making it FALSE will cause an extra process to be spawned to transfer
+the mail from the VED buffer to SENDMAIL. The original process will not
+wait for any of this to be finished. The benefit is that the user can
+get on with somehing else. The cost is an extra process running on the
+machine, which will help to slow it down, especially if there is a
+shortage of memory.
+
+
+-- RELATED DOCUMENTATION ----------------------------------------------
+
+Other information on UNIX options:
+HELP * VED_MAIL -- Reading incoming Unix mail messages into VED
+HELP * REPLY    -- replying to mail in VED, using ved_reply or ved_Reply
+HELP * VED_MDIR -- creating a directory of messages in a unix mail file
+
+HELP * MAIL     -- making the Berkeley UNIX Mail command use VED
+
+Also Unix 'man' files for 'mail' and 'sendmail'
+
+PROGRAM LIBRARIES
+LIB * VED_SEND
+LIB * OLDSEND
+LIB * VED_MAIL
+LIB * VED_REPLY
+
+
+-- Acknowledgements ---------------------------------------------------
+
+Several people besides the author of this file have contributed to the
+evolution of the VED-based mailer including Mark Rubinstein, Roger Evans,
+Tom Khabaza, Chris Thornton, James Goodlet, and Jason Handby.
+
+--- C.unix/help/send
+--- Copyright University of Sussex 1989. All rights reserved. ----------

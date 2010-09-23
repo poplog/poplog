@@ -1,0 +1,2329 @@
+/*
+TEACH SIM_DEMO                                   Aaron Sloman June 1996
+
+Revised Sep 2000
+(Made objects movable, and made
+the captains continually check
+locations of targets).
+
+There is a better introductory teach file:
+    TEACH SIM_FEELINGS
+
+It demonstrates sim_harness, but not communicating
+agents.
+
+-- What this file is about --------------------------------------------
+
+This file is part of the SIM_AGENT online documentation library. It
+includes both explanatory text and executable code, providing a tutorial
+demonstration of the SIM_AGENT toolkit, including the use of
+
+    rulesets
+        A ruleset is a set of condition action rules
+    rulefamilies
+        A rule family collects a set of cooperating rulesets
+        into a structure. Only one ruleset is current at a time
+    rulesystems
+        A rulesystem is a list of rulesets and rulefamilies defining
+        the internal processing of an agent. In each time slice, all the
+        rulesets or rulefamilies in each agent's rulesystem will be
+        given a chance to run. This simulates parallel execution.
+
+    The creation of different agent classes with different rulesystems,
+    using the facilities of sim_agent
+
+    rc_linepic
+        An extension of the Pop-11 rc_graphic (relative coordinate
+        graphic) library for graphical tracing of agents moving
+        past each other and around obstacles.
+
+    run_demo
+        A test harness procedure, defined in this file.
+
+The file also shows how to allocate different resources to different
+sub-mechanisms in an agent, using the "cycle_limit" and "with_limit"
+declarations in a rulesystem specification.
+
+-- Presuppositions ----------------------------------------------------
+
+It is possible to run the demonstration by following instructions.
+
+However, to understand what is going on and especially if you want to
+try editing this file to produce a different version, you will need
+to know Pop-11 and it is advisable to become familiar with poprulebase.
+
+See
+    TEACH RULEBASE
+    TEACH POPRULEBASE
+
+There is comprehensive documentation in
+    HELP POPRULEBASE
+
+-- For a demonstration, on a graphic terminal -------------------------
+
+    1. Load this file (ENTER L1)
+        That automatically compiles various libraries, e.g.
+            rclib
+            prblib
+            simlib
+        and additional libraries made accessible by those:
+        e.g. rc_window_object, poprulebase, sim_agent
+
+        The ENTER l1 command will print out instructions. For
+        now ignore them.
+
+        It also creates the list all_agents, which you can
+        print out:
+
+        ;;; List of names of all agents in demo
+        all_agents ==>
+
+    2. Decide on the size of window object to be used, e.g.
+
+        vars demo_win;
+
+        ;;; a 500 by 500 window (the default in procedure setup()
+
+        rc_new_window_object("right", "top", 500,500, true, 'demo_win',
+            newsim_picagent_window) -> demo_win;
+
+        ;;; a 350 by 350 window
+        rc_new_window_object("right", "top", 350,350, true, 'demo_win',
+            newsim_picagent_window) -> demo_win;
+
+
+    3. Initialise ranseed, if desired:
+
+        If you do this, you will be able start the program with
+        the same initial state each time:
+
+        2 -> ranseed;
+        ;;; Try different numbers for different initial states
+
+    4. Run the setup_agents procedure to convert the list of names
+       of objects to a list of the objects, and draw them on the
+       screen:
+
+        setup_agents(all_agents) -> all_agents;
+
+        This will draw items on the window showing blue team
+        on right and red team on left. The blue team members are
+        shown as "Bc" (the blue captain) and b1, b2, b3, ...
+        The red team members are shown as "Rc" (the red captain) and
+        r1, r2, r3, ...
+
+        The blue target t1 is on top left, the red t2 on top right.
+        Use mouse button 1 to move the agents and objects to other
+        locations.
+
+    5. Run the program till the teams get to their targets. Watch
+    collision avoidance behaviour.
+
+        run_demo(all_agents, 500, false, alltracevars,
+                [demo_cycle_trace GRAPHIC_TRACE], false);
+
+        This will pause for you to press RETURN then it will
+        allow everything to run. During the pause you may move
+        objects using mouse button 1, then press the RETURN key.
+
+        The procedure run_demo is defined below. The second
+        argument is the number of cycles of the scheduler. This
+        invocation produces minimal textual tracing, but includes
+        a graphical display. More textual tracing is possible. It
+        is also possible to make the program pause when executing
+        certain actions, by uncommenting some lines of code in
+        ruleset definitions, below.
+
+        When the program runs, blue team members are told by the
+        blue captain to go to target t1. Red team members are told
+        by the red captain (rc) to go to target t2. All members
+        acknowledge the messages, and start moving The captains do
+        not acknowledge acknowledgements.
+
+        When team members get to their targets they inform their
+        captain and stop.
+
+        If you move a target while the program is running the captain
+        concerned will inform its team of the new target location, and
+        they will move towards it.
+
+        If you move the target after they have stopped, the captain will
+        notice the new location, and send new messages to its team. They
+        will start moving again.
+
+    6. You can repeat with different default locations for the obstacles
+       and different numbers of obstacles, if you edit the list
+       obstacles, defined below.
+
+       Then recompile this file, then repeat the above. You can also
+       experiment with different starting locations for the team
+       members, blue1, blue2, red1, red2, etc.
+
+       The rulesets given below are very simple and designed for no
+       other purpose than illustrating some of the features of the
+       toolkit. You can explore extensions using different rulesets
+       and rulefamilies. (Further features are described in the other
+       HELP and TEACH files provided with Poprulebase and Sim_agent.)
+
+    7. If you wish to dump copies of the window into a file, you can
+       assign a number N to team_dump_images (default is false). In that
+       case it will pause after every N cycles of the scheduler to dump
+       the window into a file whose name is derived from team_dump_file
+       (default 'pic'). E.g.
+            3 -> team_dump_images;
+
+    8. If you wish to start up more quickly, without going through
+    the abve seven steps you can follow the instructions printed
+    out when you do ENTER l1, e.g.
+
+        run_demo(all_agents, 500, false, alltracevars,
+            [demo_cycle_trace GRAPHIC_TRACE], false);
+
+    That command will create the agents and draw them, then pause
+    while you move them round, if desired. Then you should press
+    the RETURN key when ready.
+
+    By default the program produces very little textual tracing.
+    By reading on you can see how to get more tracing printed out.
+    However, you can easily be overwhelmed by trace printout.
+
+
+NOTE: repeated runs will not produce the same behaviour, unless the
+value of ranseed is reset each time, partly because the original
+locations of the team members are varied slightly at random and partly
+because the evasive action when movers are close to obstacles or
+other movers is partly random. So when debugging and testing, initialise
+ranseed if you want to be sure you can repeat a test case.
+
+
+CANNED DEMONSTRATIONS
+
+    The overview web page
+        http://www.cs.bham.ac.uk/~axs/cog_affect/sim_agent.html
+
+    includes some demonstration mpeg movies showing this code running
+    and also some other demonstrations of work at Birmingham. These
+    movies were taken a long time ago, when computers were much slower.
+    The displays were sampled rather coarsely, and as a result they
+    run too quickly on modern computers.
+
+STILL TO BE DONE
+    - More detailed comments!
+    - Add some exercises for readers.
+    - Extend the avoidance strategy of movers.
+
+CONTENTS OF THIS FILE
+
+ -- What this file is about
+ -- Presuppositions
+ -- For a demonstration, on a graphic terminal
+ -- This file is executable
+ -- Overview of the demonstration
+ -- How the toolkit is used
+ -- -- Define new classes
+ -- -- Define new methods
+ -- -- Define rules, rulesets, rulefamilies, rulesystems
+ -- -- -- Building up rulesystems
+ -- -- Specify rulesystems for different classes of agents
+ -- -- Create instances, with initial information
+ -- -- Redefine appropriate tracing methods
+ -- -- Run the simulation, using sim_scheduler
+ -- Possible extensions of the demonstration example
+ -- Libraries used: Objectclass, poprulebase, sim_agent, rc_linepic
+ -- Background reading
+ -- Prepare for compilation or recompilation of libraries
+ -- Load prerequisite libraries, if needed
+ -- Global variables (including default trace variables)
+ -- New sub_classes for this demonstration
+ -- -- Global variables for team agents
+ -- -- classes: team_agent team_mover team_captain
+ -- -- Static object class: team_static
+ -- Methods and utilities for "team" agents
+ -- -- Modify the method sim_run_agent
+ -- -- Global lexical variables set up for rulesets.
+ -- Behaviour rules for team agents
+ -- -- Accessing global variables in rule patterns and actions
+ -- -- Controlling the environment
+ -- -- Rulesets for team_perception_rulefam
+ -- -- -- team_perception_rules
+ -- -- team_analyse_percept_rules
+ -- -- team_perception_rulefam
+ -- -- Rulesets for team_message_in_rulefam
+ -- -- -- team_message_in_rules
+ -- -- -- team_message_process_rules
+ -- -- team_message_in_rulefam
+ -- -- Rulesets for team_goal_rulefam
+ -- -- -- team_deliberate_rules
+ -- -- team_goal_rulefam
+ -- -- team_move_rules (and utilities for them)
+ -- -- team_message_out_rules
+ -- -- team_captain_rules
+ -- The rulesystem for each agent type
+ -- Create the instances
+ -- Static objects
+ -- -- The blue team
+ -- -- The red team
+ -- Set up the demo
+ -- Modified versions of tracing procedures
+ -- Testing the package
+ -- -- Settings for minimal tracing:
+ -- -- Running the demo, and making it faster
+ -- TESTING using run_demo,
+ -- Print out instructions
+ -- Index of methods procedures classes and rules
+ -- Record of changes
+
+-- This file is executable --------------------------------------------
+
+This is an executable file, demonstrating some features of the SIM_AGENT
+toolkit, along with the Pop-11 packages on which it is based. It can
+be compiled in the editor VED with the command
+    ENTER l1
+
+This will load various libraries, including
+
+
+    uses objectclass
+    uses rclib
+    uses poprulebase
+    uses sim_agent
+    uses sim_picagent
+
+-- Overview of the demonstration --------------------------------------
+
+This file introduces a simple demonstration of a subset of the
+facilities in the SIM_AGENT toolkit, including graphical tracing.
+
+It demonstrates how to use the sim_agent library, by constructing a
+small scenario involving "teams" of interacting agents, e.g. a red team
+and a blue team.
+
+-- How the toolkit is used --------------------------------------------
+
+-- -- Define new classes
+It is assumed that the reader is familiar with Objectclass, the Pop-11
+object oriented system. (See TEACH * OOP)
+
+1. In order to define a simulation using the toolkit it is necessary
+to define new classes of agents based on the sim_object and sim_agent
+classes provided in the toolkit. These classes have standard methods
+associated with them, including tracing methods and the method called
+sim_run_agent. Some of the toolkit methods are redefined below, in order
+to tailor them for the classes defined in this tutorial demonstration.
+They also have standard fields or slots, including sim_name, sim_ruleset
+and sim_data.
+
+The following classes of agents are introduced below, all derived from
+the class sim_agent, defined in the sim_agent toolkit, along with extra
+facilities found in lib rc_linepic.
+
+    class team_agent
+        We shall not use this class directly, only its subclasses,
+        which inherit its slots and methods.
+
+    class team_mover
+        This is the first new subclass of team_agent. Its instances will
+        be movable members of a "team". There is a blue team and
+        a red team.
+
+    class team_captain
+        This is the second subclass, whose instances will be
+        immovable members of a team, giving orders to the other
+        members, and receiving messages.
+
+    class team_static
+        Obstacles and targets are instances of this class. This is the
+        only class whose instances do not do any sensing of other
+        objects, and which do not move of their own accord (though they
+        could be made movable by the user, via a graphical interface,
+        and the rc_mousepic library.)
+
+Team movers will be given tasks, and will have to acknowledge messages
+from their team captain. When they have achieved their tasks they
+report this to the captain, who may give them more tasks.
+
+-- -- Define new methods
+
+2. For each class we can define methods, which operate on that class.
+In this file, for example, we define the following methods for these
+classes.
+
+   define :method print_instance(item:team_agent);
+        Override the default print method for sim_agents
+
+   define :method sim_distance(a1:team_agent, a2:team_agent) -> dist;
+        Compute the distance between two agents
+
+   define :method sim_distance(a1:team_agent, a2:team_static) ;
+        Compute the distance between an agent and a static object
+
+   define :method sim_sense_agent(a1:sim_object, a2:sim_object, dist);
+        This is used by the scheduler to give information about a2, to
+        a1, the distance between them having already been computed.
+        Objects further than team_visual_range are not noticed.
+
+   define :method sim_sense_agent(a1:team_static, a2:sim_object, dist);
+        This specialised version is designed to ensure that instances
+        of class team_static get no perceptual messages. They are
+        meant to be inert objects, which do no internal processing.
+
+   define :method sim_run_agent(agent:team_agent, agents);
+        This overrides the default method for running the agents used by
+        the scheduler. The scheduler has a main loop: and each cycle
+        through that loop is thought of as a time unit in simulated
+        time. In each such time slice the schedular applies the method
+        sim_run-agent to each agent.
+
+        The method can set up a file for trace printing coming from an
+        agent, and may set up an environment in which certain global
+        variables have special values for this agent (e.g. variables
+        that control tracing). It can also perform other actions
+        required for particular classes of agents. It runs the default
+        toolkit method, using the call_next_method syntax.
+
+    Several other toolkit methods concerned with tracing are also
+    redefined, namely
+        sim_agent_running_trace      sim_agent_messages_in_trace
+        sim_agent_messages_out_trace sim_agent_actions_out_trace
+        sim_agent_rulefamily_trace   sim_agent_endrun_trace
+        sim_agent_terminated_trace
+
+    For each of this a global variable is provided whose value
+    determines whether the method prints anything. The values
+    can be set true selectively when the run_demo procedure is
+    activated. One if its arguments is a list of control variables
+    to set true.
+
+
+-- -- Define rules, rulesets, rulefamilies, rulesystems
+
+3. We have to specify the "internal" mechanisms for the different
+classes of agents. This is done as follows, using a hierarchy of
+sub-mechanisms:
+
+    rules - rulesets - rulefamilies - rulesystems
+
+Rulesystems are the highest level. Each agent has a collection of
+internal mechanisms defined by a rulesystem. This rulesystem is a list
+of rulefamilies and rulesets. A rulefamily is a collection or rulesets.
+At the lowest level are the rules themselves. Each rule may have zero or
+more conditions and zero or more actions. By default the conditions are
+merely patterns checked against the agent's database and the actions
+are merely commands to change the database. However, Poprulebase allows
+for a much wider variety of conditions and actions than this, including
+conditions and actions that invoke Pop-11 procedures to interrogate or
+manipulate arbitrary information structures, including communication
+channels.
+
+(See  HELP * RULESYSTEMS for more information on this hierarchy).
+
+-- -- -- Building up rulesystems
+
+To set up a simulation, we need to define a set of condition-action
+rules. Each rule is in a "ruleset." The rulesets are listed below.
+
+A set of rulesets within an agent can be grouped together to form a
+rulefamily. Thus, a simple rulefamily is just one ruleset, and a
+compound rulefamily is a collection of rulesets. The rulesets in a
+rulefamily can transfer control between one another using special
+actions provided for this purpose, though within an agent only one
+member of each rulefamily is "active" at a time. Several rulefamilies
+may be active at the same time.
+
+A compound rulefamily may be quite simple, containing only a few rules
+which are separated into rulesets simply for efficiency, or it may be a
+complex mechanism with many different rulesets doing different kinds
+of tasks. Deciding how to divide up all your rules between different
+rulesets and rulefamilies can be a challenging task.
+
+Different simple or compound rulefamilies within an agent can run "in
+parallel", or, to be more precise, in simulated parallelism.
+
+However when a rulefamily has different rulesets those rulesets are not
+run in parallel, but in series: they take it in turns being in charge of
+the activities of the rulefamily. For example in the demonstration below
+we group these two rulesets
+
+    team_message_in_rules,   team_message_process_rules
+
+into a single rulefamily, and they take it in turns being active, each
+deciding when to transfer control back to the other.
+
+Perception rulesets are grouped into a simple family
+        team_perception_rules
+        team_analyse_percept_rules
+
+Similarly this is the basis of a rulefamily which could be extended.
+
+    team_deliberate_rules,
+
+By contrast these rulesets remain separate, serving as "simple"
+rulefamilies:
+
+        team_move_rules
+        team_message_out_rules
+        team_captain_rules
+
+The last three are directly included in the relevant rulesystems. The
+other rules are implicitly included because rulefamilies containing them
+are directly included.
+
+
+Each agent's rulesystem contains several rulefamilies and rulesets,
+which are thought of as running in parallel, though what this actually
+means is that in each time_slice the scheduler takes each object, and
+works through all the rulefamilies and rulesets in its rulesystem.
+
+-- -- Specify rulesystems for different classes of agents
+
+4. We specify for each class of agent which rulesystem it will use.
+Different classes of agents can have different rulesystems, containing
+different combinations of rulefamilies. In principle they can also
+process the individual rulefamilies in different orders, and allocate
+them different resources in each simulated time interval. Thus one agent
+may be capable of thinking and planning faster than another.
+
+-- -- Create instances, with initial information
+5. We then create a set of instances of the classes, giving them initial
+databases and some initial slot values (e.g. location values) to start
+up. Search below for the list "all_agents" to see how the complete set
+of objects and agents is created.
+
+-- -- Redefine appropriate tracing methods
+
+6. In order to vary the amount of information printed out about what is
+going on we can redefine some of the tracing methods and procedures, as
+indicated in the testing section below. We also use parameters given to
+the procedure run_demo to vary the amount of trace printing, including
+specifying whether graphical tracing should be shown or not.
+
+-- -- Run the simulation, using sim_scheduler
+
+7. To run the simulation, we give the list of instances to the main
+sim_agent procedure, sim_scheduler, with a number specifying how many
+time-slices to simulate.
+
+In order to make it easy to control the environment in which this runs a
+test harness procedure, run_demo is defined, which calls sim_scheduler
+after setting a number of variables.
+
+
+-- Possible extensions of the demonstration example -------------------
+
+In the example below the agents are merely a few team members
+and their captains. There are also some inanimate objects.
+
+Readers may wish to implement extensions.
+
+It would be possible to have some sort of global map-like database of
+the world, e.g. a 2-D array. At present the only truly global database
+is the list of all agents, which is short enough to be scanned
+repeatedly by the scheduler.
+
+-- Libraries used: Objectclass, poprulebase, sim_agent, rc_linepic
+
+The demonstration uses the following Pop-11 libraries.
+
+    Objectclass,
+        An object oriented programming extension to Pop-11,
+        providing multiple inheritance and multi-methods. Using
+        this we can define new classes and methods, extending those
+        provided in the SIM_AGENT library, without changing a line of
+        code in the library.
+
+    Poprulebase
+        This provides syntax for defining condition-action rules,
+        which may be grouped into
+            rulesets
+                Each ruleset is a collection of related rules
+            rulefamilies
+                Each rulefamily is a collection of related rulesets,
+                which take it in turns being active
+            rulesystems
+                Each rulefamily is a collection of rulefamilies and
+                rulesets, which notionally run in parallel,
+                communicating through a common database. Each agent
+                or object in the SIM_AGENT package has a rulesystem
+                defining its "internal" processing mechanisms. The
+                rules can have conditions and actions which interact
+                neural nets or other so-called "sub-symbolic"
+                mechanisms.
+
+    Rc_linepic
+        which provides facilities for creating pictures which can be
+        moved, rotated, and access via mouse and keyboard interactions.
+
+    Sim_agent
+        Which provides the main classes for objects and agents, and
+        the simulation procedure run_scheduler, along with a set of
+        methods for running objects and agents.
+
+-- Background reading
+
+
+This demonstration is based on the LIB * SIM_AGENT package described in
+the tutorial introduction
+    TEACH * SIM_AGENT
+
+and the more complete overview:
+    HELP * SIM_AGENT
+
+For additional information about the key ideas of the toolkit, and
+the use of rule-based mechanisms, see
+    TEACH * RULEBASE, HELP * RULESYSTEMS,  HELP * POPRULEBASE
+
+For information on object oriented programming in Pop-11 see
+    TEACH * OOP
+    HELP  * OBJECTCLASS, TEACH * OBJECTCLASS_EXAMPLE
+
+For a tutorial on the graphical facilities used see
+    TEACH * RCLIB_DEMO and TEACH * RC_LINEPIC
+and for more detail
+    HELP * RC_LINEPIC
+
+
+
+-- Prepare for compilation or recompilation of libraries
+
+This file will take some time to load, unless you have already compiled
+LIB OBJECTCLASS, LIB POPRULEBASE, LIB SIM_AGENT, and LIB RC_GRAPHIC
+
+For test commands, see section below, on TESTING
+
+*/
+
+;;; In case recompiling, get rid of old agents. Prepare global list.
+vars all_agents = [];
+
+;;; In case heap locked, unlock it.
+
+sys_unlock_heap();
+sysgarbage();
+
+;;; Increase popmemlim to reduce garbage collection time.
+;;; Experiment with the number.
+max(popmemlim, 900000) -> popmemlim;
+
+/*
+-- Load prerequisite libraries, if needed
+*/
+global vars
+    ;;; We need to know if X graphical facilities will work
+    USING_X = systranslate('DISPLAY'),
+
+    ;;; Make this false to turn off graphical tracing. Make it "trail" to
+    ;;; leave a trail when objects move. (See help rc_linepic )
+    ;;; Make it TRUE to move without a trail.
+    GRAPHIC_TRACE = if USING_X then true else false endif,
+
+    ;;; If this is a number N then every N cycles the current Xgraphic
+    ;;; window will be dumped to a file. See sim_scheduler_pausing_trace
+    ;;; defined below
+    team_dump_images = false,
+
+    ;;; start file name for dumping images. Will be given as argument
+    ;;; to gensym, with suffix '.xwd' added to produce file name
+    ;;; in sim_scheduler_pausing_trace
+    team_dump_file = "pic",
+;
+
+
+
+;;; Object oriented mechanisms
+uses objectclass
+
+;;; Rule-based mechanisms
+uses poprulebase
+
+;;; The scheduler for simulations
+uses sim_agent;
+
+
+;;; Geometric reasoning procedures
+uses sim_geom;
+
+;;; Facilities supporting graphical display
+uses rclib;
+uses rc_linepic;
+uses rc_mousepic;
+uses rc_window_object;
+
+;;; Library to combine sim_agent with RCLIB picture objects
+uses sim_picagent
+
+;;; Procedure for redirecting trace output to editor buffers
+uses veddiscout
+
+;;; Make this true to show garbage collections
+true -> popgctrace;
+;;; Lock the heap to reduce garbage collection times when programs run
+;;; sys_unlock_heap();
+;;; sysgarbage();
+;;; sys_lock_heap();
+
+
+/*
+-- Global variables (including default trace variables)
+
+The global variables now defined are used for controlling procedures
+that are defined separately from rules.
+
+*/
+
+
+global vars
+    ;;; Turn on as many debugging options as possible
+    pop_debugging = true,
+
+    ;;; Two new global variables to control tracing
+    ;;; Make them false to produce less print output.
+    ;;; Turn them on selectively in the procedure run_demo
+    demo_trace = true,
+    demo_cycle_trace = true,
+
+    ;;; Only SAYIF actions with keys in this list will be run.
+    ;;; prb_sayif_trace = [debug sense acting comms goal],
+    prb_sayif_trace = [comms goal],
+
+    ;;; these are defined in HELP POPRULEBASE
+    prb_chatty = false,
+
+    prb_walk = false,
+
+;
+
+/*
+
+-- New sub_classes for this demonstration
+*/
+
+/*
+-- -- Global variables for team agents
+*/
+
+global vars
+
+    ;;; The window used for display
+
+    demo_win
+
+    ;;; an agent stops when it is within this distance from
+    ;;; its target
+    team_stopping_distance = 20,
+
+    ;;; Visual sensor limit
+    team_visual_range = 60,
+    ;
+
+
+/*
+-- -- classes: team_agent team_mover team_captain
+
+We assume that lib sim_agent has been compiled, and that its class
+sim_agent has already been defined.
+
+We define the class team_agent as a subclass of that, and give the
+team_agent subclass itself two further subclasses, team_captain and
+team_mover.
+
+*/
+
+;;; rulesystems, defined below.
+vars team_mover_rulesystem, team_captain_rulesystem;
+
+
+define :class team_agent;  is sim_movable_agent ;
+    slot sim_status == "alive";   ;;; could be "hungry", "ill", etc.
+                                  ;;; not really used
+
+    ;;; Assume that each agent has a heading and a speed,
+    slot team_heading == 0;
+    slot team_speed == 0;
+
+    ;;; Two values for location. (Used by sim_picagent facilities)
+    slot sim_x == 0;
+    slot sim_y == 0;
+
+    slot team_target;
+
+    ;;; Information about the agent's team.
+    ;;;     e.g. could be "red_team", "blue_team", etc.
+    slot team_team;
+
+    ;;; Some agents will have a captain. A team's captain
+    ;;; will have false in this slot.
+    slot team_captain;
+
+    ;;; Character consumer for trace printing.
+    ;;; Default false means do not divert print output
+    slot team_print_consumer = false;
+
+    ;;; Default set of rulesets to be obeyed. Rules defined below.
+    slot sim_rulesystem = [];
+
+    ;;; Override default sim_sensors, with closer range
+    slot sim_sensors = [{sim_sense_agent ^team_visual_range}];
+enddefine;
+
+
+define :class team_mover; is team_agent;
+    slot sim_rulesystem = team_mover_rulesystem;
+enddefine;
+
+define :class team_captain; is team_agent ;
+    slot team_startgoals == [];        ;;; initial goals
+
+    slot team_members == [];    ;;; agents to which commands can be given
+
+    slot team_captain == false;   ;;; No superior
+
+    slot sim_rulesystem = team_captain_rulesystem;
+enddefine;
+
+/*
+
+-- -- Static object class: team_static
+
+The class team_static is for things that are meant to be features of the
+environment which do not move.
+
+(Later they may be made draggable by the user, using mechanisms
+described in HELP RC_LINEPIC).
+
+For example, one instance below is an obstacle, to be detected and
+avoided by moving team agents, and another is a target object, which
+some agents are asked to approach.
+
+[RULES FOR DETECTING AND AVOIDING THEM TO BE ADDED]
+*/
+
+define :class team_static; is sim_movable;
+    ;;; Two values for location.
+    slot sim_x == 0;
+    slot sim_y == 0;
+    slot team_diameter = 30;
+    ;;; No internal processing mechanisms
+    slot sim_rulesystem = [];
+    slot team_print_consumer = false;
+enddefine;
+
+
+/*
+-- Methods and utilities for "team" agents
+*/
+
+define team_coords(t) /* -> (x, y)*/;
+    ;;; get two numbers representing current location of t
+    sim_x(t), sim_y(t);
+enddefine;
+
+;;; Specialise the print method for team_agents
+define :method print_instance(item:team_agent);
+    ;;; Could be extended to print other information.
+    dlocal pop_pr_places = 0;
+    printf(
+        '<agent %P at (%P %P) heading %P>',
+        [% sim_name(item), team_coords(item), team_heading(item)%])
+enddefine;
+
+define :method print_instance(item:team_static);
+    ;;; Could be extended to print other information.
+    dlocal pop_pr_places = 0;
+    printf(
+        '<Static %P at (%P %P)>',
+        [% sim_name(item), team_coords(item)%])
+enddefine;
+
+
+define :method sim_distance(a1:team_agent, a2:team_agent) ;
+    ;;; Compute distance between agent a1 and another object.
+    ;;; Used to determine whether the agent a1 can "sense" the object
+    sim_distance_from(team_coords(a1), team_coords(a2))
+enddefine;
+
+define :method sim_distance(a1:team_agent, a2:team_static) ;
+    ;;; Compute distance between agent a1 and another STATIC object.
+    ;;; Used to determine whether the agent a1 can "sense" the object
+    sim_distance_from(team_coords(a1), team_coords(a2))
+enddefine;
+
+define :method sim_sense_agent(a1:sim_object, a2:sim_object, dist);
+    ;;; Default sensor for detecting other agents. Called at the
+    ;;; beginning of a1's turn in each time slice
+    unless a1 == a2 or dist > team_visual_range then
+        ;;; a1 records a2 at distance and location given
+        ;;; this information will be automatically transferred into
+        ;;; a1's internal database
+        [new_sense_data ^a2 ^dist %team_coords(a2)%]
+    endunless
+enddefine;
+
+define :method sim_sense_agent(a1:team_static, a2:sim_object, dist);
+    ;;; Static objects detect nothing
+enddefine;
+
+/*
+-- -- Modify the method sim_run_agent
+
+Specialise the sim_run_agent method, to set some additional global
+variables, and then run the normal sim_run_agent method.
+*/
+
+/*
+-- -- Global lexical variables set up for rulesets.
+These variables are lexically scoped, but need to be accessible in
+rules below. They are given default values for debugging and tracing.
+
+These default values should never be seen if the program works.
+
+These declarations are necessary for the occurrences of pattern elements
+like ?my_xloc in rules to access the global values set up in
+sim_run_agent.
+*/
+
+lvars
+    my_captain,
+    my_xloc = 'xloc_undef',
+    my_yloc = 'yloc_undef',
+    my_heading = 'heading_undef';
+
+define :method sim_run_agent(agent:team_agent, agents);
+    ;;; Set up environment for running the team agent.
+    ;;; This will be extended when the next method runs
+    ;;; I.e. the generic sim_run_agent
+
+    ;;; Make the following variables available in conditions in rules
+    ;;; used by team_agents. sim_myself is already available.
+    ;;; Warning the [do ...] actions are performed outside of
+    ;;; the context of this method, inside sim_scheduler
+    dlocal
+        my_captain = team_captain(agent),
+        my_xloc = sim_x(agent),
+        my_yloc = sim_y(agent);
+
+    ;;; Note the above could have been done by [LVARS...]
+    ;;; declarations in rulesystems. But dlocal ensures
+    ;;; values are reset.
+
+    lvars output = team_print_consumer(agent);
+
+    if output then
+        ;;; If the consumer is defined, use it for trace printing.
+        ;;; Otherwise the preexisting cucharout will be used.
+        dlocal cucharout = output;
+    endif;
+
+    ;;; Now run the generic version of the method sim_run_agent
+    call_next_method(agent, agents);
+enddefine;
+
+
+/*
+-- Behaviour rules for team agents
+
+-- -- Accessing global variables in rule patterns and actions
+
+The conditions and actions of Poprulebase use variables that are
+indicated in patterns by means of the "?" or "??" prefix. Normally such
+variables pick up their values within a rule by matching a pattern in a
+condition against something in the database.
+
+However, it is possible also to access variables defined externally to a
+rule, but only if an appropriate prior declaration is used.
+
+Global non-lexical (permanent) variables cannot be accessed directly via
+pattern variables in rules unless they are introduced to the rule, or an
+enclosing ruleset, via a [VARS ...] declaration.
+
+Global (i.e. file-local) lexical variables can be accessed via rule
+variables if they are introduced to the rule or the enclosing ruleset,
+rulefamily or rulesystem via an [LVARS ...] declaration, as illustrated
+below.
+
+By default all the pattern variables, except those introduced via
+[VARS...] are lexically scoped.
+
+-- -- Controlling the environment
+
+Programs in Pop-11, including the interrupt handler, the error handler,
+and the main printing routines, as well as poprulebase and sim_agent
+tracing programs, can be controlled by a number of global variables.
+Sometimes it is necessary to change these variables when a particular
+rule, ruleset, rulefamily or rulesystem is active. This can be done
+using the [DLOCAL...] format, illustrated below, at the beginning of the
+appropriate construct. Inside a rule this looks just like the first
+condition of the rule. In definition of a ruleset, rulefamily or
+rulesystem it functions as a declaration and must be followed by a
+semi-colon.
+
+In what follows we define the following mechanisms
+ .. team_perception_rulefam
+    Composed of
+        team_perception_rules
+        team_analyse_percept_rules
+
+ .. team_message_in_rulefam
+    Composed of
+        team_message_in_rules
+        team_message_process_rules
+
+ .. team_goal_rulefam
+    Composed of
+        team_deliberate_rules
+        maybe others later
+
+Rulesets not included in a rulefamily, each acting like a
+rulefamily on its own:
+        team_move_rules
+        team_message_out_rules
+        team_captain_rules
+
+*/
+/*
+-- -- Rulesets for team_perception_rulefam
+-- -- -- team_perception_rules
+
+;;; Only rather silly rules for now
+*/
+
+define :ruleset team_perception_rules;  ;;; in team_perception_rulefam
+    ;;; For dealing with sensor inputs
+    ;;; This is the "main" ruleset in the team_perception_rulefam
+    ;;; rulefamily. It uses PUSHRULESET to transfer control
+    ;;; Uncomment next line to "walk" through perception actions
+    ;;; [DLOCAL [prb_walk = true][vedediting = true] ];
+
+  RULE see_no_more
+    ;;; when the agent has stopped, just ignore sensory data
+    ;;; [DLOCAL [prb_walk = true][vedediting = true]]
+    [stopped]
+    [new_sense_data ?thing ?thing_dist ?thingx ?thingy]
+    ==>
+    [NOT new_sense_data ==]
+    [STOP]
+
+  RULE see_target1
+    [NOT stopped]
+    [new_sense_data ?thing ?thing_dist ?thingx ?thingy]
+    [WHERE thing == team_target(sim_myself)
+        and thing_dist < team_stopping_distance ]
+    ==>
+    [NOT new_sense_data ==]
+    [SAYIF sense target ahead ?thing -- STOPPING]
+    [stopped]
+    [STOP]
+    ;;;[STOPAGENT]
+
+  RULE see_obstacle
+    ;;; uncomment next line to see response to obstacle
+    ;;; [DLOCAL [prb_walk = true][vedediting = true]]
+    [NOT stopped]
+    [obstacle_ahead ?thing ?ang ?dist][->>It]
+    [NOT veering =]
+    ==>
+    [DEL ?It]
+    [LVARS veer]
+    [POP11
+        lvars angsize =
+            ;;; Take partly random action to get away
+            if thing == team_target(sim_myself) then 0
+            elseif isteam_static(thing) and dist < 10 then
+                90 + random(15)
+            elseif dist < 15 then abs(100 - abs(ang)) + random(30)
+            elseif dist < 25 then abs(70 - abs(ang)) + random(10)
+            elseif dist < 40 then abs(30 - abs(ang))  + random(5)
+            elseif dist < 50 then abs(20 - abs(ang))
+            else abs(5 - abs(ang))
+            endif;
+
+        if ang > 0 then abs(angsize) else -abs(angsize) endif -> veer]
+    [veering ?veer ?thing]
+    [SAYIF sense obstacle_ahead ?thing angle ?ang distance ?dist
+        veering ?veer]
+    ;;; Record need for processing
+    [TESTADD seen_stuff]
+
+  RULE see_something
+    ;;; [DLOCAL [prb_walk = true][vedediting = true]]
+    [NOT stopped]
+    [new_sense_data ?thing ?thing_dist ?thingx ?thingy]
+    ==>
+    ;;; get rid of old sense data about ?thing
+    [NOT new_sense_data ?thing ==]
+    [NOT seen ?thing == ] ;;; might need this memory ???
+    [SAYIF sense ?sim_myself 'sees' ?thing at (?thingx ?thingy) ?thing_dist]
+    ;;; Update information about where thing was seen
+    [LVARS [num = sim_cycle_number]] ;;; in lib sim_agent
+    [seen ?thing  ?num ?thing_dist ?thingx ?thingy]
+    [POP11
+        if demo_trace then prb_print_table(prb_database, [seen]) endif]
+    ;;; Record need for processing
+    [TESTADD seen_stuff]
+
+  RULE see_finish_processing
+    ;;; record fact that ruleset is pushed
+    [NOT stopped]
+    [seen_stuff]
+    ==>
+    ;;; transfer control to another ruleset to process the "seen" data
+    [PUSHRULESET team_analyse_percept_rules]
+
+  RULE see_nothing
+    [NOT new_sense_data ==]
+    ==>
+    [SAYIF sense 'Nothing left to see']
+    [STOP]
+enddefine;
+
+/*
+team_perception_rules ==>
+
+*/
+
+/*
+-- -- team_analyse_percept_rules
+*/
+
+define process_percept(thing, dist, thingx, thingy);
+    ;;; Might do additional work later
+;;;    [seen ^thing at ^dist] =>
+enddefine;
+
+define ang_obstacle_ahead(sim_myself, thingx, thingy) -> ang;
+    ;;; Angle between line to obstacle and current heading
+    lvars ang =
+        sim_degrees_diff(
+            team_heading(sim_myself),
+            sim_heading_from(team_coords(sim_myself), thingx, thingy));
+enddefine;
+
+define :ruleset team_analyse_percept_rules; ;;; in team_perception_rulefam
+    ;;; When something is seen
+
+  RULE team_process_obstacle
+    ;;; detect and react to obstacles
+    ;;;Uncomment next two lines for extra tracing.
+    ;;; [DLOCAL [prb_walk = true][vedediting = true]
+    ;;;    [prb_show_conditions = true]]
+
+    [seen ?thing  ?cycle_number ?thing_dist ?thingx ?thingy]
+    ;;; Uncomment this if you want only "static" objects to be avoided
+    ;;;    [WHERE isteam_static(thing)]
+    [LVARS [angle = ang_obstacle_ahead(sim_myself, thingx, thingy)]]
+    [WHERE thing_dist < 25
+            or (thing_dist < 40 and abs(angle) < 40)
+            or (thing_dist < 60 and abs(angle) < 10)]
+    [NOT processed_seen ?thing ?cycle_number]
+    ==>
+    [NOT processed_seen ?thing =]
+    [processed_seen ?thing ?cycle_number]
+    [SAYIF sense 'Item seen' ?thing dist ?thing_dist angle ?angle]
+    [POP11
+        dlvars found_nearer = false;
+        vars thing2, ang2, dist2;
+        ;;; See if this is the nearest obstacle.
+        prb_foreach([obstacle_ahead ?thing2 ?ang2 ?dist2],
+            procedure();
+                if dist2 < thing_dist then
+                    ;;; thing2 is nearer, so ignore thing
+                    true -> found_nearer;
+                    exitfrom(prb_foreach);
+                else
+                    ;;; delete evidence of further object
+                    prb_flush1(prb_found)
+                endif
+            endprocedure);
+        unless found_nearer then
+            prb_add([obstacle_ahead ^thing ^angle ^thing_dist])
+        endunless]
+
+  RULE team_process_percept
+    ;;; detect and react to other things than obstacles
+    [seen ?thing  ?cycle_number ?thing_dist ?thingx ?thingy]
+    [NOT processed_seen ?thing ?cycle_number]
+    ==>
+    [NOT processed_seen ?thing =]
+    [processed_seen ?thing ?cycle_number]
+    [POP11 process_percept(thing, thing_dist, thingx, thingy)]
+
+  RULE team_no_percept
+    ==>
+    [NOT seen_stuff]
+    ;;; All done, so go back to previous ruleset
+    [POPRULESET]
+enddefine;
+
+/*
+
+-- -- team_perception_rulefam
+
+We now create a rulefamily consisting of the above perception rules.
+*/
+
+;;; A global variable to be made accessible in patterns.
+
+define :rulefamily team_perception_rulefam;
+    [DLOCAL
+        ;;; Run all instances to ensure that all incoming sensory
+        ;;; data are processed
+        [prb_allrules = true]
+        ;;; make sure actions are performed immediately
+        [prb_sortrules = false]];
+    debug = true;
+    ruleset: team_perception_rules
+    ruleset: team_analyse_percept_rules
+enddefine;
+
+/*
+(team_perception_rulefam.datalist)(2).datalist ==>
+*/
+
+/*
+
+-- -- Rulesets for team_message_in_rulefam
+
+The next two rulesets will form a rulefamily
+    team_message_in_rules      - for acknowledging new messages
+    team_message_process_rules - for processing messages
+-- -- -- team_message_in_rules
+*/
+
+;;; If prb_repeating is not false, the next rule will have to have
+;;; an action to prevent itself being invoked repeatedly!
+
+
+define :ruleset team_message_in_rules; ;;; in team_message_in_rulefam
+    ;;; uncomment next line to trace condition checking in these rules
+    ;;; [DLOCAL [prb_show_conditions = true][prb_walk = true][vedediting = true]];
+    ;;; Or just this for more restricted tracing
+    ;;; [DLOCAL [prb_walk = true][vedediting = true]];
+
+  RULE mess_in_ack1
+    ;;; For messages not requiring acknowledgement
+    ;;; NB acknowledgements should not be acknowledged
+    [message_in ?source ?mess_id ??contents][->>It]
+    [WHERE not(mess_id)]
+    ==>
+    ;;; Do not acknowledge messages with a false mess_id
+    [DEL ?It]
+    [LVARS [source_name = sim_name(source) ]]
+    [SAYIF comms [$$ sim_name(sim_myself)]
+        'Received message from' ?source_name ?contents]
+
+  RULE mess_in_ack2
+    ;;; make vedediting true if communications are to be shown
+    [DLOCAL [vedediting = true]]
+    ;;; For messages requiring acknowledgement
+    ;;; NB acknowledgements should not be acknowledged
+    [message_in ?source ?mess_id ??contents]
+    [->> Mess]
+    [WHERE mess_id]        ;;; I.e. non-false
+    [NOT acknowledged ?Mess]
+    ==>
+    ;;; delete previous acknowledgements
+    [NOT acknowledged ==]
+    ;;; acknowledge only those messages with a non-false mess_id
+    ;;; prepare acknowledgement message.
+    [message_out ?source ^ false acknowledge ?mess_id]
+    [acknowledged ?Mess]
+    [LVARS [source_name = sim_name(source)]]
+    [SAYIF comms [$$ sim_name(sim_myself)]
+        'Acknowledging' ?mess_id from ?source_name ?contents]
+    [PAUSE]
+    [PUSHRULESET team_message_process_rules]
+
+enddefine;
+
+/*
+-- -- -- team_message_process_rules
+*/
+
+define :ruleset team_message_process_rules; ;;; in team_message_in_rulefam
+
+  RULE mess_in2
+    [message_in ?captain ?mess_id instruct ??command][->>It]
+    ;;; could add check that ?captain == my_captain
+    ==>
+    [DEL ?It]
+
+    ;;; this may insert something like [goal 150 -180]
+    [??command]
+
+  RULE mess_in_empty
+    ;;; run when no more [message_in ... ] items exist
+    [NOT message_in ==]
+    ==>
+    [POPRULESET]
+    [STOP [$$ sim_name(sim_myself)] 'Finished processing messages']
+
+enddefine;
+
+/*
+-- -- team_message_in_rulefam
+
+*/
+
+define :rulefamily team_message_in_rulefam;
+    debug = true;
+    ruleset: team_message_in_rules
+    ruleset: team_message_process_rules
+enddefine;
+
+/*
+-- -- Rulesets for team_goal_rulefam
+Form a rulefamily from
+    team_deliberate_rules  - for deciding which goals to adopt
+    others to be added later
+
+-- -- -- team_deliberate_rules
+
+*/
+
+
+define :ruleset team_deliberate_rules; ;;; in team_goal_rulefam
+    ;;; Very primitive. Could be enlarged to consider what to do
+
+    [LVARS
+        [my_name = sim_name(sim_myself)]
+        [my_speed = team_speed(sim_myself)]];
+
+  RULE new_target_location
+    [target at ?x ?y]
+    ==>
+    [DEL 1]
+    ;;; delete previous goal
+    [NOT goal ==]
+    [goal at ?x ?y]
+    [NOT stopped]
+    [NOT goals_stopped]
+
+  RULE sim_check_at1
+    ;;; if already within a step of a goal location, then stop and
+    ;;; tell captain
+    [DLOCAL [vedediting = true]]
+    [NOT goals_stopped]
+    [goal at ?x ?y][->>It]
+    [LVARS
+        [my_x = sim_x(sim_myself)]
+        [my_y = sim_y(sim_myself)]]
+    [WHERE
+        sim_distance_from(my_x, my_y, x, y) <= team_stopping_distance]
+    ==>
+    [SAYIF comms ?my_name NEAR ?x ?y at ?my_x ?my_y
+        speed ?my_speed]
+    [DEL ?It]
+    [goals_stopped]
+    [TESTADD stopped]
+    ;;; we can use ?my_captain because it is in popmatchvars
+    [goal tell ?my_captain at ?x ?y]
+    ;;; that should trigger a message_out action.
+    [STOPAGENT]
+
+  RULE sim_check_at2
+    ;;; if already stopped, record that and tell captain
+    [DLOCAL [vedediting = true][cucharout = vedcharinsert]]
+    [NOT goals_stopped]
+    [stopped]
+    [goal at ?x ?y][->>It]
+    ==>
+    [SAYIF comms ?my_name NEAR ?x ?y at ?my_xloc ?my_yloc
+        speed ?my_speed]
+    [DEL ?It]
+    [goals_stopped]
+    [goal tell ?my_captain at ?x ?y]
+    [STOPAGENT]
+
+  RULE deliberate_last
+    ;;; no more goals to process
+    ==>
+    [STOP]
+enddefine;
+
+/*
+-- -- team_goal_rulefam
+*/
+
+define :rulefamily team_goal_rulefam;
+    debug = true;
+
+    ruleset: team_deliberate_rules
+    ;;; Others may be added
+enddefine;
+
+/*
+-- -- team_move_rules (and utilities for them)
+
+*/
+
+;;; These two could be redefined to map geographical locations
+;;; On to picture locations
+define team_location(agent) /* -> (x,y) */;
+    team_coords(agent)
+enddefine;
+
+define updaterof team_location(x, y, agent);
+    x -> sim_x(agent);
+    y -> sim_y(agent);
+    ;;; Update it on the screen
+    rc_move_to(agent, x, y, GRAPHIC_TRACE);
+enddefine;
+
+
+/*
+The next procedure is an "external action" procedure called during the
+second pass of the scheduler, after all the internal actions of all the
+agents have been performed. It is set up by an internal action of this
+form, below:
+    [do team_do_move_to ?x ?y ?my_xloc ?my_yloc]
+*/
+
+
+define team_do_move_to(agent, newx, newy, oldx, oldy);
+    ;;; move action for team agents
+    dlocal pop_pr_places = 0;
+;;;    if demo_trace then
+;;; [Move_agent ^(sim_name(agent)) old(^oldx ^oldy) new(^newx ^newy)]=>
+;;;    endif;
+
+    lvars
+        heading = sim_heading_from(oldx, oldy, newx, newy),
+        my_speed = team_speed(agent),
+        do_move = true;
+
+    heading ->> team_heading(sim_myself) -> my_heading;
+
+    vars ang, dist, thing;
+    if sim_in_database([veering ?ang ?thing], agent) then
+        if isteam_mover(thing) and random(100) < 10 then
+            ;;; stand still
+            false -> do_move;
+        else
+            ;;; veering round obstacle
+            ;;; [Making detour ^ang degrees. Object ^dist] =>
+            ang + heading -> heading
+        endif
+    endif;
+
+    if do_move then
+        if my_speed == 0 then
+            ;;; start moving (funny defaults)
+            2 ->> my_speed -> team_speed(agent);
+        endif;
+
+        ;;; updating team_location will update graphic display
+        oldx + (my_speed * cos(heading)),
+        oldy + (my_speed * sin(heading)) -> team_location(agent);
+    endif;
+    sim_delete_data([veering == ], sim_data(sim_myself));
+enddefine;
+
+
+define :ruleset team_move_rules;
+    [DLOCAL
+        ;;; [prb_walk = true]
+        [prb_pausing = true]
+        [vedediting = true]
+        [prb_chatty = false]
+        ];
+    [LVARS
+        ;;; Set up my_heading. (my_xloc and my_yloc are already set up)
+        [my_heading = team_heading(sim_myself)]];
+
+  RULE team_move_to
+    ;;; Uncomment next line for extra tracing
+    ;;;[DLOCAL [prb_walk = true][vedediting = true][prb_show_conditions = true]]
+    [NOT stopped]
+    [goal at ?x ?y]
+    [NOT do team_do_move_to ==]
+    ==>
+    [SAYIF acting 'moving to' ?x ?y]
+    ;;; We can access ?my_xloc and ?my_yloc because they
+    ;;; have been put in popmatchvars.
+    [do team_do_move_to ?x ?y ?my_xloc ?my_yloc]
+
+enddefine;
+
+
+/*
+
+-- -- team_message_out_rules
+
+For generating messages out
+
+*/
+
+define team_trace_messages_out();
+    lvars item messages;
+    if demo_trace then
+        [Outgoing messages ^(prb_database("message_out"))] ==>
+    endif;
+enddefine;
+
+define :ruleset team_message_out_rules;
+  RULE tell_goals
+    [goal tell ?target ??rest][->>It]
+    ==>
+    [DEL ?It]
+    [message_out ?target ^ false ??rest]
+
+  RULE tell_last
+    ;;; no conditions
+    ==>
+    [POP11 team_trace_messages_out()]
+    [STOP]
+enddefine;
+
+/*
+-- -- team_captain_rules
+    special rules for captains
+*/
+
+;;; Make sure it starts from 1 each time this file is recompiled
+1 -> gensym("captain");
+
+define team_captain_tell_go(location);
+    ;;; prepare message to tell all subordinates to go to the location
+    lvars  location, other, others = team_members(sim_myself);
+    for other in others do
+        prb_add([message_out ^(valof(other))
+                    ^(gensym("captain"))    ;;; message id
+                        instruct target at ^^location])
+    endfor;
+enddefine;
+
+define :ruleset team_captain_rules;
+  RULE comm1
+    [goal my_team near ?target]
+    [LVARS [location = [%sim_coords(target)%]]]
+    [NOT my_team informed ?location]
+  ==>
+    ;;; delete any previous location
+    [NOT my_team informed =]
+    [POP11
+        team_captain_tell_go(location)]
+    [SAYIF comms [$$ sim_name(sim_myself)]
+        'told subordinates to go to' ??location]
+    [my_team informed ?location]
+
+enddefine;
+
+/*
+
+-- The rulesystem for each agent type ---------------------------------
+
+For each class of agent, define the corresponding collection of rulesets
+and rulefamilites, to be run on each activation. Different agent types
+may have different collections. Such a collection is called a
+rulesystem. It is a list whose elements may be rulesets or rulefamilies
+
+Within a rulefamily control can switch between rulesets, using the
+actions described in HELP * RULESYSTEMS
+
+*/
+
+;;; Rulesets for team agents that move.
+define :rulesystem team_mover_rulesystem;
+    ;;;[DLOCAL [prb_walk = true][vedediting = true]];
+    [LVARS
+        ;;; warning these variables must be declared as lvars
+        ;;; before the rulesets that use it. This ruleset cannot be
+        ;;; recompiled alone, because these lvars are global lexicals.
+        my_captain my_xloc my_yloc ];
+
+        cycle_limit = 2;
+        debug = true;
+
+        ;;; three rulefamilies, each with two rulesets
+        include: team_perception_rulefam with_limit = 2
+        include: team_message_in_rulefam
+        include: team_goal_rulefam
+        ;;; and two separate rulesets
+        include: team_message_out_rules
+        include: team_move_rules
+enddefine;
+
+;;; Rulesets for captain agents, which do not move
+define :rulesystem team_captain_rulesystem;
+    [LVARS
+        my_captain my_xloc my_yloc ];
+        debug = true;
+        cycle_limit = 2;
+
+        ;;; three rulefamilies, each with two rulesets
+        include: team_perception_rulefam with_limit = 2
+        include: team_message_in_rulefam
+        include: team_goal_rulefam
+        ;;; and two separate rulesets
+        include: team_message_out_rules
+        include: team_captain_rules
+enddefine;
+
+/*
+team_mover_rulesystem ==>
+team_captain_rulesystem ==>
+
+*/
+
+
+/*
+-- Create the instances
+*/
+
+vars all_agents = [];
+sys_unlock_heap();
+sysgarbage();
+
+/*
+-- Static objects
+We create one static object, obs1, and place it so that it is on
+the path between the starting point of blue1 and the target static
+object.
+
+*/
+
+lvars static_consumer = veddiscout('static.out');
+
+;;; create a row of obstacles with a gap in the middle
+
+define create_obstacle(x, y, name, string) -> name;
+    lvars obs =
+        instance team_static;
+            sim_x = x;
+            sim_y = y;
+            sim_name = name;
+            team_diameter = 30;
+            rc_pic_strings = [COLOUR 'green' {-7 -5 ^string}];
+            rc_pic_lines = [COLOUR 'green' WIDTH 1 [CIRCLE {0 0 9}] ];
+            team_print_consumer = static_consumer;
+        endinstance;
+
+    sysVARS(name, 0);
+    obs -> valof(name);
+enddefine;
+
+global vars obstacles =
+
+    maplist([
+            ;;; including o1 with these coordinates
+            ;;; can cause problems for the blue team
+            [-28 100 obs1 'o1']
+            [-14 95 obs2 'o2']
+            [  2 95 obs3 'o3']
+            [ 30 95 obs4 'o4']
+            [ 46 95 obs5 'o5']
+            [ 62 95 obs6 'o6']
+    ], explode <> create_obstacle);
+
+/*
+;;; An alternative configuration
+;;; This one sometimes causes a red member to be trapped
+
+global vars obstacles =
+    maplist([
+            [-28 100 obs1 'o1']
+            [-14 95 obs2 'o2']
+            [  2 95 obs3 'o3']
+            [ 30 95 obs4 'o4']
+            [ 46 90 obs5 'o5']
+            [ 62 90 obs6 'o6']
+    ], explode <> create_obstacle);
+*/
+
+
+
+define :instance target1:team_static;
+    sim_x = -50;
+    sim_y = 155;
+    team_diameter = 30;
+    rc_pic_strings = [COLOUR 'blue' {-7 -5 't1'}];
+    rc_pic_lines = [COLOUR 'blue' WIDTH 1 [CIRCLE {0 0 9}] ];
+    team_print_consumer = static_consumer;
+enddefine;
+
+define :instance target2:team_static;
+    sim_x = 120;
+    sim_y = 170;
+    team_diameter = 30;
+    rc_pic_strings = [COLOUR 'red' {-7 -5 't2'}];
+    rc_pic_lines = [COLOUR 'red' WIDTH 1 [CIRCLE {0 0 9}] ];
+    team_print_consumer = static_consumer;
+enddefine;
+
+/*
+-- -- The blue team
+*/
+
+;;; Set up pictorial format. Use the first option to have a square
+;;; surrounding the name
+vars square_pic_lines = [[SQUARE {-8 8 16}]];
+
+
+define :instance blue_team_captain:team_captain;
+    team_team = "blue_team";
+    sim_x = 95;
+    sim_y = 20;
+    team_target = target1;
+    ;;; The blue team captain wants its movers to go somewhere
+    team_startgoals =
+        [[goal my_team near ^target1]];
+
+    team_members = [blue1 blue2 blue3 blue4];
+    rc_pic_strings = [COLOUR 'blue' {-7 -5 'Bc'}];
+    rc_pic_lines = [COLOUR 'blue' ^^square_pic_lines];
+    ;;; uncomment next line to redirect blue captain's trace printout
+    ;;; team_print_consumer = veddiscout('blue_captain.out');
+enddefine;
+
+define :instance blue1:team_mover;
+    team_captain = blue_team_captain;
+    sim_x = 120;
+    sim_y = 0;
+    team_target = target1;
+    rc_pic_strings = [COLOUR 'blue' {-7 -5 'b1'}];
+    rc_pic_lines = [COLOUR 'blue' ^^square_pic_lines];
+    ;;; uncomment next line to redirect blue1's trace printout
+    ;;;; team_print_consumer = veddiscout('blue1.out');
+enddefine;
+
+define :instance blue2:team_mover;
+    team_captain = blue_team_captain;
+    sim_x = 145;
+    sim_y = 0;
+    team_target = target1;
+    rc_pic_strings = [COLOUR 'blue' {-7 -5 'b2'}];
+    rc_pic_lines = [COLOUR 'blue' ^^square_pic_lines];
+    ;;; team_print_consumer = veddiscout('blue2.out');
+enddefine;
+
+define :instance blue3:team_mover;
+    team_captain = blue_team_captain;
+    sim_x = 120;
+    sim_y = -15;
+    team_target = target1;
+    rc_pic_strings = [COLOUR 'blue' {-7 -5 'b3'}];
+    rc_pic_lines = [COLOUR 'blue' ^^square_pic_lines];
+    ;;; uncomment next line to redirect blue1's trace printout
+    ;;;; team_print_consumer = veddiscout('blue1.out');
+enddefine;
+
+define :instance blue4:team_mover;
+    team_captain = blue_team_captain;
+    sim_x = 160;
+    sim_y = -15;
+    team_target = target1;
+    rc_pic_strings = [COLOUR 'blue' {-7 -5 'b4'}];
+    rc_pic_lines = [COLOUR 'blue' ^^square_pic_lines];
+    ;;; team_print_consumer = veddiscout('blue2.out');
+enddefine;
+
+
+/*
+-- -- The red team
+
+*/
+
+;;; RED TEAM
+
+
+define :instance red_team_captain:team_captain;
+    team_team = "red_team";
+    sim_x = -55;
+    sim_y = 30;
+    team_target = target2;
+    ;;; The red team captain wants its movers to go somewhere
+    team_startgoals =
+        [[goal my_team near ^target2]];
+
+    team_members = [red1 red2 red3 red4];
+    rc_pic_strings = [COLOUR 'red' {-7 -5 'Rc'}];
+    rc_pic_lines = [COLOUR 'red' ^^square_pic_lines];
+    ;;; uncomment next line to redirect red captain's trace printout
+    ;;; team_print_consumer = veddiscout('red_captain.out');
+enddefine;
+
+define :instance red1:team_mover;
+    team_captain = red_team_captain;
+    sim_x = -80;
+    sim_y = 0;
+    team_target = target2;
+    rc_pic_strings = [COLOUR 'red' {-7 -5 'r1'}];
+    rc_pic_lines = [COLOUR 'red' ^^square_pic_lines];
+    ;;; uncomment next line to redirect red1's trace printout
+    ;;;; team_print_consumer = veddiscout('red1.out');
+enddefine;
+
+define :instance red2:team_mover;
+    team_captain = red_team_captain;
+    sim_x = -105;
+    sim_y = 0;
+    team_target = target2;
+    rc_pic_strings = [COLOUR 'red' {-7 -5 'r2'}];
+    rc_pic_lines = [COLOUR 'red' ^^square_pic_lines];
+    ;;; team_print_consumer = veddiscout('red2.out');
+enddefine;
+
+define :instance red3:team_mover;
+    team_captain = red_team_captain;
+    sim_x = -100;
+    sim_y = -15;
+    team_target = target2;
+    rc_pic_strings = [COLOUR 'red' {-7 -5 'r3'}];
+    rc_pic_lines = [COLOUR 'red' ^^square_pic_lines];
+    ;;; uncomment next line to redirect red1's trace printout
+    ;;;; team_print_consumer = veddiscout('red1.out');
+enddefine;
+
+define :instance red4:team_mover;
+    team_captain = red_team_captain;
+    sim_x = -115;
+    sim_y = -15;
+    team_target = target2;
+    rc_pic_strings = [COLOUR 'red' {-7 -5 'r4'}];
+    rc_pic_lines = [COLOUR 'red' ^^square_pic_lines];
+    ;;; team_print_consumer = veddiscout('red2.out');
+enddefine;
+
+/*
+-- Set up the demo
+
+Use a procedure to do this
+*/
+
+;;; This list could have been built automatically, by using a different
+;;; syntax above.
+global vars all_agents =
+    [blue_team_captain
+    blue1 blue2 blue3
+    blue4
+    red_team_captain
+    red1
+    red2 red3 red4
+    ^^obstacles
+    target1 target2
+    ]
+
+;
+
+define setup_agents(list) -> agents;
+
+    ;;; Convert the list of agent names, all_agents, to a list of the
+    ;;; agents themselves, while completing their internal slots.
+
+    ;;; Give all agents a pictorial representation consisting of a
+    ;;; square. We need to provide a list of five points
+
+    ;;; We also need to make their pictorial coordinates correspond
+    ;;; to the screen coordinates.
+
+    maplist(list,
+        procedure(word) -> a;
+
+            if isword(word) then
+                valof(word) -> a;
+
+                ;;; give the agent its name
+                word -> sim_name(a);
+
+                ;;; Give captains their goals
+                ;;;     (Could be in a class startup method?)
+                if isteam_captain(a) then
+                    sim_add_list_to_db(team_startgoals(a), sim_data(a))
+                endif;
+
+            else
+                ;;; Agents previously created
+                word -> a;
+                sim_name(a) -> word;
+
+            endif;
+            unless isteam_static(a) then
+                ;;; adjust starting coordinates with random jitter
+                sim_x(a) - 3 + random(6) -> sim_x(a);
+                sim_y(a) - 3 + random(6) -> sim_y(a);
+            endunless;
+
+            if USING_X then
+                [^demo_win] -> rc_pic_containers(a);
+                rc_draw_linepic(a);
+                ;;; make object mouse manipulable
+                rc_add_pic_to_window(a, demo_win, true);
+            endif;
+
+        endprocedure) -> agents;
+
+    [all_agents ^^agents] ==>
+enddefine;
+
+;;; The variable holding the window used for the demo
+vars demo_win;
+
+define setup();
+    if USING_X then
+
+        if rc_islive_window_object(demo_win) then
+            rc_kill_window_object(demo_win)
+        endif;
+
+        rc_new_window_object("right", "top", 500,500, true, 'demo_win',
+            newsim_picagent_window) -> demo_win;
+
+        if isinteger(team_dump_images) then
+            1-> gensym(team_dump_file);
+        endif;
+    endif;
+
+    setup_agents(all_agents) -> all_agents;
+
+enddefine;
+
+/*
+;;; Recompile the whole file between calls of this procedure.
+
+setup();
+
+*/
+
+
+
+/*
+-- Modified versions of tracing procedures
+
+The following are all controlled by demo_trace
+*/
+define :method sim_agent_running_trace(agent: sim_object);
+    if demo_trace then
+        '------------------------------------------------------' =>
+        [running ^(sim_name(agent)) with data:] ==>
+        prb_print_table(sim_data(agent));
+    endif
+enddefine;
+
+define :method sim_agent_messages_in_trace(agent:sim_agent);
+    if demo_trace then
+        lvars messages = sim_in_messages(agent);
+        ['New messages in' ^(sim_name(agent)) ^messages] ==>
+    endif
+enddefine;
+
+define :method sim_agent_messages_out_trace(agent:sim_agent);
+    if demo_trace then
+        lvars messages = sim_out_messages(agent);
+        ['New messages out' ^(sim_name(agent)) ^messages] ==>
+    endif
+enddefine;
+
+define :method sim_agent_actions_out_trace(agent:sim_object);
+    lvars agent;
+    if demo_trace then
+        lvars actions = sim_actions(agent);
+        [New actions ^(sim_name(agent)) ^actions] ==>
+    endif;
+enddefine;
+
+define :method sim_agent_actions_out_trace(agent:team_static);
+enddefine;
+
+
+define :method sim_agent_rulefamily_trace(agent:sim_agent, ruleset);
+    lvars agent, ruleset;
+    if prb_show_ruleset then
+        ['Try ruleset' ^ruleset 'with agent' ^(sim_name(agent))]==>
+        'With Data: ' =>
+        prb_print_table(sim_data(agent));
+    endif
+enddefine;
+
+define :method sim_agent_endrun_trace(agent:sim_object);
+    if demo_trace then
+        ['End of cycle: Data in' ^(sim_name(agent)):]==>
+        prb_print_table(sim_data(agent));
+    endif
+enddefine;
+
+define :method sim_agent_endrun_trace(agent:team_static);
+/*
+    if demo_trace then
+        ['End of cycle: Data in' ^(sim_name(agent)):]==>
+        prb_print_table(sim_data(agent));
+    endif
+*/
+enddefine;
+
+
+
+
+define :method sim_agent_terminated_trace(object:sim_object, number_run, runs, max_cycles);
+    if demo_trace and not(isteam_static(object)) then
+        if number_run == 0 then
+            [object ^object 'did not complete cycles'] ==>
+            true -> sim_stop_this_agent;
+        endif;
+    endif;
+enddefine;
+
+define vars procedure sim_scheduler_pausing_trace(objects, cycle);
+    ;;; user definable
+
+    ;;; code for dumping a snapshot every five cycles
+    if isinteger(team_dump_images)
+    and cycle mod team_dump_images == 0 then
+        sysobey('xwd -name Xgraphic >' >< gensym(team_dump_file)><'.xwd');
+    endif;
+
+    if demo_cycle_trace then
+        pr('==== end of cycle ' >< cycle >< '=====\n');
+    endif;
+enddefine;
+
+
+/*
+
+-- Testing the package
+
+;;; Turn tracing on or off for this package.
+;;; Select one of these
+true -> demo_trace;
+false -> demo_trace;
+
+;;; For the next few see HELP POPRULEBASE
+true -> prb_chatty;
+false -> prb_chatty;
+
+;;; Make it pause before each action if true
+true -> prb_walk;
+false -> prb_walk;
+true -> prb_show_conditions;
+false -> prb_show_conditions;
+;;; restrict showing conditions to one rule
+[sim_check_at] -> prb_show_conditions;
+true -> prb_show_ruleset;
+false -> prb_show_ruleset;
+
+
+;;; Other things that can be traced and untraced as required
+trace sim_sense_agent sim_run_sensors;
+untrace sim_sense_agent sim_run_sensors;
+trace prb_add;
+untrace prb_add;
+trace prb_flush;
+untrace prb_flush;
+
+;;; The second argument to sim_scheduler specifies the number of
+;;;  top level cycles.
+;;; Use a small number for now. Can interrupt with CTRL-C
+
+;;; If you do
+;;;     true -> prb_walk;
+;;; before starting the program it will pause frequently.
+;;; Hit return after each pause.
+;;; During pause type .data to see database for current agent.
+;;; See HELP POPRULEBASE for other options available in the pause.
+
+;;; Remember, messages sent will be received only in the following cycle
+;;; So to test anything interesting you need at least two cycles
+
+;;; This command can be given to run the demo with default settings.
+;;; It can be repeated to continue. It produces a LOT of printout!
+;;; sim_scheduler(all_agents, 4);
+
+;;; See below on how to reduce the amount of printing/tracing
+
+
+-- -- Settings for minimal tracing:
+;;; These are defaults. See HELP * POPRULEBASE for more information
+;;; on controlling tracing when rules are being interpreted.
+
+false -> prb_chatty;
+
+false -> prb_walk;
+false -> prb_show_conditions;
+
+false -> prb_show_ruleset;
+
+[comms goal] -> prb_sayif_trace;
+*/
+
+;;; Turn off SAYIF actions
+
+;;; vars prb_sayif_trace = [debug sense acting comms goal];
+vars prb_sayif_trace = [comms goal];
+
+
+;;; This can be given as fourth argument to run_demo. All these
+;;; variables will have their values set false. The fifth argument
+;;; can specify a subset to be made true.
+
+vars alltracevars =
+    [prb_walk prb_chatty prb_show_conditions prb_show_ruleset
+     prb_pausing demo_trace demo_cycle_trace
+     GRAPHIC_TRACE popgctrace];
+
+
+/*
+
+-- -- Running the demo, and making it faster
+
+Just running the simulation, can be very slow. e.g. with the commands
+
+    setup();    ;;; defined above
+    sim_scheduler(all_agents, 4);
+
+
+Most of the slowness is in the output to terminal. Instead you can
+use the procedure run_demo, defined below.
+
+It can be used either to suppress all the print output, if the third
+argument (file) is the procedure erase, or to direct output to a file,
+if the third argument is a file name (a string). If the third argument
+is just true, then output comes to the terminal in the normal way.
+
+If you save the output to a disc file it goes very much faster (but
+it can make a very big file.
+*/
+
+define sim_demo_run(agents, num);
+
+    sim_scheduler(agents, num);
+
+    pr('To continue, do something like\n\
+sim_demo_run(all_agents, 250);');
+
+enddefine;
+
+define run_demo(agents, num, file, notracevars, tracevars, showedit);
+    ;;; Run the scheduler on the agents for num cycles
+    ;;; If file is a string, store the output in the file
+    ;;; If notracevars is a non-empty list of words their values
+    ;;;     will be made false
+    ;;; If tracevars is a non-empty list of words their values
+    ;;;     will be made true
+    ;;; There is no check for overlap between the two lists!
+    ;;; If showedit is false, output to VED will not be shown till the
+    ;;; end (this can speed things up considerably).
+    lvars wasediting = vedediting;
+
+    unless isteam_agent(hd(all_agents)) then
+        setup();
+
+    endunless;
+
+    dlocal cucharout,   ;;; default print output consumer
+            popgctrace = true,
+           interrupt =
+                procedure();
+                    ;;; dlocal vedediting = true;
+                    ;;; vedrefresh();
+                    popready()
+                endprocedure,
+            vedediting = showedit;
+
+    if isstring(file) then
+        ;;; re-direct print output to file
+        discout(file) -> cucharout;
+    elseif isprocedure(file) then
+        ;;; could be erase, for no output, or a character consumer
+        file -> cucharout
+    endif;
+
+    ;;; set up tracing
+    lvars word;
+    for word in notracevars do false -> valof(word) endfor;
+    for word in tracevars do true -> valof(word) endfor;
+
+    ;;; Pause after evrything has been drawn
+    readline() =>
+
+    sim_scheduler(all_agents, num);
+
+    pr('To continue, do something like\n\n');
+    pr('sim_demo_run(all_agents, 250);');
+
+    if file then
+        ;;; finalse the output and close the file
+        pr(newline);
+        cucharout(termin)
+    elseif wasediting and not(vedediting) then
+        chain(vedrefresh)
+    endif;
+
+
+enddefine;
+
+/*
+-- TESTING using run_demo,
+can use this format
+    run_demo(agents, num, file, tracevars, notracevars, showedit);
+
+Note, in this procedure, the popready library program is assigned to
+interrupt, the interrupt handler. You can type ^C twice to get out of a
+"popready break". For more information on options available see
+    HELP * POPREADY
+
+;;; Run normally, with normal output, for a few cycles, with
+;;; tracing controlled by making demo_trace true.
+;;; No graphical tracing.
+;;; Control SAYIF actions
+[sense comms goal] -> prb_sayif_trace;
+
+run_demo(all_agents, 2, false, alltracevars, [demo_trace], true);
+
+Note, making the last argument false would prevent it showing the
+printing into the output buffer. At the end show by typing
+    ^L
+or the Vedrefresh button if there is one for your terminal.
+
+[sense ] -> prb_sayif_trace;
+run_demo(all_agents, 20, false, alltracevars, [demo_trace], false);
+
+;;; Now only with graphical tracing, and end of cycle warnings. This
+;;; can be used only if you are using a graphical terminal
+run_demo(all_agents, 40, false, alltracevars,
+            [demo_cycle_trace GRAPHIC_TRACE], false);
+
+run_demo(all_agents, 4, false, alltracevars,
+            [demo_cycle_trace GRAPHIC_TRACE], false);
+
+
+
+;;; Run with 50 cycles, saving output in a file called sim.out, which
+;;; can later be read in the editor. (It can grow quite large, so
+;;; beware of disk overflow.)
+run_demo(
+    all_agents, 50, 'sim.out', alltracevars,
+        [demo_trace demo_cycle_trace prb_show_ruleset], true);
+
+;;; Then ENTER ved sim.out
+
+;;; Alternatively run with all output consumed by "erase".
+;;; This will leave only graphical tracing.
+
+run_demo( all_agents, 50, erase, alltracevars, [], true);
+
+;;; to have garbage collections recorded do
+true -> popgctrace;
+;;; turn off
+false -> popgctrace;
+*/
+
+/*
+-- Print out instructions
+*/
+define instruct_demo();
+printf('\
+To test the program try, for example,\
+    [comms goal] -> prb_sayif_trace ; ;;; restrict SAYIF tracing\
+\
+if using a graphic terminal, suppress print output:\
+\
+run_demo( all_agents, 50, false, alltracevars,\
+                [demo_cycle_trace GRAPHIC_TRACE], false);\
+;;; then CTRL-L to refresh screen and show print output\
+\
+;;; Run with 50 cycles, saving output in a file called sim.out, which\
+;;; can later be read in the editor. (It can grow quite large, so\
+;;; beware of disk overflow.)\
+run_demo(\
+    all_agents, 50, \'sim.out\', alltracevars,\
+           [demo_trace prb_show_ruleset GRAPHIC_TRACE], true);\
+;;; Then ENTER ved sim.out\
+\
+;;; Simple test: run normally, with normal output, for a few cycles.\
+;;; if not on a graphic terminal:\
+run_demo(\
+    all_agents, 2, false, alltracevars, [demo_trace demo_cycle_trace], false);\
+');
+enddefine;
+
+printf('\nfor information type\n\tinstruct_demo();\
+E.g.:\
+\
+run_demo(all_agents, 250, false, alltracevars,\
+        [demo_cycle_trace GRAPHIC_TRACE], false);\n');
+/*
+-- Index of methods procedures classes and rules ----------------------
+(Use "<ENTER> g define" to access required item)
+(Recreate this index by "<ENTER> indexify define")
+
+ define :class team_agent;  is sim_movable_agent ;
+ define :class team_mover; is team_agent;
+ define :class team_captain; is team_agent ;
+ define :class team_static; is sim_movable;
+ define team_coords(t) /* -> (x, y)*/;
+ define :method print_instance(item:team_agent);
+ define :method print_instance(item:team_static);
+ define :method sim_distance(a1:team_agent, a2:team_agent) ;
+ define :method sim_distance(a1:team_agent, a2:team_static) ;
+ define :method sim_sense_agent(a1:sim_object, a2:sim_object, dist);
+ define :method sim_sense_agent(a1:team_static, a2:sim_object, dist);
+ define :method sim_run_agent(agent:team_agent, agents);
+ define :ruleset team_perception_rules;  ;;; in team_perception_rulefam
+ define process_percept(thing, dist, thingx, thingy);
+ define ang_obstacle_ahead(sim_myself, thingx, thingy) -> ang;
+ define :ruleset team_analyse_percept_rules; ;;; in team_perception_rulefam
+ define :rulefamily team_perception_rulefam;
+ define :ruleset team_message_in_rules; ;;; in team_message_in_rulefam
+ define :ruleset team_message_process_rules; ;;; in team_message_in_rulefam
+ define :rulefamily team_message_in_rulefam;
+ define :ruleset team_deliberate_rules; ;;; in team_goal_rulefam
+ define :rulefamily team_goal_rulefam;
+ define team_location(agent) /* -> (x,y) */;
+ define updaterof team_location(x, y, agent);
+ define team_do_move_to(agent, newx, newy, oldx, oldy);
+ define :ruleset team_move_rules;
+ define team_trace_messages_out();
+ define :ruleset team_message_out_rules;
+ define team_captain_tell_go(location);
+ define :ruleset team_captain_rules;
+ define :rulesystem team_mover_rulesystem;
+ define :rulesystem team_captain_rulesystem;
+ define create_obstacle(x, y, name, string) -> name;
+ define :instance target1:team_static;
+ define :instance target2:team_static;
+ define :instance blue_team_captain:team_captain;
+ define :instance blue1:team_mover;
+ define :instance blue2:team_mover;
+ define :instance blue3:team_mover;
+ define :instance blue4:team_mover;
+ define :instance red_team_captain:team_captain;
+ define :instance red1:team_mover;
+ define :instance red2:team_mover;
+ define :instance red3:team_mover;
+ define :instance red4:team_mover;
+ define setup();
+ define :method sim_agent_running_trace(agent: sim_object);
+ define :method sim_agent_messages_in_trace(agent:sim_agent);
+ define :method sim_agent_messages_out_trace(agent:sim_agent);
+ define :method sim_agent_actions_out_trace(agent:sim_object);
+ define :method sim_agent_actions_out_trace(agent:team_static);
+ define :method sim_agent_rulefamily_trace(agent:sim_agent, ruleset);
+ define :method sim_agent_endrun_trace(agent:sim_object);
+ define :method sim_agent_endrun_trace(agent:team_static);
+ define :method sim_agent_terminated_trace(object:sim_object, number_run, runs, max_cycles);
+ define vars procedure sim_scheduler_pausing_trace(objects, cycle);
+ define run_demo(agents, num, file, notracevars, tracevars, showedit);
+ define instruct_demo();
+
+*/
+
+/* --- Revision History ---------------------------------------------------
+-- Record of changes
+--- Aaron Sloman   1 Apr 1999
+    Changed to use valof to get agents from team_members
+    (How did it ever work?)
+
+--- Aaron Sloman   24 Jun 1996
+    Added stuff for producing mpeg movies, easy production of multiple
+    obstacles, new introduction showing how to run the demonstration,
+    WWW page including MPEG movies, etc.
+
+--- Aaron Sloman  25 May 1996
+    Many changes to fit new rulesystems, added tracing procedure for
+        messages in, etc.
+
+--- Aaron Sloman 28 Mar 1996
+    Replaced SWITCHRULESET with RESTORERULESET to fix bug
+
+--- $poplocal/local/sim/teach/sim_demo
+--- Copyright University of Birmingham 2000. All rights reserved. ------
+
+ */

@@ -1,0 +1,541 @@
+TEACH RC_ARRAY                                    David Young, Feb 1994
+                                                  revised Sep 2001
+
+This file provides examples of how to use the rc_array procedure to
+display arrays as images on the screen.  For further details, see
+HELP * RC_ARRAY.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Preliminaries
+      1.1   Getting an image to display
+      1.2   Setting up a window to display it in
+      1.3   Setting the standard coordinate system
+      1.4   Basic image display
+
+  2   Controlling drawing position
+      2.1   Default image position corresponds to array boundslist
+      2.2   Changing the coordinate system affects image position and size
+      2.3   A rectangular region of the array can be selected
+      2.4   The drawing area can be set explicitly
+      2.5   Both array region and drawing area can be set together
+
+  3   Graphics and image combined
+
+  4   Setting the colour map
+      4.1   Setting the value mapping
+            ... Square root rule
+            ... Histogram equalisation
+            ... Quantisation
+            ... Limits on the array-value range
+      4.2   Setting the palette
+            ... Using the colour spectrum
+            ... Using a custom palette
+      4.3   Facilities for 24-bit displays
+            ... Direct display of 24-bit arrays
+            ... Direct display of 32-bit arrays
+            ... Display of r,g,b components
+
+
+
+-----------------------------------------------------------------------
+1  Preliminaries
+-----------------------------------------------------------------------
+
+This teach file must be read in conjunction with HELP *RC_ARRAY.
+
+The indented POP-11 examples in this teach file are intended to be
+executed in order.
+
+If the image colours look wrong, try moving the cursor into the
+"Xgraphic" window containing the image.  This will only be necessary if
+some other program is hogging a lot of the colour map, at least until
+you set up a private colour map in the final section.
+
+Some libraries will be needed:
+
+    uses popxlib
+    uses rc_graphic
+    uses rc_set_coord_frame
+    uses popvision
+    uses rc_array
+
+1.1  Getting an image to display
+--------------------------------
+
+    uses sunrasterfile      ;;; see HELP *SUNRASTERFILE
+    vars image;
+    sunrasterfile(popvision_data dir_>< 'mtg_ho.ras') -> image;
+
+1.2  Setting up a window to display it in
+-----------------------------------------
+
+    rc_new_window(500, 500, 520, 300, true);    ;;; see HELP RC_GRAPHIC
+
+Move the window to a convenient position with the mouse (see
+TEACH * XINTRODUCTION).
+
+1.3  Setting the standard coordinate system
+-------------------------------------------
+
+    rc_win_coords();
+
+The origin is at the top-left corner of the window, with Y increasing
+down the screen and X increasing to the right. The unit of distance is
+the size of a pixel on the screen.
+
+                                X
+        +----------------------->
+        |
+        |
+        |
+        |
+        |
+        |
+      Y V
+
+
+1.4  Basic image display
+------------------------
+
+    rc_array(image, false, false, false, false);
+
+The four final arguments to rc_array specify positioning and rendering
+information.  Giving false for them all causes default values to be
+used. The whole image is displayed in a position corresponding to its
+boundslist, using greyscale rendering.
+
+
+-----------------------------------------------------------------------
+2  Controlling drawing position
+-----------------------------------------------------------------------
+
+2.1  Default image position corresponds to array boundslist
+-----------------------------------------------------------
+
+The image was drawn in the region corresponding to its boundslist, which
+is [1 369 1 286]. Look carefully and you will see a 1-pixel gap between
+the top and left sides of the image and the border of the window. This
+is because the coordinate origin is just inside the window, so the image
+starts one pixel in from the corner.
+
+Make another image with a different boundslist:
+
+    vars image2 = newarray([300 400 300 400], nonop +);
+
+This array contains a simple grey-level gradient. Display this with
+
+    rc_array(image2, false, false, false, false);
+
+and you will see that it too occupies the part of the window
+corresponding to its boundslist in our current coordinate system.
+
+2.2  Changing the coordinate system affects image position and size
+-------------------------------------------------------------------
+
+Change the coordinate system (see HELP *RC_GRAPHIC) with
+
+    50 -> rc_xorigin;
+    100 -> rc_yorigin;
+    1.2 -> rc_xscale;
+    0.8 -> rc_yscale;
+
+and redisplay the image:
+
+    rc_array(image, false, false, false, false);
+
+Its top-left corner shifts to near the new origin, and it is stretched
+by a factor of 1.2 along X and squeezed by a factor of 0.8 along Y.
+
+See below for the advantages this confers when combining graphics and
+images.
+
+2.3  A rectangular region of the array can be selected
+------------------------------------------------------
+
+The second argument to rc_array controls which part of the array is
+displayed.
+
+    rc_start();       ;;; clear the window
+    rc_array(image, [50 200 30 100], false, false, false);
+
+Columns 50-200 and rows 30-100 only get displayed. They are displayed in
+the region X=50 to X=200 and Y=30 to Y=100 in the current coordinate
+system.
+
+2.4  The drawing area can be set explicitly
+-------------------------------------------
+
+The third argument controls where in the window the image is displayed,
+if the position is not to correspond to the boundslist. It is again a
+4-element list giving the X limits then the Y limits of the region, in
+current coordinates. Revert to default coordinates first, for clarity:
+
+    rc_win_coords();
+
+then fill the window with the whole image, apart from a 50-pixel
+border:
+
+    rc_array(image, false, [50 450 50 450], false, false);
+
+The image gets distored because we are forcing it into a square. To
+change its position only, we can allow the upper X and Y limits to
+default:
+
+    rc_start();
+    rc_array(image, false, [50 undef 50 undef], false, false);
+
+We could fit the image to the window independently of window size,
+leaving a border equal to 0.1 times the window width or height, with:
+
+    rc_start();
+    rc_set_coord_frame("frame", [0 1 0 1], [0 1 0 1]);
+    rc_array(image, false, [0.1 0.9 0.1 0.9], false, false);
+
+The call to rc_set_coord_frame means that X runs from 0 to 1 in the
+width of the window, and Y from 0 to 1 in the height of the window. (See
+HELP * RC_GRAPHIC for details.)
+
+Using this coordinate system, it would be unwise to let any of the
+position specification elements default, as at this scale the image
+would be enormous, and any reasonable memory limit will be exceeded.
+
+2.5  Both array region and drawing area can be set together
+-----------------------------------------------------------
+
+There are two ways to specify the drawing area if only part of the array
+is to be displayed. If the drawing area is given as above, then it
+continues to specify the position in which the whole area would appear.
+Thus:
+
+    rc_start();
+    rc_array(image, [50 200 30 100], [0.1 0.9 0.1 0.9], false, false);
+
+draws a segment of the image in the same place as it was before.
+
+If the specification is nested in another list, it applies to the
+region, not the whole image, so
+
+    rc_array(image, [50 200 30 100], [[0.1 0.9 0.1 0.9]], false, false);
+
+expands the region to fill most of the window.
+
+We can avoid some of the blockiness with
+
+    "smooth" -> rc_array_sample;
+    rc_array(image, [50 200 30 100], [[0.1 0.9 0.1 0.9]], false, false);
+
+but this is slower.  For standard operation, restore the default with
+
+    "nearest" -> rc_array_sample;
+
+
+-----------------------------------------------------------------------
+3  Graphics and image combined
+-----------------------------------------------------------------------
+
+If the position specification (the third argument) is allowed to default
+(set to false), then it becomes simple to combine graphics with the
+image display, because window positions in user coordinates correspond
+to array indices. Display part of the image with:
+
+    rc_start();
+    rc_win_coords();       ;;; standard coords for simplicity
+    rc_array(image, [50 200 30 100], false, false, false);
+
+Now mark a small region in red:
+
+    'red' -> rc_window("foreground");
+    rc_jumpto(90, 90);
+    rc_draw_rectangle(5, 5);    ;;; see HELP *RC_GRAPHIC
+
+Note the image grey-level:
+
+    image(92, 92) =>
+
+This prints 224. On a darker patch:
+
+    rc_jumpto(120, 70);
+    rc_draw_rectangle(5, 5);    ;;; see HELP *RC_GRAPHIC
+    image(122, 72) =>
+
+which prints 104 - our graphics and array indices correspond properly.
+
+Exactly the same code works if the coordinates are changed:
+
+    1.5 -> rc_xscale;
+    2 -> rc_yscale;
+    150 -> rc_yorigin;
+    rc_array(image, [50 200 30 100], false, false, false);
+    rc_jumpto(90, 90);
+    rc_draw_rectangle(5, 5);    ;;; see HELP *RC_GRAPHIC
+    rc_jumpto(120, 70);
+    rc_draw_rectangle(5, 5);    ;;; see HELP *RC_GRAPHIC
+
+Note that the same regions are marked: the coordinate change has
+affected both the image and the graphics the same way.
+
+Remember that all this works only if the third argument is false.
+
+
+-----------------------------------------------------------------------
+4  Setting the colour map
+-----------------------------------------------------------------------
+
+We revert to a standard size and position with
+
+    rc_start();
+    rc_win_coords();
+    rc_array(image, false, false, "linear", "greyscale");
+
+The last two arguments have now been set explicitly; in fact they
+previously defaulted to the two values above.
+
+4.1  Setting the value mapping
+------------------------------
+
+The fourth argument allows control over the interpretation of values in
+the array.
+
+...  Square root rule
+---------------------
+
+For some images, a square root rather than a linear mapping gives a
+clearer appearence. Try
+
+    rc_array(image, false, false, "sqrt", "greyscale");
+
+This does not improve this image much, but try:
+
+    sunrasterfile(popvision_data dir_>< 'eric.ras') -> image;
+    rc_array(image, false, false, "linear", "greyscale");   ;;; dark
+
+    rc_array(image, false, false, "sqrt", "greyscale");     ;;; better
+
+...  Histogram equalisation
+---------------------------
+
+This is a standard technique for revealing detail, where an equal area
+is devoted to each grey-level, as far as possible.
+
+    rc_array(image, false, false, "equalise", "greyscale");
+
+...  Quantisation
+-----------------
+
+It is possible to choose the number of grey-levels to use.
+
+    rc_array(image, false, false, [quantise 3], "greyscale");
+
+Explicit thresholds for quantisation can also be given:
+
+    rc_array(image, false, false, [quantise {20 80}], "greyscale");
+
+This also uses three grey levels, but the transitions between them come
+at values of 20 and 90 in the array.
+
+For a binary display with threshold at 30, use
+
+    rc_array(image, false, false, [quantise {30}], "greyscale");
+
+...  Limits on the array-value range
+------------------------------------
+
+All of the above options map the smallest value in the region to black
+and the largest to white (in the case of a grey-scale palette). It is
+possible to specify the values to map to black and white respectively.
+For example:
+
+    rc_array(image, false, false, [linear 20 70], "greyscale");
+
+displays all values of 70 or over as white and all values of 20 or
+less as black, giving high contrast.  For low contrast try
+
+    rc_array(image, false, false, [linear -200 400], "greyscale");
+
+Limits can be set the same way for the sqrt and equalise options.
+
+These are particularly useful if only part of the image is being
+displayed, as they can force the same grey-level range to be used. For
+instance
+
+    rc_array(image, false, false, "sqrt", "greyscale");
+    rc_array(image, [200 230 120 150], false, "sqrt", "greyscale");
+
+displays the square at higher contrast than the rest of the image
+because it has a smaller range of values. To avoid this, do:
+
+    vars mx, mn, mapopt;
+    array_mxmn(image, false) -> (mx, mn);   ;;; see HELP *ARRAY_MXMN
+    [sqrt ^mn ^mx] -> mapopt;
+    rc_array(image, false, false, mapopt, "greyscale");
+
+    rc_array(image, [200 230 120 150], false, mapopt, "greyscale");
+
+when the last line makes no visible change, because the grey-level
+mapping is fully specified to be the same as for the whole image.
+
+4.2  Setting the palette
+------------------------
+
+...  Using the colour spectrum
+------------------------------
+
+It will be useful to have a test image with a linear ramp of values.
+This gives values from 0 to 255:
+
+    newsarray([0 255 300 400], erase) -> image2;
+
+Show it as a grey scale image:
+
+    rc_array(image2, false, false, "linear", "greyscale");
+
+or as a colour spectrum:
+
+    rc_array(image2, false, false, "linear", "spectrum");
+
+Ordinary images can of course use the spectrum too:
+
+    rc_array(image, false, false, "linear", "spectrum");
+
+and the mapping onto the spectrum need not be linear:
+
+    rc_array(image, false, false, "sqrt", "spectrum");
+
+or
+
+    rc_array(image, false, false, [quantise 5], "spectrum");
+
+The spectrum can be changed by updating rc_spectrum - see REF
+* XCOLOURS for colour names.
+
+    [black brown orange yellow PeachPuff] -> rc_spectrum;
+
+On 8-bit displays, all images using the spectrum will have been affected
+by the change to rc_spectrum (unless it has been necessary to use a
+private colour map for the spectrum, when some other program has grabbed
+a lot of colours). Normally, on such systems, both the cat image and the
+smooth ramp image will change when the line above is executed. Images
+displayed afterwards will also use the new spectrum.
+
+On 24-bit displays, images already displayed do not change when
+rc_spectrum is updated. Subsequent display will use the new spectrum, so
+to see an effect on 24-bit systems it is necessary to repeat the display
+call:
+
+    rc_array(image2, false, false, "linear", "spectrum");
+
+The spectrum is obtained by interpolation between the colours in the
+list. If only the colours actually named in the list are to be shown,
+the array can be mapped using the quantisation option, with the number
+of quantisation bins equal to the length of rc_spectrum:
+
+    rc_array(image2, false, false, [quantise ^(length(rc_spectrum))], "spectrum");
+
+...  Using a custom palette
+---------------------------
+
+An image can be given a private set of colours, that are used only for
+it.
+
+On 8-bit displays, this is particularly helpful because the grey scale
+and the colour spectrum are shared resources. On 24-bit displays, it is
+useful for tailoring the display for a particular image.
+
+This can be specified as a list of names
+
+    rc_array(image2, false, false, "linear", [red green orange violet]);
+
+or as a list or vector of r,g,b triplets
+
+    rc_array(image2, false, false, "linear",
+            [{0 0 0} {255 0 0} {0 255 255} {200 200 200}]);
+        ;;;   black      red      cyan          grey
+
+or in the format returned by *sunrasterfile, with all the r values then
+all the g values then all the b values, packed into vectors:
+
+    rc_array(image2, false, false, "linear",
+        {{0 100 200 255} {0 0 0 0} {0 0 0 0}}); ;;; red ramp
+
+If the image indexes the colour map, the "direct" mapping option needs
+to be used. So to display a demonstration image, do
+
+    vars cmap;
+    sunrasterfile(popvision_data dir_>< 'cogs_index.ras', true)
+        -> (image, cmap);
+
+    rc_start();
+    rc_array(image, false, false, "direct", cmap);
+
+On 8-bit systems, you must now move the cursor into the window
+containing the image - this is necessary because not enough colours are
+left for this large private colour map.
+
+4.3  Facilities for 24-bit displays
+-----------------------------------
+
+All of the examples so far should work on both 8-bit and 24-bit
+displays. Except where noted they should give the same results.
+
+On 24-bit displays only, the values in the array can be interpreted
+directly as specifying the red, green and blue components of the image.
+This is done by giving the palette argument as "direct", as well as the
+colour_rule argument. It would be a useful exercise to adapt the library
+to simulate this on 8-bit systems, using for example a colour cube to
+approximate the colours.
+
+...  Direct display of 24-bit arrays
+------------------------------------
+
+A 24-bit image on disc will normally be read in as a 24-bit array
+without a colour map. This can be displayed directly, thus:
+
+    sunrasterfile(popvision_data dir_>< 'cogs.ras') -> image;
+    rc_array(image, false, [220 undef 0.5 undef], "direct", "direct");
+
+The image now to the right of the window is the "true colour" or 24-bit
+version; that to the left is the 8-bit or indexed version. The colours
+in the 24-bit version may look slightly more accurate.
+
+...  Direct display of 32-bit arrays
+------------------------------------
+
+An image already converted to the standard 32-bit format used by 24-bit
+displays under X can be displayed directly. For example,
+
+    vars arr32 = rgb24_to_32(image, false, false); ;;; see HELP * RGB_ARRAYS
+    rc_array(image, false, false, "direct", "direct");
+
+which will make the left image in the window the same as the right one.
+
+...  Display of r,g,b components
+--------------------------------
+
+Separate red, green and blue components can be specified. We can split
+up the current image using * RGB_ARRAYS as follows:
+
+    vars (r, g, b) = rgb24_to_sep(image, false, false, false, false);
+
+The original image can be redisplayed with these components
+
+    rc_start();
+    rc_array({% r,g,b %}, false, false, "direct", "direct");
+
+but now we can monkey with the individual components, for example:
+
+    rc_array({% g,b,r %}, false, false, "direct", "direct");
+
+or
+
+    uses arrayshift
+    rc_start();
+    vars redshift = arrayshift(r, [2 2]);
+    rc_array({% redshift,g,b %}, false, false, "direct", "direct");
+
+which simulates the sort of offset errors that used to be a feature of
+cheap colour printing.
+
+
+--- $popvision/teach/rc_array
+--- Copyright University of Sussex 1994. All rights reserved.

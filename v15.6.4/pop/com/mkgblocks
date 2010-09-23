@@ -1,0 +1,35 @@
+#!/bin/sh
+# File:             $popcom/mkgblocks
+# Purpose:          Make saved image with LIB * RC_BLOCKS loaded
+# 		Presupposes bham startup image
+# Author:           Aaron Sloman  21 Jan 1997
+# Documentation:    TEACH * MSBLOCKS  TEACH * MSDEMO
+#					HELP RCLIB/rc_blocks
+# Related Files:    LIB * RCLIB LIB * RC_BLOCKS, LIB * RC_HAND
+
+
+$popsys/pop11 %nort %noinit << \\\\
+
+uses rclib
+lib rc_blocks;
+lib xved_standalone_setup
+optimise_objectclass( "all" );
+if syssave('$popsavelib/gblocks.psv') then
+	pr(popheader); pr(newline);
+	false -> popheader;
+	max(popmemlim, 2500000) -> popmemlim;
+	sysexit -> do_quit;
+	'PLEASE WAIT TILL EDITOR IS READY' =>
+	true -> blocks_saved_image;
+    ;;; next line allows for %x (Thanks to John Gibson  30 Jan 1997)
+    if popunderx then "x" -> vedusewindows endif;
+	blocks_go();
+	sysexit();
+endif;
+
+sysexit();
+
+\\
+
+echo "mkgblocks done"
+rm -f $popsavelib/gblocks.psv-

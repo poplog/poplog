@@ -1,0 +1,4216 @@
+HELP RC_CONTROL_PANEL                            Aaron Sloman, July 1997
+                                              With help from Brian Logan
+                                                     Updated 19 Sep 2002
+
+See HELP * RCLIB_NEWS regarding updates (and the end of this file.)
+
+=======================================================================
+NB
+Sept 2002
+Added new facilities for accessing and updating contens of fields
+in a panel. See these items, described in HELP RCLIB:
+    rc_panelcontents(<panel> <panelpath>) -> result;
+
+    rc_panel_field_value(<panel> <panelpath>) -> val
+    val -> rc_panel_field_value(<panel> <panelpath>)
+
+    See TEACH NEWTEST.P
+
+Changes made to event handling in LIB rc_mousepic mean that
+    The three categories of action button types POPNOW, POP11
+    and INVED are all now collapsed into one: POP11 actions.
+    Changes to the event handler have made the distinctions
+    unnecessary. However DEFER actions remain a distinct category.
+
+
+July 2002
+Made it possible to change the 'drawable' size of a panel using the
+mouse. Previously the size of the window on the screen would change, but
+only the old area was accessible to programs. Now a control panel will
+adjust its drawable area if it set resizable. This is done using the new
+panel specification option:
+    {resize true}
+
+See also
+        HELP RCLIB_NEWS
+        LIB rc_control_panel/'Revision History'
+
+Added new facilities for programs to interrogate or set values of RADIO
+or SOMEOF buttons on a panel.
+
+    rc_panelcontents(<panel> <panelpath>) -> result;
+    rc_panel_field_value(<panel> <panelpath>) -> val
+    val -> rc_panel_field_value(<panel> <panelpath>)
+    rc_set_radio_buttons
+    rc_set_someof_buttons
+        All described in HELP RCLIB
+
+=======================================================================
+
+LIB * RC_CONTROL_PANEL
+This library provides automatically created and assembled control panels
+based on the object oriented Pop-11 graphical package RCLIB.
+
+USAGE:
+    uses rclib
+    uses rc_control_panel
+
+    rc_control_panel(x, y, field_specs, title) -> panel;
+
+    Optional extra arguments: container, or window creation procedure
+
+    x, y:        Integers, (or words specifying location)
+    field_specs: A list of field panel and field descriptions
+    title:       A string
+
+The words "left", "middle","right" can be used for x, and "top",
+"middle" "bottom" for y, and negative integers can be used for x and y,
+to indicate measurements from right and bottom of screen.
+Negative integers cannot be used for location of a contained panel,
+since rc_graphic coordinates inside a window can be negative.
+
+For tutorial examples see below and:
+
+    TEACH RC_CONTROL_PANEL,
+    TEACH POPCONTROL,
+    TEACH RC_ASYNC_DEMO,
+    TEACH RC_CONSTRAINED_PANEL,
+    TEACH RCLIB_DEMO.P
+
+Those teach files illustrate only a subset of the facilities.
+If the sim_agent toolkit is available, another tutorial example is in:
+    TEACH SIM_FEELINGS
+
+For warnings regarding compatibility with RCLIB features and the
+original RC_GRAPHIC facilities, see HELP RCLIB_COMPATIBILITY
+
+
+CONTENTS
+ -- Introduction
+ -- The philosophy of rc_control_panel
+ -- How rc_control_panel works
+ -- Applications of rc_control_panel
+ -- The class rc_panel
+ -- Rc_control_panel and Propsheet
+ -- Other facilities
+ -- Using rc_control_panel
+ -- Simple examples
+ -- -- demo_panel1
+ -- -- demo_panel2
+ -- -- Putting one panel inside another: blue_panel
+ -- -- Making a sub-panel draggable
+ -- -- Another sub-panel: demo_panel3
+ -- -- A simple coloured panel: rc_coloured_panel
+ -- -- Two panels side by side: left_panel, right_panel
+ -- -- demo_panel4: adding panel properties
+ -- -- demo_panel5: more properties, and field alignment
+ -- -- demo_panel6: using field labels and accessing field values
+ -- -- . Checking the values of associated variables
+ -- -- . Program commands to access or set field values
+ -- -- -- Getting and setting the value of a slider on the panel
+ -- -- -- Getting and setting the value in a RADIO field
+ -- -- Getting from a button to the panel field or containing window
+ -- -- -- Getting and setting the values in a SOMEOF field
+ -- More detailed overview
+ -- The field specification list
+ -- global variables rc_current_panel, rc_current_panel_field
+ -- The types of fields recognised by rc_control_panel
+ -- Using featurespecs to change defaults
+ -- Format of field_specs list
+ -- -- Format of <panel property> specifications (optional)
+ -- -- . Minimal width or height of panel
+ -- -- . Default panel font
+ -- -- . Default background and foreground panel colours
+ -- -- . xorigin yorigin xscale yscale
+ -- -- . offset
+ -- -- . Panel event types
+ -- -- . dragonly event type
+ -- -- . resize
+ -- -- . Using rc_event_types to check event types of a panel
+ -- -- . Other <panel property> formats
+ -- -- Format of <field spec> list
+ -- -- . <field type> (Specifying type of field)
+ -- -- . <label <name>> (optional)
+ -- -- . <field property> (optional): {<key> <value>}, or list
+ -- -- . <component>: specifies an element of the field.
+ -- -- . . Examples of ACTIONS button <component> formats: action_panel
+ -- -- Setting rc_current_window_object when using event handlers
+ -- -- Using rc_make_current_window to set the current window
+ -- -- Using SETWINDOW
+ -- Some of the common field <property> formats
+ -- . {align <where>}: left, centre, right, or panel
+ -- . Horizontal offset
+ -- . Gap and margins
+ -- . {height <num>} {width <num>}
+ -- . {constrain <procedure>}
+ -- . {reactor <procedure>}
+ -- . {reactor <list>}
+ -- -- . Example: linked reactors linked_panel1, linked_panel2
+ -- -- . Exercise
+ -- . {spec <featurespec>}
+ -- . Keys available for use in <field property>
+ -- -- . Keywords which can be used in any type of field
+ -- -- . Keywords for items which can be associated with a value
+ -- -- . Keywords for use with GRAPHIC fields
+ -- -- . Keywords for use with GRAPHIC or TEXT fields
+ -- -- . Keywords for SCROLLTEXT fields
+ -- -- . Keywords used for SLIDERS and PANELSLIDERS fields
+ -- -- . Keywords used for DIALS fields
+ -- -- . Keywords used in RADIO SOMEOF TEXTIN NUMBERIN ACTIONS fields
+ -- -- . Keywords for pressable ACTIONS buttons
+ -- -- . Keywords used with RADIO and SOMEOF fields
+ -- -- . Keys usable in TEXTIN and NUMBERIN fields
+ -- -- . Keys usable in all fields
+ -- How the keywords in properties are interpreted, in more detail
+ -- The list: rc_control_panel_keyspec
+ -- A procedure to show allowed abbreviations
+ -- The mixins and classes provided
+ -- Accessing components of a panel
+ -- -- Field label
+ -- -- rc_field_of_label
+ -- -- rc_fieldcontents_of and rc_field_item_of_name
+ -- -- slider_value_of_name
+ -- -- rc_button_in_field_in_panel(label, fieldlabel, panel) -> button;
+ -- -- Dials related utilities
+ -- -- . rc_increment_dial(panel, label, num, inc);
+ -- -- . dial_value_of_name
+ -- -- PANELFIELD(label)
+ -- GRAPHIC fields
+ -- -- Example graphic field: graphic_panel1
+ -- -- GRAPHIC field with label and absolute coordinates: graphic_panel2
+ -- -- Example: including a mobile draggable object: mobile1
+ -- -- Example: GRAPHIC field with movable points mobile2
+ -- Example multi-function panel: multi_field
+ -- -- Accessing or updating the fields of the panel
+ -- -- Exercises based on multi_field:
+ -- WARNING: list expressions in POP11 (and similar) actions
+ -- Specifying total height and width of panel
+ -- Modifying the vertical stacking
+ -- Connection with button description formats
+ -- Generalising slider controls: constrained movers
+ -- Propsheet and rc_control_panel
+ -- Missing features
+ -- Relevant libraries and documentation
+ -- Contents of LIB * RC_CONTROL_PANEL
+ -- Revision notes
+
+-- Introduction -------------------------------------------------------
+
+LIB * RC_CONTROL_PANEL defines a procedure rc_control_panel which can be
+used to create an automatically formatted graphical window, including
+text fields, scrolling text panels, buttons of various sorts, sliders,
+graphic fields, text input fields and number input fields, or embedded
+control panels.
+
+rc_control_panel provides a great deal of syntactic sugar and automatic
+formatting to simplify use of the rc_window_object class.
+
+Its simplest use, to create a self-contained panel of type rc_panel,
+is as follows, though additional possible arguments are described below:
+
+    rc_control_panel(x, y, field_specs, title) -> panel;
+
+The two integers x, y, define the location of the top left corner of the
+panel, the list field_specs defines the contents of the panel in a
+convenient format, and title is a string used as the label on the
+panel's title bar.
+
+To insert a new panel inside another pre-existing panel, first create
+the container panel, then when creating the second panel, give
+rc_control_panel an extra argument, which is the container panel. This
+can be any instance of rc_window_object:
+
+    rc_control_panel(x, y, field_specs, title, container) -> panel;
+
+x and y, can be symbols instead of numbers:
+
+    Permitted for x:    "left", "middle", "right",
+                        and "abut" for contained panels
+    Permitted for y:    "top", "middle", "bottom",
+                        and "abut" for contained panels
+
+For non-contained panels, x or y can be a negative integer, measuring
+distance to right or bottom edge of screen.
+
+(Examples are given below.)
+
+If a different window class is to be used, provide another argument
+which is a creation procedure for that class. The default is
+newrc_panel.
+
+-- The philosophy of rc_control_panel ---------------------------------
+
+The objective is to make simple and obvious things easy to do, while
+providing mechanisms to do more complex things.
+
+The user can easily specify a panel containing one or more fields of
+various types, e.g. containing text strings, sliders, action buttons,
+radio buttons, someof buttons, text or number input, or other things,
+without having to worry about the exact locations and sizes of the
+objects in the panel.
+
+To achieve this, a notation is provided, in the form of a list of
+descriptions of the fields of a panel, which is interpreted by
+rc_control_panel in such a way that most of the formatting and the
+colouring of the control panel will be done automatically, using
+defaults set in the library or overridden by the user. The precise
+locations and widths of various sub-panels are automatically calculated
+to fit in with the specifications given in the field descriptions.
+
+For instance, if you specify that buttons in a button field should be 80
+pixels wide, with 5 pixel spacing, and that they should be arranged in
+4 columns, centred in the field, then the precise layout is determined
+automatically. In simple cases the defaults used for formatting will
+suffice will suffice, though a simple {key value} notation is provided
+for changing most of the defaults.
+
+The field description language makes use of a list of lists, strings,
+numbers, vectors etc., starting with some general properties of the
+panel (e.g. its background and foreground colours, font, location on the
+screen, etc), followed by specifications of the various fields of the
+panel.
+
+For example, here is a specification of a panel which contains no
+general panel property specifications, only a TEXT field with two
+strings, and an action button field, with three buttons, one of which
+fetches the TEACH RC_CONTROL_PANEL file, one of which runs the unix
+'who' command and reads in the result, and one of which dismisses the
+panel:
+
+    vars simple_panel_spec =
+
+        [
+         [TEXT: 'Hi there.' 'A simple demo']
+
+         [ACTIONS :
+            ['TEACH FILE' 'teach rc_control_panel']
+            ['WHO IS IN' [UNIX 'who']]
+            ['DISMISS PANEL' rc_kill_panel]]
+        ];
+
+We now use that to create a panel near the top of the screen:
+
+    uses rclib
+    uses rc_control_panel
+
+    vars simple_panel =
+        rc_control_panel(600, 10, simple_panel_spec, 'Simple Panel');
+
+We can change the panel background to 'red', and the text background to
+blue, and put a margin of 10 pixels above and below the action buttons,
+which are now in a single column, and 80 pixels wide, as follows:
+
+    vars new_panel_spec =
+        [{bg 'red'}
+
+         [TEXT {fieldbg 'blue'}: 'Hi there.' 'A new demo']
+
+         [ACTIONS {margin 10} {cols 1} {width 80}:
+            ['TEACH' 'teach rc_control_panel']
+            ['WHO IS IN' [UNIX 'who']]
+            ['DISMISS' rc_kill_panel]]
+        ];
+
+Now create the panel from the modified description.
+
+    vars new_panel =
+        rc_control_panel(600, 10, new_panel_spec, 'Simple Panel');
+
+If you wanted to include a slider to set the value of pop_pr_places (the
+global variable controlling the printing of decimal numbers) between
+the range 2 and 40, with the default value of 6, you could add a slider
+field, like this:
+
+    [SLIDERS
+        ;;; increase the default width to 250
+        {width 250} :
+        [pop_pr_places
+            ;;; min, max and default
+            {2 40 6}
+            ;;; make sure values are integers
+            round
+            ;;; label above left end, nothing at right, printed
+            ;;; using 8x13 font
+            ['8x13' [{0 10 'pop_pr_places'}] []]
+        ]]
+
+Insert that in the list new_panel_specs after the TEXT field, and
+re-build the panel.
+
+You will then find that if you move the slider, the value of this
+variable will be changed:
+
+    pop_pr_places =>
+
+and that can affect the printing of a number like this:
+
+    999.12345678901234567890 =>
+
+Many more uses of panel fields are described below, and in the teach
+files listed above.
+
+Where things like colours, fonts, button styles, widths, heights, etc
+are not specified, defaults will be used.
+
+It is possible for the user to specify defaults, either globally (via
+global variables or class definitions) or in the various field
+specifications for the panel described below.
+
+Some of the kinds of defaults that users may wish to change (e.g. sizes
+of buttons, foreground and background colours for text fields) can be
+altered using abbreviated {key value} "property" specifications in field
+descriptions, as shown above. Abbreviations are provided for specifying
+the most common field properties, and the abbreviation list can be
+extended, by changing the list rc_control_panel_keyspec described below.
+
+-- How rc_control_panel works -----------------------------------------
+
+The command
+
+    rc_control_panel(x, y, field_specs, title) -> panel;
+
+creates at screen location x, y, a control panel with the title given,
+and a number of fields as defined by field_specs. E.g. these can be text
+fields, action fields, etc.
+
+The command
+    rc_control_panel(x, y, field_specs, title, container) -> panel;
+
+Is similar except that the new panel is included in a pre-existing
+container window, and x and y specify location within the container
+window.
+
+    x and y can have various formats.
+        1. They can be positive integers determining the screen location
+           of the top left corner of the panel.
+        2. If x is a negative integer it determines distance from right
+           edge of panel to right edge of screen.
+        3. If y is a negative integer it determines distance from bottom
+           edge of panel to bottom edge of screen.
+        4. the words "left", "middle","right" can be used for x
+        5. the words "top", "middle" "bottom" can be used for y
+        6. "abut" can be used for x, or y, if a container is specified.
+
+    The third argument, field_specs, is a list of field descriptions, as
+        described below.
+
+    The fourth argument, title, is a string, giving the name to be shown
+        in the panel's title bar. If the container argument is given,
+        this argument does nothing.
+
+    If provided, the fifth argument, the container, should be an
+    instance of rc_window_object.
+
+    An optional sixth argument specifies the window creation procedure.
+
+The field_specs argument is a list, optionally starting with some
+general panel specifications and then specifying fields of various
+kinds.
+
+The fields are typically stacked vertically, in the order given in the
+field_specs list, though as explained below there are ways of altering
+the display mode so that the fields are not necessarily all vertically
+separated in order.
+
+The process by which a panel is constructed is quite complicated, and
+involves three stages.
+
+1. The list of field descriptions is analysed in a single pass, to work
+out the minimum required width of the panel, its height, and the
+location of each field within the panel. It computes the dimensions
+of the whole panel and the locations of the various fields, taking
+account of margins and offsets as well as the need to accommodate all
+the specified components of each field. During this process a list is
+created of instances of subclasses of the mixin rc_panel_field, for
+which various sub-classes are defined in LIB RC_CONTROL_PANEL, e.g.
+
+    define :class rc_text_field is rc_panel_field;
+    define :class rc_scroll_text_field is rc_text_field;
+    define :class rc_textin_field is rc_text_field;
+    define :class rc_slider_field is rc_panel_field;
+    define :class rc_dial_field is rc_panel_field;
+    define :class rc_buttons_field is rc_panel_field;
+    define :class rc_actions_field is rc_buttons_field;
+    define :class rc_radio_field is rc_buttons_field;
+    define :class rc_someof_field is rc_buttons_field;
+    define :class rc_graphic_field is rc_panel_field;
+
+2. A window is created of the appropriate width and height, with the
+default background and foreground colours and default font. This is an
+instance of the class rc_panel, which has a slot for the list of
+panel_field instances. If a window creation procedure is provided as an
+extra argument, it is used at this stage.
+
+3. Finally using this method
+
+    define :method rc_redraw_panel(panel:rc_panel);
+
+the list of panel field instances is traversed and all the panel fields
+are displayed. This may involve creating instances of various rclib
+picture component classes, including buttons, sliders, text input
+fields, etc.
+
+
+Thus there are three different representations of the final panel:
+
+(a) the list of words, strings, numbers, lists, vectors, etc. comprising
+    the field_specs list,
+
+(b) a list of instances of various types of subclass of rc_panel_field,
+    stored in the rc_panel_fields slot of the panel.
+
+(c) the lists of instances of buttons, sliders, scrolling text windows,
+    etc. created in the final pass. These instances are stored in the
+    rc_field_contents slot of the corresponding rc_panel_field instance.
+    They are also in the rc_panel_objects slot.
+
+Although the process is quite complex, users need not be aware of the
+details, unless they wish to add new types of fields, which will
+require copying and editing LIB rc_control_panel (unless the library is
+later modified to support such extensions more easily -- a task not
+yet done (July 2002)).
+
+By default the panels are sensitive to all the event types handled in
+LIB RC_MOUSEPIC except for resize events, though a more limited class of
+events can be specified, as explained below.
+
+The option to handle resize events was added in July 2002.
+
+
+-- Applications of rc_control_panel -----------------------------------
+
+There are many potential applications of this facility. The mechanism
+can be used for both persistent control panels and for pop-up
+windows/menus etc. which wait for a response from the user and then
+disappear.
+
+By default, rc_control_panel produces a persistent control panel which
+remains visible until explicitly dismissed, and which can be used to
+produce effects by clicking on buttons, moving sliders, etc. These
+effects may operate asynchronously on a running program, e.g. to change
+its trace output, or to modify the behaviour of a component in a complex
+simulation by altering one of the variables or structures which control
+its behaviour.
+
+Such panels can provide an easily tailored mechanism for controlling the
+Poplog editor Ved, or for fetching frequently required documentation, or
+spawning unix commands (including directing output into a Ved buffer).
+
+Such panels can be particularly useful for tutorial programs, or games
+requiring an interactive graphical interface.
+
+A different use of rc_control_panel is supported by rc_popup_panel,
+which creates a panel then hibernates until some action is performed,
+after which the panel disappears. This mechanism  is described in
+HELP * RCLIB/rc_popup_panel, along with a collection of related
+facilities: E.g. rc_popup_query, rc_popup_readin, rc_popup_readline,
+rc_popup_strings, rc_getfile, rc_getinput, rc_readline.
+
+The sim_control_panel facility provided as part of the SIM_AGENT toolkit
+is based on rc_control_panel, as demonstrated in the SIM_FEELINGS teach
+file.
+
+-- The class rc_panel -------------------------------------------------
+
+The panels created by rc_panel are, by default, instances of the class
+    rc_panel, defined in LIB RC_CONTROL_PANEL,
+
+which is a subclass of
+    rc_button_window, defined in LIB RC_BUTTONS,
+
+which, in turn is a subclass of
+    rc_window_object, defined in LIB RC_WINDOW_OBJECT.
+
+Other sub-classes can be used by giving an appropriate window creating
+procedure as an optional argument to rc_control_panel. E.g. for the
+window_object class XXX the procedure newXXX can be given. The default
+is newrc_panel.
+
+The windows are created using the procedure rc_new_window_object
+described in HELP RCLIB.
+
+-- Rc_control_panel and Propsheet -------------------------------------
+
+The rc_control_panel package, like other things mentioned in HELP RCLIB,
+is written entirely in Pop-11 on top of the Poplog widget set facilities
+and the RC_GRAPHIC library, so no motif facilities are used. This is
+possible because the Poplog widget set (see REF Xpw, TEACH Xpw) provides
+a powerful set of facilities for invoking mechanisms in the X window
+system.
+
+This means that the package is more portable than Propsheet which uses
+motif widgets (see TEACH PROPSHEET). However PROPSHEET has some
+facilities not yet duplicated in RCLIB and will sometimes be faster.
+
+In general however, RCLIB is much more flexible and easier to change
+because everything (above the basic X facilities) is implemented in
+Pop-11, using the mechanisms described in HELP RCLIB.
+
+
+-- Other facilities ---------------------------------------------------
+
+Panels created by rc_control_panel may incorporate or invoke other
+facilities provided in the RCLIB package, including buttons, sliders,
+pop-up menus, displayed warning messages, pictures drawn on the panel,
+moving and objects (which may or may not be mouse sensitive) drawn on
+the panel, text input and number input fields, etc.
+
+These facilities are summarised in HELP RCLIB and described in more
+detail in help and teach files in
+
+    $poplocal/local/rclib/help/*
+    $poplocal/local/rclib/teach/*
+
+especially
+    HELP  * RC_BUTTONS
+    HELP  * RC_SLIDER
+    HELP  * RC_EVENTS
+    HELP  * RC_POINT
+    HELP  * RC_SHOWTREE
+    HELP  * RC_MOUSE_COORDS
+    HELP  * RC_WINDOW_OBJECTS
+    HELP  * RC_LINEPIC
+    HELP  * RC_LINKED_PIC
+    HELP  * RC_TEXT_INPUT
+    HELP  * RC_SCROLLTEXT
+
+and
+    TEACH * RC_LINEPIC
+    TEACH * RC_MOUSEPIC
+    TEACH * RC_OPAQUE_MOVER
+    TEACH * RC_DIAL
+
+Teach files specifically concerned with rc_control_panel are:
+
+    TEACH * POPCONTROL
+    TEACH * RC_CONTROL_PANEL
+    TEACH * RC_CONSTRAINED_PANEL
+        Shows how to create panels with a number of components
+        that are linked together, so that if one component changes
+        one or more other components may also change.
+
+Event handling is described in
+    HELP * RC_EVENTS
+
+-- Using rc_control_panel ---------------------------------------------
+
+To make the procedure available do
+
+    uses rclib
+    uses rc_control_panel
+
+The basic invocation format is
+
+    rc_control_panel(x, y, field_specs, title) -> panel;
+
+Where x and y specify location, field_specs is a list, and title a
+string.
+
+The optional container argument is another rc_window_object instance,
+which may have been produced by rc_control_panel.
+
+An optional window creation argument can be used to create an instance
+of a class other than rc_panel.
+
+This creates a window with contents defined by field_specs, whose
+location is specified by x, y, with title given by the string title.
+
+    rc_control_panel(x, y, field_specs, title, container) -> panel;
+
+This version puts the new panel inside the container panel at location
+specified by x and y. (If they are integers they refer to pixel
+coordinates inside the container: 0, 0 means top left. Alternatively
+symbolic coordinates can be used as specified above.).
+
+-- Simple examples ----------------------------------------------------
+
+-- -- demo_panel1
+
+To illustrate the basic format, here is a command to create a panel with
+two fields, a text field and an action button to dismiss the panel.
+
+
+uses rclib
+uses rc_control_panel
+
+;;; First example: one TEXT field and one ACTIONS field with a
+;;; Dismiss button, using default colours.
+vars demo_panel1 =
+    rc_control_panel("middle", "top",
+        [[TEXT : 'Click on Dismiss']
+         [ACTIONS: ['Dismiss' rc_kill_panel]]],
+         'DemoPanel');
+
+
+It is possible to move the panel around the screen, using the method
+rc_move_to
+
+    rc_move_to(window, x, y, mode)
+
+(The mode argument to rc_move_to is relevant to moving pictures within a
+window, but is ignored in this context). E.g.
+
+    rc_move_to(demo_panel1, 400, 400, true);
+    rc_move_to(demo_panel1, 200, 40, true);
+
+Likewise rc_move_by. Try this repeatedly:
+
+    rc_move_by(demo_panel1, 10, 10, true);
+
+Other procedures available are
+    rc_picx(demo_panel1) -> x;
+    rc_picy(demo_panel1) -> y;
+    rc_coords(demo_panel1) -> (x, y);
+
+and their updaters. (Compare HELP RC_LINEPIC)
+
+Click on Dismiss to remove the panel.
+
+-- -- demo_panel2
+
+We can add some panel properties before the TEXT field specification,
+including background and foreground colours (bg, fg):
+
+vars demo_panel2 =
+    rc_control_panel(500, 5,
+        [
+        ;;; panel properties
+        ;;; Try this also with the next line uncommented
+        ;;; {xorigin 200}{yorigin 200}{xscale 2}{yscale 2}
+        {bg 'green'} {fg 'blue'} {width 400} {height 400}
+         [TEXT : 'Click on Dismiss']
+         [ACTIONS {width 90}: ['DISMISS' rc_kill_panel]]],
+         'DemoPanel');
+
+;;; Make it current, so that you can draw on it:
+
+SETWINDOW demo_panel2
+
+;;; see how a line is drawn, using the panel foreground colour.
+rc_drawline(0,0,200,200);
+rc_drawline(20,200,380,200);
+rc_drawline(200,50,200,380);
+rc_draw_blob(200,200,30,'yellow');
+
+-- -- Putting one panel inside another: blue_panel
+
+You can also put one panel inside another. We create a blank blue panel,
+with demo_panel2 as container:
+
+vars blue_panel =
+    rc_control_panel(200, 200,
+        [{width 20}{height 20}
+            ;;; Try also with the following uncommented
+            ;;; {xorigin 10} {yorigin 10}
+            {bg 'blue'}],'demo', demo_panel2);
+
+Here the coordinates (200,200) refer to a location within the larger
+panel.
+
+It too can be moved
+    rc_move_by(blue_panel, 20, 10, true);
+
+If the panel's width and height specifications are too small, they will
+be automatically expanded, as in the next example, which also shows how
+to make a text field use the panel's default colours, by using false for
+the field's foreground and background.
+
+-- -- Making a sub-panel draggable
+
+The blue panel can be made draggable using mouse button 1, as follows
+
+    rc_drag_window -> rc_drag_handlers(blue_panel)(1);
+
+Now try dragging it. Notice that the top left corner of the panel
+follows the mouse.
+
+Alternatively it can be made draggable by mouse button1, with pixel
+location 10, 10 (approximately the middle) following the mouse.
+
+    rc_make_draggable(blue_panel, 1, 10, 10);
+
+or make the bottom right corner follow mouse button 3:
+
+    rc_make_draggable(blue_panel, 3, 20, 20);
+
+Try dragging it with mouse button 3.
+
+-- -- Another sub-panel: demo_panel3
+
+We put the next panel inside demo_panel2, to show how a sub-panel can
+include an action button, and also to illustrate the use of symbolic
+instead of numeric coordinates, when specifying location of a sub-panel:
+
+vars demo_panel3 =
+    rc_control_panel("right", "bottom",
+        [{bg 'green'} {fg 'blue'} {width 10} {height 10}
+         ;;; Using false for background and foreground makes a text
+         ;;; field use the panel defaults instead of textfield defaults
+         [TEXT {fieldbg ^false}{fieldfg ^false}: 'Click on Hide']
+         [ACTIONS {width 70}: ['Hide' rc_hide_panel]]],
+         'DemoPanel3', demo_panel2);
+
+The sub-panel can be removed (unmapped) and re-displayed (mapped).
+
+rc_hide_window(demo_panel3);
+rc_show_window(demo_panel3);
+
+If you click on the sub-panel's Hide button it will disappear but
+because the action button uses rc_hide_panel rather than rc_kill_panel
+it will not be permanently destroyed. So it can be restored by
+
+rc_show_window(demo_panel3);
+
+It can also be moved
+
+rc_move_by(demo_panel3, -10, -10, true);
+
+Try using rc_control_panel to create more sub-panels, experimenting with
+these words for x
+   "left", "middle", "right", "abut"
+and these for y
+   "top", "middle", "bottom", "abut"
+
+-- -- A simple coloured panel: rc_coloured_panel
+
+The procedure rc_coloured_ panel can be used more simply to create a
+blank coloured panel inside another panel, instead of using
+rc_control_panel.
+
+vars yellow_panel =
+    rc_coloured_panel(
+        200, 200, 20, 20, 'yellow',
+            [{xorigin 10}{yorigin 10}], demo_panel2);
+
+;;; Make it draggable in the middle, using mouse button 1.
+rc_make_draggable(yellow_panel, 1, 10, 10);
+
+Get rid of all the panels by clicking on the original Dismiss button.
+
+
+-- -- Two panels side by side: left_panel, right_panel
+
+We can use the sub-panel mechanism to produce two panels side by side in
+the same window. Some experimenting with gaps and margins, may be needed
+to get the desired format, though normally rc_control_panel will
+automatically do a reasonable job.
+
+vars left_panel =
+    rc_control_panel(300,10,
+    [
+        [TEXT {gap 1}: 'a string''a string''a string''a string']
+        [ACTIONS {height 45} {gap 1}: ['Dismiss' rc_kill_panel]]
+        [TEXT {gap 20} {margin 3}:
+            'Yet more strings''Yet more strings''Yet more strings'
+            'Yet more strings' 'Yet more strings' 'Yet more strings'
+        ]
+        ;;; some padding at the bottom
+        [GRAPHIC {gap 2} : ]
+    ], 'left');
+
+/*
+For a sub-panel we can use symbols instead of numbers for the x and
+y values. E.g. instead of a number for x, we can use one of
+    "left", "middle", "right", "abut"
+and instead of a number for y, we can use one of
+    "top", "middle", "bottom", "abut"
+
+E.g. to produce a new sub-panel abutting the old one on the right, but
+aligned with its top:
+*/
+
+vars right_panel =
+    rc_control_panel("abut", "top",
+    [
+        [TEXT {gap 1} : 'A STRING''A STRING''A STRING''A STRING']
+        [ACTIONS {margin 5} {width 70}:
+            ['Hide' rc_hide_panel]]
+        [TEXT {gap 2} :
+            'more strings''more strings''more strings'
+            'more strings']
+        [GRAPHIC {gap 5} {height 50}: [POP11 rc_draw_blob(0, 0, 5, 'red')]]
+    ], 'left', left_panel);
+
+You can click on "Hide" to remove the panel then do:
+
+    rc_show_window(right_panel);
+
+When finished do:
+    rc_kill_window_object(left_panel);
+
+
+-- -- demo_panel4: adding panel properties
+
+We can add more properties before the colon in a field specification,
+e.g. setting the background (fieldbg) and foreground (fieldfg) colours
+for the TEXT field, reducing the width of the Dismiss button, and
+specifying a gap above the button field.
+
+We can also use {resize true} in the panel properties to make the panel
+resizable using the mouse.
+
+vars demo_panel4 =
+    rc_control_panel("left", "top",
+        [   {bg 'green'} {fg 'blue'}
+            {width 10} {height 10}
+            {resize true}
+         [TEXT {fieldbg 'ivory'} {fieldfg 'red'} : 'Click on Dismiss']
+         [TEXT :
+            'Showing the' 'default text colour' 'for comparison']
+         [ACTIONS {gap 10} {width 80} : ['Dismiss' rc_kill_panel]]],
+         'DemoPanel');
+
+Try moving the window boundaries with the mouse, to enlarge the panel,
+then test that the drawable portion has been enlarged:
+
+Prepare the panel for drawing:
+
+    SETWINDOW demo_panel4
+    rc_draw_blob(100, 100, 30, 'red');
+
+If the blob has partly obscured part of the panel this can be fixed:
+
+    rc_redraw_panel(demo_panel4)
+
+-- -- demo_panel5: more properties, and field alignment
+
+We can put the button on the right, using the {align right} field
+property in the action specification, and give the button field its own
+background colour ('brown'):
+
+vars demo_panel5 =
+    rc_control_panel("right", "top",
+        [
+         {bg 'green'} {fg 'blue'}
+         {width 200} {height 95}
+         [TEXT {fieldbg 'ivory'} {fieldfg 'red'} :
+            'Hello' 'Click on Dismiss'
+         ]
+         [ACTIONS
+            {gap 10} {width 80}
+            {align right} {fieldbg 'brown'}:
+            ['Dismiss' rc_kill_panel {textbg 'pink' textfg 'blue'}]]],
+         'DemoPanel');
+
+Try that again, after adding {margin 5} after "ACTIONS" and an
+additional string in the TEXT field. Try adding a TEXT field after the
+ACTIONS field, using different colours.
+
+
+-- -- demo_panel6: using field labels and accessing field values
+
+This example illustrates a collection of features:
+    o A slider field
+    o A radio buttons field
+    o A someof buttons field
+    o Automatic setting of the value of a variable by manipulating
+        a field on the control panel
+    o Accessing the value of a field from a program.
+
+vars
+    ;;; Variable to be associated with a slider in the panel.
+    Slidervalue,
+    ;;; Variable corresponding to a RADIO field
+    the_colour = undef,
+    ;;; Variable corresponding to a SOMEOF field
+    all_moods = undef;
+
+
+;;; Now specify the fields in the panel.
+vars panel_fields =
+    [
+        ;;; Try uncommenting and changing some of these properties
+        ;;; {offset 400}
+        ;;; try different origins
+        ;;; {xorigin 5}{yorigin -300}
+        ;;; Try different scale combinations. It should make no difference
+        ;;; to the "controls"
+        ;;; {xscale 1}
+        ;;; {yscale -1}
+        ;;; General defaults for the panel
+        {bg 'grey75'} ;;; try other colours, e.g. 'pink', 'ivory'
+        {fg 'grey20'} ;;; try {fg 'red'}
+
+        ;;; Try uncommenting these to to change minimal size
+        ;;; {width 500}
+        ;;; {height 900}
+
+        ;;; A text field with two strings, offset 5 pixels left and
+        ;;; right. Leave a gap above of 25 for a piece of graphics
+        ;;; in the second GRAPHIC field below
+        [TEXT {offset 10} {margin 0}
+            {font '12x24'}
+            {gap 5} :
+            'Demonstration of rc_control_panel'
+        ]
+        [ACTIONS :
+            ['  KILL THIS PANEL' rc_kill_panel]
+        ]
+
+        [TEXT
+            {gap 1}
+            {margin 4}  ;;; space above and below the text
+            {font '10x20'} {bg 'gray90'} {fg 'black'}:
+            'Try moving the slider blob.'
+            'Then try the Pop-11 command'
+            'Slidervalue =>'
+        ]
+
+        [SLIDERS
+            ;;; Label needed for a program to access the value
+            {label slider}
+            {gap 1} {width 300} {height 35} {margin 5}
+            {fieldbg 'pink'}
+            {barcol 'white'}    ;;; colour of slider bar
+            {radius 6}      ;;; diameter of slider blob
+            ;;; try uncommenting this
+            ;;; {framewidth 2} {framecol 'black'}
+            ;;; try uncommenting this
+            ;;; {type panel}
+            {spacing 4}:
+            ;;; Try uncommenting the following to see what difference
+            ;;; it makes to the sliding blob
+            ;;; {type square}
+            ;;; Slider, range -100 to 100 default 0, values rounded,
+            ;;; value associated with variable Slidervalue
+            [Slidervalue
+                {-100 100 0} round [{-8 12 'Range -100 to 100'}]
+            ]
+            ;;; For additional examples of sliders see
+            ;;; TEACH rc_control_panel TEACH rclib_demo.p
+            ;;; TEACH rc_constrained_panel
+        ]
+
+        [TEXT
+            {font '10x20'}
+            {fg 'yellow'}:
+            'Some "radio" buttons' 'Choose one at a time.'
+            'Then try the Pop-11 command' 'the_colour =>'
+        ]
+
+        ;;; Now some radio buttons in two columns, centred by default
+        [RADIO
+            {label radio1}
+            {cols 4} {spacing 4}
+            {margin 4} {width 80}
+            {gap 4}
+            ;;; Colour for selected button
+            {chosenbg 'grey80'}
+            ;;; The variable the_colour will show the selected colour
+            {ident the_colour}
+            {fieldbg 'orange'}
+            ;;; The default selected value
+            {default 'blue'} :
+            'red' 'orange'  'yellow' 'green' 'blue' 'pink'
+            'black' 'white'
+        ]
+
+        [TEXT
+            {font '10x20'}
+            {bg 'brown'} {fg 'yellow'} :
+            '"Someof" buttons.' 'Toggle them on and off'
+            'Then try: all_moods =>'
+        ]
+
+        ;;; Some "someof" buttons (toggle buttons) in two columns
+        [SOMEOF
+            {label someof1}
+            {margin 5}{cols 3} {spacing 2} {width 80}
+            {fieldbg 'orange'}
+            ;;; the variable all_moods will show selected values
+            {ident all_moods}
+            ;;; Colour for selected buttons
+            {chosenbg 'grey80'}
+            ;;; Turn on two features by default
+            {default ['sad' 'smug']}:
+            ;;; the full set of defaults
+            'happy' 'sad' 'elated' 'smug' 'angry' 'amused'
+        ]
+
+    ];
+
+vars demo_panel6 = rc_control_panel("right", "top", panel_fields, 'DEMO PANEL6');
+
+
+-- -- . Checking the values of associated variables
+
+If you alter the SLIDER value using the mouse, you can check that the
+associated variable has been given the corresponding value
+
+    Slidervalue =>
+
+If you alter the selection from the RADIO buttons you can check that the
+corresponding variable has been set:
+
+    the_colour =>
+
+This variable will hold a list of values corresponding to slected
+buttons in the SOME field.
+    all_moods ==>
+
+-- -- . Program commands to access or set field values
+
+Full details of program commands for accessing or updating the value in
+panel fields are given below in the section on "Accessing components of
+a panel".
+
+We can illustrate some of the options using demo_panel6. In that panel
+we specified these variables to be associated with the three main
+fields:
+
+    Slidervalue
+    the_colour
+    all_moods
+
+Instead of doing that we could have used Pop-11 expessions using the
+labels of the fields to get at the contents. These were the labels for
+those fields:
+
+            {label slider}
+            {label radio1}
+            {label someof1}
+
+The method rc_fieldcontents_of can be used to get a list of the items
+stored in the field, from the label. Other methods and procedures are
+available for finding the currently set values in those items, and for
+changing the set values.
+
+There is only one slider, but there might have been more, so the result
+of this is a list, in this case containing only one slider:
+
+    rc_fieldcontents_of(demo_panel6, "slider") ==>
+
+Likewise for the radio and someof buttons fields -- we get lists of
+buttons:
+    rc_fieldcontents_of(demo_panel6, "radio1") ==>
+
+    rc_fieldcontents_of(demo_panel6, "someof1") ==>
+
+
+-- -- -- Getting and setting the value of a slider on the panel
+
+From the contents of the field returned by rc_fieldcontents_of we can
+get at or update the values or selected items, though how that is done
+depends on the type of field. There are some generic forms that operate
+on all kinds of fields, and more specific forms that operate on specific
+types of fields, for instance slider fields, button fields, etc.
+
+For instance to get the current value of the first (and only) slider,
+we could do the following (check that changing the slider makes this
+give changing results):
+
+    rc_slider_value(rc_fieldcontents_of(demo_panel6, "slider")(1)) ==>
+
+That is equivalent to
+
+    rc_field_item_of_name(demo_panel6, "slider", 1) ==>
+
+and also to
+    slider_value_of_name(demo_panel6, "slider", 1) ==>
+
+These expressions can also be invoked in updater mode, to change the
+corresponding value. Watch what happens on the screen when these
+commands are obeyed:
+
+    25 -> rc_slider_value(rc_fieldcontents_of(demo_panel6, "slider")(1))
+
+    35 -> rc_field_item_of_name(demo_panel6, "slider", 1);
+
+We can also use a form specifically geared to slider fields:
+
+    -20 -> slider_value_of_name(demo_panel6, "slider", 1);
+    Slidervalue =>
+
+    55 -> slider_value_of_name(demo_panel6, "slider", 1);
+    Slidervalue =>
+
+    ;;; This will cause a mishap ("Slider value out of range")
+    500 -> slider_value_of_name(demo_panel6, "slider", 1);
+
+
+This will make the slider step through a range of values.
+    vars x;
+    for x from -100 by 5 to 100 do
+        x -> slider_value_of_name(demo_panel6, "slider", 1);
+        syssleep(10);
+    endfor;
+
+
+-- -- -- Getting and setting the value in a RADIO field
+
+This will return the string that is the label of the currently selected
+radio button:
+
+    rc_options_chosen(rc_fieldcontents_of(demo_panel6, "radio1")) =>
+
+It should print the same value as
+
+    the_colour =>
+
+This gets all the label strings associated with the field "radio1" in
+demo_panel6:
+
+    maplist(rc_fieldcontents_of(demo_panel6, "radio1"), rc_button_label) ==>
+
+Try clicking on different colour names, and printing the value of the
+above expression, and the variable.
+
+This command finds the button with label 'blue'
+    rc_button_with_label('blue', rc_fieldcontents_of(demo_panel6, "radio1")) =>
+    ** <rc_display_button 'blue'>
+
+or the button with label 'pink'
+    rc_button_with_label('pink', rc_fieldcontents_of(demo_panel6, "radio1")) =>
+    ** <rc_display_button 'pink'>
+
+
+The following can be used to set the selected button:
+
+    rc_set_radio_buttons('black', rc_fieldcontents_of(demo_panel6, "radio1"));
+    the_colour =>
+
+    rc_set_radio_buttons('red', rc_fieldcontents_of(demo_panel6, "radio1"));
+
+    the_colour =>
+    rc_options_chosen(rc_fieldcontents_of(demo_panel6, "radio1")) =>
+
+Try that with different colours.
+
+Using an unknown colour should cause a mishap:
+    rc_set_radio_buttons('purple', rc_fieldcontents_of(demo_panel6, "radio1"));
+    ;;; MISHAP - Button or relevant label needed
+
+
+    This should cause a mishap
+    'purple' -> rc_options_chosen(rc_fieldcontents_of(demo_panel6, "radio1"));
+
+
+    ;;; Warning: the following cases require the relevant panel (the one
+    ;;; containing the buttons) to be the value of
+    ;;;         rc_current_window_object
+    ;;; That can be achieved using the SETWINDOW macro:
+
+    SETWINDOW demo_panel6
+    'red' -> rc_options_chosen(rc_fieldcontents_of(demo_panel6, "radio1"));
+    the_colour =>
+
+    'yellow' -> rc_options_chosen(rc_fieldcontents_of(demo_panel6, "radio1"));
+    the_colour =>
+
+    'black' -> rc_options_chosen(rc_fieldcontents_of(demo_panel6, "radio1"));
+    the_colour =>
+
+The method rc_button_value can be used to determine whether a button is
+set or not. Experiment with clicking the relevant button on the Radio
+array of buttons before each of these commands, each of which should
+print out a boolean result:
+
+    ;;; first button, 'red'
+    rc_button_value(rc_fieldcontents_of(demo_panel6, "radio1")(1)) =>
+
+    ;;; last button, 'white'
+    rc_button_value(rc_fieldcontents_of(demo_panel6, "radio1")(8)) =>
+
+It is possible to get the field data-structure corresponding to a
+button, using rc_button_container:
+    rc_button_container(rc_fieldcontents_of(demo_panel6, "radio1")(1)) =>
+
+
+-- -- Getting from a button to the panel field or containing window
+
+The method rc_field_container can go from a field data-structure to the
+window object that contains the panel, and the slot method can get from
+a  button to its container, which in the case of a panel will be the
+panel field.
+
+So this gets the container of the first of the buttons in the field with
+label "radio1":
+
+    rc_field_container(rc_button_container(
+        rc_fieldcontents_of(demo_panel6, "radio1")(1))) =>
+
+-- -- -- Getting and setting the values in a SOMEOF field
+
+-- More detailed overview ---------------------------------------------
+
+-- The field specification list ---------------------------------------
+
+The examples given above illustrate the format for the third argument to
+rc_control_panel, the list describing the panel.
+
+It starts with optional panel properties in the form of two element
+vectors, then has field specifications. Each field specification is a
+list starting with a keyword (e.g. "TEXT", "ACTIONS") indicating the
+type of field, then various optional field properties (usually
+two-element vectors) then a compulsory colon, then items defining the
+content of the field, e.g. the strings in a text field, or the action
+buttons specifications.
+
+Whereas the field properties are specified in separate two element
+key-value vectors it is also possible for an individual button
+specification to have N key-value pairs in a vector of length 2*N (as
+described in HELP FEATURESPEC).
+
+More complex examples below will illustrate a wider range of types of
+field types and the syntax for creating them.
+
+The components of panels created by rc_control_panel are of many kinds,
+including static or movable pictures, as described in HELP RC_GRAPHIC
+and HELP RC_LINEPIC, buttons of various kinds as described in HELP
+RC_BUTTONS, sliders as described in HELP RC_SLIDER, scrolling text
+panels, as described in HELP RC_SCROLLTEXT, and sub-panels as described
+here.
+
+The mechanisms described in those more basic help files can be used
+directly to create all the sorts of panels described here. However,
+using them is far more tedious: rc_control_panel both provides
+"syntactic sugar" for specifying the components and their layout, and
+does all the messy low level calculations to work how how to assemble
+the panel so as to meet the specification.
+
+
+-- global variables rc_current_panel, rc_current_panel_field ----------
+
+rc_current_panel
+    As soon as the procedure rc_control_panel has created the actual
+    window for the panel and created the rc_window_object instance, it
+    is assigned to the global variable rc_current_panel. This is done
+    before all processing is finished, so that users can benefit, when
+    writing code invoked during panel construction.
+
+rc_current_panel_field
+    As the individual fields are created, after the whole window exists,
+    each field in turn is assigned to rc_current_panel_field, so that
+    user code in that field may access components of the field,
+    including its coordinates, during the creation process.
+
+
+-- The types of fields recognised by rc_control_panel -----------------
+
+rc_control_panel can cope with the following types of fields, each of
+which is specified by a field specification, which is a list starting
+with an upper case keyword:
+
+    o TEXT       text display fields
+    o SCROLLTEXT scrolling text panel with sliders for scrolling
+    o GRAPHIC    graphical fields
+    o ACTIONS    action buttons (various kinds: see HELP * RC_BUTTONS)
+    o RADIO      radio buttons (only one can be selected at a time)
+    o SOMEOF     someof buttons (sometimes referred to as toggle
+                 buttons: any number can be turned "on" at a time)
+    o SLIDERS    for changing the value of a numerical variable
+    o TEXTIN     for text input
+    o NUMBERIN   for numeric input
+    o DIALS      for dials (analogous to sliders, but using
+                 rotating pointers) See TEACH RC_DIAL
+
+The recognized field types may be extended later
+    (watch HELP * RCLIB_NEWS).
+
+The creation of a panel is controlled by a descriptive specification in
+the form of a field_specs list giving panel and field specifications,
+with the formats described below.
+
+The list can contain any number of fields of the above types in any
+order. The syntax for specifying those fields is now described.
+
+-- Using featurespecs to change defaults ------------------------------
+
+For defaults not covered by property specifications and not handled
+by the field description language, it is possible to use the
+"featurespec" mechanism illustrated in HELP * RC_BUTTONS/featurespec and
+described in HELP * FEATURESPEC.
+
+"Featurespec" structures for overriding class defaults can be included
+in the list of field descriptions used to create a control panel. For
+example, this can be used to change the colouring of an array of buttons
+in a button field, or a particular button in an array of buttons.
+
+Because the whole RCLIB package is object oriented (using the Pop-11
+Objectclass mechanism) users can define variants of control panels and
+field types by defining new subclasses with associated methods. To do
+this it is best to examine the existing code in LIB RC_CONTROL_PANEL
+
+If the range of facilities provided is not sufficiently general, it
+should be easy to copy the source code for rc_control_panel and
+edit it, e.g. to add extra field types or modify some of the default
+formatting.
+
+
+-- Format of field_specs list -----------------------------------------
+
+A panel specification (the field_specs) argument of rc_control_panel is
+a list of the following form starting with panel property
+specifications, followed by field specifications:
+
+<field_specs> :=
+
+    [<panel property specifications> <field specifications> ]
+
+where
+
+    <panel property specifications>
+
+is a (possibly empty) sequence:
+
+        <panel property> <panel property> ....
+
+and
+
+    <field specifications>
+
+is a non-empty sequence
+
+        <field spec> <field spec> ....
+
+The initial <panel property> descriptions are optional, but there must
+be at least one <field spec>. The permitted formats for items in the
+<panel property> sequence and the <field spec> sequence will now be
+described.
+
+-- -- Format of <panel property> specifications (optional)
+
+If provided, each <panel property> takes the form of a vector with a
+keyword and a value, used to specify properties of the whole panel,
+unlike the field properties describe below, which merely specify
+properties of a particular field (e.g. its minimum width, etc.)
+
+The keywords allowed in the context of specifying properties of the
+whole panel are the following:
+
+    o Properties with string values:
+        bg          fg          font
+
+    o Properties with number values
+        width       height      offset
+        xorigin     yorigin
+        xscale      yscale
+
+    o Property with a list of event types (words) as value
+        events
+
+    o Property with a boolean value
+        resize
+
+More detailed explanations of panel properties involving those keywords
+follow:
+
+-- -- . Minimal width or height of panel
+
+For example to specify a minimal width and height for the panel use
+either or both of these sorts of properties:
+
+    {width 400} {height 600}
+
+If the width or height specified is not sufficient to accommodate all
+the fields a larger value will be used automatically.
+
+-- -- . Default panel font
+
+To specify a default font to be used, e.g. in TEXT fields, try something
+like this:
+
+    {font '10x20'}
+    {font '8x13bold'}
+
+The font should be specified using a string. If no font is specified,
+the value of the following variable, defined in LIB * RC_CONTROL_PANEL
+is used:
+
+    rc_panel_font_def
+
+The Unix command xlsfonts can be used to provide a list of
+fonts available on your machine. E.g. in VED do
+
+    ENTER sh xlsfonts
+
+Note that not all fonts are available on all machines.
+
+-- -- . Default background and foreground panel colours
+
+These can be set as follows
+
+    {bg 'black'}
+    {fg 'white'}
+
+I.e. the colour is specified using a string. For the full range of
+colours available see HELP * XCOLOURS
+
+If not specified in the list given to rc_control_panel the strings held
+as values of the following variables defined in LIB * RC_CONTROL_PANEL
+are used as defaults for background and foreground colours.
+
+    rc_panel_bg_def
+    rc_panel_fg_def
+
+Note: if a GRAPHIC field is to control movable picture objects it is
+normally best to give the field 'white' as background, since drawing
+movable objects against any other colour will produce strange colours.
+(See HELP * RCLIB_PROBLEMS)
+
+-- -- . xorigin yorigin xscale yscale
+
+By default a control panel will be an instance of rc_window_object with
+origin at location (0,0) (i.e. top left) and with rc_xscale = 1, and
+rc_yscale = 1 (i.e. y increasing downwards). If graphical commands are
+to be used to draw items on the panel after it has been completed, and
+if a different origin and scale are to be used, then panel properties
+can be used to set the values. E.g. to set the origin at x=50 y=200, and
+the yscale at -1, leaving xscale as the default value 1, do:
+
+    {xorigin 50} {yorigin 200} {yscale -1}
+
+Note that if an "offset" panel property is used, as described below,
+that will not change the graphical origin. It merely specifies how much
+of the panel should be left blank to the left of the area used for
+drawing.
+
+-- -- . offset
+
+This is used to specify a portion of the window to be left blank to the
+left of the panel fields. E.g.
+
+    {offset 200}
+
+Will leave a strip of window 200 pixels wide blank, to the left of the
+panel fields. To place the xorigin in the middle of the strip do
+
+    {offset 200} {xorigin 100}
+
+The default value for the offset is 0.
+
+-- -- . Panel event types
+
+By default all panels produced by rc_control_panel are sensitive to
+button, mouse, motion and keyboard events. It is possible to use the
+format
+
+    {events <list>}
+
+to change this. However if the list is [], or in some other way
+restricted, then some contents of the field specification list may cause
+additional event handlers that are not explicitly specified, to be added
+to the window.
+
+E.g. if sliders are used the panel will automatically be made sensitive
+also to mouse motion and dragging events.
+
+It is possible to specify that the drawable area of the panel should be
+resizable using the mouse by including the word "resize" in the events
+list, e.g.
+    {events [button dragonly resize]}
+
+Including "resize" in the list is equivalent to giving the separate
+panel property
+
+    {resize true}
+
+Applying the procedure rc_mousepic to the panel, with no additional
+argument will make it sensitive to the full range of events apart
+from resize events, namely
+
+    button, motion, mouse, keyboard
+
+Alternatively if a subset of these event types is desired, use a
+<panel property> in the form of a two element vector whose second
+element is a list of words specifying event types, e.g.
+
+    {events [button motion]}
+    {events [button keyboard resize]}
+
+-- -- . dragonly event type
+
+The special event category represented by the word "dragonly" is
+provided to specify that a window object should allow drag events but
+not motion events, preventing spurious interactions caused by unwanted
+reactions to intentional or unintentional mouse movements. For such
+window objects the slot rc_drag_only gets the value true, whereas the
+default is false. It can be altered dynamically if required.
+
+The dragonly option can be specified in combination with others.
+It is redundant to include "motion" if "dragonly" is specified.
+
+    {events [button dragonly keyboard]}
+
+A detailed analysis of RCLIB event handling is in HELP RC_EVENTS
+
+-- -- . resize
+
+Use
+    {resize true}
+
+as an alternative to including "resize" in the events list as described
+above.
+
+    {resize false}
+
+is the same as the default, so it has no effect.
+
+-- -- . Using rc_event_types to check event types of a panel
+
+The list of event types known to a panel can be found as the value of
+the rc_event_types slot (from the class rc_window_object )
+
+Additional event types may be provided later. See
+    REF * XPT_XEVENT
+    REF * XT_EVENT
+
+-- -- . Other <panel property> formats
+
+For SCROLLTEXT panels you can use
+
+    {rows <num>} {cols <num>}
+
+to specify the number of rows and the number of columns to be shown. For
+the case where <num> == 0 see HELP RC_SCROLLTEXT
+
+Additional formats may be allowed later on.
+
+-- -- Format of <field spec> list
+
+After the optional global panel property specifications the field_spec
+list must contain one or more <field spec> components, e.g. specifying a
+TEXT field a SLIDER field, an ACTIONS field, etc.
+
+Each <field spec> is a list defining a field in the control panel. The
+fields are created in order, and by default are displayed from the top
+of the panel to the bottom, though it is possible to specify a negative
+"gap" for a field, so that it is superimposed on a previous field. In
+other words the order of fields as displayed in the panel need not
+correspond to the order in which they are specified.
+
+Each <field spec> is specified as a list in this format:
+
+    [<field type> <optional features> : <contents> ]
+
+Or, in more detail, each <field_spec> is of this form::
+
+    [<field type>
+        <label <name>> <field property> <field property> ... :
+        <component> <component> .... ]
+
+Where the <label ....> and <field property> items preceding the colon,
+are optional.
+
+The colon preceding components is not optional, though if it appears as
+the first non space character in a line, in a TEACH or HELP file the
+compiler will (for historical reasons) ignore it.
+(So in the examples here and in teach files, the colon always occurs
+with something else preceding it on the same line.)
+
+More detailed specifications follow.
+
+-- -- . <field type> (Specifying type of field)
+
+Must be present, as the first item of a field specification list, and is
+one of the upper case keywords listed above, i.e. one of:
+
+    TEXT SCROLLTEXT GRAPHIC ACTIONS RADIO SOMEOF SLIDERS TEXTIN NUMBERIN
+
+(additional field types may be added later)
+
+-- -- . <label <name>> (optional)
+
+The field label specification is a two element vector whose second
+element the <name> can be a word or number or other unique object
+identifying the field, e.g.
+
+    {label sliders}
+    {label 99}
+
+(The same label can be used in different panels, but it makes no sense
+to use the same label in different fields in the same panel.)
+
+This field label is not shown on the control panel, but is used for
+accessing or updating components of the panel using procedures like:
+
+    rc_fieldcontents_of(<panel>, <label>))
+    rc_field_item_of_name(<panel>, <label>, <num>)
+
+or their updaters.
+
+The label is needed where programs activated in the panel or in some
+other panel need to interrogate or update structures in the field, e.g.
+finding which radio button has been selected, or which set of someof
+buttons have been selected, or finding the current values of sliders or
+counter (increment) buttons.
+
+-- -- . <field property> (optional): {<key> <value>}, or list
+
+This is either a key-value vector, with a key of one of the types
+described below, or a list of key-value vectors. Examples are
+
+    {fieldbg 'red'} {fieldfg 'blue'}
+    {constraint <procedure>}
+    {reactor <procedure>}
+    {reactor [..list..]}
+    {fieldwidth 150} {height 30}
+    {spec <featurespec>}
+
+(where <featurespec> is a structure with information for overriding
+defaults for the components in the field, as described in
+    HELP FEATURESPEC
+
+A list of such key-value vectors can also be included and its
+contents will be interpreted in the obvious way.
+
+Allowing a list of key-value vectors to occur among the properties makes
+it easy to use the same properties for different fields. Thus a list
+of key-value vectors can be defined in one place, and inserted into the
+property specification of several different fields.
+
+Examples are found in LIB * RC_POLYPANEL, where the list held in the
+variable slider_specs is used more than once in the argument to
+rc_control_panel.
+
+Note, not all property specifications are valid for all fields.
+A full list of property specifications is given below.
+
+-- -- . <component>: specifies an element of the field.
+
+As noted above, the components follow the colon, which MUST be present
+in a field_spec.
+
+Different sorts of component specifications are allowed in different
+sorts of fields. E.g. it may be a word, a string, a list or a vector.
+
+E.g. in a TEXT field only strings are allowed as <components>. In a
+scrolltext field a vector of strings must be provided, as in the poem
+example above.
+
+In an ACTIONS field a variety of button specifications can be used, in
+the formats allowed for create_button_columns, and create_rc_button, as
+described in HELP * RC_BUTTONS and illustrated in
+    TEACH RC_CONTROL_PANEL.
+
+Examples in this file illustrate the formats for most of the field
+types. The type with most varied options for components is the ACTIONS
+field.
+
+For SOMEOF and RADIO fields, the field component used to specify each
+button will often be a  word or a string used as the label of the
+button. However, if a two element list is provided, the first can be the
+visible label and the second an entity to be assigned to the
+rc_informant_value slot of the button, this might later be used if
+the button is selected, to representing turning an option off, or on.
+
+-- -- . . Examples of ACTIONS button <component> formats: action_panel
+
+ACTIONS components can be specified by a string, a word, a list of two
+or more elements, a vector of three or more elements.
+
+The list or vector components may include featurespec vectors (described
+in HELP * FEATURESPEC.
+
+Some examples of ACTIONS button formats are given here:
+
+vars
+    memliminc = 1000,
+    counter = 0,
+    test_flag;
+
+vars action_panel =
+ rc_control_panel(400, 20,
+  [
+   [ACTIONS
+    {width 180} {height 30}
+    {cols 2} :
+
+    ;;; <component> specifications follow.
+    ;;; first some strings.
+
+    'teach rc_control_panel'
+    ;;; The button will show this string, and if selected will obey the
+    ;;; VED Enter command shown.
+
+    'sh who'
+    ;;; Run the shell "who" command and display its output
+
+    ;;; Next some words naming procedures:
+
+    vedprevscreen
+    vednextscreen
+    ;;; Buttons to invoke VED procedures, to move up or down the file
+
+    ;;; Vectors for specific button types.
+    {counter 'Counter' ^(ident counter) {5 0 100}
+        {borderwidth 6 bordercol 'red'}}
+    ;;; Create a counter button, linked to the value of the variable
+    ;;; counter, incremented by 5 using mouse button 1, decremented by
+    ;;; -5 using mouse button 3. It has a minimum value of 0 and a
+    ;;; maximum of 100.
+
+    {counter 'Memlim' popmemlim ^(ident memliminc) {textbg 'pink'}}
+    ;;; This increments or decrements the variable popmemlim by the
+    ;;; number held in the variable memliminc declared above.
+    ;;; (see  HELP POPMEMLIM, REF SYSTEM/'Store Management')
+
+    {toggle 'GC trace' popgctrace}
+    ;;; Creates a toggle button which switches garbage collection
+    ;;; tracing on or off when mouse button 1 is used on it.
+    ;;; See HELP POPGCTRACE,  REF SYSTEM/popgctrace
+
+    [sysgarbage sysgarbage {textbg 'yellow' textfg 'blue'}]
+    ;;; cause a garbage collection
+
+    {toggle 'Switch flag' ^(ident test_flag)}
+    ;;; Create a toggle button linked to the value of the variable
+    ;;; test_flag, which should contain a boolean value. This is
+    ;;; negated whenever mouse button 1 is clicked on this button.
+
+    {blob 'Kill panel' rc_kill_panel
+         {font '10x20' textbg 'brown' textfg 'white'
+              bordercol 'red' blobcol 'ivory' } }
+
+    ;;; This creates a "blob" button which can be used to destroy the
+    ;;; current panel. The (optional) featurespec vector provided will
+    ;;; override the default font, text colour, border colour,
+    ;;; background colour and blob colour.
+    ] ] , 'Actions Demo');
+
+Check this after clicking on the "Switch flag" button.
+
+    test_flag =>
+
+
+A full list of ACTION button formats can be found in
+    HELP * RC_BUTTONS/'Button specification formats'
+
+Additional examples of button types, e.g. SOMEOF buttons and RADIO
+buttons can be found in TEACH RC_CONTROL_PANEL.
+
+WARNING: You may find that the behaviours of asynchronous events when
+using XVed and when using Ved are different.
+
+The differences between action buttons of type UNIX, POP11 and DEFER are
+explained in HELP * RC_BUTTONS.
+
+
+-- -- Setting rc_current_window_object when using event handlers
+
+Actions associated with action buttons and possibly other event handlers
+may need to take care over the value of rc_current_window_object, which
+specifies the default in which drawing occurs, and which may be altered
+by procedures such as rc_new_window_object and rc_control_panel, or
+other library procedures.
+
+Where control panel functions are used to create or change images on
+other windows, it is often necessary to use dlocal to change the current
+window object and ensure that it is reset after the action is completed,
+e.g. before some drawing instructions in another window:
+
+    dlocal rc_current_window_object = other_window;
+
+    <drawing instructions>
+
+The window within which the event handler was invoked is held in the
+variable rc_active_window_object. This is temporarily assigned to
+rc_current_window_object while (non-deferred) action procedures are run,
+but rc_current_window_object has its value restored afterwards.
+
+An action button can temporarily make a particular window the value of
+rc_current_window_object and then draw in that window. However an action
+button cannot easily change the global value of rc_current_window_object
+which will be whatever it was before the mouse button was pressed or
+other mouse/window event occurred. This can be overcome by using DEFER
+actions, or specially provided procedures.
+
+-- -- Using rc_make_current_window to set the current window
+
+The autoloadable library procedure rc_make_current_window has been
+provided to overcome this difficulty. It is defined using
+rc_defer_apply, which is given a procedure and puts that procedure on a
+list which is run by the event handler after all global variables have
+been re-set.
+
+    define rc_make_current_window(win_obj);
+        ;;; put an action to make win_obj the current window object
+        ;;; onto the defer list.
+        ;;; See LIB * rc_mousepic for details of rc_defer_apply
+
+        rc_defer_apply(
+            procedure(win_obj);
+                win_obj -> rc_current_window_object
+            endprocedure(%win_obj%))
+
+    enddefine;
+
+For instance LIB rc_scratch_panel uses this command in one of the action
+button specifications.
+
+    rc_make_current_window(rc_scratch_window)
+
+This means that after the button has been selected the scratch window
+will be assigned to rc_current_window_object.
+
+-- -- Using SETWINDOW
+
+Alternatively the autoloadable syntax word SETWINDOW can be convenient
+when testing programs by giving drawing commands. An example was given
+above, in the command:
+
+    SETWINDOW demo_panel2
+
+For more information on the problem that drawing commands work, see
+    HELP RCLIB_COMPATIBILITY
+
+
+-- Some of the common field <property> formats ------------------------
+
+In the field specifications of the form described above:
+
+    [<type>
+        <label ...> <property> <property> ... :
+        <component> <component> .... ]
+
+the <label...> and <property> specifications are optional (though not
+the colon!).
+
+If properties are omitted, the field will simply use defaults for the
+various classes, usually defined by the default slot fillers for the
+mixins and classes in LIB * RC_CONTROL_PANEL.
+
+Some of the most common <property> formats are now described. A more
+complete list is given later.
+
+-- . {align <where>}: left, centre, right, or panel
+
+By default all fields are centred. However, try experimenting with
+selections from
+
+    {align left} {align centre} {align right}
+
+for aligning any of the fields to the left, the centre or the right.
+
+In a GRAPHIC field, a property of the following form is allowed
+    {align panel}
+
+The implications of this specification are described below in connection
+with GRAPHIC fields.
+
+NOTE: at present align properties in SLIDERS fields will be ignored.
+
+-- . Horizontal offset
+
+If an {offset <number>} property is given, this affects left aligned or
+right aligned fields, making them leave a left or right margin of the
+specified with. If the field is a graphical field, the value of
+rc_xorigin is incremented by <number>, after taking account of any
+<align ...> specification.
+
+Such an offset specification may be useful in connection with SLIDER
+fields TEXTIN fields and NUMBERIN fields, to allow sufficient space
+on the left for labels.
+
+Note however that if the {labelstring ....} specification is used with
+either a TEXTIN or a NUMBERIN field, then if the offset specified is
+too small it will be automatically be enlarged to accommodate the label
+string. (See HELP RC_TEXT_INPUT)
+
+-- . Gap and margins
+
+A gap between fields can be specified in the following format, where the
+integer may be positive or negative:
+
+    {gap <integer>}
+
+This defines the gap between the field it specifies and the preceding
+field.
+
+In addition, in a text field it is possible to specify a vertical margin
+to be left within the portion of the field coloured with the field's
+background. This takes the form
+
+    {margin <integer>}
+
+as illustrated above. It affects the margin above and below the text
+in a text field.
+
+Additional field property specifiers are given below.
+
+-- . {height <num>} {width <num>}
+
+These have different interpretations depending on the type of field. If
+it is a field of these types
+
+    ACTIONS   RADIO  SOMEOF
+
+then the vectors specify the width and height of the individual buttons
+in the field. The {cols <num>} property can specify how many columns
+should be used, or {cols 0} for a single horizontal row (the default).
+{spacing <num>} gives the horizontal and vertical spacing between the
+buttons.
+
+If it is a field of type GRAPHIC then the width specification gives a
+minimum width. The actual width may be larger if the panel is widened to
+accommodation another field. The height specification determines the
+space available to be used for a picture, or possibly left blank.
+
+If it is a field of type SLIDERS then the width and height
+specifications give the space allocated for each slider. Additional
+information can be used in connection with sliders to indicate their
+labels and the format used for the numeric display, as illustrated in
+LIB * RC_POLYPANEL.
+
+-- . {constrain <procedure>}
+
+This format can be used to constrain the values assigned to the field
+component (e.g. the slider value of the string assigned to a text input
+field). The second element of the vector can be either the procedure or
+its name (the latter is more useful during debugging).
+
+Examples are found in TEACH RC_CONSTRAINED_PANEL
+
+A constraint procedure for a text input field might be something like
+this:
+
+define constrain_textin(string) -> string;
+    unless member(string, allowed_strings) then
+        mishap('Disallowed string input', [^string])
+    endunless;
+enddefine;
+
+A constraint procedure for a number field might restrict the number to
+being an integer, or to lie between two numbers.
+
+-- . {reactor <procedure>}
+-- . {reactor <list>}
+
+A reactor specifies what to do when the field is given a new value. The
+reactor can update other fields in the same panel or fields in other
+panels.
+
+There are two formats for associating a reactor with a field. One
+specifies a procedure, the other a list.
+
+If a procedure is provided it should be defined as a procedure or method
+taking two arguments, the object whose value has changed, and the
+current (new) value of the object (i.e. rc_informant_value(object)).
+
+If a list is provided it should be a list of vectors each containing
+three or four elements. I.e. the list is of the form
+
+    [<vec> <vec> ....]
+
+Where each <vec> is either of the form
+
+    {<panel> <label> <num> <converter>}
+or
+    {<panel> <label> <num>}
+
+where <converter> is a procedure which takes one argument and produces
+one result, or the name of such a procedure. It defaults to identfn.
+
+The first form means that when the object with this reactor has its
+value (its rc_informant_value) changed, the result of applying
+<converter> to the value should be assigned as the value of then
+<num>th component of the field with label <label> in the panel <panel>.
+
+Where no <converter> is specified, as in the second form, identfn is
+used (i.e. the original value is assigned without conversion).
+
+The <panel> component can be the word ".", meaning "use the current
+panel".
+
+-- -- . Example: linked reactors linked_panel1, linked_panel2
+
+For example we now create two panels, linked_panel1 and linked_panel2,
+where linked_panel1 has a slider, and linked_panel2 has a slider and a
+counter button, such that whenever the slider in linked_panel2 or
+counter button is changed, both the slider in linked_panel1 and the
+counter in linked_panel2 are changed.
+
+uses rclib
+uses rc_control_panel
+
+vars demo_value = 50;
+
+;;; Warning don't try moving the slider on linked_panel1 till the second panel
+;;; is ready.
+
+vars linked_panel1 =
+    rc_control_panel(600, 20,
+        [{bg 'white'}
+            [SLIDERS {label S1}
+                {labelfont '10x20'}
+                {barcol 'white'} {blobcol 'blue'}
+                {reactor [{linked_panel2 S3 1} {linked_panel2 S2 1}]} :
+                [{0 100 50 1} [[{-10 -20 'A linked slider'}][]]]
+            ]
+        ], 'linked_panel1');
+
+vars linked_panel2 =
+    rc_control_panel(600, 100,
+        [
+            [SLIDERS {label S2}
+                {width 200}
+                {barcol 'white'} {blobcol 'red'}
+                {reactor [{. S3 1} {linked_panel1 S1 1}]} :
+                [{0 100 50 1} []]
+            ]
+            [ACTIONS {label S3}
+                {width 150} :
+                {counter demo_value demo_value {1 0 100}
+                        {reactor [{. S2 1} {linked_panel1 S1 1}]} }
+            ]
+        ], 'linked_panel2');
+
+rc_kill_window_object(linked_panel1);
+rc_kill_window_object(linked_panel2);
+
+Note that instead of the occurrences of the abbreviation "." in the
+reactor specifications we could have inserted either:
+
+    linked_panel2
+or
+    rc_current_window_object
+
+e.g.
+    {reactor [{linked_panel2 S2 1} {linked_panel1 S1 1}]}
+    {reactor [{rc_current_window_object S2 1} {linked_panel1 S1 1}]}
+
+Moreover, if you don't wish to use global variables, you can define
+the panel variables as lvars, and then provided that the panel
+specification is compiled in the same file, you can use the "ident"
+syntax word in the format
+    ^(ident linked_panel1)
+instead of
+    linked_panel1
+e.g.
+    {reactor [{^(ident linked_panel2) S2 1} {^(ident linked_panel1) S1 1}]}
+
+The format
+
+    {reactor <veclist> }
+
+is approximately equivalent to the following, which makes the reactor a
+closure of the procedure panel_update, obtained by partially applying
+panel_update to the list :
+
+    {reactor ^( panel_update(%[....]%) ) }
+
+The <veclist> syntax leaves the list of vectors in the reactor field,
+which means that the list can be modified after the panel has been
+created.
+
+For more examples of reactors see TEACH * RC_CONSTRAINED_PANEL
+
+Some examples of linked fields are also in
+    LIB * RC_POLYPANEL
+
+To see how the sliders look with movable sub-panels instead of blobs,
+insert the field property {type panel} after "SLIDERS", and before the
+colon.
+
+-- -- . Exercise
+
+Look at TEACH RC_DIAL and then copy and edit the above to create two
+control panels with dials linked to one another.
+
+
+-- . {spec <featurespec>}
+
+For some types of fields it is useful to be able to override the
+defaults for that field. e.g. button border colours. This can be done
+using the mechanism described in HELP * FEATURESPEC. The second element
+of the vector can be a featurespec of any of the forms described in the
+help file, e.g. a vector or a list of featurespecs.
+
+For example: in TEACH RC_CONTROL_PANEL, the following is used to
+override some defaults for a SOMEOF field:
+
+    {spec {^rc_radio_select_action ^selecting_someof
+            ^rc_radio_deselect_action ^deselecting_someof
+            ^rc_button_bordercolour 'blue'
+    }}
+
+Such a vector can be created in one place and then repeatedly inserted
+in panel field specifications: it need not be re-typed each time it is
+required.
+
+-- . Keys available for use in <field property>
+
+Each <property> is a two element vector, of the form
+        {<keyword> <value>}
+
+Some of the keywords can be used only with button fields, some only with
+text fields, some with TEXTIN or NUMBERIN fields, others with any sort
+of field.
+
+The following list was correct on 20 May 1999. The definitive list is in
+the global variable rc_control_panel_keyspec, in LIB RC_CONTROL_PANEL
+
+
+-- -- . Keywords which can be used in any type of field
+
+    align
+    fieldbg
+    fieldfg
+    fieldheight
+    fieldwidth
+    font
+    gap
+    label
+    margin
+    offset
+    reactor
+    spacing
+    spec
+    type
+
+
+-- -- . Keywords for items which can be associated with a value
+e.g sliders, textin, numberin fields, and some ACTIONS buttons
+e.g. counter buttons (incrementors) or toggle buttons.
+
+    ident
+    constrain
+
+-- -- . Keywords for use with GRAPHIC fields
+
+    xorigin
+    yorigin
+    xscale
+    yscale
+
+-- -- . Keywords for use with GRAPHIC or TEXT fields
+
+These two set the (minimum) dimensions of the whole field.
+    width
+    height
+
+-- -- . Keywords for SCROLLTEXT fields
+    cols
+    rows
+    textfg
+    textbg
+    blobrad
+    slidercol or surroundcol   (equivalent)
+    blobcol
+    sliderframecol
+    sliderframewidth
+    slidertype (e.g. "panel" or "blob")
+    acceptor
+
+-- -- . Keywords used for SLIDERS and PANELSLIDERS fields
+
+    barcol
+    framecol
+    framewidth
+    height      (vertical space per slider)
+    radius
+    step
+    convert_in
+    convert_out
+    blobcol
+    fieldwidth or width   (for minimum width of whole field)
+
+    panel   If false there is no text panel, otherwise an 8 element
+            vector, as described in HELP RC_SLIDER
+
+    textin  If false, the text panel cannot be used for input.
+
+    places  A number, for rc_slider_places
+
+    type    If given the value "panel", e.g. {type panel} it uses a
+            movable square sub-panel as the slider blob. If given the
+            value "square" it uses a square drawn with diagonals.
+
+    labelfont
+            If this is a string, it defines the font to be used
+            when printing labels. If false the current default font
+            is used.
+
+-- -- . Keywords used for DIALS fields
+
+    For a DIALS field, important property formats include these:
+          {dialwidth <num>} {dialheight <num>} {dialbase <num>}
+          {offset <num>} {spacing <num>} {margin <num>}
+
+    Where:
+    dialwidth
+        gives an approximate indication of the width of each dial
+        (though in fact they may vary, as in the examples in
+        TEACH RC_DIAL).
+
+    dialheight
+        an approximate indication of the height of each dial, used to
+        estimate how much height to leave in the field.
+
+    dialbase
+        an approximate indication of space to be allowed for captions
+        below the dial.
+
+    offset
+        specifies how much to shift the first dial to the right
+
+    spacing
+        specifies an additional gap between dials
+
+    margin
+        specifies extra height at top and bottom of the
+        dials field.
+
+    These numbers are used by rc_control_panel to help it guess the
+    width and height required for the DIALS field. However for any
+    given display you may need to experiment with different combinations
+    of these, and the coordinates of individual dials, especially
+    if they have different sizes or different orientations, as in the
+    examples in TEACH RC_DIAL
+
+
+-- -- . Keywords used in RADIO SOMEOF TEXTIN NUMBERIN ACTIONS fields
+
+    width           (of buttons)
+    height          (of buttons)
+    cols            (number of columns. Default 0 = 1 row}
+    textfg
+    textbg
+
+-- -- . Keywords for pressable ACTIONS buttons
+These have borders which change colour while the button is "pressed".
+
+    bordercol
+    pressedcol
+    borderwidth
+
+Note that individual ACTIONS buttons may have featurespec abbreviations
+as illustrated in HELP RC_BUTTONS/'Allowed abbreviations'
+
+-- -- . Keywords used with RADIO and SOMEOF fields
+
+    select      (action on selection)
+    deselect    (only for SOMEOF fields)
+    chosenbg    (background colour when button chosen)
+
+The select or deselect value should be a procedure, or a word which is
+the name of a procedure. The corresponding procedure will be applied to
+the button instance whenever it is selected, or in the case of a SOMEOF
+button, deselected. There are examples in TEACH RC_CONTROL_PANEL.
+Search for the strings '{select' '{deselect' to examine the examples.
+The corresponding selection/deselection procedures can be found
+earlier in the file.
+
+    default     (specifies which buttons start "on")
+
+Note: the value of the default slot must be a list for a SOMEOF field.
+
+The item which is specified as the default for a RADIO field, and each
+item in the default list for a SOMEOF field, must be the
+rc_informant_value of the corresponding button. This will be the
+label in the case where buttons are specified simply by words or
+strings.
+
+However where a button is specified by a two element list giving both
+the label and the associated button contents, then the latter should be
+specified in the default field.
+
+E.g. there is an example in TEACH RC_CONTROL_PANEL where a SOMEOF field
+has four buttons whose labels are strings whereas rc_informant_value
+are words:
+
+        ['TERRAIN MAP' terrain_map]
+        ['NOGO MAP' nogo_map]
+        ['VISIBLE MAP' visible_map]
+        ['ROADS' roads_map]
+
+If you wished to have the first and second buttons turned on as
+defaults, you could specify this (before the colon in the
+<field spec>)
+
+        {default [terrain_map nogo_map]}
+
+-- -- . Keys usable in TEXTIN and NUMBERIN fields
+
+    width       (Of the whole field, not the button)
+    height      (ditto)
+    labelstring Printed to left of button
+    labelfont
+    labelcolour
+
+Colours for background with active/inactive, and for text
+    activebg
+    textinbg
+    textinfg
+
+-- -- . Keys usable in all fields
+
+     label
+     ident
+     constrain
+     reactor
+     offset
+     margin
+     font
+     fieldfg
+     fieldbg
+     gap
+     fieldwidth
+     fieldheight
+     spec
+     spacing
+     type
+     align
+
+
+
+This documentation needs to be made more precise and formal.
+
+It is hoped that the examples in this and other files will make the use
+of these property specifiers clear. The specification of the variable
+    rc_control_panel_keyspec
+below, shows more precisely how these keywords are associated with slot
+updaters.
+
+-- How the keywords in properties are interpreted, in more detail
+
+The available keywords (at present) are defined by the following
+list held in the variable rc_control_panel_keyspec, and used in the
+procedure rc_interpret_field_spec (which is user definable - if you are
+very careful). See LIB * RC_CONTROL_PANEL for details.
+
+Users can modify or extend this list. Its format is as follows: it is a
+list of lists mapping key names to slot names of field classes.
+
+Each of the lists in the keyspec list starts with a list of field types
+followed by one or more two element vectors. I.e. the keyspec list is of
+this form:
+
+    [
+     [[type1 type2 ...] vec1 vec2 ....]
+     [[type1 type2 ...] vec1 vec2 ....]
+     [[type1 type2 ...] vec1 vec2 ....]
+     [[] vec1 vec2 ....]
+    ]
+
+where the final list has an empty list of types. The types are words
+specifying any of the permitted field types, e.g. GRAPHIC, TEXT, SLIDER,
+ACTIONS, etc.
+
+The vec1, vec2, etc. components are two element vectors where the first
+element is a key and the second a value. The value is normally the name
+of a field slot updater, e.g. rc_field_ident, rc_field_gap, etc.
+The key is a shorter word which can be used in that context as an
+abbreviation for that slot name.
+
+-- The list: rc_control_panel_keyspec ---------------------------------
+
+This list holds all the currently acceptable abbreviations for field
+properties. Users can extend it.
+
+global vars rc_control_panel_keyspec =
+
+    [
+
+        ;;; specify keys usable in GRAPHIC fields
+        [[GRAPHIC]
+            {xorigin rc_field_xorigin_offset}
+            {yorigin rc_field_yorigin_offset}
+            {xscale rc_field_xscale}
+            {yscale rc_field_yscale}
+        ]
+        ;;; specify keys usable in GRAPHIC or TEXT fields
+        [[GRAPHIC TEXT]
+            {width rc_field_width}
+            {height rc_field_height}
+        ]
+        ;;; specify keys usable in SLIDER fields
+        [[SLIDERS PANELSLIDERS]
+            ;;; Set "bar" colour for a slider
+            {barcol rc_slider_field_barcol}
+            ;;; Set "bar frame" colour for a slider
+            {framecol rc_slider_field_barframecol}
+            ;;; Set "bar frame" width for a slider
+            {framewidth rc_slider_field_barframewidth}
+            {height rc_slider_field_height}
+            ;;; Slider indicator radius
+            {radius rc_slider_field_radius}
+            ;;; Slider minimum step
+            {step rc_slider_field_step}
+            ;;; Converter procedure for input to the slider
+            {convert_in rc_slider_convert_in}
+            ;;; Converter procedure for output from the slider
+            {convert_out rc_slider_convert_out}
+            ;;; Colour of slider blob
+            {blobcol rc_slider_field_blobcol}
+            {width rc_field_width}
+            {panel rc_slider_field_value_panel}
+            {labelfont rc_slider_field_labelfont}
+            {textin rc_slider_field_textin}
+            {places rc_slider_field_places}
+            ;;; How the type is used will depend on the sort of field. E.g.
+            ;;; for sliders the value "square" can indicate that a square
+            ;;; "thumb" should be used. Otherwise it can be a creation procedure
+            {type rc_field_type}
+        ]
+        ;;; keys specific to dials
+        [[DIALS]
+            {dialbg rc_dial_field_bg}
+            {dialwidth rc_dial_width}
+            {dialheight rc_dial_height}
+            {dialbase  rc_dial_base}
+        ]
+        ;;; Specify keys usable in all button-type fields
+        [[RADIO SOMEOF ACTIONS DIALS]
+            {width rc_button_width}
+            {height rc_button_height}
+            {textfg rc_field_text_fg}
+            {textbg rc_field_text_bg}
+            ;;; A number to specify the number of columns in a buttons field.
+            ;;; If 0 then make it the number of buttons, i.e. all buttons in
+            ;;; one row.
+            {cols rc_field_cols}
+        ]
+        ;;; Keys for pressable ACTIONS buttons
+        [[ACTIONS]
+            ;;; The default border colour for pressable buttons
+            {bordercol rc_field_bordercol}
+            ;;; The border colour for buttons when they are pressed
+            {pressedcol rc_field_pressedcolour}
+            ;;; The width of button borders
+            {borderwidth rc_field_borderwidth}
+        ]
+        ;;; Specify keys usable in RADIO and SOMEOF fields
+        [[RADIO SOMEOF]
+            {default rc_buttons_default}
+            ;;; Used to associate actions with radio and someof buttons
+            {select rc_radio_select_action}
+            {chosenbg rc_chosen_background}
+        ]
+        [[SOMEOF]
+            ;;; Used to associate actions with someof buttons
+            {deselect rc_radio_deselect_action}
+        ]
+        ;;; Specify keys usable in TEXTIN and NUMBERIN fields
+        [[TEXTIN NUMBERIN]
+            {width rc_textfield_width}
+            {height rc_textfield_height}
+            {labelstring rc_field_labelstring}
+            {labelfont rc_field_labelfont}
+            {labelcolour rc_field_labelcolour}
+            {activebg rc_textin_field_active_bg}
+            {textinbg rc_textin_field_bg}
+            {textinfg rc_textin_field_fg}
+        ]
+        [[SCROLLTEXT]
+            {cols rc_field_cols}
+            {rows rc_field_rows}
+            {textfg rc_field_text_fg}
+            {textbg rc_field_text_bg}
+            {blobrad rc_scroll_text_field_blobrad}
+            ;;; The next two are equivalent
+            {slidercol rc_scroll_text_field_slidercol}
+            {surroundcol rc_scroll_text_field_slidercol}
+            {blobcol rc_scroll_text_field_blobcol}
+            {sliderframecol rc_scroll_text_field_sliderframecol}
+            {sliderframewidth rc_scroll_text_field_sliderframewidth}
+            {slidertype rc_scroll_text_field_slider_type}
+            {acceptor rc_scroll_text_field_acceptor}
+        ]
+        ;;; Specify keys usable in ALL fields
+        ;;; (some may actually be meaningless for some fields.)
+        [[]
+            ;;; Set a label for the field which can be used to access
+            ;;; the field later
+            {label rc_field_label}
+            ;;; This makes sense only for fields which can be associated
+            ;;; with a changing value.
+            {ident  set_field_ident}
+            {constrain rc_field_constraint}
+            {reactor rc_field_reactor}
+            ;;; Specify margin to left and right of field contents
+            {offset rc_field_offset}
+            ;;; Specify top and bottom margin (e.g. above and below text)
+            {margin rc_field_margin}
+            ;;; Font for printing in the field.
+            {font rc_field_font}
+            ;;; Foreground colour for the field.  Should phase out "fg" and "bg"
+            {[fg fieldfg] rc_field_fg}
+            ;;; to be used to force a background change
+            {[bg fieldbg] rc_field_bg}
+            ;;; Gap between this field and the previous one
+            {gap rc_field_gap}
+            ;;; Set minimum width for the field
+            {fieldwidth rc_field_width}
+            ;;; Height of field
+            {fieldheight rc_field_height}
+            ;;; Used to pass a featurespec in to the picture creation
+            ;;; procedures, to override defaults (See HELP * FEATURESPEC
+            ;;; and HELP * RC_BUTTONS/featurespec
+            {spec rc_field_override_specs}
+            ;;; An integer giving horizontal and vertical pixel spacing between
+            ;;; buttons, or vertical spacing between strings
+            {spacing rc_field_spacing}
+            ;;; Value for "align"can be "left", "centre" "right"
+            ;;; The default is centre.
+            ;;; If it is a graphic field {align panel} is allowed. Then all
+            ;;; coordinates used when graphic instructions are obeyed are
+            ;;; relative to the whole panel's frame.
+            {align set_field_aligned}
+
+        ]
+    ];
+
+To find out which keys are usable with which types of field, look at the
+mixin and class definitions for the text fields and button fields.
+
+If an inappropriate keyword is used in a field specification then an
+error message will occur when the attempt is made to install the value
+in the corresponding slot. Look carefully at error messages to find
+out what needs to be fixed.
+
+NB: some key types that are permitted according to the above scheme may
+not yet be used by rc_control_panel. e.g. "ident" will not have any
+effect in a TEXT field, as a text field contains no instances of the
+mixin rc_informant. However there may be a use for it later.
+
+
+Examples of uses of most of the above can be found in
+    TEACH * RC_CONTROL_PANEL
+    TEACH * RCLIB_DEMO.P/rc_control_panel
+    LIB   * RC_POLYPANEL
+
+And in the remainder of this file.
+
+
+-- A procedure to show allowed abbreviations --------------------------
+
+To find out which abbreviations are permitted for a particular type of
+field, e.g. "RADIO" you can use the following procedure to extract the
+information from the keyspec list..
+
+define keys_for_field(type) -> specs;
+    lvars list;
+    [%
+        for list in rc_control_panel_keyspec do
+            if hd(list) == [] or member(type, hd(list)) then
+                dl(tl(list))
+            endif
+        endfor
+    %] -> specs
+enddefine;
+
+keys_for_field("RADIO")==>
+** [{width rc_button_width}
+    {height rc_button_height}
+    {textfg rc_field_text_fg}
+    {textbg rc_field_text_bg}
+    {cols rc_field_cols}
+    {default rc_buttons_default}
+    {select rc_radio_select_action}
+    {chosenbg rc_chosen_background}
+    {label rc_field_label}
+    {ident set_field_ident}
+    {constrain rc_field_constraint}
+    {reactor rc_field_reactor}
+    {offset rc_field_offset}
+    {margin rc_field_margin}
+    {font rc_field_font}
+    {[fg fieldfg] rc_field_fg}
+    {[bg fieldbg] rc_field_bg}
+    {gap rc_field_gap}
+    {fieldwidth rc_field_width}
+    {fieldheight rc_field_height}
+    {spec rc_field_override_specs}
+    {spacing rc_field_spacing}
+    {align set_field_aligned}]
+
+keys_for_field("TEXT")==>
+** [{width rc_field_width}
+    {height rc_field_height}
+    {label rc_field_label}
+    {ident set_field_ident}
+    {constrain rc_field_constraint}
+    {reactor rc_field_reactor}
+    {offset rc_field_offset}
+    {margin rc_field_margin}
+    {font rc_field_font}
+    {[fg fieldfg] rc_field_fg}
+    {[bg fieldbg] rc_field_bg}
+    {gap rc_field_gap}
+    {fieldwidth rc_field_width}
+    {fieldheight rc_field_height}
+    {spec rc_field_override_specs}
+    {spacing rc_field_spacing}
+    {align set_field_aligned}]
+
+
+-- The mixins and classes provided ------------------------------------
+
+This section may get out of date. For accurate information see
+    LIB * RC_CONTROL_PANEL
+
+When rc_control_panel analyses its list of field specs it creates an
+instance of a panel field class for each field, and builds a list of
+them to be stored in the panel instance itself. Then it creates the
+window object and displays all the text and graphical items in the
+window. Some of the actions associated with buttons or drawing
+procedures for the graphic fields may need to get information from the
+panel field instances. The following should help you decide what
+information is available and how to get at it.
+
+During construction of the window the current field is held in the
+variable rc_current_panel_field, and the panel itself in the variable
+rc_current_panel (both described above).
+
+define :vars class rc_panel is rc_button_window;
+    ;;; This will hold a list of field descriptors
+    slot rc_panel_fields == [];
+    ;;; Colours and font
+    slot rc_panel_bg = rc_panel_bg_def;
+    slot rc_panel_fg = rc_panel_fg_def;
+    slot rc_panel_font = rc_panel_font_def;
+    slot rc_panel_xorigin = 0;
+    slot rc_panel_yorigin = 0;
+    slot rc_panel_xscale = 1;
+    slot rc_panel_yscale = 1;
+    slot rc_panel_offset = 0;
+    slot rc_panel_objects == false; ;;; changed later
+    slot rc_panel_width;
+    slot rc_panel_height;
+enddefine;
+
+
+define :mixin vars rc_panel_field;
+    slot rc_field_x == undef;
+    slot rc_field_y == undef;
+    slot rc_field_label == consundef("rc_field_label");
+    slot rc_field_ident == false; ;;; for classes with rc_informant_ident
+    slot rc_field_gap = rc_field_gap_def;
+    slot rc_field_offset = rc_field_offset_def;
+    slot rc_field_font = rc_field_font_def;
+    slot rc_field_spacing == 1;
+    slot rc_field_aligned == "centre";
+    slot rc_field_width == 0;
+    slot rc_field_height == 0;
+    slot rc_field_margin == 0;
+    slot rc_field_cols == 0;
+    slot rc_field_rows == 0;
+    slot rc_field_fg = rc_field_fg_def;
+    slot rc_field_bg = rc_field_bg_def;
+    ;;; This will have a list of specifications of the fields.
+    ;;; not strictly necessary, except for debugging?
+    slot rc_field_specs == [];
+    slot rc_field_override_specs = rc_field_override_specs_def ;
+    ;;; These are the objects created from the specifications
+    ;;;     e.g. a list of buttons, or strings, or sliders, etc.
+    slot rc_field_contents == [];
+    ;;; used to fill rc_constrain_contents slot
+    slot rc_field_constraint == identfn;
+    ;;; used to fill rc_informant_reactor slot (2-arg procedure or list)
+    slot rc_field_reactor == erasenum(%2%);
+    ;;; The window object will go in here
+    slot rc_field_container == 'NEW PANEL WINDOW';
+enddefine;
+
+
+define :class vars rc_text_field is rc_panel_field;
+    slot rc_field_font = rc_text_field_font_def;
+    slot rc_field_bg = rc_text_field_bg_def;
+    slot rc_field_fg = rc_text_field_fg_def;
+    slot rc_font_h == 0;
+    slot rc_text_w == 0;
+    slot rc_text_h == 0;
+    slot rc_field_margin = rc_text_field_margin_def;
+enddefine;
+
+define :class vars rc_scroll_text_field is rc_text_field;
+    slot rc_field_text_fg == 'black';
+    slot rc_field_text_bg == 'grey90';
+    slot rc_field_font = rc_scroll_text_field_font_def;
+    ;;; The colour of the surround of a scrolltext field (where sliders are)
+    slot rc_scroll_text_field_slidercol == 'grey85';
+    ;;; colour of the moving part of a slider
+    slot rc_scroll_text_field_blobcol == 'grey50';
+    slot rc_scroll_text_field_blobrad == 6;
+    ;;; not used for now
+    slot rc_scroll_text_field_sliderframecol == 'black';
+    ;;; default no frame visible. No longer used??
+    slot rc_scroll_text_field_sliderframewidth = 0;
+    slot rc_scroll_text_field_acceptor == "rc_handle_accept" ;
+    slot rc_scroll_text_field_slider_type == "blob";    ;;; may become "panel" or "blob"
+enddefine;
+
+
+define :class vars rc_textin_field is rc_text_field;
+    ;;; field with a text input panel
+    slot rc_field_aligned == "left";
+    slot rc_field_spacing = 3 + rc_text_border_width_def;
+    ;;; next constants defined in LIB RC_TEXT_INPUT
+    slot rc_textfield_width = rc_text_length_def;
+    slot rc_textfield_height = rc_text_height_def;
+    slot rc_field_font = rc_text_font_def;
+    slot rc_field_borderwidth = rc_text_border_width_def;
+    slot rc_field_bg = rc_text_input_bg_def;
+    slot rc_field_fg = rc_text_input_fg_def;
+    slot rc_textin_field_bg = rc_text_input_bg_def ;
+    slot rc_textin_field_active_bg = rc_text_input_active_bg_def;
+    slot rc_textin_field_fg = rc_text_input_fg_def;
+    slot rc_field_labelstring == nullstring;
+    slot rc_field_labelfont = rc_text_field_font_def;
+    slot rc_field_labelcolour = rc_text_field_fg_def;
+    slot rc_field_creator = newrc_text_button;
+enddefine;
+
+define :class vars rc_slider_field is rc_panel_field;
+    slot rc_field_font = rc_slider_field_font_def;
+    slot rc_field_bg = rc_slider_field_bg_def;
+    slot rc_field_fg = rc_slider_field_fg_def;
+    slot rc_slider_field_blobcol = rc_slider_field_blobcol_def;
+    slot rc_slider_field_barcol = rc_slider_field_barcol_def;
+    slot rc_slider_field_barframecol = rc_slider_field_barframecol_def;
+    slot rc_slider_field_barframewidth = rc_slider_field_barframewidth_def;
+    slot rc_field_margin = rc_slider_field_barframewidth_def;
+    slot rc_field_offset = rc_slider_offset_def;
+    ;;; not really needed
+    ;;; slot rc_field_labels == [[{5 5 'MIN'}][{5 5 'MAX'}]];
+    slot rc_field_cols == 1;
+    slot rc_field_width = rc_slider_field_width_def;
+    slot rc_field_height == 0;
+    slot rc_field_type == false;
+    slot rc_slider_field_height = rc_slider_field_height_def;
+    slot rc_slider_field_radius = rc_slider_field_radius_def;
+    slot rc_slider_field_step == false; ;;; don't change default
+    slot rc_slider_field_value_panel = rc_slider_field_value_panel_def ;
+    slot rc_slider_field_labelfont = rc_slider_field_labelfont_def;
+    slot rc_slider_field_textin == true;
+    slot rc_slider_convert_in == identfn;
+    slot rc_slider_convert_out == identfn;
+    slot rc_slider_field_places == false;
+enddefine;
+
+define :class vars rc_dial_field is rc_panel_field;
+    ;;; use some defaults from LIB rc_constrained_pointer
+    slot rc_field_bg = rc_field_bg_def;
+        ;;; default = false;    ;;; can be redefined locally
+    slot rc_field_margin == 4;
+    slot rc_field_offset = rc_dial_offset_def;
+    slot rc_field_cols == 1;
+    slot rc_field_width = rc_dial_field_width_def;
+    slot rc_field_height = rc_dial_field_height_def;
+    slot rc_dial_width = rc_min_dial_width;
+    slot rc_dial_height = rc_min_dial_width*0.7;
+    slot rc_dial_base = rc_dial_base_def;
+    slot rc_dial_field_count == 0;
+    slot rc_dial_field_places == false;
+enddefine;
+
+
+define :class vars rc_buttons_field is rc_panel_field;
+    ;;; General buttons field
+    slot rc_field_font = rc_buttons_field_font_def;
+    slot rc_field_bordercol = rc_buttons_bordercol_def;
+    slot rc_field_pressedcolour = rc_buttons_pressedcolour_def;
+    slot rc_field_borderwidth = rc_buttons_field_borderwidth_def;
+    slot rc_button_width = rc_button_width_def;
+    slot rc_button_height = rc_button_height_def;
+    slot rc_field_text_fg = rc_button_stringcolour_def;
+    slot rc_field_text_bg = rc_button_labelground_def;
+enddefine;
+
+define :class vars rc_actions_field is rc_buttons_field;
+    ;;; field with actions buttons
+enddefine;
+
+define :class vars rc_radio_field is rc_buttons_field;
+    ;;; field with radio buttons
+    slot rc_radio_select_action == false;
+    slot rc_buttons_default == undef;
+    slot rc_buttons_options == [];
+    slot rc_chosen_background = rc_button_chosenground_def;
+enddefine;
+
+define :class vars rc_someof_field is rc_buttons_field;
+    ;;; field with someof buttons
+    slot rc_radio_select_action == false;
+    slot rc_radio_deselect_action == false;
+    slot rc_buttons_default == undef;
+    slot rc_buttons_options == [];
+    slot rc_chosen_background = rc_button_chosenground_def;
+enddefine;
+
+define :class vars rc_graphic_field is rc_panel_field;
+    ;;; General graphics field
+    ;;; field containing information to produce graphics
+    slot rc_field_graphics == [];
+    ;;; slot rc_field_offset = 0;
+    slot rc_field_aligned == "centre";
+    ;;; default offsets from top left corner of graphic field.
+    slot rc_field_xorigin_offset == 0;
+    slot rc_field_yorigin_offset == 0;
+    slot rc_field_xscale == 1;
+    slot rc_field_yscale == 1;
+    slot rc_field_bg = rc_graphic_field_bg_def;
+    slot rc_field_fg = rc_graphic_field_fg_def;
+enddefine;
+
+-- Accessing components of a panel
+
+It is useful to be able to access components, e.g. if an action invoked
+by an action button should use the current selection in an array of
+radio buttons. For this reason fields can have a label, and various
+procedures are provided for using the label value to access or update
+part of a field.
+
+-- -- Field label
+
+The optional field label property has the following format;
+
+    {label <item>}
+
+Usually the item will be a word, though in some cases other objects may
+be used. There are plenty of examples in LIB * RC_POLYPANEL, and an
+example below.
+
+-- -- rc_field_of_label
+
+The basic mechanism for getting at a field of a panel to inspect its
+contents is via this method
+
+    define :method rc_field_of_label(panel:rc_panel, label) -> field;
+
+A field will typically have contents, e.g. a list of text strings, a
+list of buttons, a list of sliders. A method is available for getting at
+the contents from the label.
+
+-- -- rc_fieldcontents_of and rc_field_item_of_name
+
+Note added 6 Sep 2002
+These are probably redundant now. See
+    rc_panelcontents(<panel> <panelpath>) -> result;
+    rc_panel_field_value(<panel> <panelpath>) -> val
+    val -> rc_panel_field_value(<panel> <panelpath>)
+described in HELP RCLIB
+
+    define :method rc_fieldcontents_of(panel:rc_panel, label) -> list;
+
+To get the Nth element in the contents list in a field, use this
+
+    define :method rc_field_item_of_name(panel, label, num) -> item;
+
+this has an updater, which can be used to update the nth item in the
+list, or the contents if it's a text input or number input field.
+
+    define :method updaterof rc_field_item_of_name(
+                            item, panel:rc_panel, label, n);
+
+(This should probably be re-defined to do more detailed case analysis
+and error checking. See
+    LIB rc_control_panel/'updaterof rc_field_item_of_name'
+
+
+-- -- slider_value_of_name
+Note added 6 Sep 2002
+This is probably redundant now. See
+    rc_panelcontents(<panel> <panelpath>) -> result;
+    rc_panel_field_value(<panel> <panelpath>) -> val
+    val -> rc_panel_field_value(<panel> <panelpath>)
+described in HELP RCLIB
+
+The following procedure and its updater can be used to access or update
+the value of a slider in a list of sliders in a labelled field:
+There are plenty of examples in LIB * RC_POLYPANEL
+
+
+    define :method slider_value_of_name(panel:rc_panel, label, num) -> val;
+        ;;; get value of numth slider in the field
+        rc_slider_value(rc_fieldcontents_of(panel, label)(num)) -> val;
+    enddefine;
+
+    define :method updaterof slider_value_of_name(panel, label, num);
+        ;;; set value of numth slider in the field
+        -> rc_slider_value(rc_fieldcontents_of(panel, label)(num));
+    enddefine;
+
+The first item makes it possible for a running program to access the
+slider value. The second makes it possible to change the slider value.
+
+
+-- -- rc_button_in_field_in_panel(label, fieldlabel, panel) -> button;
+    rc_button_in_field_in_panel(label, fieldlabel, panel) -> button;
+
+This is explained in HELP RCLIB
+
+-- -- Dials related utilities
+
+See also TEACH RC_CONSTRAINED_POINTER
+
+-- -- . rc_increment_dial(panel, label, num, inc);
+
+rc_increment_dial(panel, label, num, inc);
+    Increment or decrement value of numth dial in the field with
+    label label, in the panel.
+
+    If inc is an integer the result will be rounded. So use 3.0
+    rather than 3, if it is not to be rounded.
+
+-- -- . dial_value_of_name
+
+dial_value_of_name(panel:rc_panel, label, num) -> val;
+updaterof dial_value_of_name(panel, label, num);
+
+This method and its updater get or set the value of numth dial in the
+field with the given label, in the panel
+
+
+-- -- PANELFIELD(label)
+Note added 6 Sep 2002
+This is probably redundant now. See
+    rc_panelcontents(<panel> <panelpath>) -> result;
+    rc_panel_field_value(<panel> <panelpath>) -> val
+    val -> rc_panel_field_value(<panel> <panelpath>)
+described in HELP RCLIB
+
+This procedure is available for use in actions invoked via a panel which
+need to access other parts of the same panel. It is defined thus
+
+    define PANELFIELD(label);
+        rc_field_info_of_label(rc_active_window_object, label)
+    enddefine;
+
+Whether it returns a result, and what sort of result it returns will
+depend on the type of field with that label. For details of the default
+method:
+
+    SHOWLIB * RC_CONTROL_PANEL/rc_field_info_of_label
+
+-- GRAPHIC fields -----------------------------------------------------
+
+The format for a graphic field description is
+
+    [GRAPHIC <label <name>> <properties> : [POP11  <instructions> ] ]
+
+where the items between "GRAPHIC" and ":" are optional.
+
+The instructions will typically use drawing commands to create pictures
+in a gap.
+
+The label is optional, and the properties will typically include at
+least a height specification. It is also possible to include a minimal
+width specification in case the automatic width calculation done by
+rc_control_panel does not provide sufficient space for the desired
+graphics. Background and foreground colours can be specified in the
+usual way, e.g.
+
+            {fieldbg 'white'} {fieldfg 'blue'}
+
+Warning: if the background is not white and you include moving objects,
+the colours may be unexpected for the reason explained in
+    HELP RCLIB_PROBLEMS
+
+The properties can also be used to specify the origin of the field
+relative to the top left corner of the the graphic field, and the scale
+to be used in the drawing instructions, e.g.
+
+    {align centre} {xscale 1} {yscale -1}
+
+puts rc_xorigin and rc_yorigin in the centre of the graphic field.
+
+For some purposes it is useful for the origin to be the top left corner
+of the whole panel, in which case use
+
+    {align panel}
+
+Other options are to define the origin using specific offsets from the
+default, e.g.
+
+    {xorigin 100} {yorigin 30}
+
+Unlike the POP11 instructions associated with an action button, the
+instructions in a GRAPHIC field are obeyed only once, i.e. while the
+panel is being constructed. They may include the creation of a button or
+movable picture object (e.g. using techniques in TEACH * RC_LINEPIC)
+
+If there are no instructions a gap will be left, with the specified
+height. This may be useful when preparing a space for graphics to be
+inserted later.
+
+-- -- Example graphic field: graphic_panel1
+
+Here is a specification for a panel with a graphic field containing two
+lines a circle and two blobs, with the graphical origin at the centre
+of the graphical field.
+
+vars graphic_panel1_fields =
+  [
+
+    [TEXT :
+        'A demonstration of a GRAPHIC field']
+
+    ;;; some action buttons
+    [ACTIONS {width 130} :
+        ['help panel' 'help rc_control_panel']
+        'help rc_graphic'
+        {blob 'DISMISS' rc_kill_panel}
+    ]
+
+    [TEXT :
+        'A graphic field next'
+        'Try with and without this line'
+        'See if the graphic field adjusts location'
+    ]
+
+    ;;; A graphic field. You must specify the height required.
+    ;;; width defaults to the width of the panel
+    [GRAPHIC
+        {height 50}
+        ;;; see what difference commenting this out makes:
+        {margin 10}
+        {align centre} :
+
+        [POP11
+                rc_circle(0, 0, 5);
+                rc_draw_blob(-25, 5, 15, 'orange');
+                rc_draw_blob(30, -5, 15, 'blue');
+                rc_drawline(-250,20,250,20);
+                rc_drawline(-250,-20,250,-20);
+        ]
+    ]
+    [TEXT : 'end of panel']
+  ];
+
+vars
+    graphic_panel1 =
+        rc_control_panel(550, 10, graphic_panel1_fields , 'Graphic 1');
+
+
+-- -- GRAPHIC field with label and absolute coordinates: graphic_panel2
+
+For some purposes it is useful for the graphical program to know where
+it is drawing relative to the panel window's intrinsic frame of
+reference, with the origin at the top left of the window and y
+increasing downwards.
+
+This can be done with the property specification
+
+    {align panel}
+
+The problem is that drawing commands can no longer use coordinates
+relative to an origin in the centre or top left of the GRAPHIC panel.
+They must be absolute. But programmers will not wish to recompute them
+whenever the panel is shifted up or down, e.g. by changing earlier
+field of the panel.
+
+One way round this is to give the GRAPHIC field a label, then use the
+label to access the appropriate field data structure.
+
+Then the rc_field_y slot of the field instance will indicate how far the
+field is from the top of the panel.
+
+In order to get the graphical field record use
+
+    rc_field_of_label(<panel>, <label>)
+
+as illustrated in the next example.
+
+
+vars graphic_panel2_fields =
+  [
+
+    [TEXT :
+        'Demonstrating' 'A self adjusting graphical'
+        'panel']
+
+    ;;; some action buttons
+    [ACTIONS {cols 2} {width 100} :
+        'help rclib'
+        ['help panel' 'help rc_control_panel']
+        ['Who\'s in?' 'sh who']
+        {blob 'KILL' rc_kill_panel}
+    ]
+
+    [TEXT :
+        'A graphic field next'
+        ;;; 'Try with and without this line'
+        'See if the graphic field adjusts'
+    ]
+
+    [GRAPHIC
+        ;;; give it a label so that its components can be accessed
+        {label graphic1}
+        {height 50}
+        {align panel} :
+
+        [POP11
+
+            ;;; get location of top of field boundary
+            ;;; Next two lines no longer needed.
+            ;;; lvars field =
+            ;;;    rc_field_of_label(rc_current_panel, "graphic1"),
+            lvars
+                y = rc_field_y(rc_current_panel_field),
+                width = rc_field_width(rc_current_panel_field);
+
+            ;;; draw a blob roughly in the middle of the field,
+            ;;; and a line above and below
+            rc_draw_blob(width div 2, y+25, 15, 'orange');
+            rc_drawline(0, y+2, width, y+2);
+            rc_drawline(0, y+48, width, y+48);
+        ]
+    ]
+    [TEXT : 'end of graphic_panel2']
+  ];
+
+vars
+    graphic_panel2 =
+        rc_control_panel(550, 10, graphic_panel2_fields, 'Graphic 2');
+
+
+See LIB * RC_POLYPANEL for more complex illustrations.
+
+-- -- Example: including a mobile draggable object: mobile1
+
+This time we'll place a mobile object in the GRAPHIC field. First we
+define a class of mobile objects
+
+uses rclib
+uses rc_mousepic
+
+define :class dragblob;
+    ;;; this class inherits from three different "mixins"
+    is rc_keysensitive rc_selectable rc_linepic_movable;
+enddefine;
+
+;;; define a procedure to create an instance, at a suitable location
+;;; relative to the current field in the current panel
+
+define draw_blob_square(label, size);
+    lvars field =
+        rc_field_of_label(rc_current_panel, label),
+        y = rc_field_y(field),
+        side = size + 2;
+
+    lvars pic =
+        instance dragblob;
+            rc_picx = 100;
+            rc_picy = y + 20;
+            rc_mouse_limit = 10;
+            rc_pic_lines =
+                [ WIDTH 2 COLOUR 'red'
+                    [SQUARE {% -side, -side, 2*side %}]
+                    [rc_draw_blob {0 0 ^size 'green'}]
+            ];
+        endinstance;
+
+    rc_draw_linepic(pic);
+    rc_drawline(0, y+2, 450, y+2);
+    rc_drawline(0, y+48, 450, y+48);
+
+    rc_add_pic_to_window(pic, rc_current_panel, true);
+
+enddefine;
+
+vars mobile1_fields =
+  [
+    ;;; Use a white background for movable objects otherwise
+    ;;; their colours look odd. See HELP * RCLIB_PROBLEMS
+    {bg 'white'} {fg 'blue'}
+
+    ;;; specify motion events, so that the draggable objects can
+    ;;; be moved
+    {events [motion]}
+
+    ;;; try uncommenting these
+    ;;; {width 400} {height 600}
+
+    [TEXT :
+        'Demonstrating' 'A self adjusting graphical'
+        'panel, with a movable blob']
+
+    ;;; some action buttons
+    [ACTIONS {cols 2} {width 100} :
+        'help rclib'
+        ['help panel' 'help rc_control_panel']
+        ['Who\'s in?' 'sh who']
+        {blob 'KILL' rc_kill_panel}
+    ]
+
+    [TEXT :
+        'A graphic field next,'
+        'containing a movable picture.'
+        'Move it with mouse button 1'
+
+    ]
+
+    [GRAPHIC
+        {label graphic1}
+        {height 50}
+        {align panel} :
+        [POP11 draw_blob_square("graphic1", 10); ]
+    ]
+    [TEXT : 'Another one below']
+    [GRAPHIC
+        {label graphic2}
+        {height 50}
+        {align panel} :
+        [POP11 draw_blob_square("graphic2", 6); ]
+    ]
+    [TEXT : 'end of mobile1']
+  ];
+
+vars
+    mobile1 =
+        rc_control_panel(550, 10, mobile1_fields, 'DEMO PANEL');
+
+-- -- Example: GRAPHIC field with movable points mobile2
+
+uses rclib
+uses rc_linepic
+uses rc_point
+uses rc_scratchpad
+uses rc_control_panel
+
+
+vars
+    panel_points,   ;;; used later, to hold a list of mobile points
+
+    mobile2_fields =
+    [
+        ;;; allow objects to be dragged by mouse, etc.
+        {events [mouse motion]}
+
+        [TEXT :
+            'A demonstration of a GRAPHIC field'
+            'With mobile objects'
+        ]
+
+        ;;; some action buttons
+        [ACTIONS {width 120} {cols 3}:
+            ['HELP panel' 'help rc_control_panel']
+            'help rclib'
+            {blob 'DISMISS' rc_kill_panel}
+        ]
+
+        [TEXT :
+            'A graphic field next,'
+            'with three draggable objects'
+            'in the list panel_points.'
+        ]
+
+        ;;; A graphic field. You must specify the height required.
+        ;;; width defaults to the width of the panel
+        [GRAPHIC
+            {label graphic}
+            {fieldbg 'white'} {fieldfg 'yellow'}
+            {height 250}
+            {offset 10}
+            {gap 10}
+            {align panel} :
+            ^(procedure();
+                ;;; get location of top of field boundary, and width of
+                ;;; panel
+                lvars
+                y = rc_field_y(rc_current_panel_field),
+                (, , width, ) = rc_window_location(rc_current_panel);
+                [%
+
+                    rc_new_live_point(130, y+125, 'red', 15, 'a'),
+                    rc_new_live_point(160, y+145, 'blue', 15, 'b'),
+                    rc_new_live_point(190, y+165, 'orange', 15, 'c'),
+
+                %] -> panel_points;
+
+                ;;; draw lines in the gaps above and below
+                rc_drawline(0,y-5,width,y-5);
+                rc_drawline(0,y+255,width,y+255);
+                endprocedure)
+
+        ]
+        [TEXT {gap 10}:
+            'Buttons to print locations of'
+            'points and to remove points'
+            ]
+
+        [ACTIONS {width 120}:
+            ['Print locations'
+                [POP11 panel_points ==>]]
+            ['Remove points'
+                [POP11 applist(panel_points, rc_kill_point)]]
+        ]
+    ];
+
+;;; Now create the panel
+vars mobile2 = rc_control_panel(450, 10, mobile2_fields, 'Mobile2');
+
+;;; Move the three coloured points and click on the Print button to
+;;; see their coordinates.
+
+
+;;; Here is a procedure to move the points at random for a while.
+define test(panel, num);
+    panel -> rc_current_window_object;
+
+    ;;; Alternatively use: SETWINDOW panel
+
+    repeat num times
+        lvars point;
+        for point in panel_points do
+            rc_move_by(point, 3 - random(5), 3 - random(5), true);
+
+            ;;; Put this in to slow things down, and make dragging
+            ;;; easier
+            syssleep(0);
+        endfor
+    endrepeat;
+
+enddefine;
+
+;;; Now try letting the points move around, while you drag one of
+;;; them
+test(mobile2, 500);
+
+;;; This may be useful if the points have wandered out of site
+;;; Set points in graphic field
+vars point;
+for point in panel_points do
+    rc_move_to(point, 160 + random(20), 280 + random(10), true)
+endfor;
+
+-- Example multi-function panel: multi_field
+
+Here is a more complex example creating a control panel with several
+text fields along with fields containing action buttons, a text input
+field, a number input field, and a slider field, containing two sliders.
+We associate some of the fields with pop-11 variables, using the {ident...}
+format.
+
+It is usually a good idea to include an action field containing a button
+to "kill" or dismiss the panel using the autoloadable procedure
+rc_kill_panel.
+
+Mark and compile the following, to create the panel.
+
+;;; Declare some variables to be altered via the control panel
+
+uses rclib
+uses rc_control_panel
+
+vars
+    ;;; variables to be controlled by sliders
+    slider1, slider2,
+
+    ;;; variables controlled via TEXTIN and NUMBERIN fields
+    textin1, numberin1,
+
+    ;;; a variable controlled by a dial
+
+    dial1,
+
+    ;;; variable holding the selected line of the poem in the
+    ;;; SCROLLTEXT window
+
+    poem_line;
+
+;;; Create a panel with top left corner at screen location 700, 5.
+vars multi_field =
+    rc_control_panel(700, 5,
+      [
+        ;;; Try with and without the following properties:
+        ;;; The width and height specifications are minima.
+        ;;; If necessary they will be expanded to accommodate the
+        ;;; fields.
+        ;;; {width 450}
+        ;;; {height 950}
+
+        ;;; The next item will leave a gap of 100 pixels to the left of
+        ;;; the panel fields. The space can be used for drawing in.
+        ;;; {offset 100}
+
+        ;;; Default origin is top left of panel, xscale 1, yscale 1.
+        ;;; These settings can change origin and scale to be used for
+        ;;; commands to draw in the panel.
+        ;;; {xorigin 50} {yorigin 100} {xscale 1} {yscale -1}
+
+        ;;; A text header field
+        [TEXT
+            {margin 2}  ;;; margin above and below the text
+            {align centre} :
+            ;;; Now the strings
+            'Panel demo' 'Click to dismiss:']
+
+        ;;; An action field with a dismiss button. Align right and
+        ;;; use negative gap to superimpose on previous text field
+        [ACTIONS
+            {offset 2} ;;; Horizontal displacement to right or left
+            ;;; button width
+            {width 95}
+            ;;; Put button on right, 30 units up, i.e. on previous field
+            {align right} {gap -30} :
+            ['KILL PANEL' rc_kill_panel]
+        ]
+
+        [TEXT {fieldbg 'pink'} {fg 'blue'} {gap 5} {align left}
+            {offset 10} {margin 5} :
+            'This example does nothing useful.'
+            ''
+            'A simple graphical demo follows'
+        ]
+
+        ;;; after a gap of 10, two action buttons, centred, by default
+        [ACTIONS {gap 2} {width 120} {height 25}:
+            ;;; The first action button has a Pop-11 drawing command.
+            ;;; It asks for a number via a Ved-based input request
+            ['DRAW BLOBS'
+                [POP11
+                    ;;; Number of blobs is read
+                    ;;; from a Ved or XVed buffer
+                    ;;; draw in the "scratch" window
+                    dlocal rc_current_window_object = rc_scratch_window;
+
+                    ;;; ask the user how many blobs to draw
+                    lvars num=
+                        ved_read_from_file(
+                            'Type number of blobs, RETURN',
+                                'getnumber');
+                        ved_q();
+
+                    repeat hd(num) times
+                        lvars
+                            x = 150 - random(300),
+                            y = 150 - random(300),
+                            radius = 10+random(40),
+                            colour =
+                            oneof(['red' 'orange' 'yellow' 'green'
+                            'blue' 'pink' 'black' 'white']);
+
+                        rc_draw_blob(x, y, radius, colour);
+                    endrepeat;]]
+
+            ;;; The second action button hides the "scratch" window
+            ['HIDE GRAPHIC'
+                [POP11 false -> rc_scratch_window]]
+        ]
+        ;;; Another text field
+        [TEXT {fieldbg 'orange'} {fg 'blue'}
+            {gap 3} {align left}
+            {offset 2} {margin 3} :
+            'The next field is for text input. Use left/right arrow keys'
+            'Backspace or Delete for editing. RETURN when changes complete'
+            'To print contents: CTRL + "=" -- Also check variable: textin1'
+        ]
+
+        ;;; A text input field, with a label printed to the left
+        [TEXTIN
+            ;;; Give this field a label, the word "text1"
+            ;;; This label used to access the field, is not displayed
+            {label text1}
+            ;;; A variable textin1, to be set via this field.
+            {ident textin1}
+            {align left}
+            {gap -4}
+            {margin 4}
+            {width 250} {height 25}
+            {font '6x13'}
+            ;;; Label printed to left of the text input field
+            {labelstring 'Greeting:'}
+            {labelcolour 'blue'}
+            {labelfont '9x15'}
+            ;;; {labelfont 'r24'}   ;;; uncomment to see the effect
+            {offset 20} ;;; Too small, so will be automatically adjusted
+            {fieldbg 'pink'}:
+            ;;; The label to the left of the string is not the
+            ;;; field label used for access.
+            ['Hello' {label 'Greeting:'}]
+        ]
+        [TEXT {fieldbg 'pink'} {fg 'brown'}
+            {gap 5} {align centre}
+            {offset 10} {margin 3} :
+            'The next field is for number input.'
+            'Use RETURN when changes are done.'
+            'To print contents: CTRL + "="'
+            'Also check variable: numberin1'
+        ]
+
+        ;;; A number input field.
+        [NUMBERIN
+            ;;; give this field the label "number1"
+            {label number1}
+            ;;; associate the variable number1 with this field
+            {ident numberin1}
+            {align centre}
+            {gap 4}
+            {margin 5}
+            {width 100} {height 25} {font '6x13'}
+            {fieldbg 'red'} {activebg 'yellow'} :
+            [0.255 {label 'Litres: '}]
+        ]
+        ;;; Now two sliders, one associated with variable "slider1" the
+        ;;; other with "slider2"
+        [SLIDERS
+            ;;; Give the field the access label "slider"
+            {label slider}
+            {width 250}
+            {height 30}
+            {radius 7}
+            {barcol 'white'}
+            {blobcol 'red'}
+            {framecol 'black'}
+            ;;; Try uncommenting this, to change the appearance of the
+            ;;; movable part:
+            ;;; {type panel}
+            ;;; uncomment this to disable text input to slider
+            ;;; {textin ^false}
+            ;;; format for number value panel
+            ;;;    end bg       fg     font  px py len ht
+            {panel {2 'yellow' 'blue' '8x13' 12 0  55 16}}
+            ;;; uncomment this to disable text panel
+            ;;; {panel ^false}
+            ;;; Make slider bars have a frame of width 3.
+            {framewidth 3}
+            ;;; try uncommenting the following
+            ;;; {places 0}
+            {spacing 20}
+            {gap 4} :
+            ;;; range -500 to 500, default value 100, steps 25
+            [slider1 {-500 500 100 25}
+                ;;; labels on left and right
+                [[{-5 15 'MIN(-500) slider1'}]
+                    [{-50 15'MAX(500)'} {70 -4 'cm'}]]
+            ]
+            [slider2 {0 10} noround
+                ;;; labels on left and right
+                [[{-5 15 'Lo:0 slider2'}] [{-45 15 'Hi:10'}]]
+            ]
+        ]
+        [SCROLLTEXT {rows 4} {cols 20} {font '9x15'}
+            {label scroll1}
+            ;;; Also try uncommenting the next line.
+            ;;; to replace the default
+            ;;; {slidertype blob}
+            {fieldbg 'white'}
+            {ident poem_line} :
+            {'     THE POEM'
+            'Mary had a little lamb'
+            'Its fleece was white as snow'
+            'and everywhere that Mary went'
+            'the lamb was sure to go.'
+            'It followed her to school one day'
+            'and made the children laugh and play.'
+            'Another child had a dog,'
+            'and two of them had pet boa constrictors'
+            }
+        ]
+        [DIALS
+            {label dialfield}
+            {fieldbg 'grey95'}{spacing 25}{fieldheight 90}
+            {dialwidth 100} {dialheight 90} {dialbase 30}
+            {margin 4} {offset 140}:
+
+            [dial1 0 0 180 180 {0 10 5 1} 40 15 'yellow' 'blue'
+                [MARKS
+                    ;;; {extra radius, angular gap, mark width, length, colour}
+                    {5 18 2 8 'blue'}
+                    {8 90 2 10 'black'}]
+                [LABELS
+                    ;;; {extra radius, angular gap, initial value, increment,
+                    ;;;         colour font}
+                    {40 18 180 -18 'red' '6x13'}
+                    {20 18 0 1 'blue' '6x13'}]
+                [CAPTIONS
+                    ;;; {relative location, string, colour, font}
+                    {-100 20 'Degrees shown in red' 'red' '9x15'}
+                    {-80 40 'Values in blue' 'blue' '10x20'}]
+            ]
+
+        ]
+    ], 'multi_field');
+
+Click on the buttons using mouse button 1, to see what they do.
+
+The drawing button produces a randomly generated blob and can be used
+repeatedly.
+
+Check the values of the sliders after moving their blobs with the mouse:
+
+slider1, slider2 =>
+
+Check the values of the TEXTIN and NUMBERIN fields via these variables,
+after editing the fields. (NB press RETURN or click with mouse button 1
+to consolidate the input field after you have finished editing it.)
+
+textin1 =>
+numberin1=>
+
+Play with the poem in the SCROLLTEXT window, by clicking to select a
+line, and scrolling the text up or down, left or right, either by
+dragging it with the mouse, or using the (invisible) scroll bars at
+right or below, or by using the arrow keys (UP, DOWN, LEFT, RIGHT) to
+change the selected line or scroll the text. Check the selected line by
+printing out this variable:
+
+    poem_line =>
+
+(See HELP * RC_SCROLLTEXT for more on scrolling text panels.)
+
+Play with the dial, and check the value of the associated variable
+
+    dial1 =>
+
+-- -- Accessing or updating the fields of the panel
+
+To access the current value of the text input field and number input
+field we can also use the the following commands which depend on the
+fact that we used {label text1} and {label number1} to give those fields
+words as labels. The words can be used to access the panel field
+instances after the control panel has been created.
+
+    rc_field_item_of_name(multi_field, "text1", 1) =>;
+    rc_field_item_of_name(multi_field, "number1", 1) =>;
+
+You can change the text or number field, as follows, if you have not
+destroyed the panel.
+
+    multi_field -> rc_current_window_object;
+
+or, equivalently,
+
+    SETWINDOW multi_field;
+
+    'Another one' -> rc_field_item_of_name(multi_field, "text1", 1);
+    pi -> rc_field_item_of_name(multi_field, "number1", 1);
+
+
+To access the values of the sliders do:
+;;; slider_value_of_name(<panel>, <label>, <num>) =>;
+    slider_value_of_name(multi_field, "slider", 1) =>;
+    slider_value_of_name(multi_field, "slider", 2) =>;
+
+The values can also be updated
+    250 -> slider_value_of_name(multi_field, "slider", 1);
+    1.25 -> slider_value_of_name(multi_field, "slider", 2);
+
+vars x;
+for x from -500 to 500 do
+    x -> slider_value_of_name(multi_field, "slider", 1);
+endfor;
+
+To access the dial:
+
+dial_value_of_name(multi_field, "dialfield", 1)=>
+2 -> dial_value_of_name(multi_field, "dialfield", 1)
+
+vars x;
+for x from 0 to 10 do
+    x -> dial_value_of_name(multi_field, "dialfield", 1);
+    syssleep(20);
+    dial1 =>
+endfor;
+
+
+Click on the 'KILL PANEL' action button to dismiss the panel, but first
+use the HIDE GRAPHIC button, if you have created a graphic window by
+drawing blobs.
+
+Note that besides the types of fields illustrated above, namely TEXT,
+ACTION, TEXTIN, NUMBERIN, SLIDERS and DIALS, rc_control_panel can also
+create other types of fields, described below, including fields with
+radio buttons, option buttons, and graphics.
+
+-- -- Exercises based on multi_field:
+
+After dismissing the panel try editing and recompiling the above, with
+various changes.
+
+WARNING: every field must have a colon ":" between the field property
+specifications and the list of field elements. If you edit this as a
+HELP file please note that a colon must not be the FIRST non space
+character in a line, as it will be interpreted as an example prompt by
+the Pop-11 compiler and ignored (for historical reasons). By copying the
+above into your own file called, e.g. testpanel.p, before editing, you
+can overcome this restriction.
+
+Try the following:
+
+1. Try replacing the negative gap specification in the first ACTIONS
+field with a positive integer to see what difference it makes to the
+location of the KILL button.
+
+2. Try extending the text strings, and adding more of them, then
+recompile. The size of the panel should automatically be extended.
+
+3. Try changing the foreground (fg) and background (bg) colours for the
+text panels.
+
+4. Try altering the drawing action to produce a wider range of colours.
+
+5. Try changing the sliders so that they can control the maximum
+size, or the location of the blob drawn by the DRAW BLOB button.
+
+6. Try adding another labelled number field and write a program to
+increase the value of a number input field by 1. Test it on the new
+number field.
+
+7. Add {label scroll1} to the SCROLLTEXT field and add a button in an
+ACTIONS field whose effect when selected is to print out the currently
+selected string from the poem.
+
+Use this expression to get at the selected line from the poem:
+
+    rc_informant_value(rc_fieldcontents_of(multi_field, "scroll1"))
+
+(or replace multi_field with rc_active_window_object )
+
+8. Add another dial, but remember to reduce the offset to make room for
+it.
+
+
+-- WARNING: list expressions in POP11 (and similar) actions -----------
+
+If an ACTIONS panel specification includes a list starting with the
+word:
+
+    "POP11"
+
+it is compiled to form a POP11 procedure, which is run later when the
+button is activated (possibly using external_defer_apply, or
+vedinput).
+
+The compilation happens when the panel is created. However, since this
+is after the field specification list has been created, the use of
+expressions of the form
+            [% ... %]
+in the Pop-11 instructions will not have the desired effect, since the
+expression between the "%" symbols is executed when the list is created,
+not later on when the panel is created or when the button is pressed.
+
+This means that if you want a procedure to use such constructs it is
+necessary to create it in advance, and then inside the panel
+specification list simply invoke the procedure.
+
+The same applies to the use of "^" and "^^" in expressions creating
+lists and vectors.
+
+Similar comments apply to POP11 actions associated with graphic fields,
+described below.
+
+See HELP * RC_BUTTONS for more information on creating buttons in
+control panels.
+
+Note: the keywords
+    "INVED", "POPNOW" or "DEFER"
+
+are no longer needed (since 6 Sep 2002) for reasons explained in
+HELP rclib_news
+
+
+-- Specifying total height and width of panel -------------------------
+
+As in the example of mobile1 above, the minimum height and width of the
+panel can be specified at the beginning of the field specification list.
+If these are omitted, or if they are too small, the panel automatically
+expands to encompass he specified objects
+
+If the {width....} property at the beginning of the list is removed, the
+panel will be constructed just wide enough to accommodate all the
+fields.
+
+Similarly if the initial {height...} property is removed, the height
+will be just enough to accommodate all the fields.
+
+
+-- Modifying the vertical stacking ------------------------------------
+
+Although the default arrangement is for the fields to be vertically
+ordered in the panel, it is possible to use formatting specifications
+which cause one field to be superimposed on another. Thus an array of
+buttons in four columns can be added to the right of a text field, and
+moved up 50 pixels from its bottom by using the specification
+
+    {align right} {cols 4} {gap -50}
+
+i.e. specifying a negative gap between fields. This was illustrated in
+example multi_field, above.
+
+
+-- Connection with button description formats -------------------------
+
+The language used for specifying control panels builds on the
+specification language for rows, columns or arrays of buttons, described
+in HELP * RC_BUTTONS. In fact all the formats described there can be
+used in specifying fields containing buttons of various sorts in
+connection with rc_control_panel.
+
+
+-- Generalising slider controls: constrained movers -------------------
+
+In addition to having sliders, it is possible for a control panel to
+have a mobile picture object, as shown in the example of mobile1. Such
+an object can be moved either under program control or via the mouse. By
+making it an instance of the rc_constrained_mover class, the effect of a
+slider is achieved, though with greater generality, as demonstrated in
+
+    TEACH * RC_LINEPIC/Constrained
+
+-- Propsheet and rc_control_panel -------------------------------------
+
+To some extent the functionality in rc_control_panel overlaps with that
+of propsheet (see TEACH * PROPSHEET, REF * PROPSHEET). However,
+rc_control_panel makes it much easier to vary formats, colours, fonts,
+etc. to attach event handlers to panels, and to include user-defined
+graphics along with text fields, buttons, sliders, etc.
+
+Moreover, unlike Propsheet, rc_control_panel (like the rest of RCLIB)
+does not use Motif or any other widget set, apart from the Poplog widget
+set so that it will work unchanged in any version of Poplog, including
+Linux Poplog without Motif.
+
+For information on the Poplog widget set see REF * Xpw, TEACH * Xpw.
+rc_control_panel is particularly based on the RC_GRAPHIC (Relative
+Coordinates Graphics) package, which simplifies graphical programming.
+
+Thus, graphical fields in a control panel can use any of the facilities
+described in
+
+    TEACH * RC_GRAPHIC,         HELP * RC_GRAPHIC,
+    TEACH * RC_GRAPHPLOT,       HELP * RC_GRAPHPLOT
+    HELP  * RC_LINEPIC,         HELP * RC_BUTTONS
+    HELP  * RC_LINKED_PIC,      HELP * RC_POINT
+
+and any of the other facilities described in HELP * RCLIB,
+
+The rc_control_panel mechanisms are easier to control than those in
+Propsheet, because everything is programmed in Pop-11, so formats can be
+changed by changing the Pop-11 code.
+
+-- Missing features ---------------------------------------------------
+
+Other features may be added later if needed. If Motif is available on
+your system some of its features can be accessed using the mechanisms
+described in REF * POP_UI and TEACH * PROPSHEET REF * PROPSHEET
+
+A program can also use Ved (or XVed) for some forms of interaction.
+(E.g. See HELP * DIRED)
+
+Putting text strings into a VED buffer or an XVED buffer can provide
+a generally useful way of providing options that cannot easily be
+accommodated in a single display. See, for example, * VEDFILESELECT
+and * VEDFILECOMPLETE
+
+
+-- Relevant libraries and documentation -------------------------------
+
+The basic mechanisms used by rc_control_panel are found in these
+libraries and some of the libraries they use, or which build on these.
+
+    LIB * RC_WINDOW_OBJECT
+    LIB * RC_LINEPIC
+    LIB * RC_CONSTRAINED_MOVER.P
+    LIB * RC_SQUARE_SLIDER
+    LIB * RC_SLIDER
+    LIB * RC_BUTTONS
+    LIB * RC_TEXT_AREA
+    LIB * RC_PRINT_STRINGS
+    LIB * RC_SCROLLTEXT
+
+along with other facilities described in HELP * RCLIB and files referred
+to therein.
+
+All of these library files are made available via the command
+
+    uses rclib
+
+provided that the Birmingham rclib package has been installed. The
+latest version is normally available as a compressed tar file in
+
+    ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/rc.tar.gz
+
+Most of the library files include test examples near the top.
+
+For additional information about the underlying mechanisms, see
+
+    TEACH * RCLIB_DEMO.P
+    TEACH * RC_LINEPIC
+    TEACH * RC_MOUSEPIC
+    HELP  * RC_BUTTONS
+    HELP  * RC_LINEPIC
+    HELP  * RCLIB
+
+For the underlying graphical capabilities in RC_GRAPHIC libraries see
+
+    TEACH * RC_GRAPHIC
+    HELP  * RC_GRAPHIC
+    TEACH * RC_GRAPHPLOT
+    HELP  * RC_GRAPHPLOT
+
+The facilities available in David Young's "popvision" library in the
+Sussex Poplog ftp directory can also be used:
+
+    ftp://ftp.cogs.sussex.ac.uk/pub/poplog/popvision
+
+(Later, a subset of these image manipulation facilities may be included
+with RCLIB).
+
+The following teach files provide some detailed worked examples of the
+use of rc_control_panel:
+
+    TEACH * RC_CONTROL_PANEL
+
+    TEACH * RCLIB_DEMO.P/rc_control_panel
+
+A more elaborate demonstration file is the following which creates
+a control panel for a simple graphical tutorial system concerned with
+making complex pictures generated by a simple loop involving four
+parameters.
+
+    LIB * RC_POLYPANEL
+
+Another application is in
+
+    LIB * RC_SCRATCH_PANEL
+
+Which creates a small control panel for creating new graphical windows
+using LIB * RC_SCRATCH_WINDOW
+
+
+-- Contents of LIB * RC_CONTROL_PANEL ---------------------------------
+
+ define -- Variables to control default fonts and colours on panel
+ define :rc_defaults;
+ define -- The main class, containing window and other items
+ define :class vars rc_panel is rc_button_window;
+ define :method rc_print_fields(panel:rc_panel, printlevel);
+ define -- mixin for fields containing text, buttons, etc
+ define :mixin vars rc_panel_field;
+ define -- Text, textin, slider and button field classes
+ define :class vars rc_text_field is rc_panel_field;
+ define :class vars rc_scroll_text_field is rc_text_field;
+ define :class vars rc_textin_field is rc_text_field;
+ define :class vars rc_slider_field is rc_panel_field;
+ define :class vars rc_dial_field is rc_panel_field;
+ define :class vars rc_buttons_field is rc_panel_field;
+ define -- -- Special buttons field sub-classes
+ define :class vars rc_actions_field is rc_buttons_field;
+ define :class vars rc_radio_field is rc_buttons_field;
+ define :class vars rc_someof_field is rc_buttons_field;
+ define -- graphic_field
+ define :class vars rc_graphic_field is rc_panel_field;
+ define interpret_graphic_spec(spec, field, x, y, aligned, width, height);
+ define :method rc_draw_graphic_field(field:rc_graphic_field, x, y, aligned, width, height);
+ define -- Utility procedures and methods
+ define rc_translate_panel_spec(specs) -> specs;
+ define :method rc_field_coords(field:rc_panel_field) /* -> (x,y) */;
+ define :method updaterof rc_field_coords(field:rc_panel_field);
+ define :method print_instance(f:rc_panel_field);
+ define :method rc_field_of_label(panel:rc_panel, label) -> field;
+ define :method rc_fieldcontents_of(panel:rc_panel, label) -> list;
+ define :method rc_field_item_of_name(panel:rc_panel, label, num) -> item;
+ define :method updaterof rc_field_item_of_name(item, panel:rc_panel, label, num);
+
+ define rc_update_field(val, panel, field, num, converter);
+    ;;; This is like the updater of rc_field_item_of_name, except that the
+    ;;; val argument is first transformed by the converter.
+    ;;; If the panel argument is "." then it is taken to be
+    ;;; the current panel.
+
+ define vars procedure rc_update_fields(val, veclist);
+    ;;; veclist should be a list of three or four element vectors
+    ;;; If a there are four elements in a vector they form the
+    ;;; panel, field, num and converter arguments for rc_update_field.
+    ;;; If the fourth element is missing it is taken to be identfn.
+    ;;; If the panel argument is "." then it is taken to be
+    ;;; the current panel.
+
+ define panel_update(object, val, veclist);
+    ;;; veclist should be a list of three or four element vectors
+    ;;; If a there are four elements in a vector they form the
+    ;;; panel, field, num and converter arguments for rc_update_field.
+    ;;; If the fourth element is missing it is taken to be identfn.
+    ;;; If the panel argument is "." then it is taken to be
+    ;;; the current panel.
+
+ define rc_increment_slider(panel, label, num, inc);
+    ;;; Increment or decrement a slider value of numth slider in the field
+
+ define :method slider_value_of_name(panel:rc_panel, label, num) -> val;
+ define :method updaterof slider_value_of_name(panel, label, num);
+
+ define rc_increment_dial(panel, label, num, inc);
+ define :method dial_value_of_name(panel:rc_panel, label, num) -> val;
+ define :method updaterof dial_value_of_name(panel, label, num);
+
+ define :method rc_field_info_of_label(panel:rc_panel, label) -> info
+    ;;; get the information content of the field with the label
+
+ define rc_check_options_available(info, field_options, panel, label);
+    ;;; When updating a someof or radio field, check that no attempt is being
+    ;;; made to turn on a non-existent button.
+ define :method updaterof rc_field_info_of_label(info, panel:rc_panel, label);
+    ;;; Set the information content of the field
+    ;;; with the label. Must be a RADIO or SOMEOF field, or a SLIDERS
+    ;;; or DIALS field.
+
+ define PANELFIELD(label);
+    ;;; for accessing a field in the current panel
+    ;;; needs an updater? Maybe useful in action buttons, etc.
+
+ define -- The global variable: rc_control_panel_keyspec
+
+ define updaterof set_field_ident(wid, field);
+    ;;; set the identifier of a field given a word or identifier.
+
+ define updaterof set_field_aligned(val, field);
+    ;;; set the alignment of a field
+
+ define vars procedure rc_interpret_field_spec(vec, field, type);
+    ;;; Interpret a two element vector in a field spec, e.g. things like
+    ;;;     {align left} {fieldbg 'navyblue'} {fieldfg 'pink'}
+
+ define -- Procedures for creating field records from specification lists
+
+ define rc_num_rows_of_cols(len, cols) -> rows;
+    ;;; How many rows are needed to display a list of length len
+    ;;; in cols columns?
+
+ define parse_field_header(list, field_inst, type) -> list;
+    ;;; Read in header of field specifier analysing the two element
+    ;;;     vectors as slot/value specifiers.
+    ;;; Stop when colon ":" is reached.
+    ;;; Return the rest of the list for further analysis later
+
+ define text_field_instance(list, type) -> field;
+    ;;; Given a list containing specifications of strings to be
+    ;;; displayed or buttons, create an instance and attempt to
+    ;;; store relevant values in its slots.
+
+ define scroll_text_field_instance(list, type) -> field;
+    ;;; Given a list containing specifications of strings to be
+    ;;; displayed, create an instance and attempt to
+    ;;; store relevant values in its slots.
+
+ define textin_field_instance(list, type) -> field;
+    ;;; Given a list containing specification of textinput or
+    ;;; number input field, create an instance and attempt to
+    ;;; store relevant values in its slots.
+
+ define slider_field_instance(list, type) -> field;
+    ;;; Given a list containing specifications of sliders,
+    ;;; create an instance of a slider field (with one or more
+    ;;; sliders
+
+ define dial_field_instance(list, type) -> field;
+    ;;; Given a list containing specifications of sliders,
+    ;;; create an instance of a slider field (with one or more
+    ;;; sliders
+
+ define buttons_field_instance(list, newproc, type) -> field;
+    ;;; Generic buttons_field creator. Used by specific buttons
+    ;;; field creator procedures below.
+    ;;; newproc is the procedure to create an instance of the appropriate
+    ;;; button type
+
+ define actions_field_instance(list, type) -> field;
+
+ define someof_field_instance(list, type) -> field;
+
+ define radio_field_instance(list, type) -> field;
+
+ define graphic_field_instance(list, type) -> field;
+
+ define -- Create the field instances from a user specification list
+
+ define vars rc_list_to_field(field, title) -> field;
+    ;;; Title is the title of the panel
+    ;;; traceable procedure, for debugging, or user definition to
+    ;;; extend field types
+    This procedure uses one of the above to create the instance,
+    depending on the type of field. At this stage only the dimensions
+    of the field will be computed, as part of the process of computing
+    the dimensions of the whole panel containing the field.
+    The actual contents of the field will not be created until the
+    panel window has been created.
+
+ define fields_from_descriptors(fields, title) -> fields;
+    ;;; fields is a list of lists, where each list specifies a field,
+    ;;; e.g. a text field, or one of several types of buttons fields.
+
+ define :method rc_redraw_panel(panel:rc_panel);
+    ;;; Used both when the panel is originally created, and also later
+    ;;; on. It draws not only the items in the list of panel fields, but
+    ;;; also (after the fields) any objects known to the window, e.g. as
+    ;;; a result of use of rc_add_pic_to_window (see HELP RCLIB). I.e.
+    ;;; rc_redraw_panel uses both
+    ;;;        rc_panel_objects(panel);
+    ;;;        rc_window_contents(panel)
+    When the panel is first created, the rc_panel_objects list does not
+    exist. It is constructed from the descriptors in
+        rc_panel_fields(panel),
+
+
+ define :method rc_redraw_window_object(panel:rc_panel);
+    Clears the window and calls rc_redraw_panel
+
+ define global vars rc_control_panel(x, y, fields, title) -> panel;
+    The main procedure
+
+-- Revision notes
+In Sept 2002
+There were many changes in the last two months. See HELP rclib_news
+
+In Sept 2000
+Added "dragonly" event types, and also a DIALS field type.
+
+In August 2000 a new type of button action was introduced [INVED ....]
+for use when interacting with XVed/Ved files. This is no longer needed
+as it is now equivalent to [POP11 ....]
+
+In July 2000 rc_control_panel was modified to use opaque moving objects
+of the sort described in TEACH rc_opaque_mover as the default when
+building sliders, including the sliders used in scrolltext fields.
+This means that slider no longer need to have white bars if their
+movable "blobs" are to show the chosen colour.
+
+Added 'labelfont' option for labels for slider fields.
+[NOTE (8 Aug 1999)]
+Considerably revised and reorganised
+
+[NOTE (6 Aug 1999)]
+rc_control_panel can take an optional extra argument which is a
+procedure for creating a window_object.
+
+More information provided about permitted abbreviations, and how to
+specify features of RADIO and SOMEOF buttons.
+
+[NOTE (21 May 1999)
+
+Re-formatted, re-ordered and rationalised
+
+Added examples of panels contained in other panels, and draggable
+panels.
+
+Another major revision, making the top level of each panel a composite
+widget, required to support the addition of scrolling text panels. For
+examples search for SCROLLTEXT above. See HELP * RC_SCROLLTEXT for more
+details.
+
+Additional new procedures in LIB * RC_POPUP_PANEL for displaying a panel
+which waits till you dismiss it and returns a result depending how you
+dismiss it.
+
+LIB * RC_POPUP_STRINGS uses RC_SCROLLTEXT and RC_POPUP_PANEL to display
+a list or vector of strings. It waits till you select one then goes
+away, returning the selected string.
+
+    rc_popup_strings(x, y, list, strings, rows, cols, font) -> selection;
+
+LIB * RC_DISPLAY_STRINGS, uses RC_SCROLLTEXT and RC_CONTROL_PANEL to
+display a set of strings in a scrolling text panel, along with other
+buttons, etc.
+    rc_display_strings(x, y, strings, panel_fields,
+        acceptor, reactor, rows, cols, scrollspecs, title) -> panel;
+
+(Further documentation on these facilities to come. Use showlib to look
+at examples of their use in the library files.)
+
+NOTE (8 Apr 1999):
+A major revision of the library code has occurred, making it much easier
+to specify formats for panel descriptions in the field_specs argument.
+However, this should be totally compatible with existing programs using
+rc_control_panel.
+
+There are also new mechanisms for specifying slider formats, connected
+with the new ability to have number input fields as numeric displays for
+sliders. See HELP RC_SLIDER, and "SLIDERS" examples above.
+
+
+--- $poplocal/local/rclib/help/rc_control_panel
+--- Copyright University of Birmingham 2002. All rights reserved. ------

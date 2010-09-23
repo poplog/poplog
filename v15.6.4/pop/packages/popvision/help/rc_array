@@ -1,0 +1,382 @@
+HELP RC_ARRAY                                     David Young, Feb 1994
+                                                  revised Sep 2001
+
+This file describes the procedure rc_array which can be used to display
+arrays as images on the screen.  For examples of its use, see
+TEACH * RC_ARRAY.
+
+Graphics can easily be integrated with image display using the
+* RC_GRAPHIC package.
+
+For a simpler interface to this facility, see HELP * RCI_SHOW.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   The procedure rc_array
+
+  2   The arguments in detail
+      2.1   Data source: array and arr_region
+      2.2   Drawing position: win_region
+      2.3   Mapping from array element values to colours: colour_rule
+      2.4   Specifying colours: palette and rc_spectrum
+
+  3   Sampling strategy: rc_array_sample
+
+  4   Window coordinates: rc_win_coords
+
+  5   Colour map handling on 8-bit displays
+
+
+-----------------------------------------------------------------------
+1  The procedure rc_array
+-----------------------------------------------------------------------
+
+rc_array(array, arr_region, win_region, colour_rule, palette)
+        Displays data from the 2-D array array, restricted possibly to
+        the region arr_region, as an image in the part of rc_window
+        specified by win_region.  The mapping from array values to
+        colours is specified by colour_rule and the colours used by
+        palette.
+
+
+-----------------------------------------------------------------------
+2  The arguments in detail
+-----------------------------------------------------------------------
+
+2.1  Data source: array and arr_region
+--------------------------------------
+
+The array array must be 2-D, and must only contain numerical values, at
+least in the region specified by arr_region.  Packed arrays of
+single-precision floats (as created by *newsfloatarray) and of bytes (as
+created by *newbytearray) are displayed faster than other arrays.
+
+The region in the array from which data are taken is specified by
+arr_region.  This may be <false>, in which case the whole of the array
+is displayed. Otherwise, it must be a 4-element list which specifies
+part of the array in the same way a *boundslist specifies the bounds of
+a whole array: the first two elements of the list give the limits for
+the first array index, and the last two elements give the limits for the
+second array index.
+
+Conversion from numbers in the array to r,g,b values for the screen is
+done using the colour_rule and palette arguments, as described below.
+
+In addition, the following are possibilities when using 24-bit displays
+only:
+
+The argument array can be a vector containing 3 arrays, which specify
+the red, green and blue components of the image individually. In this
+case, both colour_rule and palette arguments must be "direct". The array
+contents should be as for the arguments to rgb_to_32, as described in
+HELP * RGB32. The region argument can still be used to select the region
+from each of the arrays; if it is <false> the intersection of the
+boundslists of the arrays is used instead.
+
+The argument array can have the correct format to be passed directly to
+X - that is with red, green and blue values stored in successive bytes,
+omitting the first byte of every 4-byte word. In this case, provided
+both colour_rule and palette arguments are "direct", the values in the
+array will be passed without alteration (and without interpolation or
+averaging if the image size is changed).
+
+The argument array can be in the form returned by *sunrasterfile when
+reading a 24-bit image: that is, the array vector should have 24 bits
+per element, with the blue, green and red values stored in successive
+bytes, in that order. In this case, provided both colour_rule and
+palette arguments are "direct", the values in the array will be passed
+without alteration (and without interpolation or averaging if the image
+size is changed); however the order of bytes will be adjusted from b,g,r
+to r,g,b and a padding byte added to each group of 3 to make a full
+word, before being passed to X.
+
+2.2  Drawing position: win_region
+---------------------------------
+
+It is usually most convenient to give this argument as <false>, and adjust
+the drawing position using the * RC_GRAPHIC origin and scales.
+
+If necessary, the region in the window where the array is to be drawn is
+specified in *RC_GRAPHIC user coordinates by win_region, which has the
+same ordering as a *boundslist. If the array is pictured as a grid of
+rectangular pixels, then the outside edges of the grid (rather than the
+centres of the border pixels) are mapped onto the rectangle defined by
+win_region. This turns out to be the most useful choice, particularly if
+the display maps one array element onto many screen pixels. It means
+that only the area within win_region is changed in the window, whilst
+all array pixels are shown occupying equal areas. (If the centres of the
+border pixels were mapped onto win_region, then either the border
+pixels' regions would extend outside win_region, or the border pixels
+would have to be shown at half the size of interior pixels.)
+
+If this argument is <false>, the region is set to array's boundslist,
+expanded by 0.5 in every direction. The centre of each pixel is then
+mapped to the position in user coordinates corresponding to its array
+indices, greatly simplifying integrating graphics and image display.
+
+To set the display region explicitly, win_region may be a 4-element list
+specifying the limits of the window region in boundslist-style - [Xmin
+Xmax Ymin Ymax]. This gives the region to which the whole array is
+mapped, even if only part of the array is displayed. If the list is the
+only element of another list (e.g. [[Xmin Xmax Ymin Ymax]]) then it is
+used to set the area in which the part of the array actually displayed
+is drawn. See TEACH * RC_ARRAY for examples. Either Xmin or Xmax, and
+either Ymin or Ymax, may be allowed to default by giving it the value
+undef; the width or height of the window region in user coordinates is
+then made the same as the number of columns or rows in the array or
+array-region, as appropriate.
+
+2.3  Mapping from array element values to colours: colour_rule
+--------------------------------------------------------------
+
+Values from the array are mapped to colours in the palette according to
+colour_rule.  Provided array is an array (rather than a vector of
+separate r,g,b arrays), this can have the following forms:
+
+    [linear V0 V1]  Values from V0 to V1 are mapped linearly onto
+                    colours in the palette. If there are N colours
+                    available, a value V is rendered as the I'th colour,
+                    where I = floor((V-V0) * N / (V1-V0)) + 1,
+                    unless V < V0 or V >= V1, in which cases colour 1 or
+                    colour N is used respectively.
+
+                    If the second element of the list is the value
+                    <false>, then the minimum value in the region of the
+                    array to be displayed is used for V0.  Similarly, if
+                    the third element is <false>, the maximum value in the
+                    array region is used for V1.
+
+                    If the second element is the value <true>, and the
+                    array is an integer-type array (e.g. an array of
+                    bytes), then V0 is the minimum value that can be
+                    stored in the array. If the third element is <true>
+                    and the array is integer-type, then V1 is the
+                    maximum value that can be stored in the array. For
+                    non-integer-type arrays, <true> is treated the same as
+                    <false>.
+
+                    If both the last two elements are <false>, they can be
+                    omitted. In this case, the word "linear" may be
+                    given instead of the list [linear].
+
+    [sqrt V0 V1]    Values from V0 to V1 are mapped to colours using a
+                    square root law. The linear rule is replaced by
+                    I = floor(sqrt((V-V0)/(V1-V0)) * N) + 1, with
+                    clipping of out-of-range values, as above.
+
+                    V0 and V1 may be allowed to default as above.
+
+    [equalise V0 V1] Values from V0 to V1 are displayed using histogram
+                    equalisation.  Values are mapped to colours so that
+                    as far as possible the histogram of colours used in
+                    the image is flat; ideally each colour occupies the
+                    same area of the window in the final display.
+                    Out-of-range values are clipped to V0 or V1 before
+                    the histogram is formed.
+
+                    V0 and V1 may be allowed to default as above.
+
+    [quantise NQ V0 V1] Values from V0 to V1 are quantised into NQ equal
+                    bins and displayed used NQ colours equally spaced in
+                    the palette. (Thus if NQ equals the number of
+                    colours, this is equivalent to the linear option.)
+                    Out-of-range values are clipped to V0 or V1.
+
+                    V0 and V1 may be allowed to default as above.
+
+    [quantise QVEC] Values are quantised into bins specified by QVEC,
+                    and displayed using NQ colours equally spaced in the
+                    palette, where NQ = length(QVEC)+1. QVEC must be a
+                    vector of monotonically increasing numerical
+                    thresholds. A value V from the array is displayed
+                    using the I'th colour, where I is chosen such that
+                    QVEC(I-1) <= V < QVEC(I), except that out-of-range
+                    values use colour 1 or colour NQ as appropriate.
+
+    [direct]        A value V from the array is displayed using the I'th
+                    colour in the palette, where I = round(V-1). On
+                    8-bit displays this is mainly useful where a private
+                    palette is provided, and the array has already been
+                    set up to index into it - as, for example, when a
+                    Sun rasterfile has been read. See below for its role
+                    in 24-bit systems. This option may also be specified
+                    with the word "direct" rather than a list.
+
+    <false>         This is equivalent to "linear".
+
+On 24-bit systems the options above will behave as described. In
+addition, however, if the "direct" option is used, the palette argument
+is also "direct", and array is one of the special forms described for
+24-bit systems in section 2.1, then the values in the array are taken to
+specify the r, g and b components of the image explicitly.
+
+2.4  Specifying colours: palette and rc_spectrum
+------------------------------------------------
+
+The colours to be used are specified with the final argument. Where
+colour names are needed, they can be:
+
+    (a) taken from REF * XCOLOURS;
+
+    (b) in the '#RRGGBB' form understood by the X system;
+
+    (c) a vector of 3 integers in the range 0-255, representing red,
+        green and blue values respectively.
+
+The palette argument may be one of the following:
+
+    "greyscale"     The colours used run from black to white through
+                    shades of grey. Currently, 64 shades including black
+                    and white are used with 8-bit displays, and 256
+                    shades with 24-bit displays.
+
+    "spectrum"      The colours used form a spectrum. By default this
+                    runs from violet to red, with black and white added
+                    at the ends. Currently, 64 shades are used in the
+                    spectrum with 8-bit displays, and 256 shades with
+                    24-bit displays. The colours can be changed by
+                    updating the variable rc_spectrum. This should be
+                    assigned a list of 2 or more colour names. The 64
+                    colours used are generated by linear interpolation
+                    in (r, g, b) space between the colours given in the
+                    list. E.g.
+
+                        [red black yellow] -> rc_spectrum
+
+                    causes the spectrum to shade from red through darker
+                    shades to black then back up to yellow. (To avoid
+                    displaying the intermediate shades, [quantise 3]
+                    could be given as the colour_rule argument.)
+
+                    The default spectrum can be restored by assigning
+                    anything not a list to rc_spectrum, e.g.
+
+                        "default" -> rc_spectrum
+
+                    Accessing rc_spectrum returns the current list of
+                    colours.
+
+                    On 8-bit displays, updating rc_spectrum normally
+                    affects all images that have been displayed using
+                    the spectrum option. On 24-bit displays, updating
+                    rc_spectrum does not affect images already on the
+                    screen, only those displayed after the change.
+
+    Name list       A list of colour names.  This differs from the
+                    "spectrum" option in that:
+
+                        (a) only the colours named are used; there is no
+                            interpolation;
+
+                        (b) only the image displayed with the current
+                            call uses these colours.
+
+    RGB vector      A vector containing 3 equal-length vectors. These
+                    contain the red, green and blue values. This is the
+                    form returned by *sunrasterfile when reading an
+                    8-bit image. To display an array returned by
+                    sunrasterfile with its colour map, use the "direct"
+                    colour_rule option and pass the colour map as the
+                    palette argument.
+
+    "direct"        This is only applicable on 24-bit displays. The
+                    colour_rule argument must also be "direct", and the
+                    array argument must be one of the special forms for
+                    24-bit systems described in section 2.1. The data
+                    are then taken to explicitly specify the r,g,b
+                    components of the image; no palette can be
+                    specified.
+
+    <false>         This is equivalent to "greyscale".
+
+
+-----------------------------------------------------------------------
+3  Sampling strategy: rc_array_sample
+-----------------------------------------------------------------------
+
+If the scale or window region is set so that the mapping from array
+elements to window pixels is not one-to-one, the routine has to adopt a
+strategy for resampling the array. The default is to take the value of
+the array element that maps nearest to the centre of the window pixel.
+However, the quality can be improved by choosing to average values when
+shrinking or to interpolate when expanding the image.  This can be done
+by assigning to the variable rc_array_sample
+
+    sample_option -> rc_array_sample
+
+where sample_option can be one of the words "nearest", "smooth",
+"average" or "interpolate". The first two are probably most useful.  For
+more details of these, see HELP * ARRAYSAMPLE; "nearest" is the default.
+
+Where smoothing would not be appropriate (e.g. when the colour_rule is
+"direct"), rc_array_sample is overriden and "nearest" sampling is used.
+
+
+-----------------------------------------------------------------------
+4  Window coordinates: rc_win_coords
+-----------------------------------------------------------------------
+
+The default user coordinate system set up by *RC_GRAPHIC is not usually
+suitable for image display.  A more useful default is to have the user
+coordinates the same as the raw window coordinates, as this corresponds
+to the usual way images are held in arrays.  To set this up, the routine
+rc_win_coords is provided:
+
+    rc_win_coords()
+
+which simply sets rc_xorigin and rc_yorigin to 0, and rc_xscale and
+rc_yscale to 1.
+
+
+-----------------------------------------------------------------------
+5  Colour map handling on 8-bit displays
+-----------------------------------------------------------------------
+
+Colour map handling is not entirely satisfactory under X, and the
+procedure has to compromise.
+
+The procedure attempts to grab chunks of the screen default colour map
+for the "greyscale" and "spectrum" palettes. If it succeeds, these
+chunks are allocated to a permanent unmapped widget, so that they never
+have to be re-allocated. (Changing the spectrum palette then affects all
+images displayed using it.) If this is unsuccessful, a private colour
+map is installed for rc_window and the palette is allocated to
+rc_window. This means that the cursor will have to be moved into the
+window to activate the colour map. In the worst case, one palette will
+be in the default colour map and the other in a private colour map, so
+that two images displayed with different options cannot be viewed
+simultaneously. This will only happen if other programs are using up a
+lot of the default colour map, or the routine has been called with big
+list or vector palettes before the "greyscale" or "spectrum" options
+were invoked.
+
+It is possible to find out what colour map entries have been allocated
+for the greyscale and spectrum palettes with the procedures
+
+    rc_array_greycells() -> vector
+    rc_array_spectcells() -> vector
+
+The vectors will contain the colour map entries allocated for these
+palettes for the current rc_window. The contents of the vectors must not
+be updated. The entries may or may not be in the screen default colour
+map. A sufficient test for whether the entries have changed between
+calls is whether the vector returned is identical (i.e. equal using ==)
+to the vector returned on a previous call.
+
+Colour map entries needed for list and vector palette specifications are
+always allocated to rc_window, so that the entries become available when
+the window is destroyed. If possible, the default colour map will be
+used, but if a private colour map is needed the cursor will have to be
+moved into the window.
+
+If a private colour map does get installed, any graphics operations in
+the window may need to be re-done after the image has been displayed.
+
+It would be useful extension to the library to simulate the "direct"
+palette option, used for 24-bit systems, on 8-bit systems. One approach
+would be to use a colour cube; another would be to inspect the current
+colour map for close colours.
+
+
+--- $popvision/help/rc_array
+--- Copyright University of Sussex 1994. All rights reserved.

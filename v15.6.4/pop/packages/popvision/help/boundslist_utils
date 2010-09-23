@@ -1,0 +1,168 @@
+HELP BOUNDSLIST_UTILS                           David Young
+                                                February 1992
+                                                revised March 2000
+
+Utilities for manipulating boundslist-type lists specifying rectangular
+regions of arrays (in any number of dimensions). See HELP * ARRAYS for
+information about boundslists.
+
+Wherever these procedures can take a list as an argument they can also
+take an array, and will extract and use its boundslist, except where
+noted.
+
+The fact that some are prefixed with array_ and others with region_ is
+accidental and has no meaning.
+
+region_size(list) -> int
+        Returns the number of values in the region specified by list.
+
+region_centre(list) -> (num1, num2, ...)
+        Returns the coordinates of the centre of the region specified by
+        list, as floating point numbers on the stack. The number of
+        values returned is equal to the number of dimensions of the
+        region.
+
+(num1, num2, ...) -> region_centre(list1) -> list2
+(num1, num2, ...) -> region_centre(list1, bool) -> list2
+        Returns a new list with the same size on each dimension as list1
+        but centred on the coordinates given by num1, num2 etc. The
+        values in the list are not rounded unless the second form is
+        used and the boolean argument is <true>. The form
+
+                region_centre(list1) -> region_centre(list2) -> list3
+
+        returns a region the same size and shape as list2 but centred on
+        the region given by list1.
+
+region_nonempty_check(list)
+        Mishaps unless list represents a non-empty region.
+
+array_dimsizes(list1) -> list2
+        Returns a list of the array dimensions (i.e. the size along each
+        dimension.
+
+array_dimbases(list1) -> list2
+        Returns a list of the array lower limits.
+
+array_dimtops(list1) -> list2
+        Returns a list of the array upper limits.
+
+array_dimprods(list1) -> list2
+        Returns a list of the array dimension products. See also
+        array_stepsize below.
+
+region_rep(list) -> proc
+        Returns a repeater which will then return successive sets of
+        coords from the region represented by list, putting them in a
+        vector, thus
+
+                proc() -> vec
+
+        The contents of the vec must not be altered between
+        calls. proc returns <termin> when it has finished.  The first
+        index changes fastest on succesive calls to proc.
+
+        Can be used to replace nested for-loops in programs where the
+        number of dimensions of an array is not known in advance.
+        Largely superseded by the *in_array and *in_region for-forms.
+
+region_randsample(list) -> proc
+        Returns a repeater which will return successive sets of coords
+        from the region representated by list, putting them on the stack
+        thus
+
+                proc() -> (x, y, z, ...)
+
+        so that proc returns as many results as the region has
+        dimensions. The coordinates are chosen randomly from a uniform
+        distribution across the region (using *erandom) and are returned
+        without rounding.
+
+array_indexer(list [,check]) -> proc
+        Returns a procedure proc that takes the same arguments as the
+        array whose bounds are given, but which when called just returns
+        the corresponding index into the arrayvector, thus
+
+                proc(x1, x2, ... , xn) -> int
+
+        If the second optional argument check is not false, then proc
+        checks that its arguments are within the original bounds. If
+        list is actually an array, any offset into the arrayvector is
+        properly dealt with.
+
+nthbounds(list, n) -> (b1, b2)
+(b1, b2) -> nthbounds(list, n)
+        The forward procedure returns the bounds on the n'th dimension
+        of the region represented by list.
+
+        The updater updates the bounds on the n'th dimension of the
+        region represented by list. In this case, list cannot be an
+        array.
+
+array_stepsize(list, n) -> int
+        Returns the step in the arrayvector of the array specified by
+        list, corresponding to an increment of 1 along the n'th
+        dimension. (Same as array_dimprods(list)(n).)
+
+region_expand(list1, n) -> list2
+        Returns the region specified by list1 expanded by n in all
+        directions (shrunk if n is negative). I.e. an n-element border
+        is added on all the way round.
+
+region_containspoint(list1, list2) -> bool
+region_containspoint(num1, [num2, num3, ...,] list2) -> bool
+        Returns <true> if the point specified by list1 or (num1, ...) is
+        inside or on the border of the region specified by list2,
+        otherwise returns <false>. In the first form list1 must be a
+        list containing the coordinates of the point, and must be half
+        as long as list2; in the second form the coordinates of the
+        point must be on the stack and again there must be one for each
+        dimension of the region given by list2.
+
+region_inclusion_check(list1, list2)
+        Mishaps unless the region specified by list1 contains that
+        specified by list2.
+
+region_intersect(list1, list2) -> list
+        Returns the intersection of the regions specified by list1 and
+        list2.
+
+region_bounding(list1, list2) -> list
+        Returns the minimal region that includes the regions specified
+        by list1 and list2.
+
+region_conv_output(list1, list2) -> list
+        If the region given by list1 is convolved with a mask with the
+        dimensions given by list2, then output data will be placed in
+        the region given by the result list.
+
+region_conv_input(list1, list2) -> list
+        If the region given by list1 is to be filled with data as a
+        result of a convolution with a mask with dimensions list2, then
+        the input region will have to have the dimensions given by list.
+
+region_map(list1, list2) -> (map12, map21)
+        Returns two procedures. map12 maps linearly from the region
+        specified by list1 to the region specified by list2 and map21
+        goes in the other direction. If the regions are n-dimensional,
+        then the map procedures each take n arguments and return n
+        results. The results are generally not integers, so have to be
+        rounded to get indexes to the nearest point in an array.
+
+region_scale(list1, list2) -> (map12, map21)
+        Like region_map, but the procedures returned just scale their
+        arguments according to the relative sizes of the regions, rather
+        than shifting the origin as well. (So can be applied to relative
+        positions, whereas region_map applies to absolute positions.)
+
+region_arrvec(array, list) -> (i1, n)
+        If the data in the the region represented by list forms a
+        continuous block in the arrayvector of array, then returns i1,
+        the index into the arrayvector of the starting point of the
+        data, and n, the number of values in the region. If the data are
+        not continuous, both i1 and n are returned as <false>. Mishaps
+        if the region is not inside the array. array can be a procedure
+        returned by array_indexer, or a list or array.
+
+--- $popvision/help/boundslist_utils
+--- Copyright University of Sussex 1992. All rights reserved. ----------

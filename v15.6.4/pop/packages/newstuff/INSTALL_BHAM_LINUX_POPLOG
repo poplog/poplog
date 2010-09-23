@@ -1,0 +1,484 @@
+#!/bin/bash
+## 3 Apr 2007
+## Changes made following move of linux systems from XFree86 to X.org
+## The script CHECK_LINUX_FACILITIES has been re-written. Now produces
+## more detailed information in status on exit.
+
+## OPTION TO DISABLE UNTARRING THE TAR BUNDLE
+noextract="false"
+## Uncomment the following to allow previously untarred stuff
+## to be used, without running the 'tar x' command again.
+# noextract="true"
+
+##
+###
+## 19 Dec 2005
+## Thanks to Brian Logan corrected $link to $links at end. This bug
+## would have prevented installation of links.
+##
+### WHAT THIS DOES
+## $local/com/INSTALL_BHAM_LINUX_POPLOG
+## http://www.cs.bham.ac.uk/research/poplog/com/INSTALL_BHAM_LINUX_POPLOG
+## Install poplog
+##      o with or without motif
+##      o with original (isl/core) startup image or with bham startup
+##      o in default directory or specified directory
+##      o with or without links from /usr/local/bin /usr/local/man
+##
+## Run this in the directory where the poplog tar file is, e.g.
+##      bham-linux-poplog-v15.6.tar.gz
+##      (if version number is v15.6)
+##
+## RUN THIS WITH THREE OR FOUR ARGUMENTS.
+##
+##      The first is
+##          motif or nomotif
+##
+##      The second is
+##          bham or original
+##
+##      The third is the directory in which to locate poplog
+##          or default
+##          (default selects /usr/local/poplog)
+##          If no third directory is given, it will create a
+##          pop/ subdirectory of the current directory and use that
+##
+##      The Final argument is optional and determines whether
+##          symbolic links will be installed in /usr/local/bin
+##          and /usr/local/man
+##          If provided it can be either 'nolinks' or 'links'.
+##          If not provided it defaults to 'links'
+##          (However if not run as root the links will not be installed.)
+##
+## Aaron Sloman (http://www.cs.bham.ac.uk/~axs/)
+## Revised 27 May 2005
+##  Made 3rd argument optional
+##
+## Revised 19 Feb 2005
+##  Provided optional 4th argument
+##
+## Revised 20 Jan 2005
+##  John Duncan reported typo.
+##      INSTALL_POPLOG should have been INSTALL_BHAM_LINUX_POPLOG throughout
+##      Now fixed
+##
+
+## CHANGE THIS FOR NEW VERSIONS
+popversion=v15.6
+export popversion
+
+if [ "x$1" == "x" ] || [  "$1" == "-help" ] || [ "$1" == "help" ]
+then
+
+   echo ""
+   echo "   Three or four arguments are required."
+   echo "   The first should be either"
+   echo "       motif"
+   echo "     or"
+   echo "       nomotif"
+   echo ""
+   echo "   The second determines the saved image configuration and should be either"
+   echo "       bham"
+   echo "   or"
+   echo "       original"
+   echo ""
+   echo "   The third should be either an installation directory or just"
+   echo "       default"
+   echo "       (The 'default' installation directory is /usr/local/poplog/)"
+   echo "       If nothing is specified a pop/ subdirectory of current directory"
+   echo "       will be created"
+   echo ""
+   echo "   The fourth argument is optional and may be 'links' or 'nolinks'"
+   echo "       If it is 'links' (the default if omitted) a link to an executable"
+   echo "       poplog file will be placed in /usr/local/bin and links to documentation"
+   echo "       will be placed in /usr/local/man/man1, so that 'man poplog' works"
+   echo "       NB: the links cannot be installed if you do not have write access"
+   echo "       to those directories, which normally requires this script to be run"
+   echo "       as root."
+   echo "       If you don't have access, links will not be installed, even"
+   echo "       if requested, and a warning will be displayed."
+   echo " "
+   echo "======"
+
+   echo "   Examples:"
+   echo "       ./INSTALL_BHAM_LINUX_POPLOG motif   bham   default  links > install.log"
+   echo " "
+   echo "       ./INSTALL_BHAM_LINUX_POPLOG nomotif bham   ~/mypop  nolinks > install.log"
+   echo "   "
+   echo "       ./INSTALL_BHAM_LINUX_POPLOG motif   original /usr/local/newpoplog > install.log"
+   echo " "
+   echo "   Use new pop/ sub-directory here: "
+   echo "       ./INSTALL_BHAM_LINUX_POPLOG motif   bham   > install.log"
+   echo " "
+   echo "   Recommended: run as root thus: "
+   echo "       ./INSTALL_BHAM_LINUX_POPLOG motif   bham   default  links > install.log"
+   echo "   ===="
+   echo ""
+   echo "   Use the format 'COMMAND > install.log' to save output in file install.log"
+   echo ""
+   echo ""
+
+   exit 0
+fi
+
+## Remember where the poplog tar file is
+
+tardir=`pwd`
+
+echo ""
+echo "Installing poplog from tar bundle in $tardir"
+
+## Create Poplog directory and define some environment variables
+## Assumes that either a directory has been passed in as argument or
+## the default should be used
+
+motif=unset
+
+if [ "$1" == "motif" ];
+then
+
+    motif=true
+    echo "Will attempt to install with motif"
+
+elif [ "$1" == "nomotif" ];
+then
+    motif=false
+    echo "Installing without motif"
+
+elif [ "$1" == "" ];
+then
+
+    ## this should not arise because trapped above, but just in case:
+    echo "First argument missing: should be 'motif' or 'nomotif'"
+    exit 1
+
+else
+     echo $1 " not accepted: should be 'motif' or 'nomotif'"
+    exit 1
+fi
+
+startup=unset
+
+if [ "$2" == "bham" ];
+then
+    startup=bham
+
+elif [ "$2" == "original" ];
+then
+    startup=orig
+
+elif [ "$2" == "" ];
+then
+
+    echo "Second argument missing: should be 'bham' or 'original'"
+    exit 1
+
+else
+     echo $2 " not accepted: should be 'bham' or 'original'"
+    exit 1
+fi
+
+## Now work out installation directory
+## If third argument not given, assume 'default' and assume fourth
+## argument is 'links'
+if [ "$3" == "" ] ;
+then
+    4="links"
+    3=""
+fi
+
+if [ "$3" == "default" ] ;
+then
+
+    rootdir=/usr/local/poplog
+
+elif [ "$3" == "" ];
+then
+    ## argument 3 not given, so default to pop/ in current directory
+    rootdir=`pwd`/pop
+    echo "Installing in $rootdir"
+    4="links"
+else
+    ## Use the default given
+    rootdir=$3
+
+fi
+
+## Decide whether to make links from /usr/local/bin and /usr/local/man
+## to executable and to man files, respectively
+## If no 4th argument assume that links should be made.
+if [ "$4" == "" ] || [ "$4" == "links" ] ;
+then
+
+    links=1
+
+    echo "Links from /usr/local/{bin,man} will be installed if possible"
+    echo ""
+
+else
+    echo "Symbolic links from /usr/local will not be installed"
+    echo ""
+
+    links=0
+fi
+
+
+echo ""
+echo "Installing $1 $2 Poplog version $popversion in: $rootdir"
+
+export rootdir
+
+## (Should this first check whethere $poplocal exists?)
+echo "Root directory for poplog set to: $rootdir"
+echo "Creating directories for poplog and for local extensions."
+
+mkdir $rootdir $rootdir/$popversion $rootdir/local
+
+chmod 755 $rootdir $rootdir/$popversion $rootdir/local
+
+export usepop=$rootdir/$popversion
+
+## poplocalbin is probably no longer needed
+## Location for local saved images
+## Version specific
+export poplocalbin=$usepop/poplocalbin
+
+mkdir $poplocalbin
+
+export poplocal=$rootdir
+
+export local=$poplocal/local
+
+echo "  poplocal is $poplocal"
+echo "  local    is $local"
+echo "  usepop   is $usepop"
+#echo "  poplocalbin is $poplocalbin"
+
+
+### NOW UNPACK TAR FILE
+
+cd $rootdir
+
+# Create a useful symbolic link in $rootdir, after first removing old one
+# if it exists
+rm -f current-poplog
+## let 'current-poplog' be a link to version being installed
+ln -s $popversion current-poplog
+
+## For checking the the tar file
+##tar tvfz $tardir/bham-linux-poplog-${popversion}.tar.gz | head -5
+
+## Altered 2 Apr 2007. Now controlled by $noextract
+
+if [ noextract == "false" ]
+then
+    echo "Unpacking tar file in $rootdir"
+    echo "     This may take some time."
+    ## not all versions of 'tar' understand the 'z' option
+    zcat $tardir/bham-linux-poplog-${popversion}.tar.gz | tar xf -
+    echo "UNPACKING POPLOG TAR FILE COMPLETE"
+else
+    echo "USING PREVIOUSLY UNPACKED TAR FILE IN $rootdir"
+fi
+
+
+echo "Main poplog system installed in $usepop"
+
+echo "Top-level contents of $usepop:"
+ls -l $usepop
+echo "======================================================================="
+echo ""
+
+echo "Now running scripts provided in $usepop/INSTALL"
+
+cd $usepop/INSTALL
+
+echo "Running the 'pre-check' script CHECK_LINUX_FACILITIES"
+
+## set defaults
+motifok="true"
+xwinok="true"
+
+./CHECK_LINUX_FACILITIES
+
+# now check exit status of that command
+#  0 = X11 stuff and Motif etc. all available
+#  1 = X11 stuff OK but not Motif
+#  2 = X11 stuff and Motif not OK
+
+exitstatus=$?
+
+if [ "$exitstatus" == "0" ]
+then
+    echo "Good all linux facilities present"
+
+elif [ "$exitstatus" == "1" ]
+then
+
+    # can use X window stuff, but not motif
+
+    motifok="false"
+    motif="false"
+
+elif [ "$exitstatus" == "2" ]
+then
+
+    # cannot use X window stuff
+
+    motifok="false"
+    motif="false"
+    xwinok="false"
+
+fi
+
+echo "Xwindow stuff OK? $xwinok ||| MotifOK? $motifok "
+
+echo "======================================================================="
+echo "Completed the 'pre-check' script CHECK_LINUX_FACILITIES"
+
+echo "Run ./CREATE_SCRIPTS $rootdir"
+
+./CREATE_SCRIPTS $rootdir
+
+echo "Startup scripts created in $rootdir/bin"
+
+ls -l $usepop/bin/poplog*
+
+echo "poplog and poplog.sh startup scripts Done"
+
+
+echo "======================================================"
+
+echo "directories in $usepop/pop "
+ls -l $usepop/pop/
+
+echo "======================================================"
+echo "Now rebuilding system images"
+
+. $usepop/pop/com/poplog.sh
+
+export popsrc=$usepop/pop/src
+export popsys=$usepop/pop/pop
+
+## Now link poplog.
+## Changed 2 Apr 2007
+## There are different stages. The first stage just selects the
+## appropriate command to copy to $popcom/mkstartup. It chooses
+## either $usepop/pop/com/mkstartup.bham
+## or     $usepop/pop/com/mkstartup.core
+## This used to be done by running a script to do the linking.
+## Instead it is now done 'inline' below.
+## After that the linking is done by invoking
+## LINK_USING_NEWPOP with argument motif, nomotif or nox
+
+echo "going to INSTALL dir $usepop/INSTALL "
+cd $usepop/INSTALL
+
+echo "Choose version of mkstartup"
+
+if [ $xwinok == "false" ]
+then
+    echo "X unusable. Cannot use bham startup, so switch to 'original'."
+    startup="orig"
+fi
+
+if [ "$startup" == "bham" ]
+then
+
+    echo "Selecting 'bham' version of mkstartup"
+
+    ##    ./LINK_LIKE_BHAM
+
+    ## Set up bham script for making saved images
+    cp -p $usepop/pop/com/mkstartup.bham  $usepop/pop/com/mkstartup
+
+    echo "Bham version of \$usepop/pop/com/mkstartup set up"
+
+else
+
+    echo "Selecting 'core' version of mkstartup"
+
+    ##    ./LINK_LIKE_CORE
+
+    ## Restore core script for making saved images
+    cp -p $usepop/pop/com/mkstartup.core $usepop/pop/com/mkstartup
+
+    echo "Original version of \$usepop/pop/com/mkstartup set up"
+
+fi
+
+if [ $motif == "true" ]
+then
+
+    ### echo " Run LINK_MOTIF_POPLOG"
+    ### ./LINK_MOTIF_POPLOG
+
+    echo running "./LINK_USING_NEWPOP motif"
+
+    ./LINK_USING_NEWPOP motif
+
+    echo "done LINK MOTIF POPLOG"
+
+elif [ $xwinok == "true" ]
+then
+    echo "Cannot use motif, but will try linking against X"
+    echo running "./LINK_USING_NEWPOP nomotif"
+
+    ./LINK_USING_NEWPOP nomotif
+
+    echo "finished ./LINK_USING_NEWPOP nomotif"
+    ### not needed any more
+    ###echo "Run .LINK_NOMOTIF_POPLOG"
+    ###./LINK_NOMOTIF_POPLOG
+
+else
+
+    echo "Cannot link with Xwindow graphical facilites"
+    echo running "./LINK_USING_NEWPOP nox"
+    ./LINK_USING_NEWPOP nox
+
+    echo "finished ./LINK_USING_NEWPOP nox"
+
+fi
+    echo "==================================================="
+    echo ""
+
+
+
+## Check for success of LINK command
+if [ -f $usepop/pop/lib/psv/startup.psv ]
+then
+    echo "Install $1 $2 $3 $4 worked OK"
+    echo "Saved images in $usepop/pop/lib/psv/"
+else
+    echo "PROBLEM: Install $1 $2 $3 $4 did not work"
+    echo "This could be due to a problem accessing motif libraries"
+    echo "Try repeating installation using 'nomotif' instead of 'motif'"
+
+    echo "Exiting installation"
+
+    exit 1
+fi
+
+exit
+XXXX
+if [ "$links" == "1" ]
+then
+    echo "Installing link for running poplog"
+
+    rm /usr/local/bin/poplog
+
+    ln -s $usepop/bin/poplog.sh /usr/local/bin/poplog
+
+    ls -l /usr/local/bin/poplog
+
+    echo "Installing man files"
+
+    cd /usr/local/man/man1
+    ln -s $usepop/man/man1/* .
+else
+    echo "Executable and man files not linked"
+
+fi
+
+echo "done INSTALL POPLOG FOR LINUX + PC in $rootdir using $1 $2"

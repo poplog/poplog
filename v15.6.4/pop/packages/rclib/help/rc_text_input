@@ -1,0 +1,846 @@
+HELP RC_TEXT_INPUT                                 Aaron Sloman Aug 1997
+Updated 12 Sep 2002
+
+
+LIB * RC_TEXT_INPUT
+
+CONTENTS
+
+ -- Introduction
+ -- The default mechanisms
+ -- Creating instances: create_text_input_field
+ -- Examples of use
+ -- First create a window
+ -- Example 1: an extendable text field
+ -- Associating an identifier with a text_input field
+ -- Switching an input field in and out of "edit" mode
+ -- Consolidating a panel by a program
+ -- . consolidate_or_activate
+ -- . rc_consolidate_all_input
+ -- The background and foreground colours.
+ -- Turning extendability on and off: "End" or CTRL "."
+ -- Reverting to previous text: "Home" or CTRL "R"
+ -- Example 2: an unextendable field
+ -- Example 3: a text input field with limited extendability
+ -- Example 4: a text input field with a label
+ -- Example 5: A number input field
+ -- Example 6: A labelled number input field
+ -- The number values can be changed by programs
+ -- Examining the window's currently known objects
+ -- Changing fonts
+ -- The available content specifiers
+ -- Example of TEXTIN and NUMBERIN fields using rc_control_panel
+ -- Accessing the contents of a TEXTIN or NUMBERIN field
+ -- -- Using the variable specified in {ident <name>}
+ -- -- Accessing field contents via field labels
+ -- A text input "popup": rc_popup_readin
+ -- A number input "popup": rc_popup_readin
+ -- A "popup" version of readline: rc_popup_readline
+ -- Mixins classes procedures and methods in LIB RC_TEXT_INPUT
+ -- See also
+
+-- Introduction -------------------------------------------------------
+
+This library provides mechanisms for creating a text or a number input
+field for use on control panels, pop-up queries, etc. It defines mixins
+and methods for creating text (or number) input fields and reacting to
+events that occur within the field. Each such field is associated with
+an instance of the class rc_window_object, which has been made keypress
+sensitive by means of the command
+
+    rc_mousepic(win_obj, list);
+
+where the list is either [], meaning all types of sensitivity are to be
+added, or else contains the words "keyboard" and "button".
+
+The mechanism provided here is unusually flexible since everything is
+written in Pop-11 and can be changed dynamically. It is based on the
+event handler mechanisms implemented in LIB * RC_MOUSEPIC and described
+in the overview file HELP * RC_LINEPIC, and there are several points at
+which user-defined methods can intevene in the processes.
+
+-- The default mechanisms ---------------------------------------------
+
+The top level mixin is
+
+    define :mixin rc_text_input;
+        is rc_keysensitive, rc_linepic, rc_selectable, rc_informant;
+
+which specifies the slots required for text and number input fields and
+some of the main methods relevant to both.
+
+A subclass of this is specified by the mixin
+
+    define :mixin rc_number_input; is rc_text_input;
+
+which includes facilities for checking that the input is a legal number
+and for displaying the numbers.
+
+Two classes are defained in terms of these mixins:
+    define :class rc_text_button; is rc_text_input;
+
+    define :class rc_number_button; is rc_number_input;
+
+The main difference between these two classes is that the latter has
+extra checks for legal number formats during text input and also the
+updater of the method rc_text_value checks that only a number can be
+provided as the value of the field by a program.
+
+-- Creating instances: create_text_input_field ------------------------
+The procedure for creating a text or number field is
+
+create_text_input_field(
+    x, y, width, height, content, extendable, font, creator) -> field;
+
+where the arguments are as follows:
+    x, y,
+        Are two integers giving location of top left corner of the
+        field on the window.
+
+    width, height,
+        Are two integers giving default width and height of the field
+
+    content,
+        This can either simply give the initial value (a string
+        or a number in the case of a number field), or else a list
+        starting with the initial value and additional specifiers
+        for the panel. For instance the list can specify fonts,
+        colours and a label to be printed to the left of the input
+        panel. For examples, see below.
+
+    extendable,
+        Determines whether the text field expands to fit the item being
+        typed in. If it is false there is no expansion. If it is true
+        the field expands as needed (possibly corrupting other items in
+        the window). If it as an integer then expansion is allowed up
+        to that length (in pixels, not characters).
+
+    font,
+        The font used for display
+
+    creator
+        A procedure for creating an instance. It should be one of
+        newrc_text_button, newrc_number_button
+
+-- Examples of use ----------------------------------------------------
+
+-- First create a window ----------------------------------------------
+
+;;; First make the library available.
+
+uses rclib;
+uses rc_text_input;
+
+;;; create a window in which to make some text fields.
+vars win1 = rc_new_window_object(700, 40, 300, 250, true, 'win1');
+
+;;; Make it current
+win1 -> rc_current_window_object;
+
+;;; Make it keyboard and button sensitive (Not strictly necessary, as
+;;; it will happen automatically if you create a text input field).
+rc_mousepic(win1, [keyboard button]);
+
+-- Example 1: an extendable text field --------------------------------
+
+;;; Create an extendable text field
+
+vars t1 =
+    create_text_input_field(
+        -100,90,80, 20, nullstring, true, '8x13', newrc_text_button);
+
+;;; Move the mouse cursor onto it, and try some typing. As soon as you
+;;; click on the field or start typing, the text field goes into edit
+;;; mode, indicated by a changed background colour and the presence of
+;;; an edit marker. The panel goes out of edit mode if you press RETURN
+;;; or click with mouse button 1 while it is in edit mode. When it goes
+;;; out of edit mode the new value of the panel is "frozen" or
+;;; "consolidated" and accessible externally by pop-11 procedures by
+;;; using the rc_text_value method.
+
+;;; Type for a while in the panel, experimenting with ordinary printing
+;;; keys, left and right arrow keys, Delete button, Backspace.
+
+;;; After some typing, leave the panel in edit mode and try this command
+;;; (which will require moving the mouse cursor back to this window):
+
+rc_text_value(t1) =>
+
+;;; This will print an empty string or the last "frozen" value of the
+;;; input panel.
+;;; If you put the mouse back on the text field and press the RETURN
+;;; key. This will "consolidate" the text value.
+
+;;; The text field should then change back to a white background, and
+;;; the edit marker should disappear. Now try
+
+rc_text_value(t1) =>
+
+;;; While the box is in edit mode the procedure rc_text_value shows
+;;; only the last consolidated value, not the current value while
+;;; editing. However you can always print out the current value using
+;;; the CONTROL key with the "=" key, whether the field is in edit mode
+;;; or not.
+
+;;; Try changing the contents of the text field
+'SILLY fish' -> rc_text_value(t1);
+
+rc_text_value(t1) =>
+
+;;; Watch the text field grow as you insert longer strings
+'SILLIER fish' -> rc_text_value(t1);
+'SILLIER fishes' -> rc_text_value(t1);
+'VERY SILLY fishes and whales' -> rc_text_value(t1);
+
+Eventually the text field will grow beyond the visible window, so it is
+useful to have a limit to its growth, as shown below.
+
+The growth can be limited by giving a maximum length as the 6th argument
+instead of "true", e.g.
+
+vars t1a =
+    create_text_input_field(
+        -100,60,80, 20, nullstring, 150, '8x13', newrc_text_button);
+'SILLIER fish' -> rc_text_value(t1a);
+'SILLIER fishes' -> rc_text_value(t1a);
+
+;;; This one will cause part of the text to shift left, out of sight
+;;; because the text field cannot grow.
+
+'SILLIER fishes and whales' -> rc_text_value(t1a);
+
+-- Associating an identifier with a text_input field ------------------
+
+An rc_text_input instance has a slot rc_informant_ident which it
+inherits from the rc_informant mixin
+    See LIB * rc_informant, HELP * RCLIB/rc_informant
+
+If this slot has a non-false value its value W should be a word or
+identifier. In that case whenever the contents of the text input field
+(or number input field described below) are changed and consolidated,
+the new value will be assigned to the valof(W).
+
+;;; E.g. associate a variable with t1a:
+vars tval;
+ident tval -> rc_informant_ident(t1a);
+
+tval =>
+** <undef tval>
+
+Now click twice on the input field (to switch it in and out of edit
+mode) and repeat this command
+
+tval =>
+
+If you alter the string and consolidate the new value the value of the
+variable tval will be automatically updated.
+
+In rc_control_panel there is a facility for conveniently specifying that
+an identifier should be associated with a text or number input field.
+
+This is illustrated below.
+
+You can also use the {ident ...} specifier in the list format
+for the fifth argument to create_text_input_field to associate a word or
+an identifier with the current field contents.
+
+;;; clear the window
+rc_start();
+
+vars tstring;
+
+vars t1b =
+    create_text_input_field(
+        -100,60,80, 20, ['Hi There' {ident tstring}],
+            150, '8x13', newrc_text_button);
+
+;;; Check the value of tstring
+
+tstring =>
+
+;;; edit the string in the field, consolidate it, then check
+;;; the value again
+
+tstring =>
+
+
+-- Switching an input field in and out of "edit" mode -----------------
+
+A text or number input field can either be in edit mode or consolidated.
+There are two consequences of being in edit mode:
+
+    1. The background to the rectangle will be different from the normal
+    background for the field, and the current "edit" location is shown
+    by a vertical line.
+
+    2. If the text has been changed since the the field was last
+    consolidated only the previous text will be accessible via
+    rc_text_value. I.e. the text value visible to programs may be
+    different from that shown, during edit mode.
+
+Edit mode can be turned off by pressing the RETURN key (or ENTER key)
+while the mouse cursor is in the field. The field will then be
+consolidated, and the visible string will be the same as the result of
+    rc_text_value(pic)
+
+Edit mode is turned on as soon as any of the recognized edit keys is
+used. A complete list may be included in a later version of this file,
+but the current edit keys can be found by looking at the
+definition of the method rc_handle_text_input in
+
+    LIB * RC_TEXT_INPUT/'method rc_handle_text_input'
+
+In addition, edit mode can be turned on and off by clicking with mouse
+button 1 (left button) in the text input window. This can be useful if a
+text field was accidentally left in text input mode, or if you wish to
+see where the edit pointer currently is before starting to make any
+changes.
+
+-- Program commands to switch 'active' state of input panels
+
+-- . consolidate_or_activate
+
+    :method consolidate_or_activate(pic:rc_number_input);
+
+    This uses rc_text_input_active(pic) to decide whether the panel is
+    active or not. In the former case it consolidates, in the later
+    it activates.
+
+-- . rc_consolidate_all_input
+
+    :method rc_consolidate_all_input(panel:rc_panel);
+
+    The panel should have been created by rc_control_panel.
+    This method goes through all text/number input fields and
+    consolidates all the panels in all of those fields.
+    It will not necessarily find text or number input panels
+    which form parts of other fields, e.g. panels in slider fields.
+
+-- The background and foreground colours. -----------------------------
+
+The background colour used when in edit or normal mode, and the
+foreground colour (for the string and surrounding rectangle) depend on
+these slots in the rc_text_input object, each of which holds a string,
+and each of which by default gets a value depending on a global variable
+whose name ends in '_def'.
+
+    ;;; Normal background
+    slot rc_text_input_bg = rc_text_input_bg_def ;
+
+    ;;; "active" background, for edit mode
+    slot rc_text_input_active_bg = rc_text_input_active_bg_def;
+
+    ;;; foreground
+    slot rc_text_input_fg = rc_text_input_fg_def;
+
+These can be changed. E.g. using t1 the field created above:
+
+    'yellow' -> rc_text_input_bg(t1);
+    'pink' -> rc_text_input_active_bg(t1);
+    'blue' -> rc_text_input_fg(t1);
+
+Then try clicking on the field with mouse button 1 and editing it. (Use
+CTRL = to print the current internal string.)
+
+-- Turning extendability on and off: "End" or CTRL "." ----------------
+
+;;; t1 is an extendable field
+
+rc_text_extendable(t1) =>
+** <true>
+
+;;; Now go back and edit the field t1 some more. Notice that if you
+;;; go on typing the box is automatically extended. However if you
+;;; press the "End" key (middle keypad on some keyboards) or type
+;;; CONTROL and "." extendability is turned off. The same keys can be
+;;; used to turn it on again, and off again.
+
+-- Reverting to previous text: "Home" or CTRL "R" ---------------------
+
+If while editing you decide you want to go back to the last consolidated
+text string, use either the "Home" key or Control with "R".
+
+(Think of CTRL-R as "Restore".)
+
+-- Example 2: an unextendable field -----------------------------------
+
+;;; This creates a text input field that cannot be extended, unless
+;;; you turn extendability on, as described above
+vars t2 =
+    create_text_input_field(-50,30,80, 30,
+        'Hello', false, '9x15', newrc_text_button);
+
+;;; Try extending that and moving left and right with arrow keys.
+;;; If you make the field extendable after having exceeded its length
+;;; it immediately jumps to the full length of the text on the next
+;;; keystroke, e.g. "RETURN"
+
+
+-- Example 3: a text input field with limited extendability -----------
+
+;;; This is similar to t1a above, with an initial length of 80 pixels
+;;; and an upper limit of 150
+vars t3 =
+    create_text_input_field(-80,0,80, 25, 'Extend', 150,
+        '9x15', newrc_text_button);
+
+;;; Test this at various stages before and after the box stops growing
+t3.rc_text_extendable=>
+
+-- Example 4: a text input field with a label -------------------------
+
+
+;;; replace the fifth "content" argument with a list starting with the
+;;; content string and followed by various specifiers in vectors,
+;;; including a label specifier and label font and colour specifiers.
+
+vars
+    content =
+        ['Hello' {label 'Greeting:'} {labelcolour 'blue'}
+        {labelfont '8x13bold'}],
+
+    t4 =
+        create_text_input_field(
+            -50,-30,80, 25, content, 150, '9x15', newrc_text_button);
+
+See below for a full description of the available specifiers, or look in
+the source file LIB RC_TEXT_INPUT
+
+Note: even when there is a label, the location specified by the first
+two arguments to create_text_input_field remains the location of the top
+left corner of the input panel. This means that when specifying the
+location you should ensure that there is enough space to the left for
+the label. When using rc_control_panel the "offset" field specifier can
+be used to do this.
+
+-- Example 5: A number input field ------------------------------------
+
+;;; Kill the old window and start a new one
+rc_kill_window_object(win1);
+vars win1 = rc_new_window_object(700, 40, 300, 250, true, 'win1');
+
+;;; Create an unextendable number input field, default value 0
+;;; Notice the new last argument newrc_number_button to this procedure:
+
+vars t5 =
+    create_text_input_field(
+        0, 90, 90, 20, 0, false, '10x20', newrc_number_button);
+
+Try typing in that field. You will be allowed to use the legal pop-11
+formats for numbers, shown in HELP NUMBERS and REF ITEMISE e.g.
+    333
+    3.33
+    0.333
+    3.333e-10
+    1.5_+:9.0
+
+(and many more!)
+
+If any legal formats are disallowed (indicated by a "bell" and a warning
+message printed out) please let A.Sloman know.
+
+
+-- Example 6: A labelled number input field ---------------------------
+
+;;; Now create a number input field with length limit 120, default value
+;;; 25.3 a large font ('12x24'), and a green label, and associated
+;;; identifier num;
+
+vars num;
+
+vars t6 =
+    create_text_input_field(
+        0, 60, 70, 25,
+            [25.5 {ident num} {label 'Number:'}
+                {labelcolour 'green'} {labelfont '10x20'}
+                ;;; ensure that the value is an integer, despite the
+                ;;; initial decimal value.
+                {constrain round}],
+            120, '12x24', newrc_number_button);
+
+;;; Test the value of num before and after altering the number
+;;; in the field
+num =>
+
+;;; check that values are rounded
+33.57 -> rc_text_value(t6);
+num =>
+
+;;; Do some editing of the fields and check values. Note that there is
+;;; some checking that the format is valid for pop11 numbers.
+rc_text_value(t4) =>
+rc_text_value(t5) =>
+
+;;; Associate an identifier with the field
+
+vars num;
+ident num -> rc_informant_ident(t6);
+
+;;; edit the field, and then check the value
+num=>
+
+-- The number values can be changed by programs -----------------------
+
+666 -> rc_text_value(t5);
+sqrt(-1) -> rc_text_value(t6);
+
+num=>
+
+
+-- Examining the window's currently known objects ---------------------
+
+win1.rc_window_contents ==>
+
+-- Changing fonts -----------------------------------------------------
+
+;;; Click on t5 after each of these changes.
+'8x13' -> rc_text_font(t5);
+'10x20' -> rc_text_font(t5);
+'12x24' -> rc_text_font(t5);
+
+;;; Note that the height of the panel may grow if necessary.
+
+rc_kill_window_object(win1);
+
+-- The available content specifiers -----------------------------------
+
+The contents specification is a list starting with a string in the case
+of a text input field, and a number in the case of a number input field.
+The rest of the list should contain two element vectors in the format
+    {<key>  <value>}
+
+At present the following options are supported, though they could be
+extended
+
+    KEY         VALUE           MEANING
+
+    "font"      string          Use the font in the input field
+    "fg"        string (colour) Use colour for the input text
+    "bg"        string (colour) Use colour for the background
+    "activebg"  string (colour) Use colour for edit mode background
+    "label"     string          Show the string to left of field
+    "labelfont" string          Use the font for the label on left
+  "labelcolour" string (colour) Use the colour for the label string
+
+    "specs"     a vector
+                or list         The vector or list is interpreted as a
+                                "featurespec" of the sort described in
+                                HELP FEATURESPEC. It is used in an
+                                instruction of the form
+                                interpret_specs(object, specs)
+
+    "constrain" word or         Use the procedure or valof(word) to
+                procedure       convert numbers to be acceptable.
+                                E.g. {constrain round}
+
+
+-- Example of TEXTIN and NUMBERIN fields using rc_control_panel -------
+
+HELP * RC_CONTROL_PANEL introduces a powerful mechanism for creating
+panels with a wide variety of contents including text fields, sliders,
+action buttons, radio buttons someof buttons, and fields using the text
+input and number input mechanism described above. Here is a simple
+example showing two text fields and a TEXTIN and NUMBERIN field, in
+addition to a header field with some text and an action button to
+dismiss the panel.
+
+
+uses rclib
+uses rc_control_panel
+
+;;; Variables for TEXTIN and NUMBERIN fields
+
+vars string1, num1;
+
+vars panel1 =
+    ;;; panel at location 600,45 on screen
+    rc_control_panel(600,45,
+      [
+        {font '10x20'}
+        {events [mouse keyboard]}
+        ;;; try with and without the following properties
+        ;;; {width 350} {height 550}
+
+        ;;; A text header field
+        [TEXT
+            {margin 5}  ;;; margin above and below the text
+            {align centre} :
+            ;;; Now the strings
+            'TEXTIN and NUMBERIN demo' '' 'Click to dismiss:']
+
+        ;;; An action field with a dismiss button. Align right and
+        ;;; use negative gap to superimpose on previous text field
+        [ACTIONS
+            {offset 5} ;;; Horizontal displacement if right or left
+            ;;; button width
+            {width 95}
+            {align right} {gap -30} :
+            ['KILL PANEL' rc_kill_menu]
+        ]
+        [TEXT {bg 'pink'} {fg 'blue'}
+            {gap 10} {align left}
+            {offset 10} {margin 5} :
+            'The next field is for text input.'
+            'Use left/right arrow keys, and'
+            'Backspace or Delete for editing.'
+            'Use RETURN when changes are done.'
+            'To print contents: CTRL + "="'
+            'Here: '
+        ]
+
+        [TEXTIN
+            {label text1}
+            ;;; the variable string1 will hold the value of this field
+            {ident string1}
+            {align left}
+            {gap 0} {margin 5}
+            {width 200} {height 30} {font '10x20'}
+            ;;; Offset must be large enough for the label
+            ;;; If the specified offset is too small, it will be
+            ;;; automatically increased, to make room for the label
+            {offset 20}
+            {labelstring 'Greeting:'} {labelcolour 'brown'}
+            {labelfont '9x15bold'}
+            {bg 'pink'}:
+            ['Hello' {bg 'ivory'} {activebg 'orange'}]
+        ]
+        [TEXT {bg 'pink'} {fg 'brown'}
+            {gap 10} {align centre}
+            {offset 10} {margin 3} :
+            'The next field is for number input.'
+            'Use RETURN when changes are done.'
+            'To print contents: CTRL + "="'
+        ]
+
+        [NUMBERIN
+            {label number1}
+            ;;; the variable num1 will hold the value of this field
+            {ident num1}
+            {align centre} {gap 0} {margin 10}
+            {offset 10}
+            {width 90} {height 30} {font '10x20'}
+            {bg 'orange'}:
+            [50 {label 'Number:'}
+                {bg 'ivory'} {activebg 'orange'}
+                ;;; constrain the value to be an integer
+                {constrain round}]
+        ]
+        ], 'panel1');
+
+
+Click on the buttons using mouse button 1, to see what they do.
+
+-- Accessing the contents of a TEXTIN or NUMBERIN field ---------------
+
+-- -- Using the variable specified in {ident <name>}
+
+Because of the use of the {ident....} specifiers you can check the
+values of the TEXTIN and NUMBERIN fields simply by looking at these
+variables:
+
+string1 =>
+num1 =>
+
+If you change the contents of either field the value of the variable
+will change (after you consolidate the value with RETURN or mouse button
+1.)
+
+If you wished the variable to be protected from external access, by
+making it an "lvars" variable instead of a "vars" variable, then
+you would have to replace the format
+
+    {ident string1}
+with
+    {ident % ident string1 %}
+
+That's because in Pop-11 "ident string1" returns the pop-11 *identifier*
+currently associated with the *word* string1.
+(See REF IDENT, for full gory details, and TEACH VARS_AND_LVARS).
+
+If you wished to have assignments to a variable automatically update the
+text or number in a field, then you would have to use an active
+variable, not an ordinary variable. See HELP ACTIVE_VARIABLES
+
+-- -- Accessing field contents via field labels
+
+If we had not associated the variables string1 and num1 with the two
+fields we could use the fact that the fields have labels "text1" and
+"number1".
+
+To print out the current value of the text input field and number
+input field use these commands. They work because the two fields were
+given label properties in the above specification, i.e.
+
+            {label text1}
+            {label number1}
+
+So they can be accessed via their labels:
+
+    rc_text_value(rc_fieldcontents_of(panel1, "text1"))=>
+    rc_text_value(rc_fieldcontents_of(panel1, "number1"))=>
+
+or, more compactly:
+
+    rc_field_item_of_name(panel1, "text1", 1) =>;
+    rc_field_item_of_name(panel1, "number1", 1) =>;
+
+(See HELP * RC_CONTROL_PANEL/rc_field_item_of_name )
+
+You can change the text or number field, as follows:
+
+    'Silly billy' -> rc_text_value(rc_fieldcontents_of(panel1, "text1"));
+    45.673 -> rc_text_value(rc_fieldcontents_of(panel1, "number1"));
+
+or using the second format in update mode
+
+    'Another String' -> rc_field_item_of_name(panel1, "text1", 1);
+
+    666.666 -> rc_field_item_of_name(panel1, "number1", 1);
+
+There is some checking. E.g.
+
+    'fred' -> rc_text_value(rc_fieldcontents_of(panel1, "number1"));
+
+produces:
+
+;;; MISHAP - Number expected
+;;; INVOLVING:  'fred'
+;;; FILE     :  rclib/help/rc_text_input
+       LINE NUMBER:  390
+;;; DOING    :  sysprmishap mishap rc_convert_number_in
+    updaterof_rc_text_value(newval,pic:rc_text_input)  ....
+
+Click on the 'KILL' action button to dismiss the panel.
+
+
+-- A text input "popup": rc_popup_readin ------------------------------
+
+To put up a query, with the question:
+    Where do you live,
+    Please type your address and end with RETURN
+
+Do this:
+
+    rc_popup_readin(
+        500,40,
+        ['Where do you live?' 'Please type your address and end with RETURN'],
+        '', ;;; default -- empty string
+        "left", 400, 25, '10x20', 'white', 'grey80', 'blue') =>
+
+
+rc_popup_readin creates and displays a panel. When you press RETURN
+on the panel (or click on it) it goes away, and the contents of the
+text field will be returned as a list. If you wish to parse it into
+words and numbers use
+
+    sysparse_string
+
+(See REF STRINGS/sysparse_string )
+
+Alternatively use rc_popup_readline described below.
+
+Note that inside rc_popup_readin the option to make a field extendable
+by means of the "End" key or CTRL + "." is turned off.
+
+In addition it is not necessary to move the mouse cursor over the text
+input panel. The keyboard event handling is spread over the whole popup
+panel.
+
+While rc_popup_readin is active, the variable rc_sole_active_widget is
+set, so that you cannot do anything but handle the text input, until
+you hit RETURN.
+
+In rc_popup_readin you cannot replace the string or number value with a
+contents list as in rc_control_panel and create_text_input_field.
+
+
+-- A number input "popup": rc_popup_readin ------------------------------
+
+We constrain rc_popup_readin to accept only numbers by replacing the
+default value with a number, in this case 20.
+
+    rc_popup_readin(
+        500,40, ['How old are you?'],
+        20, ;;; default number
+        "centre", 200, 25, '10x20', 'white', 'grey80', 'blue') =>
+
+or
+    rc_popup_readin(
+        500,40,
+        ['How old are you?' 'Please type your age and end with RETURN'],
+        0, "left", 400, 25, '10x20', 'white', 'grey80', 'blue') =>
+
+By giving a number as fourth argument we tell rc_popup_readin that a
+number input field is to be used. The result returned is a number.
+
+It is not necessary to move the mouse cursor over the text input panel.
+The keyboard event handling is spread over the whole popup panel.
+
+-- A "popup" version of readline: rc_popup_readline -------------------
+
+The result of this should be a list of text items:
+
+    rc_popup_readline(
+        500,40, ['How old are you?' 'Please write in words'],
+            nullstring, "centre",
+            200, 25, '10x20', 'white', 'grey80', 'blue') =>
+
+Note that inside rc_popup_readline the option to make a field extendable
+by means of the "End" key or CTRL + "." is turned off.
+
+It is not necessary to move the mouse cursor over the text input panel.
+The keyboard event handling is spread over the whole popup panel.
+
+-- Mixins classes procedures and methods in LIB RC_TEXT_INPUT
+As of 12 Sep 2002
+ define vars rc_text_input_disabled(key, modifier);
+ define :mixin vars rc_text_input;
+ define :mixin vars rc_number_input; is rc_text_input;
+ define constant transform_places(num, places)->num;
+ define :method prepare_for_printing(num, pic:rc_number_input) -> num;
+ define :method updaterof rc_informant_value(newval, pic:rc_text_input);
+ define :method updaterof rc_informant_value(val, pic:rc_number_input);
+ define :method rc_text_value(pic:rc_text_input) -> val;
+ define :method updaterof rc_text_value(newval, pic:rc_text_input);
+ define :method constant consolidate_or_activate(pic:rc_text_input);
+ define :method rc_button_1_down(pic:rc_text_input, x, y, modifiers);
+ define :method print_instance(pic:rc_text_input);
+ define :method constant consolidate_or_activate(pic:rc_number_input);
+ define :method print_instance(pic:rc_number_input);
+ define rc_convert_number_in(number) -> string;
+ define rc_convert_number_out(string) -> number;
+ define rc_check_number_format(string) -> boole;
+ define :method rc_text_altered(pic:rc_text_input, val);
+ define :method rc_text_altered(pic:rc_number_input, val);
+ define constant rc_increment_pointer(num, pic, string);
+ define constant rc_places_ok(pic, string, p, key) -> boole;
+ define :method rc_handle_text_input(pic:rc_text_input, x, y, modifier, key);
+ define :method rc_text_font (pic:rc_text_input) -> font;
+ define constant update_font_specs(pic);
+ define :method updaterof rc_text_font(font, pic:rc_text_input);
+ define :method prepare_for_printing(string, pic:rc_text_input) -> string;
+ define :method rc_DRAW_TEXT_INPUT(pic:rc_text_input);
+ define :method rc_SHOW_TEXT_LABEL(pic:rc_text_input);
+ define -- Class definitions and creation procedures
+ define :class vars rc_text_button; is rc_text_input;
+ define :class vars rc_number_button; is rc_number_input;
+ define vars rc_textin_field_abbreviations =
+ define create_text_input_field(x, y, width, height, content, extendable, font, creator) -> field;
+ define create_input_field(x, y, width, height, content, extendable, font, proc) -> field;
+
+-- See also -----------------------------------------------------------
+
+The code file:
+SHOWLIB * RC_TEXT_INPUT
+
+HELP * RCLIB
+HELP * RCLIB_NEWS
+HELP * RC_LINEPIC
+HELP * RC_CONTROL_PANEL
+
+TEACH * RCLIB_DEMO.P
+TEACH * RC_CONTROL_PANEL
+
+
+--- $poplocal/local/rclib/help/rc_text_input
+--- Copyright University of Birmingham 2002. All rights reserved. ------

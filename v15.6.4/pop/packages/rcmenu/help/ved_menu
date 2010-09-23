@@ -1,0 +1,1307 @@
+HELP VED_MENU                                       A.Sloman 11 Dec 1993
+                                             Revised A. Sloman July 2000
+
+The system was radically revised, with a new implementation, in
+September 1999.
+
+Instead of using Propsheet it now uses the RCLIB package. See
+    HELP RCLIB
+    HELP RCLIB_NEWS
+
+To make it available (if not precompiled in the saved image you are
+using) do
+
+    uses rcmenu
+
+That automatically includes "uses rclib".
+
+The documentation may not fully reflect the current implementation,
+since the change from using propsheet to using rclib.
+
+[INCOMPLETE DRAFT]
+
+           LIB VED_MENU: The Recursive HyperMenu System (RHM)
+           --------------------------------------------------
+
+This file describes the Pop-11 implementation of the Recursive Hypermenu
+(RHM) system designed as part of the UIDE project, though it was not
+integrated with the other tools produced in that project.
+
+A tutorial introduction is available via the TEACH * VED_MENU file.
+A demonstration of asynchronous control panels is in
+    TEACH MENU_DEMO.P
+
+The facilities described here provide mechanism for creating an
+indefinitely large collection of menus that are autoloadable on demand,
+and can be used to drive the editor, VED, or to invoke arbitrary
+commands in one of the Poplog languages, or to invoke Unix or X
+utilities. The menus are recursive in that menus can call other menus
+that call them: i.e. circular calling chains are possible.
+
+For users running ved, the typical top level invocation is via the enter
+command:
+    ENTER menu
+
+However when VED is not being used, the menus can still provide useful
+control panels. The more direct way to invoke menus is via the
+procedure:
+            menu_new_menu(name, reload);
+
+which takes the name of a menu (a word or string, e.g. "compiling"))
+and a second boolean argument to control whether the menu should again
+be autoloaded (useful while debugging menu files). E.g. to get the
+compiling menu (which will be autoloaded) use this command:
+
+            menu_new_menu("compiling", true);
+
+By default the menus come up near the bottom right of the screen, with
+the toplevel menu appearing slightly to the left of the others.
+
+The system is intended to be simple to extend and tailor for particular
+Poplog applications, or to meet the needs of individiual users.
+
+Tools for browsing, editing, and recompiling menu definitions are
+provided.
+
+Originally this was implemented using OpenLook, then converted to use
+the Motif version of Lib Propsheet. Now it uses RCLIB, implemented only
+by means of facilities in the Poplog Widget set, since Motif is not
+always available on linux systems and because motif widgets are hard to
+vary, whereas code written in Pop-11 is easy to change.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Prerequisites
+ -- Introduction
+ -- Use with XVed
+ -- ved_menu (Default startup command)
+ -- Browsing and editing menu files
+ -- -- ved_showmenu <menu> (Show a menu file in the library)
+ -- -- ved_edmenu (Edit a menu file in the library)
+ -- -- ved_compilemenu ((re-)Compile the current menu file)
+ -- -- ENTER menu r          (recompile toplevel menu)
+ -- -- ENTER menu r <name>   (recompile named menu)
+ -- -- ved_copymenu (Copy a menu from library to user directory)
+ -- -- ved_copymenu <name>
+ -- -- Invoking ved_menu from your vedinit.p file
+ -- Setting up menus
+ -- Default user menu directory
+ -- Format of menus introduced
+ -- The list format for defining menus
+ -- -- How to drive a menu
+ -- Format of menu definition list
+ -- -- Defining menus via explicit lists
+ -- -- Convention: many menus point back to the toplevel menu
+ -- Components of menu definition list explained
+ -- -- Menu Label
+ -- -- Optional property vectors
+ -- -- o Optional Screen Location
+ -- -- o Optional column, colour, and font specifications
+ -- -- o Menu description strings
+ -- -- o Menu button specifications [<buttonlabel> <action>]
+ -- -- o o Button label conventions: three types
+ -- -- o o Format of <action> specifiers
+ -- -- o o o A string:
+ -- -- o o o A word:
+ -- -- o o o A procedure:
+ -- -- o o o A vector containing a string:
+ -- -- o o o A list:
+ -- -- - 1. [ENTER <commandstring> {xloc yloc} <explanation> ]
+ -- -- - 2. [MENU <menuname>]
+ -- -- - 3. [POP11 <pop11 code>]
+ -- -- - 4. [POPNOW <pop11 code>]
+ -- -- - 5. [VEDDO <string>]
+ -- -- - 6. [UNIX <unix command> <shell specification>]
+ -- -- Additional special keywords
+ -- The "define :menu" format
+ -- Specifying location, font, and colour
+ -- -- Using .Xdefaults
+ -- -- Setting defaults from inside Pop-11
+ -- -- o menu_default_foreground, menu_default_background
+ -- -- o menu_font
+ -- -- o menu_default_location
+ -- Defaults for explanation boxes
+ -- -- o menu_explanation_font (Don't use yet)
+ -- -- menu_explanation_coords
+ -- -- menu_explanation_foreground, menu_explanation_background
+ -- menu_default_vertical
+ -- Additional global variables
+ -- -- menu_current_menu
+ -- -- menu_dirs (Search list for menu definitions)
+ -- -- menu_user_dir (User search list for menu definitions)
+ -- -- menu_root (Root directory for the menu library)
+ -- Utility procedures
+ -- -- menu_veddo(string)
+ -- -- menu_user_adjust(word, menu_list, coords, propbox) -> moved
+ -- -- menu_reset_menus()
+ -- -- menu_dismiss_all()
+ -- User defined menu: menu_user
+ -- Default "user" menu
+ -- Recompiling a menu definition
+ -- Other global identifiers (to be documented)
+ -- Procedures
+ -- Global identifiers
+ -- WARNING: ved_send_wait must be true
+ -- SEE ALSO
+
+-- Prerequisites ------------------------------------------------------
+
+The menu system described below requires that the RCLIB package and the
+RCMENU package have been made available, and compiled. They can be
+fetched from
+    http://www.cs.bham.ac.uk/research/poplog/freepoplog.html
+or
+    ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/freepoplog.html
+
+
+-- Introduction -------------------------------------------------------
+
+The command
+
+    ENTER menu
+or
+    ENTER menu toplevel
+
+Starts off a menu mechanism which is designed to be generally useful
+as an interface to VED and other applications: the menus provide control
+panels, which can be used to control VED, or any other Pop-11
+application, or even to run unix commands and display their output.
+
+Each menu is called a menu_menu, and is initially represented as a list
+associated with a variable whose name should be of the form:
+menu_<name>, e.g. menu_search. The format of the list is described
+below.
+
+When first invoked the list is replaced by a data structure created by
+rc_control_panel, described in HELP RC_CONTROL_PANEL. Subsequently that
+panel is displayed or hidden according to the user commands given.
+
+Each menu can be redefined at any time, and menus can be autoloaded,
+giving very great flexibility.
+
+If the original list defining a menu is redefined, then the original
+screen version can be dismissed, and when that menu is next "requested"
+a new menu is created corresponding to the new definition, and all
+pre-existing menus will access the new version instead of the old. This
+is why the system is so flexible, and allows very rapid development and
+testing of sets of menus, including temporarily changing menus according
+to context.
+
+Menus can either invoke actions or create other menus. There is no fixed
+order in which they have to be created. Menu A may have a button that
+allows it to creeate menu B, and menu B may have a button that creates
+menu A. Thus whichever is created first could be used to invoke the
+other.
+
+A "Top Level" menu provides some useful default starting points, from
+which it is possible to get to other menus. Those in turn can invoke
+yet more menus.
+
+Each menu can also invoke the top level menu. So if the top level menu
+has been dismissed, or has not yet been created it can be invoked from
+some other menu which has an appropriate button on it. By default the
+menus in this library use 'MENUS...' as the label to invoke the top
+level menu.
+
+Different applications can have their own toplevel menus, since
+different sets of menus can be defined starting from different top
+levels, and it is possible for the top level of one set to be invoked as
+an option from another set.
+
+This sort of flexible interconnection is not possible with
+tree-structured menus.
+
+All the menus are vertical by default and a top level menu will appear
+in a different place from all the menus that are invoked from it, so
+that it is easy to switch between sub-menus. Users can control whether
+individual menus are vertical or horizontal, using the {cols <num>}
+property at the top of a menu specification. If <num> is 0, then
+all the buttons are displayed in a horizontal row. In that case the
+default location for the menu may be unsuitable.
+
+In an xterm window with ordinary VED the menu system works well in
+conjunction with LIB * VEDXGOTOMOUSE. See HELP * VEDXTERM/VEDXGOTOMOUSE
+since the latter allows the mouse to be used to locate VED's cursor at a
+desired point in a file or on the status line.
+
+-- Use with XVed ------------------------------------------------------
+
+The system also works with XVed. (See TEACH * XVED)
+
+There are some facilities available in the XVED menu, which can
+be invoked via the Files menu or the Editor menu. These facilities
+are described in HELP * MENU_XVED and include moving the window
+about on the screen and copying, moving, or compiling the selected
+text area.
+
+
+-- ved_menu (Default startup command) ---------------------------------
+
+The "ENTER menu" command is the default command for starting up the
+menu system, though it can be started automatically in your vedinit.p
+file, as described below.
+
+ENTER menu <name>
+    This will start up a menu whose name is menu_<name>, autoloading
+    it if necessary from the menu library file called menu_<name>.p
+    <name> defaults to "toplevel"
+
+ENTER menu
+    Will start up a default menu, the "top level" menu, held in the
+    variable menu_toplevel, and defined in the file
+        .../menu/menus/menu_toplevel.p
+
+    Unless redefined locally, the default menu will consist of a
+    vertical set of buttons, and will appear offset to the right or
+    to the left of other menus. Each button represents an action which
+    will occur if you click on the button with the left mouse button.
+    One of the actions is always "Dismiss" which will make the menu go
+    away. If you wish to get a menu back, the command "ENTER menu" will
+    always reinvoke the top level menu, from which you should be able to
+    access all others.
+
+See below for the use of "ENTER menu r" to recompile a menu
+
+
+-- Browsing and editing menu files
+
+-- -- ved_showmenu <menu> (Show a menu file in the library)
+
+    ENTER showmenu <menu>
+If you wish to examine menus, help files, and the Pop-11 library
+procedures used in this package without actually starting up the menus
+you can do
+
+    lib ved_menu
+
+Then for example the VED command
+
+    ENTER showmenu toplevel
+
+will read in the toplevel menu, and
+
+    ENTER help menubuttons
+
+will show you a file containing all the current menu definitions in the
+main library. This may be useful if you wish to create your own menus.
+
+Note that the showmenu command uses the user-definable search lists
+menu_dirs and menu_user_dir, as described below.
+
+
+-- -- ved_edmenu (Edit a menu file in the library)
+
+    ENTER edmenu
+This command is like ENTER showmenu except that it can be used on your
+own files as it assumes that the file can be written. If you use it on a
+system menu file which you then change, you will get an error when VED
+attempts to write the file, if the file is protected. However this
+command can be used by Poplog administrators with write-permission on
+Poplog library files.
+
+-- -- ved_compilemenu ((re-)Compile the current menu file)
+
+    ENTER compilemenu
+After editing a menu file you may wish to have the menu redefined.
+This command checks to see whether the corresponding menu already
+exists and if so hides it, then loads the current file, then rebuilds
+and shows the new menu.
+
+The next two commands provide alternatives for recompiling a menu from
+the library.
+
+-- -- ENTER menu r          (recompile toplevel menu)
+-- -- ENTER menu r <name>   (recompile named menu)
+
+Both of these will recompile and rebuild the specified menu.
+
+-- -- ved_copymenu (Copy a menu from library to user directory)
+
+    ENTER copymenu
+Assuming this is invoked in a file defining a menu, this command
+will cause the file to be copied to your own local menu directory,
+as defined by menu_user_dir (see HELP * VED_MENU/menu_user_dir).
+
+After editing you can then use "ENTER compilemenu" to compile or
+recompile the file and rebuild the menu.
+
+-- -- ved_copymenu <name>
+
+    ENTER copymenu <name>
+As above, except that it will first get the required menu using
+the 'showmenu' command.
+
+Example
+    ENTER copymenu user
+
+will get get you the menu defined in the library menu_user.p
+
+-- -- Invoking ved_menu from your vedinit.p file
+
+You can ensure that the menus always start up when you start VED if you
+put into a definition of the procedure vedinit, in your vedinit.p file
+something like
+
+    if systranslate('DISPLAY') then
+        vedinput(veddo(%'menu'%))
+    endif;
+
+Remember that for any of this to work you must have your $DISPLAY
+unix environment variable set, and if you are logged into a remote
+machine via a workstation you must have used the Unix command
+    xhost +<machine>
+on the workstation to give the remote machine access to the screen.
+
+
+-- Setting up menus ---------------------------------------------------
+
+You can set up your menus using the format described below. A tutorial
+introduction to menu construction is given in TEACH * VED_MENU.
+
+Basically, each menu is represented by a Pop-11 list, containing
+strings, vectors and lists. Any menu can be changed at any time. Each
+button on the menu can either specify an action to be performed, or
+another menu to be invoked.
+
+Menus can cross reference one another in a circular fashion. By
+convention all the menus are held in variables whose names start
+'menu_', and each menu includes as its last item the "top level"
+menu for its family.
+
+The default top level menu is held in the variable 'menu_toplevel'
+and gives access to a collection of menus for driving VED, among other
+things.
+
+-- Default user menu directory ----------------------------------------
+
+It is possible to put separate declarations of menus in files in an
+autolodable directory, e.g. in $popautolist, or in the list held in the
+variable menu_user_dir, which defaults to
+
+    ['~/vedmenus'] -> menu_user_dir
+
+so you can use your vedmenus subdirectory for autoloadable menus.
+
+-- Format of menus introduced -----------------------------------------
+
+Menus can be defined either via a list, which will then be turned
+into a menu by menu_create_menu, or using the "define :menu" format,
+described later. We start with the list format.
+
+-- The list format for defining menus
+
+Each menu should be declared in the following format
+
+    global vars <name> = <list>;
+
+where the <name>  starts with 'menu_' (or whatever the current value
+of menu_startstring is.
+
+The list should be of the following form (defined more precisely in a
+later section):
+
+   [
+    o a string to go in the title bar (provided by the window manager)
+
+    o optional vector of two integers specifying screen location and
+      other optional vectors giving other specifications.
+
+    o One or more strings giving a description to go in a box at the top
+      of the menu. (Optional). If the strings contain newlines they will
+      be split where the newline is.
+
+    o a sequence of lists each defining a button and its action, ie
+            [<buttonlabel> <action>]
+   ]
+
+TEACH * VED_MENU gives detailed examples of menus that can be built,
+tested, edited, and rebuilt in this format. Most of the library
+menus use the format. E.g. try
+    ENTER showmenu files
+
+
+-- -- How to drive a menu
+
+There are two  ways to make your selection from a menu.
+
+1. The obvious method is putting the cursor on the menu and clicking the
+left button on the required option.
+
+[NOTE: the following selection mechanisms do not yet work with menus
+produced using RCLIB and RCMENU. They may be added later.]
+2. You can also do the following with the mouse cursor on the menu box,
+at least with OpenLook menus (I have not checked Motif):
+
+Press ESC
+    To quit the menu. It will disappear from the screen
+
+Press Return
+    Invoke the default action, usually equivalent to pressing the first
+    button. This appears not to work on Solarisk 2.2, 2.3, etc.
+
+Press an arrow key
+    The left, right, up and down keys cause the "current" default to
+    to cycle round the buttons. The current default button is
+    highlighted.
+
+Press SPACE
+    The space bar will cause the current default to be selected.
+
+WARNING: if you press the RETURN key, the initial default option will be
+accepted, even if you have caused another option to be highlighted.
+
+The RETURN facility does not seem to work in Solaris 2.2 (SunOS 5.2).
+
+
+-- Format of menu definition list -------------------------------------
+
+There are two formats for creating a menu.
+
+1. The first is to create the list structure specifying the menu, and
+then allow procedures to create the menu later, as needed.
+
+2. The alternative format, explained below, uses the syntax form:
+
+    define :menu <name> ..... enddefine
+
+The latter is more convenient for interactive testing. The former
+may be more suitable for building libraries of menus, and allows
+menus to be created by programs that first build the list, then
+give it to menu_create_menu.
+
+
+-- -- Defining menus via explicit lists
+
+Each list defining a menu has (at present) the following format:
+
+global vars menu_<name> =
+
+    [<menulabel>            ;;; Label for title bar, a string
+
+    ;;; Optional vectors for specifying properties of the menu
+
+     {<x> <y>}              ;;; optional screen location specifier
+                            ;;; Can use screen coords or symbols
+                            ;;; left middle right and top middle bottom
+
+     {cols <num>}           ;;; Default number of columns is 1
+
+     {textbg    <background colour>}    ;;; optional
+
+     {textfg    <foreground colour>}    ;;; optional
+
+     {font <string>}        ;;; optional font specification
+
+    ;;; Menu description strings (can include newlines for line breaks)
+    ;;; These will be displayed, centred, in one text field at top of
+    ;;; menu.
+     <menu description string>
+     <menu description string>
+        ...etc....
+
+    ;;; Menu button specifications, each of which is a 2 element list.
+     [<buttonlabel> <action>]
+
+     [<buttonlabel> <action>]
+
+    ;;; Or a three element vector starting with "blob", e.g.
+
+     {blob <buttonlabel> <action> }
+
+     .......
+    ;;; Optional button for (re)invoking toplevel menu
+    ['MENUS...' [MENU menu_toplevel]]
+    ];
+
+The optional property vectors following the <menulabel> can occur in any
+order, or not at all. Examples are given in TEACH * VED_MENU
+
+Each <buttonlabel> must be a string. Certain conventions are
+recommended, but not enforced, regarding the formats used for different
+kinds of labels. A more detailed description follows.
+
+-- -- Convention: many menus point back to the toplevel menu
+
+By convention many or all menus will end with the following button
+specifier:
+
+    ['MENUS...' [MENU menu_toplevel]]
+
+making it possible to go quickly to the toplevel menu. However, this
+is not a compulsory feature, and sometimes an intermediate "top level"
+can be used instead.
+
+-- Components of menu definition list explained
+The components of the list are now described in more details. All
+of these components can also occur in the second menu definition
+format using define :menu
+
+-- -- Menu Label
+
+The <menulabel> is a string that will appear on the title bar at the top
+of the menu and specifies what the menu is about. E.g. 'Marked range'.
+Whether and how it actually appears will depend on the window manager.
+Typically it will be on the title bar. Choose a short label, as title
+bars are usually quite short on menu panels.
+
+
+-- -- Optional property vectors
+-- -- o Optional Screen Location
+
+The (optional) {<x> <y>} specification is a vector of two integers,
+representing pixel row and column of the top left of the menu box in
+screen co-ordinates, with {0 0} representing top left of the screen.
+Note that if you wish the title bar to be visible you should add its
+height to the y coordinate, e.g. about 24.
+
+If the coordinates are negative, then they are subtracted from the
+screen width or height, and a further amount is subtracted according
+to the width or height of the menu itself. So negative coordinates
+can be thought of as relative to the bottom right corner of the screen.
+
+If the specification is not given then a default location will be
+used specified by menu_default_location, described below.
+
+-- -- o Optional column, colour, and font specifications
+
+These are all vectors, which have the following forms:
+
+     {cols <integer>}
+        The integer species how many columns should be used for
+        presenting option boxes. The default is 1. If it is 0 then
+        there are no columns, and all buttons occur in one horizontal
+        row.
+
+     {textbg    <background colour>}
+or
+     {bg        <background colour> for field}
+
+     {textfg    <foreground colour>}
+
+        The colours are strings. See HELP * XCOLOURS for colour
+        specifications that are permitted. (Some of them may not
+        work on your machine. Experiment if necessary)
+
+     {font <string>}
+
+You may need to experiment to find out which fonts are available, and
+which are suitable. Usually a font size between about 10 points and 14
+points works well. Proportional fonts (e.g. Helvetica) provide more
+compact labels.
+
+These property vectors and the location vector can occur in any order,
+and any of them may be missing. The default values will then be
+determined by various global variables described below, if they have
+been set, or will otherwise be inherited from Poplog Widget defaults
+specified in the user's .Xdefaults file.
+
+More information about property vectors is in HELP rc_control_panel
+
+-- -- o Menu description strings
+
+Each string will be displayed on a line in a panel at the top of the
+menu. Lines should not get too long as the menus should be narrow, if
+they are vertical (the default). A horizontal menu can tolerate a long
+string, and may look better with one long string than several short
+strings.
+
+-- -- o Menu button specifications [<buttonlabel> <action>]
+
+All button specifiers are either two element lists or three element
+vectors of the form
+
+    [<buttonlabel> <action>]
+    {blob <buttonlabel> <action>}
+
+Each <buttonlabel> is a word or string and should be a mnemonic to
+remind users of the action that will be invoked by clicking on that
+label. (The same label can be used with different meanings in the
+context of different menus. E.g. buttons labelled "HELP" might get
+different sorts of help in different contexts.) The strings can contain
+spaces but NOT newlines (unfortunately).
+
+The labels should be short, as the width of the whole menu column will
+be determined by the widest label, or header string.
+
+In the current menus the following conventions are used:
+
+-- -- o o Button label conventions: three types
+
+o Labels indicating other menus all end with '...', e.g. 'ReadNews...'
+
+o Labels that correspond to advice on VED ENTER commands, or start up a
+dialogue box to specify an action, all end with an asterisk, e.g.
+'Search*' 'Editfile*'
+
+o Labels with neither trailing dots nor an asterisk represent direct
+actions.
+
+Note:
+The label 'MENUS...' is used to indicate a button that invokes the "top
+level" menu. In some cases it could refer to an intermediate top level.
+
+
+-- -- o o Format of <action> specifiers
+
+The <action> element following a button label can be any of the
+following forms:-
+
+    a string
+
+    a word
+
+    a procedure
+
+    a vector containing a string
+
+    a list starting with a keyword that specifies how the list
+        is to be interpreted.
+
+More detailed specifications follow.
+
+-- -- o o o A string:
+
+The string will be given as argument to veddo. I.e. the string
+can be anything that could be put on the command line in VED. For
+multiple commands see HELP VED_DO. Example of such a button
+specifier could be
+
+        [HELP 'help ved']
+
+I.e. pressing the button labelled "HELP" would cause veddo to be
+applied to the string 'help ved'. Thus it is easy to add help
+or teach options to a menu. These actions are all put in VED's
+input queue.
+
+If you wish the string to be left on VED's command line, e.g.
+to make it easy to re-do the command, or for teaching purposes,
+then use the format
+
+        [HELP [VEDDO 'help ved']]
+
+
+NOTE: the procedure ved_menu_doc allows commands which get a documentation
+file, go to an index line specified by a search string, call ved_g to go
+to the required sectin, and put the section heading at the top of the
+current window. E.g.
+
+        ['HelpProgramming' [VEDDO 'menu_doc help ved Programming']]
+
+-- -- o o o A word:
+
+This should be the name of a variable whose value is one of the other
+structures described below. It will be de-referenced and the appropriate
+action taken. (recursive_valof is used to get the value.) The most
+common occurrence is the name of a procedure. Autoloading will occur if
+necessary.
+
+-- -- o o o A procedure:
+
+The procedure will be invoked. E.g. a menu specification could include
+the following item:
+
+        [NextSection ^(ved_g <> ved_g)]
+
+If selected, this button will cause the procedure ved_g to be run twice,
+which will go to the next index entry and then jump to the corresponding
+section of the current file. (See HELP * ENTER_G)
+
+-- -- o o o A vector containing a string:
+
+The string is treated as Pop-11 text and is compiled. An example
+equivalent to the above would be:
+
+        [GoIndex {'ved_g();ved_g();'}]
+
+This is useful for defining compound actions without having to
+define a new procedure to be invoked.
+
+-- -- o o o A list:
+
+The list defining a menu action can take one of the following forms
+
+-- -- - 1. [ENTER <commandstring> {xloc yloc} <explanation> ]
+
+Where the {xloc yloc} vector is optional.
+
+An explanation box will pop up. If the location vector is not provided
+the centre of the screen will be used. The explanation box will give
+default instructions and in addition will display the <explanation>. The
+<explanation> can either be a string (including newlines) or a list of
+strings. In the latter case each string will be displayed on a separate
+line, centrered in an area defined by the longest string.
+
+The <command string> will be displayed in an editable text field. The
+user can then modify the command, and then press RETURN or the "Do"
+button. (RETURN may not work, e.g. on Solaris).
+
+If the location vector is not given, the centre of the screen is used.
+
+Examples of ENTER action specifications are
+
+    ['NewFile*' [ENTER 'ved <filename>' 'Editing a new file']]
+
+    ['GetHelp*' [ENTER 'helpfor <word>'
+            ['Get a list of help files' 'possibly relevant to' 'a word']]]
+
+    ['GetRef' [ENTER 'ref <topic>']]
+
+    ['Rename*' [ENTER 'dired -mvd <newname>' {600 20}
+        ['Rename the file to right of current line
+         'to <newname> (i.e. rename in same directory).'
+        'See "man mv" (and HELP DIRED)'] ]]
+
+
+-- -- - 2. [MENU <menuname>]
+
+Here <menuname> should be an identifier whose value is a menu, either
+a list defining a menu, or the propbox created to correspond to the
+menu. Examples of action specifications using this format are:
+
+        ['Mark1...' [MENU mark1]]
+
+        ['Mark2...' [MENU mark2]]
+
+        ['Dired...' [MENU dired]]
+
+        ['Move1...' [MENU menu_move1]]
+
+Note: if the name given does not start with 'menu_' (or rather the
+current value of menu_startstring) then that will be prepended.
+
+If one of these buttons is selected, then, if the menu does not yet
+exist the name, after expansion if necesary, (e.g. menu_dired) will
+cause its definition to be autoloaded, and the list defining the menu
+will be transformed into a propbox with menu buttons on it which then
+becomes the value of the variable, instead of the list.
+
+If the propbox already exists, it is merely displayed. So the same
+button will either create a menu, or merely redisplay it if previously
+created.
+
+-- -- - 3. [POP11 <pop11 code>]
+
+The tail of the list can contain Pop-11 text items and is given as
+argument to the procedure compile.
+
+Arbitrary actions are possible. Although there will often be no benefit
+in using a list action of this form rather than a vector containing a
+string, this option is useful where the contents of the list (i.e. the
+command) should be in part be determined (at compile time) by the value
+of a global variable, or an embedded procedure call.
+
+If a string is used it will require itemisation as well as compilation
+to be performed, whereas a list already contains separate items.
+However, the itemisation process should not make a noticeable
+difference. It is possible that in some cases the list format will allow
+advantage to be taken of sections or lexically scoped variables, by
+having values inserted at compile time using "%" or "^" in the list.
+
+
+-- -- - 4. [POPNOW <pop11 code>]
+
+This is exactly the same as the previous category except that when the
+button is selected the actions are executed immediately, instead of
+waiting for control to return to VED. If you wish a ved command to be
+run before control returns to VED, you can use veddo in this format,
+e.g.
+
+    ['TopFile' [POPNOW veddo('1',true)]]
+
+However, sometimes this will produce counter-intuitive results, and
+it may be necessary to call vedsetcursor or vedcheck to tidy up.
+
+-- -- - 5. [VEDDO <string>]
+
+The string is given to menu_veddo. Thus runs veddo with its second
+argument true, so that the command is put on the status line. Otherwise
+this is the same as an action invoked simply by a string.
+
+-- -- - 6. [UNIX <unix command> <shell specification>]
+
+The <unix command> is run using vedgenshell and the output is read
+into a VED buffer.
+
+If the <shell specification> is not given, then it defaults to
+systranslate('SHELL'). For example, here is a specification for a button
+that will list all the processes belonging to the current user (on
+SunOS 4.1.x):
+
+    ['MYPROCS' [UNIX 'ps -aux | egrep "$USER|USER"']]
+
+On clicking on the button labelled "MYPROCS" the user would spawn a
+shell process to run "ps -aux", the output of which would be filtered
+through the command
+
+    egrep "$USER|USER"
+
+and the output of that read into a VED buffer, where it can be inspected
+or processed further. (Note that the first occurrence of "|" creates a
+Unix pipe, whereas the second expresses a disjunctive search string for
+egrep.)
+
+This ability to link applications easily seems to be similar to that
+provided in the Microcosm system [Hill et al. 1992]. As I have seen only
+a short overview document I cannot comment on relative ease of use,
+though RHM potentially provides a lot more options because it is
+embedded in a powerful software development system.
+
+Here is one that specifies the C shell, so that "~" can be interpreted
+properly: it lists all the directories in the user's top level
+directory.
+
+    ['MYDIRS' [UNIX 'ls -l ~ | egrep "drw"' '/bin/csh']]
+
+-- -- Additional special keywords
+
+It is possible that additional special keywords and formats will
+be introduced later to deal with frequently occurring types of actions.
+
+
+-- The "define :menu" format ------------------------------------------
+
+Instead of assigning a list to a variable and then running ved_menu
+or menu_new_menu, it is possible to use an expression of the following
+form, where the body of the definition contains exactly the same
+items as would go into a list in the list format for defining menus.
+
+    define :menu <name>
+        <title>
+        <optional formatting vectors>
+        <description strings>
+        [<buttonlabel> <action>]
+        [<buttonlabel> <action>]
+            etc.
+    enddefine;
+
+Using "define :menu" will not only declare and assign a value to the
+variable menu_<name>, but will also create the menu, and display
+it unless menu_popexecute is false, or it is inside a procedure
+definition.
+
+If recompiled this definition will immediately rebuild the menu, unless
+menu_popexecute is false, or it is inside a procedure definition.
+
+The default for menu_popexecute is true, so that top-level compilation
+produces immediate action.
+
+For example
+
+    define :menu mymenu;
+        'Title'
+        {600 20}    ;;; location
+        {cols 0}    ;;; orientation horizontal: buttons in a row
+        {textbg 'brown'}
+        {textfg 'yellow'}
+        'This is\nmy own menu'
+        ['Tutorial' 'teach ved_menu']
+        ['NextSection' [POPNOW ved_g();ved_g();vedinput(vedrefresh)]]
+    enddefine;
+
+If this definition is recompiled, and menu_popexecute is true, the
+existing menu, if there is one, will be removed and a new one created
+from the definition.
+
+This means that in libraries that use "define :menu" to specify menus
+that are not to be created immediately at compile time, such definitions
+should be included in a procedure rather than at top level in the file.
+Alternatively the libraries should be compiled with menu_popexecute set
+false.
+
+
+-- Specifying location, font, and colour ------------------------------
+
+There are various global variables and user settable resources that
+control defaults, e.g. colour and font of menu displays or explanation
+boxes, and default location of menus.
+
+-- -- Setting defaults from inside Pop-11
+
+-- -- o menu_default_foreground, menu_default_background
+
+Alternatively, you can use these two variables to set the foreground
+and background colours. For example, the following could go into your
+vedinit.p file, to give white lettering on a black background.
+
+    global vars
+        menu_default_foreground = 'white',
+        menu_default_background = 'black';
+
+Other possibilities might be
+
+    'yellow' -> menu_default_foreground;
+    'brown' -> menu_default_background;
+
+-- -- o menu_font
+
+If this is a string it will be used for the font for newly created
+panelss. Otherwise the defaults for rc_control_panel will be used.
+
+Examples worth considering include these:
+
+'-adobe-helvetica-bold-r-normal-*-10-*-*-*-p-*-*-*' -> menu_font;
+'-adobe-helvetica-bold-r-normal-*-12-*-*-*-p-*-*-*' -> menu_font;
+'-adobe-helvetica-bold-r-normal-*-14-*-*-*-p-*-*-*' -> menu_font;
+
+'8x13bold' -> menu_font;
+
+
+-- -- o menu_default_location
+
+It is possible to assign a vector of two positive or negative integers
+representing where the top left corner of the menu should appear.
+Negative numbers are subtracted from screen width and height. Some
+example settings are:
+
+Set on top left corner
+    vars menu_default_location = {0 0};
+
+Set on top right corner
+    vars menu_default_location = {-1 0};
+
+Set at bottom left
+    vars menu_default_location = {0 -1};
+
+Set at bottom right
+    vars menu_default_location = {-1 -1};
+
+It is also possible to use a two-element vector containing integer
+coordinates as part of the menu definition list. Several examples are
+shown in TEACH * VED_MENU
+
+
+-- Defaults for explanation boxes -------------------------------------
+
+[THIS SECTION IS OUT OF DATE AND NEEDS TO BE REWRITTEN XXX]
+
+There are some variables controlling how the explanation boxes appear
+when they pop up (invoked by menu items followed by an asterisk).
+
+-- -- menu_explanation_coords
+
+This can be given a vector containing two integers (e.g. {450 50} ) to
+control where explanation boxes created by menu_set_command, for all
+[ENTER ...] menu actions, appear. If not specified, the default location
+is centre of screen.
+
+It can be overridden by individual menu items with actions of the form
+
+    [ENTER <commandstring> {xloc yloc} <explanation>]
+
+-- -- menu_explanation_foreground, menu_explanation_background
+
+These two variables can be given strings containing colour names as
+values. These are taken to be names of colours to use as foreground and
+background when an explanation box pops up. Otherwise the defaults set
+by .Xdefaults are used. E.g. try
+
+'yellow' -> menu_explanation_foreground;
+'brown' -> menu_explanation_background;
+
+Then
+
+    ENTER r menu files
+        (to recompile the files menu)
+
+Then try clicking on the Editfile* button.
+
+
+-- Additional global variables ----------------------------------------
+
+-- -- menu_current_menu
+    This is the current menu box
+
+-- -- menu_dirs (Search list for menu definitions)
+-- -- menu_user_dir (User search list for menu definitions)
+
+The list menu_dirs should be a list of directories in the format
+described in HELP * SEARCH_LISTS. When a menu definition is sought, this
+list is prepended to popautolist before the value of the identifier is
+sought, by the procedures ved_menu, menu_get_menu, ved_showmenu
+and ved_edmenu.
+
+Thus if autoloading or menu-browsing occurs the directories in
+menu_dirs will be searched before other autoloadable libraries.
+
+By default, the identifier menu_user_dir is the first item in the list
+menu_dirs. It can be assigned a list of directories in which to
+search before searching the system menu directories. It defaults to the
+list
+
+    ['~/vedmenus'] -> menu_user_dir;
+
+so that if the user's login directory has a sub-directory called
+'vedmenus' then any menu definitions there will be found by
+ved_menu, ved_showmenu and ved_edmenu
+
+-- -- menu_root (Root directory for the menu library)
+
+The menu library is normally located in $poplocal/local/rcmenu/
+but can be based elsewhere. If the Unix environment variable $popmenu
+is set, that will be used as the location (which allows different
+users to have different menu libraries). The Pop-11 variable
+    menu_root =>
+
+holds a string giving the root directory. There are several
+subdirectories:
+
+    rcmenu/auto
+        The main autolodable libraries
+    rcmenu/menus
+        Where the system menu definitions are found
+    rcmenu/help
+        For this help file and others
+    rcmenu/teach
+        For tutorial files
+
+Further subdirectories may be added later.
+
+-- Utility procedures -------------------------------------------------
+
+Various utility procedures are provided either in the file
+LIB * VED_MENU or as autoloadable additional procedures, in the
+menu/auto directory.
+
+-- -- menu_veddo(string)
+
+Thus runs veddo with its second argument true, so that the command is
+put on the status line.
+
+-- -- menu_reset_menus()
+This uses the property menu_lists to retrieve all the lists defining
+current menus, and makes those lists the values of the variables, after
+hiding all the current menus.
+
+-- -- menu_dismiss_all()
+Makes all current menus invisible.
+
+-- User defined menu: menu_user ------------------------------------
+
+The default top level menu includes an item
+    ['UserMenu...' [MENU menu_user]]
+
+Thus by assigning a suitable list to the variable menu_user, you can
+access your own menu from the standard top level menu. If you don't
+do this you will get a default "user" menu. You can copy and edit it,
+using ENTER copymenu, then ENTER compilemenu, to compile it.
+
+You may use the location specification mechanism to give your own menu
+a special location, e.g. to make it appear at screen location 600 20 do:
+
+    global vars menu_user =
+    ['Title'
+      {600 20}
+      'This is'
+      'my own menu'
+      [ .... ]
+      [ .....]
+    ];
+
+or
+    define :menu user;
+        'Title'
+        {600 20}
+        'This is
+        my own menu'
+        [ .... ]
+        [ .....]
+    enddefine;
+
+
+-- Default "user" menu ------------------------------------------------
+
+A default version of menu_user is provided. You can examine it using
+the command
+
+    ENTER showmenu user
+
+If you have a directory called ~/vedmenus you may make a copy of this
+menu in there and edit it. In future that version will be used if you
+click on the "User" button on the main menu.
+
+
+-- Recompiling a menu definition --------------------------------------
+
+If you have already created a file menu_user.p, and you wish to
+replace the default user menu with one based on your definition, then:
+
+    1. click on the "Dismiss" button, to get rid of the old menu.
+
+    2. compile the file containing your new menu definition
+
+Then either do
+    ENTER menu user
+
+or click on the UserMenu... button on the toplevel menu.
+
+Alternatively, get the menu definition into a VED window and either
+do
+    ENTER compilemenu
+
+or click on the CompileMenu button on the user menu.
+
+You can force reloading of the source file and rebuilding of the menu,
+by using
+    ENTER r user
+
+The user menu can easily be used not only to drive Pop-11 utilities, but
+also to run Unix or X utilities, including starting up new Xterm
+windows. To see some further examples of possible menu definitions see:
+
+    ENTER showmenu unix
+
+If you have a definition using the format
+    define :menu user
+
+then simply recompiling it will also recreate the menu.
+
+-- Other global identifiers (to be documented)
+
+-- Procedures
+
+define_menu
+    Used for define :menu
+
+menu_refresh
+    Runs vedxrefresh or vedrefesh as needed.
+
+menu_check_deletefile
+    check whether file is to be deleted then proceed to delete it.
+
+menu_rotate_files
+    Like ved_rb, with extra features for menus and xved.
+
+menu_apply(proc);
+    Apply the procedure, raise any new file, but don't warp input focus.
+    Suitable for buttons rotating or swapping files, etc.
+
+menu_create_menu(word, menu_list);
+    Goes from definition to actual menu
+
+menu_get_menu(word);
+    Invoked by [MENU ... ] actions
+    Uses menu_new_menu(word, false);
+
+menu_getaction(propbox, menubutton, property) -> quit_menu;
+    This is the callback for all menu buttons.
+
+menu_interpret_action(propbox, action);
+    Called when buttons activated
+
+menu_new_menu(menu_name, reload);
+    Builds a new menu. If reload is non-false it removes the old one
+    first. If reload == 1 then it will recompile a library version.
+    Use reload == true simply to rebuild without recompiling, e.g. after
+    you have reassigned to the list.
+
+menu_set_command
+    used by [ENTER ...] actions.
+
+menu_unix_obey(list);
+    ;;; list is either of the form [<commandstring>] or
+    ;;; [<commandstring> <shell pathname>]
+
+menu_vedinput(P)
+    In XVED puts P onto the input stream, otherwise runs P.
+
+menu_set_box_font(rootwidget, font);
+    LIB menu_set_box_font
+    Does not work in all cases
+
+menu_set_box_vertical(propbox, boole);
+    Sets the box vertical if boole is non-false
+
+menu_xterm(name, command);
+    The name is false or a string which is a machine name.
+    The command is a shell string to be given after the "-e" flag to xterm.
+
+menu_xved_utils
+    LIBRARY file: defines a collectino of utilities for xVED
+
+set_output(filename) -> consumer;
+    ;;; Create a consumer that selects the desired output file and
+    ;;; prints into it. It will be a closure of the string and
+    ;;; a reference containing the file structure (eventually).
+    ;;; The consumer is a closure of this:
+    ;;; If the filename is == true, then print in current file,
+    ;;; starting on next line. Otherwise at end of file.
+
+ved_GoMakeTop;
+    ;;; like ved_g, but puts located line at top of screen
+
+ved_menu_doc <command> <filename> <string>
+    Run command with file name, go to string then run ved_GoMakeTop
+
+ved_menu_grep
+    Used by files menu for searching files via grep.
+
+ved_menu_search
+    Used in files menu for searching in current file
+
+ved_menu_subs
+    Used in files menu for search and replace control panel
+
+ved_setwindow()
+    This is somewhat better than vedsetwindow as a utility for changing
+    windowsize in XVed. It can be mapped onto ESC w, to replace
+    vedsetwindow, which does not work well with XVed. Instead of
+    switching between two sizes this procedure will cycle between sizes
+    determined by the vector ved_set_win_multipliers, whose default
+    value is the vector
+        {0.5 0.25 0.5 1 1.2 1}
+    The multipliers are applied to the original size of window when
+    this procedure was first called
+    See LIB * VED_SETWINDOW
+
+
+-- Global identifiers
+
+menu_current_box
+menu_current_menu
+
+menu_dirs
+    Search list for autoloadable menus, used by showmenu, edmenu,
+    copymenu, etc.
+
+menu_lists
+    Property mapping menus onto their names and defining lists.
+
+menu_root
+    Root directory for menu library
+
+menu_startstring
+
+menu_toplevel
+    Default name of top level menu
+
+menu_toplevel_name
+    It's value is the current name of top level menu
+
+
+-- SEE ALSO -----------------------------------------------------------
+
+For more details see
+TEACH * VED_MENU
+    Gives a simpler tutorial introduction
+
+HELP * MENUBUTTONS
+    This file gives a complete listing of all the menu definitions
+    provided in the VED_MENU library. These can then be copied and
+    edited to suit your needs. To make sure the listint is up to date
+    the system administrator should run the command
+        $poplocal/local/rcmenu/mkbuttonlist
+
+LIB * VED_MENU
+    Shows the main procedures used in the menu mechanism. Others are
+    in the "auto" directory of the ved_menu library, whose pathname
+    is held in the variable
+        menu_root =>
+
+If available on your system the following may also be found useful:
+
+    $usepop/pop/x/ved/src/xveddialogs.p
+
+These require motif.
+
+--- $poplocal/local/rcmenu/help/ved_menu
+--- Copyright University of Birmingham 2000. All rights reserved. ------

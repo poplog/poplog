@@ -1,0 +1,299 @@
+TEACH RC_INTRO                                   Aaron Sloman March 1997
+
+                     INTRODUCTION TO RCLIB PROGRAMS
+
+The RCLIB facilities extend Pop-11 with a "relative coordinates"
+graphical package based on two previously existing libraries,
+Objectclass and RC_GRAPHIC.
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- Demonstration packages
+ -- Note on Objectclass
+ -- Prerequisites
+ -- Introductory overview
+ -- -- LIB RC_LINEPIC
+ -- -- LIB RC_MOUSEPIC amd LIB RC_WINDOW_OBJECT
+ -- Types of pictures handled
+ -- Intrinsic coordinate frames
+
+-- Introduction -------------------------------------------------------
+
+Together these libraries
+
+LIB * RC_LINEPIC
+LIB * RC_WINDOW_OBJECT
+LIB * RC_POINT
+LIB * RC_MOUSEPIC
+LIB * RC_POLYINE
+
+and others provide a package based on rc_graphic facilities and
+objectclass which makes it possible to attach graphical information to
+objects, and to draw the objects and show them moving or rotating. The
+graphical objects can be depicted using lines, circles and text strings
+(though the text strings cannot (yet) be rotated).
+
+Some of the basic facilities for static and mobile picture objects are
+in
+    LIB * RC_LINEPIC
+
+A mechanism that supports one or more mouse sensitive drawing windows
+with a mechanism for switching easily between windows is provided by
+
+    LIB * RC_WINDOW_OBJECT
+
+This provides mechanisms for hiding, showing, re-sizing and relocating
+such windows.
+
+As a result, LIB RC_CONTEXT, described in HELP FC_GRAPHIC, is now
+redundant.
+
+    LIB * RC_MOUSEPIC
+
+Provides event handlers that can be associated with windows that are
+instances of rc_window_object, making it possible to have pictures in
+such windows that are sensitive to mouse events, such as moving, draggin
+and clicking, and also keypress events.
+
+Most of the basic features are illustrated in TEACH RC_LINEPIC
+
+-- Demonstration packages ---------------------------------------------
+
+A number of demonstration packages make use of these facilities.
+Some of them are described and demonstrated in TEACH RC_LINEPIC
+
+Examples are
+
+LIB PAINTING_DEMO
+This shows how to build a simple easel with coloured paints and brushes
+of various sorts for painting pictures with the mouse.
+
+LIB RC_BLOCKS
+This demonstrats a simulated robot that understands a tiny subset of
+English and can make plans and carry them out. It may be installed as a
+saved image that can be run by doing
+
+    pop11 +gblocks %x
+
+When the editor window has appeared type "help" to find out what sorts
+oc sentences are acceptable.
+
+LIB RC_BUTTONS
+
+This provides a new way of creating control panels and the like,
+avoiding the use of Propsheet (which can be hard to control).
+
+
+For more a detailed tutorial work through TEACH RC_LINEPIC.
+
+Some problems with fonts and redrawable or movable picture objects are
+described in HELP RCLIB_PROBLEMS
+
+For a more complete overview of the RC_GRAPHIC facilities see
+    HELP * RCLIB
+
+Tutorial examples are given below. More detailed information is in
+HELP * RC_LINEPIC.
+
+The code can also be inspected using the VED showlib command
+
+    showlib rc_linepic
+    showlib rc_window_object
+    showlib rc_mousepic
+    showlib rc_buttons
+    showlib painting_demo
+    showlib rc_constrained_mover
+
+Some of these libraries are still under development, and enhancements
+can be expected. See the change notes below.
+
+
+-- Note on Objectclass ------------------------------------------------
+
+The facilities described here depend on the Pop-11 Objectclass library,
+which became available in Poplog version 14.5, in the directory
+
+    $usepop/pop/lib/proto
+
+and was more fully integrated with Poplog from Version 15.5
+
+If you do not have Poplog V15.5 or later, attempting to compile the
+rclib programs may produce an error message about objectclass not being
+available. In that case, if you have Poplog V14.5 or V15 you can do
+the following:
+
+    compile('$usepop/pop/lib/proto/objectclass.p');
+
+Programming with the RCLIB facilities requires an understanding of
+Objectclass. See
+    TEACH * OOP
+    TEACH * OBJECTCLASS_EXAMPLE
+    HELP  * OBJECTCLASS
+
+TEACH * OOP is available from Birmingham at
+
+    ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/teach/oop
+
+
+
+-- Prerequisites ------------------------------------------------------
+
+It is assumed that the reader has some familiarity with the rc_graphic
+library for creating graphical objects in a Relative Coordinate frame.
+See TECH * GSTART, TEACH * RC_GRAPHIC, and HELP * RC_GRAPHIC
+
+It is also assumed that the reader has encountered OBJECTCLASS, the
+object oriented extension to Pop-11. See TEACH * OBJECTCLASS_EXAMPLE,
+for a tutorial introduction. TEACH * OOP provides more general
+background regarding the nature of object oriented programming.
+
+In particular it is important to understand the ideas of defining
+classes, subclasses and instances, with associated methods, and the idea
+of a "mixin" which is a sort of abstract class which can be combined
+with other things to form a concrete class, whose instances inherit
+features from the mixin.
+
+Someone who does not understand those ideas may still be able to use
+libraries and programs that are built on top of this package and should
+be able to work through the examples given below.
+
+However anyone wishing to use this package to develop new software using
+the graphical facilities provided must understand how the ideas of
+classes, methods, inheritance and defaults can be employed to combine
+features provided in this package with new features added for particular
+applications.
+
+In fact this package is an example of how Object Oriented Programming
+facilitates "re-use" of software, since the code in the package for
+drawing pictures and for handling mouse interaction can easily be
+combined with code written for a variety of different purposes, e.g.
+playing games, the sim_agent simulation toolkit, and others. The use of
+methods and inheritance makes it easy for users to redefine some of the
+"standard" behaviours for particular classes of objects.
+
+
+-- Introductory overview -----------------------------------------------
+
+The rc_linepic and rc_mousepic libraries make available a number of
+mixins and classes, as described in HELP * OBJECTCLASS. Mixins are
+abstract specifications of types of objects, and they can be
+used to define classes.
+
+
+-- -- LIB RC_LINEPIC
+
+This defines three mixins with associated methods:
+
+    rc_linepic, rc_linepic_movable, rc_rotatable
+
+Each is an extension of the previous one.
+
+These mixins may be used to define classes whose instances will be
+Pop-11 objects associated with pictures which may be drawn on the
+screen. The objects will contain information, such as their current
+location, their previous location (used when drawing them moving), which
+lines to draw to depict them, and possibly also some text strings to be
+included when they are drawn. The drawing procedures illustrated below
+not only change what is on the screen, but also change the slot values
+for the picture instances, so that a program has access to information
+about what is currently on the screen. (This is not true of the basic
+rc_graphic drawing procedures).
+
+-- -- LIB RC_MOUSEPIC amd LIB RC_WINDOW_OBJECT
+
+This pair defines two mixins
+    rc_selectable, rc_keysensitive
+
+and one class
+    rc_window_object
+
+These can be used to define classes of objects whose pictures on the
+screen are capable of reacting to mouse and keyboard events. This
+works because the procedure
+
+    rc_mousepic(<window>, <event types>)
+
+is used to make the window sensitive to events in the list of types
+given, i.e. any subset of this list [button motion keyboard]. If the
+list is empty, that sets everything.
+
+This procedure attaches various default event handlers to the window, in
+the form of methods which look to see if there is a picture object near
+the mouse location and if so transfer control to the event handler of
+the object. The full set of facilities is quite complex and general, and
+only a small set of special cases will be described here. All the
+facilities can be redefined or extended by the user. Examples are given
+below.
+
+-- Types of pictures handled ------------------------------------------
+
+An picture of the sort that can be handled by these facilities can be
+made up of
+    one or more individual line segments,
+    chains of connected line segments,
+    closed chains of line segments,
+    squares,
+    rectangles,
+    oblongs (rectangles with rounded corners)
+    circles
+    pictures specified by user procedures based on rc_graphic
+        drawing procedures
+    printable text strings
+
+"Filled" objects are not supported, neither are bitmaps (at present).
+
+Within a picture, line thicknesses and line styles (dashed or solid) can
+be varied, as can colours, both for the whole picture or for
+sub-pictures.
+
+A special interpreted language is used to define the picture associated
+with each object. The definition takes the form of a list of sub-picture
+specifications, where each sub-picture may have a separately specified
+linewidth, linestyle, or colour.
+
+-- Intrinsic coordinate frames ----------------------------------------
+
+Because this package is based on the RC_GRAPHIC library, each object,
+like the whole rc_graphic window, has an associated coordinate frame,
+with its own rc_xorigin, rc_yorigin, rc_xscale, and rc_yscale.
+
+Every picture definition is made up of drawing instructions relative to
+the object's frame. Moving an object therefore involves essentially
+moving the frame and then redrawing the object. The method used to
+"undraw" an object assumes that all drawing is done using either the
+GXxor or GXequiv value for rc_linefunction, which has the consequence
+that if an object is re-drawn exactly where it was previously that
+removes the picture. This also allows overlapping objects to be handled
+very easily, though sometimes the effects may look a bit odd, especially
+where thick lines are used.
+
+Note that the origin of an object's drawing frame need not be centrally
+located in the visible picture.
+
+Each rc_mousepic object also has an associated "selection rectangle"
+which is defined as a region around the centre of the object's
+coordinate frame within which mouse events can be notified to the
+object.
+
+The selection rectangle's size can either be computed automatically to
+include approximately the whole picture object, or can be set by the
+user, by using a vector of coordinates {xmin ymin xmax ymax} relative to
+the picture object's coordinate frame. This vector can be stored in the
+rc_mouse_limit slot of a mouse selectable object.
+
+A selected object can have various actions performed on it via the
+mouse, including dragging it to a new location. When this happens
+event-handling methods are invoked. Users can define different methods
+for different types of events and different types of picture objects.
+These methods are then selected automatically.
+
+
+Further information is in HELP * RC_LINEPIC
+
+For A tutorial overview work through TEACH * RC_LINEPIC
+
+
+--- $poplocal/local/rclib/teach/rc_intro
+--- Copyright University of Birmingham 1997. All rights reserved. ------

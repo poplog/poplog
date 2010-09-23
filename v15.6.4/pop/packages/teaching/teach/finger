@@ -1,0 +1,235 @@
+TEACH FINGER                                         AS & JLC, Jan 1983
+                                                bugs removed RL Mar 1985
+
+A TEACHABLE PROGRAM THAT 'LEARNS TO COUNT'
+
+The FINGER program is based on an idea of Oliver Selfridge, explained to
+A.S. during his visit on 1st May 1981.
+
+CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- The finger world
+ -- Initial actions
+ -- Searching for a plan
+ -- Successful actions are saved for future use
+ -- Training the program
+ -- How to use the program
+ -- Train the program to "count" the blocks
+ -- Other possible training tasks
+ -- Commands available
+
+-- The finger world ---------------------------------------------------
+
+The program lives in a 'world' containing a row of blocks, with a
+'finger' which points at one of them, and a counter which registers a
+number between 0 and 20 (the default value of COUNTER_LIMIT, a
+user-assignable variable). The program has four primitive actions and
+your task is to set it problems which it will try to solve by combining
+its actions into "plans", then using successful plans as elements in
+future plans.
+
+A problem is defined by an initial state chosen at random by the
+computer, and a goal which you set, e.g. finger on block 5 and counter
+registering 5. The program attempts to make a plan to get to the goal
+state.
+
+The program attempts to make a plan composed of primitive actions or
+previous plans. The method of composition includes a "repeat" construct.
+E.g. if an available action is A, then both A and [REPEAT A] can occur
+in a plan.
+
+
+-- Initial actions ----------------------------------------------------
+
+The initial four actions are:
+
+ GOLEFT:
+    move the finger left one position (unless it is already at position
+    0 - left of first block)
+
+ GORIGHT:
+    move the finger right one position (unless it is already at the
+    right-most block)
+
+ DECREMENT:
+    decrease the counter by 1 (unless its value is already 0)
+
+ INCREMENT:
+    increase the counter by 1 (unless its value exceeds the value of
+    counter_limit - which can be changed before the FINGER program runs)
+
+NOTE: The "unless" conditions also terminate "repeat" actions made of
+those actions. So the action [REPEAT GOLEFT INCREMENT] comes to a stop
+whether either the figure reaches position 0, or the counter exceeds the
+value of counter_limit (default 20), whichever happens first.
+
+
+-- Searching for a plan -----------------------------------------------
+
+When you give the program a goal, it searches for a suitable plan by
+trying different combinations of actions including "repeat" actions,
+using a breadth first search (see TEACH TOWER, TEACH SEARCHING).
+
+When forming "plans", an action may be included as a "repeat" action.
+This means that the same action will be repeated until it cannot be done
+any more.
+
+Here are some examples of possible plans:
+    [goleft]
+    [goright]
+    [[repeat goright]]
+    [[repeat increment]]
+    [decrement]
+    [[repeat decrement]]
+    [[repeat goleft] goright]
+    [[repeat goleft] goright [repeat decrement]]
+    [goleft [repeat decrement]]
+    [[repeat goleft] [repeat goleft] goright]
+    [[repeat goleft] [repeat goleft]]
+    [[repeat goleft] goright [repeat goleft] [repeat decrement]]
+
+It is clear that a large number of possible combinations is possible,
+many of them quite redundant, e.g.
+
+    [[repeat goleft] goleft]
+
+However, it will only try a limited number of possibilities (the value
+of the variable "search_limit" - default 120), and then will give up.
+
+
+-- Successful actions are saved for future use ------------------------
+
+A plan is successful if following it from the initial state leads to the
+goal state you have specified. If it ever finds a successful "plan", say
+P, then P will be added to its list of actions (for the current session
+only).
+
+E.g. if [GOLEFT INCREMENT] is a successful plan for a particular goal,
+then that will be stored as a new action which can be combined with
+others in trying to achieve future goals. It will also be able to use
+[REPEAT [GOLEFT INCREMENT]] as a component in future plans.
+
+Thus as the program solves problems, it acquires "bigger" actions which
+can be used to solve some problems immediately, i.e. without searching
+for a new combination.
+
+
+-- Training the program -----------------------------------------------
+
+By giving the program a suitable sequence of training exercises, you
+will enable it to build actions which are useful for solving certain
+problems which it could not solve initially because that would require
+searching for too long in the space of possible combinations of initial
+(primitive) actions.
+
+-- How to use the program ---------------------------------------------
+
+To get the program ready, type
+    lib finger;
+
+then
+
+    start
+
+The program will then create and report an initial state, with a number
+of blocks, the finger at a specified position and the counter with a
+specified value, and it will ask you to define a goal state, represented
+as two numbers, the position of the finger, and the state of the
+counter. E.g. it might print out something like:
+
+    Initial state
+    Counter: 5
+                       v
+        [] [] [] [] [] [] [] [] [] [] [] []
+      0 1  2  3  4  5  6  7  8  9  10 11 12
+
+      Target finger position and target counter value?
+
+
+At that stage you should type two integers and press <RETURN>. Type a
+space between the integers.
+
+It will then try at most "search_limit" different plans, formed by
+combining its actions in groups of one, then two, then three, etc. If a
+plan enables it to achieve your goal state, then it is added to the list
+of actions as explained above.
+
+It will then set up a new initial state (at random) and ask you for a
+new goal state. This time the new synthesised action will be used as a
+plan-element as well as the original actions. The process is repeated
+each time you give it a goal state which it can achieve.
+
+
+-- Train the program to "count" the blocks ----------------------------
+
+Your task is to teach it to build up an action which it can use in ANY
+initial state to "count the blocks". That is, after your training, it
+should have a plan such that if you give it a goal - the finger on the
+rightmost block, with the counter set at the number of blocks, it should
+be able to achieve it without trying any new combinations, no matter
+what the initial state was. E.g. if the initial state is
+
+    counter at 17, seven blocks, and finger on block 3,
+
+then if you give it the goal
+
+    counter at 7, and finger on block 7 it
+
+should be able to achieve this without forming any new combinations.
+
+How many combinations of the four primitive actions would it have to
+search through to move from this state to achieve that goal?
+
+HINT: you should first teach it to get the finger at position 0 and the
+counter set to 0. Use the fact that a REPEAT action will terminate if
+any of its constituent actions cannot be performed.
+
+WARNING: sometimes when it achieves a goal you've set it, it does so "by
+accident", i.e. using a combination of actions which will not achieve
+the goal in all circumstances.
+
+Each time it achieves one of your goals, it will print out the current
+available list of actions. This will help you choose a good goal to
+extend its repertoire of useful actions.
+
+
+-- Other possible training tasks --------------------------------------
+
+You can also invent other tasks to teach the program, e.g. to count the
+number of blocks to the left of the initial finger position, leaving the
+finger at the extreme left, and the number in the counter.
+
+A harder problem is to teach it to place the finger on the MIDDLE block
+(or one of the middle blocks if there are an even number of blocks). Can
+you see how to do this yourself, with the actions available?
+
+
+-- Commands available -------------------------------------------------
+
+"start" is used to start the program, but after that you can ask for
+help and try various additional options.
+
+Instead of typing a number in response to a prompt for a target, you can
+type one of the following commands:
+
+    same    - this means use the first plan in the list of actions, and
+              show what happens
+
+    forget  - restore list of actions to its initial state (with just
+              the four primitive actions)
+
+    next    - ignore this initial state, and choose another
+
+    exit    - leave the finger program
+
+    chatty 0 - suppress tracing
+    chatty 1 - print only a dot for each plan
+    chatty 2 - show plans being considered
+
+Initially, the variable "chatty" has the value 1. This causes the
+program to print a dot each time it starts considering a new plan. If
+"chatty" is given the value 2, then the program will actually print out
+which plan it is currently considering. If it has any other value it
+will not show what it is thinking.
+
+-----<Copyright University of Sussex 1986.  All rights reserved.>-------

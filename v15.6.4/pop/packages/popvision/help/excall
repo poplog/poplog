@@ -1,0 +1,689 @@
+HELP EXCALL                                     David Young
+                                                May 2003
+                                                revised July 2003
+
+LIB * EXCALL provides a syntax word for calling external procedures.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   Syntax
+
+  3   Details of the arguments
+      3.1   General
+      3.2   Offset vector arguments
+      3.3   Array arguments
+      3.4   Reference and constant-reference arguments
+      3.5   Fortran string arguments
+      3.6   Numerical arguments passed by value
+      3.7   Checking-only arguments
+      3.8   Void arguments
+
+  4   Check options
+      4.1   recurse
+      4.2   funcspec
+      4.3   argtypes
+      4.4   indices
+      4.5   stacklen
+      4.6   gc
+
+  5   Indexed vector access
+      5.1   Motivation
+      5.2   Example
+
+  6   Restrictions
+
+  7   Garbage collection issues
+
+-----------------------------------------------------------------------
+1  Introduction
+-----------------------------------------------------------------------
+
+The *excall syntax is intended to help with calling external procedures
+which have been loaded with *exload. It provides ways to pass as
+arguments:
+
+    * addresses of vector elements;
+
+    * arrays that are offset in their arrayvectors;
+
+    * arguments "by reference";
+
+    * complex data;
+
+    * string length "hidden" arguments for Fortran subroutines.
+
+It also provides
+
+    * optional run-time argument type coercion and checking.
+
+Alternatives to excall are exacc (see REF * EXTERNAL and REF *
+DEFSTRUCT), and the facilities described in HELP * EXTERNAL. The excall
+syntax provides some additional functionality, and may also be more
+convenient or efficient in some cases.
+
+-----------------------------------------------------------------------
+2  Syntax
+-----------------------------------------------------------------------
+
+It may be useful to refer to REF * EXTERNAL.
+
+
+excall                                                          [syntax]
+        Used to generate inline access code for external functions. The
+        form is
+
+            excall checklist return-type function-name ( ext-arglist )
+
+        checklist
+            This is optional. If present, it must have one of the forms
+
+                check=on
+                check=off
+                check=list
+
+            where list is a square-bracked list containing a subset of
+            the words "recurse", "funcspec", "argtypes", "indices",
+            "stacklen" and "gc" (without quotation marks or commas). An
+            initial substring can replace any word. Macros are expanded
+            when the check options are read.
+
+            The words included specify which checks are to be carried
+            out - see the section on checking below for details.
+
+            check=off is equivalent to check=[] - i.e. no checking.
+
+            check=on is equivalent to check=[r f a i s] - i.e. all
+            checks except the "gc" check.
+
+            Omission is equivalent to check=on.
+
+        return-type
+            This is optional. If present, it must be a word giving the
+            type of the result of the function call: e.g. "int",
+            "sfloat" or "dfloat", as for an external function typespec.
+            If omitted the function is assumed not to return a result.
+
+        function-name
+            This must be a simple identifier (that is, a word, not a
+            general expression). Its run-time value must be a pointer to
+            an external function, typically loaded using *exload. There
+            is no need to provide typespecs with the identifiers given
+            to exload if the "funcspec" check is switched off.
+
+        ext-arglist
+            This is a comma-separated list of arguments (possibly
+            empty):
+
+                arg1, arg2, ..., argN
+
+            Each argument argX is one of the following:
+
+                (i) An ordinary argument: a Pop-11 expression that
+                    places a single item on the stack (as in an ordinary
+                    call to a procedure). The value is passed using the
+                    normal conversion rules for exacc (see
+                    REF * EXTERNAL).
+
+                (ii) An offset-vector-expression. This has the form
+
+                        XVEC packed-vector-expr [ index-expr ]
+
+                    or
+
+                        XVEC vector-index-expr []
+
+                    where:
+
+                    XVEC is one of the following: BVEC, SIVEC, IVEC,
+                    FVEC, SVEC, DVEC, CVEC, ZVEC;
+
+                    packed-vector-expr is an expression that evaluates
+                    to a "packed" numerical vector - i.e. a vector of
+                    machine-format numbers, such as an *intvec - whose
+                    type corresponds to XVEC (see below);
+
+                    index-expr is an expression that evaluates to an
+                    integer;
+
+                    vector-index-expr is an expression that leaves a
+                    packed vector and an integer on the stack.
+
+                    See the section below for a detailed discussion and
+                    example of this case.
+
+                (iii) An array-expression of the form
+
+                        XARR arr-expr
+
+                    where:
+
+                    XARR is one of the following: BARR, SIARR, IARR,
+                    FARR, SARR, DARR, CARR, ZARR;
+
+                    arr-expr is an expression that evaluates to an array
+                    whose arrayvector is a "packed" numerical type, such
+                    as one created by *newintarray. The array may be
+                    offset in its arrayvector, and the address of its
+                    first element will still be passed correctly.
+
+                (iv) A reference-expression. This has the form
+
+                        XREF word
+
+                    where:
+
+                    XREF is one of: BREF, SIREF, IREF, FREF, SREF, DREF,
+                    CREF, ZREF.
+
+                    word is the name of a variable whose value is to be
+                    passed by reference - see below for more details.
+
+                (v) A constref-expression. This has the form
+
+                        XCONST value
+
+                    where:
+
+                    XCONST is one of: BCONST, SICONST, ICONST, FCONST,
+                    SCONST, DCONST, CREF, ZREF.
+
+                    value is a compile-time value - normally a number -
+                    which is to be passed by reference - see below for
+                    more details.
+
+                (vi) A Fortran-string-expression of the form
+
+                        FSTRING string-expr
+
+                    where string-expr evaluates to a string, whose
+                    length is to be passed as an extra argument
+                    following one of the standard Fortran conventions.
+
+                (vii) An sfloat-expression. This has one of the forms
+
+                        SF float-expr
+                        SFLOAT real-expr
+
+                    where the value of the expression is to be passed as
+                    a single-precision float to the external routine.
+                    These stand in for the <SF> construct in *exload and
+                    are used in the same circumstances.
+
+                    If SF is used then float-expr must evaluate to a
+                    decimal or ddecimal, and no checking is done.
+
+                    If SFLOAT is used then real-expr can produce any
+                    real numerical value, and it will be coerced to a
+                    decimal (and optionally checked - see below).
+
+                (viii) A number-expression, one of:
+
+                        INT real-expr
+                        DFLOAT real-expr
+
+                    The result of the expression is coerced to a
+                    (big)integer or ddecimal respectively, before being
+                    passed to the external procedure using the normal
+                    rules.
+
+                (ix) A checking-expression, one of:
+
+                        STRING string-expr
+                        BOOLEAN bool-expr
+                        XVCTR packed-vector-expr
+
+                    where XVCTR is one of the following: BVCTR, SIVCTR,
+                    IVCTR, FVCTR, SVCTR, DVCTR, CVCTR, ZVCTR.
+                    string-expr must evaluate to a string, bool-expr
+                    must evaluate to a boolean (which is passed as 0 or
+                    1 by the underlying external interface), and
+                    packed-vector-expr is as for case (ii).
+
+                    If checking is switched off, these keywords are
+                    ignored and the value of the expression is passed as
+                    for case (i) above. If "argtypes" checking is on,
+                    the types of these arguments are checked, along with
+                    the types of the other kinds of arguments - see
+                    below.
+
+                (x) A void-expression:
+
+                        VOID expr
+
+                    where expr is an ordinary expression, or an
+                    expression of the form expr1[expr2] as in case (ii)
+                    above. An argument of this type is ignored
+                    completely.
+
+
+See below for details of the limitations that apply to the arguments and
+results.
+
+-----------------------------------------------------------------------
+3  Details of the arguments
+-----------------------------------------------------------------------
+
+3.1  General
+------------
+
+Unlike ordinary procedure call in Pop-11, and unlike exacc, excall is
+particular about the code that supplies its arguments. At compile-time,
+the apparent number of arguments (that is, the number of comma-separated
+expressions between parentheses) must exactly match the number of
+arguments required by the external function.
+
+At run-time, the code for each argument must leave exactly one item on
+the stack, except that the code for an offset-vector-expression must
+leave exactly two items on the stack (the vector and the index).
+
+3.2  Offset vector arguments
+----------------------------
+
+A packed-vector-expr must leave a vector of the correct type on the
+stack. This can be a packed vector of bytes, integers, single-precision
+floating point numbers or double-precision floating point numbers (see
+REF * EXTERNAL/5.3 ). In addition it may be a single-precision or
+double-precision vector masquerading as a vector of complex values, with
+the real and imaginary parts alternating. The XVEC indicator must be the
+appropriate corresponding word - BVEC, IVEC etc. - as listed below.
+
+You can generate suitable vectors using *defclass, but a variety of
+routines exist that make such vectors, or arrays whose arrayvectors have
+the right type. Existing routines include:
+
+    BVEC    inits consstring (REF * STRINGS)
+            newbytearray (in *POPVISION, HELP * NEWBYTEARRAY)
+
+    SIVEC   initshortvec consshortvec (REF * INTVEC)
+
+    IVEC    initintvec consintvec (REF * INTVEC)
+            array_of_int array_of_integer (HELP * EXTERNAL/Arrays)
+            newintarray (in *POPVISION, HELP * NEWINTARRAY)
+
+    FVEC    array_of_float array_of_real (HELP * EXTERNAL/Arrays)
+     or     newsfloatarray (in *POPVISION, HELP * NEWSFLOATARRAY)
+    SVEC    init/consfloatvec newfloatarray (HELP * VEC_MAT)
+
+    DVEC    array_of_double (HELP * EXTERNAL/Arrays)
+            newdfloatarray (in *POPVISION, HELP * NEWDFLOATARRAY)
+            init/consfloatvec newfloatarray (HELP * VEC_MAT)
+
+    CVEC    newcfloatarray (in *POPVISION, HELP * NEWCFLOATARRAY)
+
+    ZVEC    newzfloatarray (in *POPVISION, HELP * NEWZFLOATARRAY)
+
+An index-expr must leave an integer i on the stack.
+
+For real data (all but CVEC or ZVEC) the address passed to the external
+routine will be the address of the vector, offset by i-1, counting in
+element-sized units. That is, it will be the address of the i'th element
+of the vector, using normal Pop-11 indexing which starts from 1. There
+is no check that i is a valid subscript for the vector concerned.
+
+For complex data, indicated by CVEC or ZVEC, the address passed will be
+the address of the i'th pair of elements. The address of the vector is
+offset by 2*(i-1) (counting in elements of the underlying real vector).
+Such a vector will look like an array of complex data to most external
+routines, and can be made to look like a vector of complex values inside
+Pop-11 too - see *newcfloatarray and *newzfloatarray. In fact, however,
+the vector must ultimately have a typespec of :sfloat or :dfloat
+respectively, because Pop-11 does not have low-level support for
+packed complex arrays.
+
+A vector-index-expr should leave two items on the stack, as if it had
+the form (packed-vector-expr, index-expr).
+
+3.3  Array arguments
+--------------------
+
+Numerical arrays may be passed as arguments. The keywords BARR, IARR
+etc. are used: the arrayvector must be of the correct type for the
+corresponding offset vector keyword (BVEC, IVEC etc.) as listed above.
+For most arrays, the address of the arrayvector will be passed to the
+external procedure, but for arrays that are offset (using the index
+offset argument to *newanyarray) the address of the start of the array
+in the vector will be passed.
+
+3.4  Reference and constant-reference arguments
+-----------------------------------------------
+
+Languages such as Fortran require data to be passed "by reference". From
+Pop-11 this is done by putting the value in a vector (or other stucture)
+and passing the address of the vector. On return, the result may need to
+be copied back to a Pop-11 variable. excall provides a mechanism that
+supports this. (HELP * EXTERNAL describes another utility for the
+purpose.)
+
+If a value computed at run-time is to be passed this way, the expression
+giving the value must be a single variable name, and is preceded by a
+keyword such as IREF. The value will be passed as a reference to
+(address of) a byte (BREF), a short integer (SIREF), integer (IREF),
+single precision float (FREF or SREF), double precision float (DREF),
+single precision complex (CREF) or double precision complex (ZREF).
+External functions can return results through arguments passed by
+reference, and such returned values are assigned to the variable when
+the function returns.
+
+If a constant - i.e. a value known at compile-time - is to be passed by
+reference, it should be preceded by a keyword such as ICONST, and will
+be passed as for a corresponding xREF value. It is essential that the
+external procedure does not update the contents of the address that it
+is passed. That is, the specification of a Fortran subroutine, for
+example, should say something like "unchanged on exit" for any argument
+that is passed using an xCONST keyword.
+
+3.5  Fortran string arguments
+-----------------------------
+
+Some Fortran compilers accept string (CHARACTER *(*) ) arguments whose
+length is passed as an extra argument, normally hidden from view. If an
+argument expression evaluates to a string, and it is preceded by
+FSTRING, its length will be passed in this way.
+
+3.6  Numerical arguments passed by value
+----------------------------------------
+
+Floating point arguments (decimal or ddecimal in Pop-11) are passed by
+default as double-precision values. If an floating point argument
+expression is preceded by SF or SFLOAT then it will be passed as a
+single-precision value. For details of when an SF or SFLOAT argument
+should be used (it isn't obvious), see REF * EXTERNAL.
+
+SFLOAT, DFLOAT and INT also plant code to coerce real numbers to the
+appropriate type (decimal for SFLOAT, ddecimal for DFLOAT and
+(big)integer for INT). The value of an INT expression must be a whole
+number. This ensures that the value of most numerical expressions will
+be passed correctly. The exceptions are complex values, which will cause
+errors unless "argtypes" checking is in effect.
+
+The difference between SF and SFLOAT is that SF does no coercion, but
+simply notifies the external interface that a (d)decimal is to be passed
+as single rather than double precision (so an integer value still gets
+passed as an integer). SFLOAT notifies the external interface and also
+coerces integers and rationals to decimals.
+
+3.7  Checking-only arguments
+----------------------------
+
+The remaining keywords allow the types of arguments to be checked (when
+"argtypes" checking is switched on) but do not affect what is passed to
+the external procedure.
+
+STRING and BOOLEAN must be followed by an expression that evaluates to a
+string or a boolean value respectively.
+
+Keywords such as BVCTR, IVCTR etc. must be followed by an expression
+that evaluates to a packed numerical vector of the appropriate type for
+the corresponding offset vector keyword (BVEC, IVEC etc.).
+
+3.8  Void arguments
+-------------------
+
+Arguments starting VOID are ignored completely (though the expression
+must be a valid Pop-11 expression). They are not evaluated, nothing is
+passed to the external procedure, and they are not included in the
+argument count for checking purposes. (This can be helpful for automatic
+interface code generation.)
+
+-----------------------------------------------------------------------
+4  Check options
+-----------------------------------------------------------------------
+
+If run-time checks are switched on, execution may be appreciably
+slower.
+
+4.1  recurse
+------------
+
+This carries out a run-time check that excall is not being used
+recursively, which can cause incorrect results with reference arguments.
+
+4.2  funcspec
+-------------
+
+If this check is switched on, a typespec must have been declared for the
+identifier that gives the function name. Usually this is done by
+including the typespec with the identifier when exload is used (see
+REF * EXTERNAL).
+
+A compile-time check is done to see that
+
+    * the number of arguments,
+
+    * the type of the result,
+
+    * and the positions of any SF or SFLOAT arguments
+
+agree with the typespec.
+
+The number of arguments declared to exload must include hidden string
+length arguments for Fortran subroutines (i.e. it must be incremented by
+one for each FSTRING argument given to excall).
+
+4.3  argtypes
+-------------
+
+A run-time check is carried out for each argument that has been given a
+keyword, except for SF, to see that an object of the correct type has
+been generated.
+
+For XVEC, XARR and XVCTR arguments the type of the vector concerned (the
+arrayvector for array) is checked. For real vectors, the *class_spec is
+used so that any suitable vector can passed. For complex vectors, with
+keywords starting C- or Z-, the *dataword must be "cfloatvec" or
+"zfloatvec" respectively, since there is no specific underlying class.
+
+For XREF arguments checking is performed in any case by assigning the
+value to an element of the appropriate class of vector.
+
+FSTRING and STRING arguments are checked to produce strings. BOOLEAN
+arguments are required to be <true> or <false> (which are converted to 1
+or 0 by the external interface). INT, SFLOAT and DFLOAT arguments are
+checked to be real numbers (specifically not complex ones).
+
+4.4  indices
+------------
+
+A run-time check is carried out on the result of the index expression in
+each offset vector argument. This must be an integer lying between 1 and
+the length of the vector - that is, the address generated will refer to
+an actual element of the vector. This does not guarantee, of course,
+that the external procedure will not attempt to access elements that lie
+outside the vector.
+
+4.5  stacklen
+-------------
+
+A run-time check is carried out to see that the total number of values
+placed on the stack by the argument expressions is correct.
+
+4.6  gc
+-------
+
+This check is switched off by default, because it checks the excall
+code rather than the user's code.
+
+Because Poplog does not have low-level support for offset vector
+arguments, addresses for such arguments have to be computed in
+user-level code before the external procedure is called. A garbage
+collection occurring between these events would invalidate the
+addresses. The excall code has been designed to avoid triggering any
+such garbage collections, as discussed below. The "gc" check is provided
+for extra safety and for testing purposes.
+
+If this is switched on, a garbage collection during the sensitive phase
+of processing will cause a mishap before the external procedure is
+called.
+
+This check can only be used with procedures that return no result, an
+integer or a single-float. (A double-float result would sooner or later
+trigger a mishap, because creation of the structure to hold the result
+can cause a garbage collection. This occurs after the external procedure
+has returned - so will not cause problems for offset vector addresses -
+but before the mishap-on-gc trap can be deactivated.)
+
+-----------------------------------------------------------------------
+5  Indexed vector access
+-----------------------------------------------------------------------
+
+5.1  Motivation
+---------------
+
+The most important function listed in the introduction is passing
+addresses of vector elements, since this is difficult to do other than
+by using excall.
+
+Suppose a vector-processing subroutine foo takes as arguments an address
+and a length, and you wish to apply it to elements 31-40 of a vector of
+length 100. In C you can do
+
+    int iv[100];
+    foo(iv+30, 10);
+
+or in Fortran
+
+      integer iv(100)
+      call foo(iv(31), 10)
+
+What excall gives you is the ability to call foo in this way from
+Pop-11. If foo was loaded as an external procedure, the equivalent of
+the calls above would be
+
+    vars iv = initintvec(100);
+    excall foo(IVEC iv[31], 10);
+
+It is not possible to do this using either exacc or the * EXTERNAL
+facilities.
+
+5.2  Example
+------------
+
+Suppose an external function is supplied that calculates the sum of a
+vector of integers, and sets the elements of the vector to zero. In C
+this might look like
+
+    int sumzero(int* iv, int n) {
+        int sum = 0;
+        for ( ; n > 0; n--, iv++) {
+            sum += *iv;
+            *iv = 0;
+        }
+        return sum;
+    }
+
+You might save this in a file sumzero.c and compile it to a file called
+something like sumzero.so (the extension will depend on the system). You
+can then load it into Poplog with
+
+    exload sumzero ['sumzero.so'] (language C)
+        sumzero(2):int
+    endexload;
+
+Now we create a data vector. It has to be an *intvec (or the like) in
+order for the external routine to process it at all (see
+REF * EXTERNAL/5.3). We put some arbitrary values in it:
+
+    vars iv = consintvec(1,2,3,4,5,6, 6);
+
+Then we can find their sum by calling sumzero:
+
+    excall int sumzero(iv, 6) =>
+
+which prints 21. It has also set the elements of the vector to zero, as
+can be seen with
+
+    iv =>
+
+    ** <intvec 0 0 0 0 0 0>
+
+That could equally well be done with exacc. However, suppose we want to
+apply the same external function to elements 2 to 5 of our vector. With
+excall this can be done as follows:
+
+    vars iv = consintvec(1,2,3,4,5,6, 6);
+    excall int sumzero(IVEC iv[2], 4) =>
+    iv =>
+
+which prints
+
+    ** 14
+    ** <intvec 1 0 0 0 0 6>
+
+i.e. only the 4 elements starting at element 2 have been processed. We
+have in effect passed a sub-vector to the external procedure.
+
+-----------------------------------------------------------------------
+6  Restrictions
+-----------------------------------------------------------------------
+
+excall must not be used recursively. That is, an argument expression
+must not call, directly or indirectly, the procedure that contains it if
+the same excall code will thereby be invoked. This is because fixed
+vectors are used for reference arguments, and a recursive call could
+corrupt them. It is not difficult to get round this: simply evaluate the
+arguments and place the results in variables before the excall
+statement. For simplicity, the "recurse" check option objects to any use
+of excall during the execution of argument code.
+
+Autoloading is turned off during compilation of excall code.
+
+-----------------------------------------------------------------------
+7  Garbage collection issues
+-----------------------------------------------------------------------
+
+Because the operation of passing an offset vector is not supported at a
+deep enough level of Pop-11, serious garbage-collection (GC) problems
+arise for a utility of this type. After the offset address has been
+obtained, and before the external function has been called, any GC will
+invalidate the address. A variety of problems may then arise, including
+incorrect results, system errors, or a complete crash of Poplog.
+
+Various kinds of solution are possible, for example:
+
+    (1) Locking the heap before taking the addresses, and unlocking it
+    afterwards. This was rejected because it may involve a significant
+    overhead, and because incremental unlocking requires the use of the
+    undocumented variable pop_heap_lock_count.
+
+    (2) Using *pop_after_gc to extend the GC to update the addresses,
+    which would be held in a temporary property. This was not done
+    because pop_after_gc appears to crash the system if a second GC
+    occurs during its execution (and you can't rely on one not happening
+    if it does anything non-trivial). Furthermore it would be necessary
+    to rely on other code not changing the value of pop_after_gc - a
+    condition violated, for example, by LIB * PROFILE.
+
+    (3) Avoiding GCs between getting the address and calling the
+    external procedure. This is the solution adopted. Address
+    calculations are deferred until all user code for generating
+    arguments has executed. The code executed in the critical phase
+    avoids any structure creation and does not increase the user stack
+    beyond the high-water-mark established immediately before the first
+    call to sysFIELD to get an address.
+
+    The code planted by sysFIELD to obtain addresses should not itself
+    trigger a GC if "fixed" (i.e. permanent) structures are used for the
+    external pointers (which they are in this case).
+
+    The code planted by sysFIELD to call the external procedure should
+    not in general trigger a GC, since at the Pop-11 level it just looks
+    like a structure access, and the argument processing is written in
+    assembler. However, if the function returns a ddecimal result, and
+    popdprecision is <true>, then a structure has to be built, and this
+    can certainly trigger a GC. Testing shows that this happens after
+    the external call has returned, so the system appears safe, although
+    it is regrettable that the documentation for these operations is not
+    sufficiently detailed to allow complete confidence that the
+    behaviour will be correct on every system.
+
+Additional protection against the GC may be obtained by activating the
+"gc" check, as described above. When is done, pop_after_gc is set to a
+closure of *mishap during the critical code. This mishap should never
+occur if the code behaves as expected (and it has not occurred during
+extensive testing); if it does, further investigation is needed.
+
+
+--- $popvision/help/excall
+--- Copyright University of Sussex 2003. All rights reserved.

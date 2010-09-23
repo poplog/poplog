@@ -1,0 +1,121 @@
+/*
+TEACH BOXDEMO
+
+Aaron Sloman 24 Dec 2000
+(Building on work by Duncan Fewkes).
+
+Based on examples in teach brait1 example.
+
+This file is a mixture of commented out text and some code (below).
+
+To compile this file do this (in Ved).
+
+    ENTER l1
+
+This will create a control panel at top right and a window at bottom
+right, containing a vehicle and five sound sources. You may have to use
+the mouse to push the window up a little if its bottom edge is not
+visible.
+
+If you click on START the demo will start. You can use the SPEED UP
+and SLOW DOWN buttons to change speed.
+
+While it is running you can move the sound sources to see how they
+affect the behaviour of the vehicle. You can turn on a blob trace,
+which shows changes in speed, or a line trace, which shows only the
+path traced by the vehicle as it moves. You can use the the third
+tracing button to turn off tracing.
+
+If the window gets messed up click on "Redraw window" to redraw
+everything, without the trails so far.
+
+You can use the "New sound source" button to create a new sound
+source then move it somewhere to see what effect it has.
+
+You can add a new box if you click on New box. Then select one
+corner with mouse button 1, and move the mouse till the opposite
+corner is in place. Then click with button 3 to fix the box.
+(You can't (yet) move a box after drawing it.)
+
+You can add a new vehicle by clicking on the 'New vehicle' button.
+
+Note that if a vehicle (of the type created here) starts outside a box
+it cannot move into it, and if it starts inside it cannot move out.
+However, you can drag it across the walls of a box using the mouse.
+
+If the vehicle gets stuck, you can use the mouse to drag it to a new
+location then release it.
+
+Try adding one or two new vehicles. If they get stuck you can move them.
+You can also click on the Stop button to stop the demo, move things,
+or add vehicles, then click on the Start button.
+
+
+Note: to prevent unwanted interactions, event handling in the control
+panel is delayed if a moving vehicle is being redrawn during a move.
+If the demo becomes unresponsive to the button events on the
+control panel you can click on the SLOW DOWN button, to slow down
+the vehicles and improve the chance of an event being detected.
+
+You can restart at any time by recompiling this file
+    ENTER l1
+
+However you may wish to try changing some of the parameters
+below if you do that.
+
+*/
+
+create_window(500,500);
+
+;;; create 5 sound sources
+create_simple_source(1500, 1500, sound) ->;
+create_simple_source(1500, 500, sound) ->;
+create_simple_source(500, 500, sound) ->;
+create_simple_source(500, 1500, sound) ->;
+create_simple_source(1000, 1000, sound) ->;
+
+vars vehicle1;
+
+
+define make_vehicle() -> vehicle;
+    ;;; An optional extra vehicle that can be created later by
+    ;;; running this procedure.
+
+    create_vehicle(
+        200 , 120,
+        500 + random(1000), 500 +random(500),
+        random(360),
+
+        [   [0 0 1 0]           ;;; sensor 1 -link to left motor
+            [0 0 0 1]           ;;; sensor 2 -link to right motor
+            [0 0 0 0]
+            [0 0 0 0]],
+
+        [   [basic_unit]        ;;; Unit types - all are basic units
+            [basic_unit]
+            [basic_unit]
+            [basic_unit]],
+
+        [
+         [proximity left 0.9]
+            ;;; sensor 1, front-left of vehicle
+         [proximity right 0.9]
+            ;;; sensor 2, front-right of vehicle
+        ],
+
+        []) -> vehicle;
+
+enddefine;
+
+make_vehicle() -> vehicle1;
+
+vars box1;
+create_box( [[40 40] [40 1960] [1960 1960] [1960 40]]) -> box1;
+
+;;; create control panel
+control_panel();
+
+/*
+--- $poplocal/local/brait/teach/boxdemo
+--- Copyright University of Birmingham 2000. All rights reserved. ------
+*/

@@ -1,0 +1,581 @@
+REF DATATYPES                                    Julian Clinton Aug 1992
+
+        Copyright Integral Solutions Ltd. All Rights Reserved
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<< DATATYPE CREATOR, ACCESSOR  >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<  & MANIPULATOR PROCEDURES   >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<  (PART OF LIB NETGENERICS)  >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Constants
+ -- Creating New Datatypes
+ -- Considerations When Declaring Datatypes
+ -- Predicates
+ -- Accessor Functions
+ -- Accessors On Toggles
+ -- Accessors On Ranges
+ -- Accessors On Sets
+ -- Accessors On Field Formats
+ -- Accessors On File Types
+ -- Information About Datatypes
+ -- Saving And Loading
+ -- Deleting Datatypes
+
+-- Constants ----------------------------------------------------------
+
+The following constants are used to identify the type of datatype
+being defined or accessed.
+
+
+DT_TOGGLE                                                     [constant]
+        This constant signifies a simple toggle datatype.
+
+
+DT_SET                                                        [constant]
+        This constant signifies a simple set datatype.
+
+
+DT_RANGE                                                      [constant]
+        This constant signifies a simple range datatype.
+
+
+DT_SEQ_FIELD                                                  [constant]
+        This constant signifies a sequence format datatype.
+
+
+DT_CHOICE_FIELD                                               [constant]
+        This constant signifies a choice format datatype.
+
+
+DT_CHAR_FILE                                                  [constant]
+        This constant signifies a character file datatype.
+
+
+DT_ITEM_FILE                                                  [constant]
+        This constant signifies an itemised file datatype.
+
+
+DT_LINE_FILE                                                  [constant]
+        This constant signifies a line-oriented byte file datatype.
+
+
+DT_FULL_FILE                                                  [constant]
+        This constant signifies a file-oriented byte file datatype.
+
+
+DT_GENERAL                                                    [constant]
+        This constant signifies a general datatype.
+
+
+
+-- Creating New Datatypes ---------------------------------------------
+
+nn_declare_toggle(NAME, TRUE_ITEM, FALSE_ITEM)               [procedure]
+        Declares NAME to be a  toggle datatype. Each toggle datatype  is
+        mapped to a single unit in the network. When TRUE_ITEM is found,
+        the activation of the unit is set to 1.0 and when FALSE_ITEM  is
+        found, the activation  is set  to 0.0.  When extracting  results
+        from the network, if the activation of the network is > 0.5 then
+        TRUE_ITEM is returned otherwise FALSE_ITEM is returned.
+
+
+nn_declare_set(NAME, SET)                                    [procedure]
+nn_declare_set(NAME, SET, THRESHOLD)                         [procedure]
+        Declares NAME  (a word)  to  be the  set  SET. If  the  optional
+        THRESHOLD value is supplied, this must be a real between 0.0 and
+        1.0 inclusive.
+
+        Each item in a set is  represented by one input or output  unit.
+        For input, the activation of each  unit allocated to the set  is
+        0.0 except for the item being presented which has its activation
+        as 1.0. For  output, the position  of the output  unit with  the
+        highest activation is the position of the chosen set member. For
+        example:
+
+            nn_declare_set("direction", [forwards backwards left right]);
+
+        For an  input  of "left",  the  activation of  the  three  units
+        associated with this  set would  be {0.0  0.0 1.0  0.0}. If  the
+        output of the  net was  {0.32 0.45  0.14 0.31}  then the  result
+        would be interpreted as "backwards".
+
+        If THRESHOLD has  been supplied  then the  result returned  is a
+        list of  items where  the  mapped units  have an  activation  >=
+        THRESHOLD. When  none  of  the units  has  a  sufficiently  high
+        activation, the empty list is returned.
+
+
+nn_declare_range(NAME, LOWER, UPPER)                         [procedure]
+        Declares NAME (a word) to be  a number between LOWER and  UPPER,
+        and adds the  name and conversion  functions to  -nn_datatypes-.
+        NAME is a then a valid type specifier. The value returned by the
+        output converter function will be of the same type as UPPER.
+
+
+nn_declare_field_format(NAME, FORMAT_LIST)                   [procedure]
+nn_declare_field_format(NAME, SETNAME, START, END,
+                            SEPARATOR)                       [procedure]
+        The first format is used to declare sequences. FORMAT_LIST  is a
+        list of  items which  form the  sequence. Datatypes  within  the
+        sequence are  prefixed  by "\".  For  example, suppose  we  have
+        "minutes" and "seconds" declared as ranges:
+
+            nn_declare_range("minutes", 0, 59);
+            nn_declare_range("seconds", 0, 59);
+
+        We can now declare a  sequence which could extract the  relevant
+        parts from a number of other items:
+
+            nn_declare_field_format("time",
+                [\minutes mins and \seconds secs]);
+
+        will parse:
+
+            20 mins and 30 secs
+
+        Alternative literal values (but  not datatypes) can be  supplied
+        as a list e.g.
+
+            nn_declare_field_format("time",
+                [\minutes [mins min] and \seconds [secs sec]]);
+
+        will parse:
+
+            20 mins and 30 secs
+
+        and
+
+            20 mins and 1 sec
+
+        When the output  from a  sequence is  generated and  alternative
+        literal items have been provided, the first item in the list  is
+        used.
+
+
+        The second form  is used  to declare  a choice  format. This  is
+        necessary when a  field can  contain more than  one item  from a
+        defined set. A set can be bracketed in some way by a start  item
+        and an end item (say between "(" and ")") and separated by other
+        items (say ","). The start item  and either the end item or  the
+        separator can be <false> (not present). However, at least one of
+        the ender and separator have to be defined otherwise there is no
+        way of knowing when the choice  field has finished and the  next
+        field starts. For  example, given  a set of  symptoms a  medical
+        patient might exhibit:
+
+            nn_declare_set("symptom", [aches coughs sneezes spots]);
+
+        it is possible to define a selection of symptoms:
+
+            nn_declare_field_format("symptoms", "(", ",", ")");
+
+        This will allow us to parse a field such as:
+
+                (coughs, spots, sneezes)
+
+        It is recommended that a starter and ender are used. If they are
+        not then you must always have  at least one set item present  in
+        the choice field in order for  the parser to know when to  start
+        parsing the  next  field.  Generating  a  choice  set  without a
+        starter or  ender  can be  confusing  if  no set  item  had  the
+        required threshold.
+
+
+nn_declare_charfile(NAME, TYPE_LIST)                         [procedure]
+nn_declare_itemfile(NAME, TYPE_LIST)                         [procedure]
+nn_declare_linefile(NAME, TYPE_NAME, BUFFER_SIZE)            [procedure]
+nn_declare_fullfile(NAME, TYPE_NAME, BUFFER_SIZE)            [procedure]
+        These declarations are used  to  define  file  datatypes.   File
+        datatypes are used to define how files are read in or written to
+        and in what format the data will appear.
+
+        In the first pair, NAME is  the new datatype name and  TYPE_LIST
+        is a list of datatype names which define the format of the file.
+        Character files  are  read  using  -discin-  and  written  using
+        -discout-,  while   itemised  file   read  using   -discin-   <>
+        -incharitem- and written using -discout- <> -outcharitem-.
+
+        Items from a file are read and stored in a list. These lists are
+        parsed using the datatypes whose  names are given in  TYPE_LIST.
+        For example:
+
+            nn_declare_itemfile("symptoms_file", [symptoms]);
+
+        would be  a  valid declaration  of  a filetype  which  read  the
+        "symptoms" datatype from a  file. It is  assumed that files  are
+        organised as  lines (rather  than columns)  of data  - that  is,
+        items read consecutively are part of the same example.
+
+        In the second form, NAME is the datatype name, TYPE_NAME is  the
+        name of a  single datatype  which converts  between network  and
+        byte structure  and BUFFER_SIZE  is  the size  in bytes  of  the
+        byte-structure which is to be used to read and write the file.
+
+        During input, as  many bytes as  will fit in  the buffer or  are
+        available in the buffer (whichever  is less) are read. The  byte
+        structure is then passed to the input converter function of  the
+        named datatype  and any  processing is  done. This  should  then
+        leave the appropriate number of values on the stack which can be
+        gathered and put in the appropriate array. For this reason,  the
+        number of items required  by the input converter  will be 1  and
+        the number of items returned will be the same as the size of the
+        byte structure. The  output converter  function should  return a
+        single item which is the byte structure to be used to write  the
+        file. Note  that  the output  function  can use  a  single  byte
+        structure repeatedly rather than creating a new one each time it
+        is called.
+
+            define get_bytes(byte_struct);
+            lvars byte_struct;
+                explode(byte_struct)
+            enddefine;
+
+            ;;; provide a re-usable byte-structure
+            vars out_byte_struct = inits(100);
+
+            define put_bytes();
+                fill(out_byte_struct);
+            enddefine;
+
+            nn_declare_general("bytes", [1 100], get_bytes, put_bytes);
+
+            nn_declare_fullfile("byte_file", "bytes", 100);
+
+
+
+nn_declare_file_format(NAME, TYPE_LIST, FILE_TYPE)           [procedure]
+nn_declare_file_format(NAME, TYPE_NAME,
+                       BUFFER_SIZE, FILE_TYPE)               [procedure]
+        This procedure in  its two  forms underly the  creation of  file
+        datatypes. In the  first form,  NAME is the  new datatype  name,
+        TYPE_LIST is a list of datatype names which define the format of
+        the file  and FILE_TYPE  defines the  type of  file being  used.
+        Valid values for FILE_TYPE are:
+
+            DT_CHAR_FILE    character file read using -discin- and
+                            written using -discout-,
+
+            DT_ITEM_FILE    itemised file read using -discin- <>
+                            -incharitem- and written using -discout- <>
+                            -outcharitem-.
+
+        For example:
+
+            nn_declare_file_format("symptoms_file",
+                                    [symptoms], DT_ITEM_FILE);
+
+
+        does  the  same   as  the   "symptoms_file"  declaration   using
+        -nn_declare_itemfile-.
+
+        In the second form, NAME is the datatype name, TYPE_NAME is  the
+        name of a  single datatype  which converts  between network  and
+        byte  structure,  BUFFER_SIZE  is  the  size  in  bytes  of  the
+        byte-structure which is to  be used to read  and write the  file
+        and FILE_TYPE defines the type of file being used. Valid  values
+        for FILE_TYPE are:
+
+            DT_LINE_FILE
+            DT_FULL_FILE
+
+        These both use -sysread- to  read files and -syswrite- to  write
+        them but differ  in the  argument passed to  -sysopen- (see  REF
+        *SYSIO for more information) which is used to open the file. For
+        example:
+
+            nn_declare_file_format("byte_file",
+                                "bytes", 100, DT_FULL_FILE);
+
+        performs    the     same    declaration     as    that     using
+        -nn_declare_fullfile- shown previously.
+
+
+nn_declare_general(NAME, FORMAT, INCONV, OUTCONV)            [procedure]
+        Declares NAME  (a word)  to be  a datatype  with a  format  list
+        FORMAT, input  converter function  INCONV and  output  converter
+        function OUTCONV. FORMAT should be a two item list, the first is
+        the number of high-level items  required by the input  converter
+        and the second  is the number  of items required  by the  output
+        converter (and is also the same as the number of units  required
+        to represent the datatype).
+
+
+-- Considerations When Declaring Datatypes ----------------------------
+
+There are two important things to bear in mind when declaring datatypes:
+
+        1. You should ensure  that the literal items  are valid for  the
+        type of file being parsed. For example, if the file is going  to
+        be passed as  a character  file, then you  should declare  items
+        appropriately e.g.
+
+            nn_declare_set("number_char", [`0` `1` `2` `3` `4`]);
+            nn_declare_field_format("num_choice", false, `,`, false);
+
+        will parse a character file containing the characters:
+
+                3,2,4
+
+        but not
+
+                3, 2, 4
+
+        because the space characters will not be valid set members.
+
+        Similarly, if the number set had been declare as:
+
+            nn_declare_set("number_char", [0 1 2 3 4]);
+
+        this will also  not be parsed  from a character  file since  the
+        character codes would not have been turned into the numbers they
+        represent.
+
+
+        2. When  using lists,  files  etc. bear  in  mind that  how  you
+        understand a collection of symbols  will not always be the  same
+        as how those symbols will be split. For example:
+
+            re-engineer
+
+        may well  be  considered  a single  item.  However,  the  Pop-11
+        itemiser will split this into 3 items: "re", "-" and "engineer".
+        You may need substitute alternative characters (such as the  "_"
+        character)  or  change  the  *ITEM_CHARTYPE  of  the  characters
+        concerned. See  REF  *ITEMISE  for more  information  about  the
+        Pop-11 itemiser.
+
+
+-- Predicates ---------------------------------------------------------
+
+isdatatype(NAME) -> BOOLEAN                                  [procedure]
+        Returns <true> if NAME is a datatype or <false> otherwise.
+
+
+is_toggle_dt(TYPE_NAME) -> TYPE_CLASS or <false>             [procedure]
+is_set_dt(TYPE_NAME) -> TYPE_CLASS or <false>                [procedure]
+is_range_dt(TYPE_NAME) -> TYPE_CLASS or <false>              [procedure]
+is_general_dt(TYPE_NAME) -> TYPE_CLASS or <false>            [procedure]
+is_seq_field_dt(TYPE_NAME) -> TYPE_CLASS or <false>          [procedure]
+is_choice_field_dt(TYPE_NAME) -> TYPE_CLASS or <false>       [procedure]
+is_char_file_dt(TYPE_NAME) -> TYPE_CLASS or <false>          [procedure]
+is_item_file_dt(TYPE_NAME) -> TYPE_CLASS or <false>          [procedure]
+is_line_file_dt(TYPE_NAME) -> TYPE_CLASS or <false>          [procedure]
+is_full_file_dt(TYPE_NAME) -> TYPE_CLASS or <false>          [procedure]
+        Each of these procedures takes TYPE_NAME (a word) which is meant
+        to be the name of a  datatype and returns the TYPE_CLASS of  the
+        datatype if it is of the appropriate class or <false> otherwise.
+
+
+is_simple_dt(TYPE_NAME) -> TYPE_CLASS or <false>             [procedure]
+        Takes TYPE_NAME (a word which is the name of a datatype) returns
+        the TYPE_CLASS of the  datatype if it is  a toggle, simple  set,
+        range or general datatype or <false> otherwise.
+
+
+is_field_dt(TYPE_NAME) -> TYPE_CLASS or <false>              [procedure]
+        Takes TYPE_NAME (a word which is the name of a datatype) returns
+        the TYPE_CLASS of  the datatype if  it is a  sequence or  choice
+        field format datatype or <false> otherwise.
+
+
+is_file_dt(TYPE_NAME) -> TYPE_CLASS or <false>               [procedure]
+        Takes TYPE_NAME (a word which is the name of a datatype) returns
+        the TYPE_CLASS of the datatype if  it is a character file,  item
+        file, line file or full-file datatype or <false> otherwise.
+
+
+-- Accessor Functions -------------------------------------------------
+
+nn_datatypes(WORD) -> TYPE_ENTRY                        [property table]
+        Holds the information required to convert a particular data type
+        to a  series of  real  numbers and  back  again.
+
+        The FORMAT field is a list  of integers. The number of  integers
+        signifies how  many arguments  the TYPE-TO-REAL  function  takes
+        while the  sum of  all those  integers signifies  how many  real
+        numbers the TYPE-TO-REAL function  returns (the reverse is  true
+        for the REAL-TO-TYPE function).
+
+        See     also     -nn_type_format-,     -dt_in_converter-     and
+        -dt_out_converter-.
+
+        The GENERIC-TYPE is a word  specifying what sort of datatype  it
+        is.  Currently  this  is   one  of  "toggle",  "set",   "range",
+        "sequence_field",  "choice_field",   "char_file",   "item_file",
+        "line_file", "full_file" or  "general". Note  that these  values
+        might change between versions  of Poplog-Neural. Always use  the
+        constants:
+
+            DT_TOGGLE
+            DT_SET
+            DT_RANGE
+            DT_SEQ_FIELD
+            DT_CHOICE_FIELD
+            DT_CHAR_FILE
+            DT_ITEM_FILE
+            DT_LINE_FILE
+            DT_FULL_FILE
+            DT_GENERAL
+
+
+dt_in_nargs(TYPE_ENTRY) -> LIST                              [procedure]
+        Takes an entry  from -nn_datatypes-  and returns  the number  of
+        arguments expected by the input converter function. This is also
+        the number of results returned by the output converter function.
+
+
+dt_out_nargs(TYPE_ENTRY) -> LIST                             [procedure]
+        Takes an entry  from -nn_datatypes-  and returns  the number  of
+        arguments expected  by the  output converter  function. This  is
+        also the  number  of results  returned  by the  input  converter
+        function.
+
+
+dt_in_converter(TYPE_ENTRY) -> WORD or PROCEDURE             [procedure]
+        Takes an entry from -nn_datatypes-  and returns the function  or
+        the name of the  function used to convert  input data to  values
+        presentable to a neural  network. The converter function  itself
+        leaves the results on the stack.
+
+
+dt_out_converter(TYPE_ENTRY) -> WORD or PROCEDURE            [procedure]
+        Takes an entry from -nn_datatypes-  and returns the function  or
+        the name of the function  used to convert network output  values
+        into a  "higher" datatype.  The  converter function  leaves  the
+        results on the stack.
+
+
+-- Accessors On Toggles -----------------------------------------------
+
+nn_dt_toggle_true(TYPE_NAME) -> ITEM                         [procedure]
+ITEM -> nn_dt_toggle_true(TYPE_NAME)                         [procedure]
+nn_dt_toggle_false(TYPE_NAME) -> ITEM                        [procedure]
+ITEM -> nn_dt_toggle_false(TYPE_NAME)                        [procedure]
+        These procedures (and their updaters) take the name of a  toggle
+        datatype and return (or set) the values which the toggle uses as
+        the TRUE_VAL and FALSE_VAL respectively.
+
+
+-- Accessors On Ranges ------------------------------------------------
+
+nn_dt_lowerbound(TYPE_NAME) -> NUMBER                        [procedure]
+NUMBER -> nn_dt_lowerbound(TYPE_NAME)                        [procedure]
+nn_dt_upperbound(TYPE_NAME) -> NUMBER                        [procedure]
+NUMBER -> nn_dt_upperbound(TYPE_NAME)                        [procedure]
+        These procedures (and their updaters)  take the name of a  range
+        datatype and return (or set) the  lower and upper bounds of  the
+        datatype respectively.
+
+
+-- Accessors On Sets --------------------------------------------------
+
+nn_dt_setmembers(TYPE_NAME) -> LIST                          [procedure]
+LIST -> nn_dt_setmembers(TYPE_NAME)                          [procedure]
+        This procedure  takes the  name  of a  simple set  datatype  and
+        returns a list of items in the set. In update mode, it assigns a
+        new set of items to the datatype.
+
+
+nn_dt_setthreshold(TYPE_NAME) -> NUMBER or <false>           [procedure]
+NUMBER or <false> -> nn_dt_setthreshold(TYPE_NAME)           [procedure]
+        This procedure takes the  name of a simple  set and returns  the
+        set threshold if one was provided  or false. In update mode,  it
+        assigns a new threshold or false to the set threshold.
+
+
+-- Accessors On Field Formats -----------------------------------------
+
+nn_dt_field_sequence(TYPE_NAME) -> LIST                      [procedure]
+LIST -> nn_dt_field_sequence(TYPE_NAME)                      [procedure]
+        This procedure  and its  updater return  or set  the items  in a
+        sequence format.
+
+
+nn_dt_field_choiceset(TYPE_NAME) -> LIST                     [procedure]
+LIST -> nn_dt_field_choiceset(TYPE_NAME)                     [procedure]
+nn_dt_field_starter(TYPE_NAME) -> ITEM or <false>            [procedure]
+ITEM or <false> -> nn_dt_field_starter(TYPE_NAME)            [procedure]
+nn_dt_field_ender(TYPE_NAME) -> ITEM or <false>              [procedure]
+ITEM of <false> -> nn_dt_field_ender(TYPE_NAME)              [procedure]
+nn_dt_field_separator(TYPE_NAME) -> ITEM or <false>          [procedure]
+ITEM or <false> -> nn_dt_field_separator(TYPE_NAME)          [procedure]
+        These procedures (and their updaters) take the name of a  choice
+        format datatype and return (or set)  the name of the simple  set
+        being  being  selected  from,  the  start  item,  end  item  and
+        separator item respectively. If any of the last three items  are
+        not defined, <false> is returned or assigned.
+
+
+-- Accessors On File Types --------------------------------------------
+
+nn_dt_file_datatypes(TYPE_NAME) -> RECIPIENTS                [procedure]
+RECIPIENTS -> nn_dt_file_datatypes(TYPE_NAME)                [procedure]
+        This procedure and its  updater takes a  character file or  item
+        file datatype and returns  or sets the  list of datatypes  which
+        appear in the file.
+
+
+nn_dt_file_recipient(TYPE_NAME) -> RECIPIENT                 [procedure]
+RECIPIENT -> nn_dt_file_recipient(TYPE_NAME)                 [procedure]
+        This procedure  and  its  updater  take  a  line-  or  full-file
+        datatype name and returns or sets the name of the datatype which
+        is used to convert the byte-structure to and from the network.
+
+
+nn_dt_file_in_bytestruct(TYPE_NAME) -> BYTE_STRUCT           [procedure]
+BYTE_STRUCT -> nn_dt_file_in_bytestruct(TYPE_NAME)           [procedure]
+nn_dt_file_out_bytestruct(TYPE_NAME) -> BYTE_STRUCT          [procedure]
+BYTE_STRUCT -> nn_dt_file_out_bytestruct(TYPE_NAME)          [procedure]
+        These procedures and  their updaters take  a line- or  full-file
+        datatype name and returns or  sets the byte-structure used  when
+        reading and writing the file respectively.
+
+
+-- Information About Datatypes ----------------------------------------
+
+nn_units_needed(TYPE_NAME) -> INTEGER                        [procedure]
+        This procedure  takes a  datatype name  and returns  an  integer
+        which is the number of  network units required to represent  the
+        datatype.
+
+
+nn_items_needed(TYPE_NAME) -> INTEGER or <false>             [procedure]
+        This procedure  takes a  datatype name  and returns  an  integer
+        which is the number of items required to be read from the  input
+        and left  on  the stack  for  the input  converter  function  or
+        <false> if this cannot determined  (usually this should only  be
+        the case  for a  choice format  datatype or  any datatype  which
+        includes a choice format).
+
+
+-- Saving And Loading -------------------------------------------------
+
+
+nn_load_dt(DTNAME, FILE) -> LOADED                           [procedure]
+        -nn_load_dt- takes  the  name of  a  datatype as  a  word  and a
+        filename as  a  string  and  attempts to  load  the  neural  net
+        structure stored in  the file  and stores  it in  -nn_datatypes-
+        accessed by DTNAME. The function returns true or false according
+        to whether the datatype was successfully loaded or not.
+
+
+nn_save_dt(DTNAME, FILE) -> SAVED                            [procedure]
+        -nn_save_dt- takes the name of an datatype name as a word  and a
+        filename as a string and attempts to save the datatype in  FILE.
+        The function returns the filesize or false according to  whether
+        the datatype was successfully saved or not.
+
+
+-- Deleting Datatypes -------------------------------------------------
+
+nn_delete_dt(NAME)                                           [procedure]
+        Removes datatype called NAME from -nn_datatypes-.
+
+
+--- $popneural/ref/datatypes
+--- Copyright Integral Solutions Ltd. 1992. All rights reserved. ---

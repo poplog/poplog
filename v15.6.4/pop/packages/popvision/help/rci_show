@@ -1,0 +1,367 @@
+HELP RCI_SHOW                               David Young
+                                            Nov 1992, revised Feb 1995
+
+LIB * RCI_SHOW provides a simple procedure for displaying an array as a
+grey level image under X.  A new window is normally created for each
+image, and the window exactly fits the image. To show several images in
+one window, to pick out rectangular regions of arrays to display, and to
+position arrays in windows with user-determined dimensions, use
+* rc_array.
+
+(rci_show is based on rc_array which in turn uses the * RC_GRAPHIC
+package, which allows graphics operations Relative to user-defined
+Coordinates.)
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Simple use
+
+  2   General use
+
+  3   Coordinate system
+
+  4   Positioning the windows
+
+  5   Changing scale
+
+  6   Changing the range of grey levels
+
+  7   Drawing on the array
+
+  8   Other coordinate systems
+
+  9   Re-using windows
+
+ 10   Destroying windows
+
+ 11   The procedure RCI_DRAWPOINT
+
+-----------------------------------------------------------------------
+1  Simple use
+-----------------------------------------------------------------------
+
+rci_show(array) -> window
+        array is a 2-D array containing only numbers. Any type of array
+        may be used, but packed arrays of bytes or single-precision
+        floats (e.g. those created by *newbytearray or *newsfloatarray)
+        will be handled more efficiently than others. The result window
+        is the window which has been created to display the image.
+
+Try, for example:
+
+    uses rci_show
+    uses newbytearray
+    vars image = newbytearray([1 100 1 100], nonop +); ;;; a simple image
+    rci_show(image) -> ;        ;;; No need to keep the window
+
+Moving the screen cursor into the window will cause the title bar to
+show the cursor's x,y coordinates in the array coordinate system - that
+is, the numbers refer to the column and row of the array element which
+the cursor is "over". (This display is independent of the current global
+* RC_GRAPHIC coordinate system.) This can be disabled using
+rci_show_cursorcoords - see below.
+
+Clicking any button on the image area of the window will destroy the
+window. (The window is protected from garbage collections till this is
+done.)
+
+It is possible to change the colour map used for the display by means of
+calls to rci_cmap - see * rc_image for details.
+
+There is no need for the array bounds to start at 1.
+
+For straightforward display purposes, you need read no further. More
+elaborate calls are set out in the next section and more explanation is
+given in later sections.
+
+-----------------------------------------------------------------------
+2  General use
+-----------------------------------------------------------------------
+
+rci_show(array) -> window
+rci_show(array, window) -> window
+rci_show(array, window, setcoords) -> window
+        array is as above.
+
+        window as an argument may be a live window (e.g. rc_window if
+        that has been set up by rc_start (see * RC_GRAPHIC), in which
+        case the array is displayed in it and it is returned. If the
+        argument is omitted or is not a live window, a new window is
+        created and returned. If a window is re-used, the title bar
+        information will use the coordinates appropriate for the most
+        recent array displayed in this window.
+
+        setcoords, if present, should be a boolean, and if it is <true>
+        the global * RC_GRAPHIC coordinate system, as defined by
+        rc_xorigin, rc_yorigin, rc_xscale and rc_yscale, is set so that
+        rc_graphic operations on the window are done in array
+        coordinates (see below). Setting this argument to <true> is
+        equivalent to calling rci_show_setcoords(array) (see below)
+        immediately after the call to rci_show. The window argument must
+        be present, but may just be <false>, if the setcoords argument
+        is given.
+
+rci_show_cursorcoords
+        If this variable is <true> when rci_show is called, cursor
+        coordinates are displayed on the title bar of the window. If it
+        is <false> then they are not. This variable is only consulted
+        when rci_show is called, so other windows are not affected.
+
+rci_show_x
+rci_show_y
+rci_show_xshift
+rci_show_yshift
+        These variables control window positioning. See Section 4 below
+        for details.
+
+-----------------------------------------------------------------------
+3  Coordinate system
+-----------------------------------------------------------------------
+
+The coordinate system is the conventional one for images held in arrays.
+The elements of the array are laid out on the screen like this:
+
+    array(1, 1)     array(2, 1)     array(2, 1)     array(2, 1) ...
+    array(1, 2)     array(2, 2)     array(2, 2)     array(2, 2) ...
+    array(1, 3)     array(2, 3)     array(2, 3)     array(2, 3) ...
+    array(1, 4)     array(2, 4)     array(2, 4)     array(2, 4) ...
+        .               .               .               .
+        .               .               .               .
+
+I.e. if the array indices are thought of as X and Y, then X increases
+left-to-right and Y increases top-to-bottom.
+
+The example above is for an array whose bounds start at 1 (i.e. the
+boundslist (see * ARRAYS) is of the form [1 xmax 1 ymax]. This does not
+have to be the case - if the boundslist is [xmin xmax ymin ymax] then
+array(xmin, ymin) will be positioned at the top-left of the image.
+
+If any of this is wrong for the layout of your arrays, either use
+* arraysample to flip or shift them, or use * rc_array to plot them in
+the coordinate system of your choice.
+
+-----------------------------------------------------------------------
+4  Positioning the windows
+-----------------------------------------------------------------------
+
+Windows created by rci_show can be positioned using the mouse, like
+any others. You can control the position at which the next window is
+drawn by assigning to the variables rci_show_x and rci_show_y. These
+work like rc_window_x and rc_window_y in * RC_GRAPHIC, and have the
+same default values.
+
+Alternatively, rci_show will position windows automatically to cover
+the screen, in non-overlapping rows. To tell it to do this, assign
+integers to rci_show_xshift and rci_show_yshift. The integers
+specify how much to shift horizontally and vertically over and above the
+amount needed to avoid overlapping the actual image areas. It is
+therefore a good idea to assign values a little bigger than the borders
+added by the window manager. For example:
+
+    10 -> rci_show_xshift;
+    35 -> rci_show_yshift;
+
+will usually leave moderate gaps between the windows. To prevent
+shifting horizontally or vertically, assign <false> to the relevant
+variable.
+
+If shifting is in effect and you are drawing a lot of windows
+automatically, you may want to pause before starting at the top of the
+screen each time. The user-definable procedure rci_show_pause is
+called before creating any window that has involved a jump to the top of
+the screen. By default it does nothing. You can program a pause at this
+stage by redefining it thus:
+
+    define rci_show_pause;
+        dlocal pop_readline_prompt = 'Press return for next image';
+        readline() -> ;
+    enddefine;
+
+-----------------------------------------------------------------------
+5  Changing scale
+-----------------------------------------------------------------------
+
+You can draw the image bigger by assigning a positive integer to the
+(active) variable rci_show_scale.
+
+    int -> rci_show_scale
+
+will cause subsequent calls to rci_show to use an int x int square of
+screen pixels for each array element. There is no smoothing, so a big
+value will cause the picture to look blocky.  (Use the smoothing options
+in * arraysample to make your array bigger if this is not what you
+want.)
+
+Note that if the global coordinate system is set, either by rci_show
+with a <true> third argument, or by rci_show_setcoords, this will take
+account correctly of the current setting of rci_show_scale.
+
+-----------------------------------------------------------------------
+6  Changing the range of grey levels
+-----------------------------------------------------------------------
+
+Normally the smallest (or most negative) value in the array will be
+represented as black on the screen, and the largest (most positive)
+value will be white, with other values in between (on a linear scale).
+You can change this behaviour by assigning to two global variables:
+
+    num1 -> rci_show_black
+    num2 -> rci_show_white
+
+Then these values will map to black and white respectively. Any value in
+the array less than num1 will also show as black, and any value greater
+than num2 will show as white.
+
+For example, try:
+
+    70 -> rci_show_black;
+    130 -> rci_show_white;
+    rci_show(image) -> ;
+
+To restore the default behaviour of using the maximum and minimum values
+in the array, assign <false> to these variables.
+
+The variables correspond to the blackval and whiteval arguments to
+* rc_image.
+
+You can also change the colour map using rci_cmap as described in HELP
+and TEACH * RC_IMAGE.
+
+-----------------------------------------------------------------------
+7  Drawing on the array
+-----------------------------------------------------------------------
+
+If you want to add further graphics to a window showing an image, you
+have first to get hold of the window by keeping the result returned by
+rci_show. It may well be convenient to assign this to rc_window so that
+the * RC_GRAPHIC facilities can be used. It will also usually be
+desirable for drawing coordinates to correspond to array indices. To set
+this up, creating a new window, do
+
+    rci_show(image, false, true) -> rc_window;
+
+but  if you want to recycle the existing rc_window do
+
+    rci_show(image, rc_window, true) -> rc_window;
+
+If you need to change coordinates for some reason, you can reset them to
+the image coordinates using
+
+    rci_show_setcoords(image);
+
+ensuring that you do not change rci_show_scale between the calls to
+rci_show and rci_show_setcoords.
+
+The user coordinates of the RC_GRAPHIC package will now be set up
+appropriately for the image that has been displayed.
+
+So, for example, after the call to rci_show_setcoords,
+
+    rc_jumpto(80, 80);
+    rc_drawto(80, 90);
+    rc_drawto(90, 90);
+    rc_drawto(90, 80);
+    rc_drawto(80, 80);
+
+draws a rectangle whose corners are centred on the pixels at (80, 80),
+(80, 90) etc., regardless of what the boundslist of the array was or
+what the scale was.
+
+Note that rci_show on its own will not affect the *RC_GRAPHIC user
+coordinate system, which might have been set up for another window.
+
+If you just want a blank window to draw on, rci_show will accept a
+boundslist-type list as argument instead of an array, and will create
+the window for that size array, or blank an existing window.
+
+-----------------------------------------------------------------------
+8  Other coordinate systems
+-----------------------------------------------------------------------
+
+There is also a facility to map other coordinate systems onto the image.
+For example, suppose you wish to put the origin in the middle, with the
+outer boundaries of the image corresponding to a unit square, and with X
+and Y running in the conventional (graph paper) directions. Then you can
+use rci_show_setframe:
+
+    rci_show_setframe(image, [-0.5 0.5 0.5 -0.5]);
+
+Then
+
+    rc_jumpto(0,0);     ;;; go to the centre
+    rc_drawto(0.4, 0.4); ;;; up towards top right 4/5 of way to corner
+
+illustrates the new coordinate system. Again you must not change
+rci_show_scale between the call to rci_show and that to
+rci_show_setframe.
+
+You can see the effect by putting the cursor in the window and looking
+at the x,y coordinates displayed on the title bar.
+
+In general:
+
+rci_show_setframe(array, display_region)
+    The user coordinate system is set so that the rectangle specified by
+    the display_region argument corresponds to the outer boundary of
+    the array - and indeed of the window's drawing region if the window
+    was created by a call to rci_show with array as argument.
+    display_region has the same meaning as the argument of the same name
+    in * RC_IMAGE.
+
+-----------------------------------------------------------------------
+9  Re-using windows
+-----------------------------------------------------------------------
+
+If you want to plot an image in an existing window, you can pass a
+graphics window as a second argument to rci_show, and the image will
+be shown in it instead of creating a new window. E.g.
+
+    rci_show(image, rc_window) -> rc_window;
+
+(assuming you have run the examples above) will refresh the image in the
+existing window, removing the superimposed graphics.
+
+The image is always positioned at the top left of the window, which is
+not resized. If the window is too big its right and lower portions will
+be left unchanged; if too small, the right and lower portions of the
+image will be missing. It is therefore best to re-use a window when it
+is wished either to redisplay the array for which the window was
+created, or to display another array exactly the same size.
+
+-----------------------------------------------------------------------
+10  Destroying windows
+-----------------------------------------------------------------------
+
+A window created with rci_show can be destroyed by clicking any button
+on the image provided rc_mousing (see * RC_GRAPHIC/rc_mouse) is <false>.
+
+Alternatively, windows can be destroyed using:
+
+    rci_show_destroy(w)
+
+where w is a window previously returned by rci_show; or
+
+    rci_show_destroy(n)
+
+where n is an integer, which destroys the most recent n windows created
+by rci_show; or
+
+    rci_show_destroy(all)
+
+where all is anything that is not an integer, which destroys all the
+windows created by rci_show.
+
+-----------------------------------------------------------------------
+11  The procedure RCI_DRAWPOINT
+-----------------------------------------------------------------------
+
+rci_drawpoint(x, y)
+    This does almost the same as rc_drawpoint (see * RC_GRAPHIC) except
+    that it marks the whole of the region occupied by a pixel of the
+    array, provided that rci_show_setcoords has been called or rci_show
+    was called with a <true> third argument.
+
+
+--- $popvision/help/rci_show
+--- Copyright University of Sussex 2000. All rights reserved.

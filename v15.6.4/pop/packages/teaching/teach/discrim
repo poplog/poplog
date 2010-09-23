@@ -1,0 +1,697 @@
+TEACH DISCRIM                                Chris Mellish, October 1981
+
+-- INTRODUCTION --------------------------------------------------------
+
+This demo  introduces the  idea of  a  DISCRIMINATION NET  as a  way  of
+organising information for certain tasks. At the same time, it will give
+you more practice with lists and procedures in POP11. In particular,  it
+will use recursion  as a  means of  carrying out  operations on  complex
+structures. You may like  to re-read POPSUMMARY  and LISTSUMMARY to  run
+over the basic  features of  POP11 before you  proceed further.  Several
+possible exercises are indicated below. See how many you can do. At  the
+lectures we'll indicate what you should hand in.
+
+
+-- GUESSING AN ANIMAL --------------------------------------------------
+
+You may well have come across the following game before. One player  (A)
+thinks of an animal,  and the second  player (B) has  to guess what  the
+animal is. However, he is restricted to putting simple yes-no  questions
+to the first player (A). A sample sequence in the game might go:
+
+    B:      Can you eat it?
+    A:      no
+    B:      Does it have legs?
+    A:      yes
+    B:      Is it a giraffe?
+    A:      no
+    B:      Does it have 4 legs?
+    A:      no
+    B:      Is it a man?
+    A:      yes
+
+We will see how we can program  a computer to play the part of  player B
+in this game.
+
+What knowledge must the computer have to play this game (from the  point
+of view of player B, who has to guess the animal)? First of all, it must
+know appropriate questions  to ask.  Second, it must  know what  animals
+have what properties. Third, it must know how to use the yes-no  answers
+to eliminate those animals that  do not have the desired  possibilities,
+and so to finally converge on the animal that has been chosen.
+
+Given that nobody has  time to type in  exhaustive details of the  whole
+animal kingdom, we cannot expect to have a program that knows about  all
+animals or  which  knows all  subtle  questions to  distinguish  between
+animals. So the  program will be  functioning with a  knowledge of  some
+restricted set of animals  and some restricted set  of questions it  can
+ask. This  means that  it will  sometimes fail  to guess  an animal.  Of
+course, even people do  not always succeed in  guessing an animal  first
+time. We will see later how to  write a program that can learn to  guess
+new animals that it has failed to guess before.
+
+Although we have  not introduced it  here, a feature  of the "guess  the
+animal" game is often that the  second player is only allowed a  certain
+number of guesses before he is deemed to have lost. An important part of
+the second player's strategy is therefore to select questions with care.
+In particular, he must avoid  asking redundant questions. For  instance,
+if the answer to "Is it a mammal?" is "yes", then it is silly to ask "Is
+it warm-blooded?" (because all mammals  are warm-blooded). On the  other
+hand, if the  answer to "Is  it a mammal?"  is "no", then  "Is it  warm-
+blooded?" might  be  quite  a  sensible next  question.  In  a  computer
+program, we can avoid  redundant questions by  making the next  question
+asked depend explicitly on what has gone before.
+
+Here is a first sketch of how we might write a computer program to  play
+the part of player B in the  "guess the animal" game. One thing we  need
+to do is  ask questions and  receive answers. If  the computer is  being
+player B then it makes sense for somebody sitting at the terminal to  be
+player A. So we need a way to print a question on the terminal and  read
+an answer typed in.  Fortunately, there is  already a library  procedure
+YESNO to do this.  YESNO is given  a list of words  as its argument.  It
+prints this list on the terminal  and then reads in everything you  type
+up to a 'return'. If you type YES then YESNO returns 'true'; if you type
+NO then YESNO returns 'false' and  if you type anything else then  YESNO
+complains and  asks the  question again.  To examine  the definition  of
+YESNO see SHOWLIB * YESNO.
+
+If you have not yet come across READLINE and GETLINE, you might like  to
+look at TEACH * READLINE. In  any case, you should familiarise  yourself
+with YESNO (by trying it out on different examples) enough to be able to
+answer the  following questions:  What happens  if you  carry on  typing
+words after  the  first 'return'?  What  happens if  you  include  funny
+characters in your reply? (try  ' " , and -,  for instance) What is  the
+result if you type in: just 'return'?, just one word?
+
+Once YESNO is available, we might start writing a program as follows:
+
+    define play();
+      if yesno([is it a mammal]) then
+         if yesno([does it have four legs]) then
+              if yesno([is it a horse]) then
+                  [i guessed it] =>
+              elseif yesno([is it a cow]) then
+                  [i guessed it] =>
+              elseif yesno([is it a cat]) then
+                  [i guessed it] =>
+              else
+                  [i give up] =>
+              endif
+          else
+              [i give up] =>
+          endif
+      elseif yesno([is it a fish]) then
+          if yesno([is it a salmon]) then
+              [i guessed it] =>
+          else
+              [i give up] =>
+          endif
+      else
+          [i give up] =>
+      endif
+    enddefine;
+
+Try defining a  procedure PLAY like  this for yourself.  See what it  is
+like playing the game with it. Can you see any problems with this way of
+organising the program? How can it be improved?
+
+A big problem with  this approach is  that, as soon  as we know  about a
+reasonable number of  animals, one  of the following  begins to  happen.
+Either we get long "vertical" sequences like:
+
+    if yesno([is it a horse]) then
+      [i guessed it] =>
+    elseif yesno([is it a cow]) then
+      [i guessed it] =>
+    elseif yesno([is it a cat]) then
+      [i guessed it] =>
+    elseif yesno([is it a giraffe]) then
+      [i guessed it] =>
+      .........
+    else
+      [i give up] =>
+
+which leads to a large number of rather boring questions, or we get long
+"horizontal" sequences (which rapidly run off the page) like:
+
+    if yesno([is it a mammal]) then
+      if yesno([does it have four legs]) then
+          if yesno([do people eat it]) then
+              if yesno(...
+
+We could solve this problem by defining lots of auxiliary procedures  to
+further discriminate within  restricted classes of  animals. This  could
+lead to a program like:
+
+    define play();
+      if yesno([is it a mammal]) then
+          guess_mammal()
+      else
+          guess_non_mammal()
+      endif
+    enddefine;
+
+    define guess_mammal();
+      if yesno([does it have four legs]) then
+          guess_fourleg_mammal()
+      else
+          guess_twoleg_mammal()
+      endif
+    enddefine;
+
+    define guess_twoleg_mammal();
+      if yesno([is it a man]) then
+          [i guessed it] =>
+      else
+          [i give up] =>
+      endif
+    enddefine;
+
+and so on.
+
+
+-- DISCRIMINATION NETS -------------------------------------------------
+
+Both of  the  above  programs  involved  a  lot  of  typing  to  express
+relatively little knowledge about animals and their properties. This was
+partly because  all the  information  was 'procedurally  embedded':  the
+factual information was mixed up with all the information about what  to
+do. This 'control' information was  essentially the same for many  kinds
+of 'factual' information. We would like  to be able to have a  STRUCTURE
+representing the factual information, and a PROCEDURE which can use that
+factual information, and decide what to do at each stage using a GENERAL
+strategy. For instance, we  always used YESNO to  ask the next  question
+and used the fact  that it would return  'true' or 'false' to  determine
+which question  to ask  next. Then  when we  ran out  of questions,  the
+program just had to print out [I GUESSED IT] or [I GIVE UP]. These  same
+things had to be repeated in the code again and again, even though  they
+were structurally identical.
+
+We will now switch  to a more explicit  representation of the  program's
+knowledge. In the previous programs,  the knowledge was implicit in  the
+control flow  of  the program.  The  program asked  one  question  after
+another because it  was instructed  to do  that. The  new approach  will
+involve having a list structure representing the information about  what
+question should follow  what. The program  will look at  this to  decide
+what to do at any stage.
+
+Expressing the information as a list structure, we will avoid specifying
+redundant information about what should be done when. Having available a
+representation of the program's knowledge  that can be manipulated  will
+also  be  useful  when  we  want   to  perform  other  tasks,  such   as
+automatically add new information or count how many animals are known.
+
+The information  needed to  play  the "guess  the  animal" game  can  be
+represented  as  a  DISCRIMINATION   NET.  A  discrimination  net   is a
+general-purpose device for representing how an object can be  classified
+according to its properties. Given an object to be classified, it can be
+used to suggest a  sequence of tests  to be applied  to the object.  The
+results of these  tests suggest further  tests, and the  process can  be
+continued until it is certain what the appropriate classification  is. A
+given discrimination net will only be able to produce a certain range of
+classifications. The purpose of the tests it provides is to DISCRIMINATE
+between these.
+
+Since there is  no need  for a discrimination  net to  be restricted  to
+animals, we will henceforth refer to 'objects' rather than 'animals'.
+
+In the application we are considering, the objects to be classified  are
+the objects  that  the  other player  has  guessed.  The  classification
+required for a particular game is the name of the object. The tests that
+can be performed take  the form of questions,  which can be answered  by
+"yes" or "no".  Although this is  how we are  using discrimination  nets
+here, they can  be used  for many other  applications, like  identifying
+cars or determining the appropriate  translation of a word into  French.
+Moreover, they are not restricted to having tests with only two possible
+outcomes.
+
+The  basic  constituent   of  our   discrimination  net   will  be   the
+representation of a question and the further tests that may be  relevant
+according to  whether  the  answer  was "yes"  or  "no".  This  will  be
+represented by a list of the form:
+
+    [QUESTION question yestree notree]
+
+This is a four element list whose first element is the word  'question',
+whose second element (the question) is some list of words and the  third
+and  fourth  elements  (the  'yestree'  and  'notree')  are   themselves
+discrimination nets. The idea  is that if  'question' is answered  "yes"
+then 'yestree' gives the next questions to be asked; otherwise  'notree'
+does. Since  we are  putting discrimination  nets within  discrimination
+nets, the result will be a list structure with a "tree" shape.
+
+The other kind of constituent in our net is for representing facts  like
+"If you get to  here in the net  then the object must  be a donkey".  We
+represent this by a list of the form:
+
+    [OBJECT name]
+
+where 'name' is the name of the object and the constant OBJECT helps  to
+distinguish the constituent from one that corresponds to a question.
+
+Here is an example  of a very simple  discrimination net, together  with
+what it  means. Notice  that we  use lists  both for  questions and  for
+object names.
+
+    [question
+      [is it a mammal]
+      [object a bear]
+      [object a toad]]
+
+    If it is a mammal then
+        it is a bear
+    otherwise
+        it is a toad
+
+Notice that for  clarity, I  have spread  the list  over several  lines.
+Instead of putting:
+
+    [QUESTION question yestreee notree]
+
+I have put:
+
+    [QUESTION
+        question
+        yestree
+        notree]
+
+where:
+
+    the question is:    [is it a mammal]
+    the yestree is:     [object a bear]
+    the notree is:      [object a toad]
+
+When typing in your own discrimination  trees you would be well  advised
+to follow this convention because then  you can use ENTER-J to help  you
+make sure you have got the right number of brackets. If you count up all
+the brackets you will see that the number is correct.
+
+Here is a second example:
+
+    [question
+      [does it have four legs]
+      [question
+          [can you ride on it]
+          [object a horse]
+          [object a cow]]
+      [object a man]]
+
+    If it has 4 legs then
+        If you can ride on it then
+            it is a horse
+        otherwise
+            it is a cow
+    otherwise
+        it is a man
+
+In this example  there are two  closing square brackets  after the  word
+'cow'. The first  'closes' the notree  [object a cow]  for the  question
+[can you ride it] and the second 'closes' yestree for the question [does
+it have four legs].
+
+Here is a last example:
+
+    [question
+      [is it a mammal]
+      [question
+          [does it have four legs]
+          [object a cow]
+          [object a man]]
+      [question
+          [can it fly]
+          [object an eagle]
+          [object a crocodile]]]
+
+    if it is a mammal then
+        if it is has four legs then
+            it is a cow
+        otherwise
+            it is a man
+    otherwise
+        if it can fly then
+            it is an eagle
+        otherwise
+            it is a crocodile
+
+Notice there are three closing brackets after the word 'crocodile'.  The
+first 'closes' the  object descriptor [object  a crocodile]; the  second
+'closes' the notree for  [can it fly] and  the last 'closes' the  notree
+for [is it a mammal].
+
+
+-- EXERCISE 1 ----------------------------------------------------------
+
+In a file, make a discrimination  net yourself, with at least 6  objects
+in it. You will find it useful to indent the lines as above, so that you
+don't get  confused with  all  the brackets.  Assign  this list  to  the
+variable MYTREE. For example:
+
+    vars mytree;
+       [question
+           [can it fly]
+           [object an eagle]
+           [object a man]]
+       -> mytree;
+
+You will be using this tree later on. Draw your discrimination net  as a
+tree on a piece  of paper, with  the questions as  nodes and the  object
+names as tips. Explain why  each path from the root  of the tree to  the
+tips corresponds to the  sequence of questions  and yes/no answers  that
+identifies an object.
+
+Here is a possible program to play the game, given a discrimination  net
+of the form we have discussed.  (If you haven't come across -->  before,
+see TEACH * MATCHES2.)
+
+    define findobject(tree);
+      vars name, text, yestree, notree;
+
+      while tree matches [question ?text ?yestree ?notree] do
+          if yesno(text) then
+              yestree -> tree
+          else
+              notree -> tree
+          endif
+      endwhile;
+
+      tree --> [object ??name];
+      if yesno([is it ^^name]) then
+          [how clever i am] =>
+      else
+          [i give up] =>
+      endif
+    enddefine;
+
+FINDOBJECT is a procedure which takes one argument - the  discrimination
+net that  is to  be used.  Type  in this  program and  try it  with  the
+following command:
+
+    findobject(mytree);
+
+Try the program several times giving it different answers each time. You
+can TRACE MATCHES; to get more information on what is happening.
+
+Notice how the procedure uses the variable TREE to hold the "tree  under
+current consideration".  When a  question has  been answered,  attention
+shifts to the YESTREE or the  NOTREE, according to the answer. When  the
+program gets to the bottom of the tree, which mentions a single  object,
+all it can do is ask whether that is the object guessed. If the  program
+had complete information  about the  animal kingdom, there  would be  no
+doubt that this really was the one. However, the program's knowledge  is
+incomplete, and so  it has to  give up if  this is not  the one. If  the
+program was using the discrimination  net to make a classification  in a
+domain where it had complete  information, it would be more  appropriate
+for it to say something like "the object is a tiger" at this point.
+
+When you have typed in this procedure and used it with a  discrimination
+net of your own choice, produce a  short report, of two or three  pages,
+showing the procedure at work, and explaining what is going on.
+
+
+-- USING RECURSION INSTEAD OF ITERATION --------------------------------
+
+The above  version  of FINDOBJECT  uses  a  WHILE loop  to  control  the
+progress down the  tree. Each  time round  the loop,  the variable  TREE
+holds the part of the tree that the program restricted its attention  to
+as a result of  the last question. The  iterations end when the  program
+has restricted its  attention to an  object at the  bottom of the  tree.
+Here is another  version of  FINDOBJECT, which  uses recursion  instead.
+This time, when the answer to a question has been received, the  program
+focuses  its  attention  to  a  subtree  by  simply  calling  FINDOBJECT
+recursively. This  works because  the operation  of guessing  an  object
+given a subtree is structurally the same as the operation of guessing an
+object given the whole tree. So it  is appropriate to use the very  same
+procedure again. Notice that,  because a recursive  call deals with  all
+the questions arising from a subtree,  it is no longer necessary to  use
+an iterative construct. So the original WHILE is transformed into an IF.
+
+    define findobject(tree);
+      vars name, text, yestree, notree;
+      if tree matches [question ?text ?yestree ?notree] then
+          if yesno(text) then
+              findobject(yestree)
+          else
+              findobject(notree)
+          endif
+      elseif tree matches [object ??name] then
+          if yesno([is it ^^name]) then
+              [how clever i am] =>
+          else
+              [i give up] =>
+          endif
+      else
+          mishap([ILL FORMED TREE], [^tree])
+      endif
+    enddefine;
+
+Type in  this new  definition and  try it  out again  on MYTREE  several
+times. To see how it is  working, type TRACE FINDOBJECT; This will  show
+you when FINDOBJECT is called and what  parts of the tree it is  applied
+to. In this  recursive version  of the  program, each  time the  program
+focuses on a restriction of the  tree, it generates a recursive call  of
+FINDOBJECT.  So  the  information  that  tracing  gives  you  is   quite
+informative. You can also TRACE MATCH.
+
+
+-- EXERCISE 3 ----------------------------------------------------------
+
+Explain what would happen  if you left WHILE  in the recursive  version,
+instead of replacing it by IF.
+
+
+-- EXTENDING THE DISCRIMINATION NET ------------------------------------
+
+So far, our programs have only  known about relatively small numbers  of
+objects and have not been able to learn from their mistakes. If we had a
+program that could add new  information about objects it had  previously
+failed to  guess,  we  could develop  much  larger  discrimination  nets
+without having  to  type in  complicated  lists in  advance.  Here  is a
+program that can  add to  its knowledge whenever  it fails  to guess  an
+object. It  asks  the other  player  for the  necessary  information  to
+augment the discrimination net to include the new object.
+
+In the revised program, the procedure FINDOBJECT now returns a result as
+well as  playing the  game. This  result  is the  same as  the  original
+discrimination net, except that  it may have  been augmented to  include
+the new object. For instance, the original tree:
+
+    [question
+      [is it a mammal]
+      [object a mouse]
+      [object a salmon]]
+
+might be extended to:
+
+    [question
+      [is it a mammal]
+      [object a mouse]
+      [question
+          [is it a fish]
+          [object a salmon]
+          [object a sparrow]]]
+
+Where the  new question  [IS IT  A FISH]  and the  new object  [ANIMAL A
+SPARROW] have been  ascertained from  extra questions  addressed to  the
+other player).
+
+The  FINDOBJECT  procedure  is  much  as  before,  except  that  it   is
+recursively building a new tree as well as working its way down the  old
+tree. When the program encounters a question, the new tree produced will
+be the same  as the  old one,  except that one  of the  subtrees may  be
+altered. The  possibly altered  subtree is  precisely the  one which  is
+followed by the recursive FINDOBJECT call. Since this call of FINDOBJECT
+will be making a  new copy of  the relevant subtree,  its result can  be
+used as part of the new tree being built.
+
+When a FINDOBJECT call discovers that it  is at the bottom of the  tree,
+it either guesses  the right object  or makes an  extension for the  new
+tree using procedure EXTEND. This  procedure asks the other player  what
+the object was and what question would distinguish it from the incorrect
+guess. These ingredients are used to make a new piece of  discrimination
+net.
+
+    define findobject(tree) -> newtree;
+      vars answer, name, text, yestree, notree,
+           newyestree, newnotree, newtree;
+      if tree matches [question ?text ?yestree ?notree] then
+          if yesno(text) then
+              findobject(yestree) -> newyestree;
+              notree -> newnotree
+          else
+              findobject(notree) -> newnotree;
+              yestree -> newyestree
+          endif;
+          [question ^text ^newyestree ^newnotree] -> newtree
+      elseif tree matches [object ??name] then
+          if yesno([is it ^^name]) then
+              [how clever i am] =>
+              tree -> newtree
+          else
+              [i give up] =>
+              extend(name) -> newtree;
+          endif
+      else
+          mishap([ILL FORMED TREE], [^tree])
+      endif
+    enddefine;
+
+    define extend(object) -> newtree;
+      vars newobject, text;
+      [what is it] =>
+      readline() -> newobject;
+      [what question would distinguish between ^^newobject and ^^object] =>
+      readline() -> text;
+      if yesno([would you answer yes for ^^object]) then
+          [question ^text [object ^^object] [object ^^newobject]] -> newtree
+      else
+          [question ^text [object ^^newobject] [object ^^object]] -> newtree
+      endif
+    enddefine;
+
+The local variable declarations in these two procedures are crucial,  to
+prevent the  values of  variables  at a  certain recursive  level  being
+over-written by a subsequent  recursive call. It  is important that  you
+understand why this  is so.  Try the procedures  with and  with out  the
+declarations at the beginning of each procedure. Trace the procedures to
+see what difference it makes. If  you don't understand the results,  ask
+for help.
+
+Try these new  procedures, giving FINDOBJECT  some small  discrimination
+nets and seeing what  it builds from them.  Notice that the results  are
+best if you type in an object name beginning with "a" or "an" and if you
+don't put a "?" at the end of  a question. You may also find that  there
+is not much room left on a line to answer some questions. You might like
+to define a new version of YESNO to overcome this.
+
+As it stands, the program cannot use its new discrimination net when  it
+plays the game the  next time. To  cause it do this,  you need to  use a
+call of FINDOBJECT that takes its input from a global variable and  then
+assigns the result to that variable:
+
+    vars mytree;
+    [object a bat] -> mytree;
+    define play();
+      [please think of an object] =>
+      findobject(mytree) -> mytree
+    enddefine;
+
+You can then try things like:
+
+    repeat 10 times play() endrepeat;
+
+
+-- EXERCISE 4 ----------------------------------------------------------
+
+When the  program can't  guess an  object  and asks  for a  question  to
+discriminate between it and the incorrect guess it made, what difference
+does the kind of  question make to  the program's subsequent  behaviour?
+What difference  does the  order in  which new  objects are  encountered
+make? Answer these questions by comparing the kinds of trees that  would
+probably result from the following two learning sequences. Say something
+about how many questions are required to identify the various objects in
+the two cases.
+
+Sequence 1:
+        sparrow-blackbird-thrush-robin-eagle-salmon-trout-man-horse
+
+Sequence 2:
+        sparrow-trout-man-horse-blackbird-salmon-thrush-robin-eagle
+
+
+-- EXERCISE 5 ----------------------------------------------------------
+
+Speculate on  how the  program would  need to  be adapted  to cater  for
+someone not knowing the answer to a question (and hence being unable  to
+answer YES or NO).
+
+
+-- EXERCISE 6 ----------------------------------------------------------
+
+Write a program to find out how many objects are represented in a  given
+discrimination net. You can assume that  an object does not appear  more
+than once.
+
+
+-- EXERCISE 7 ----------------------------------------------------------
+
+Extend the program so that  it can ask (and  use the answers from)  more
+than just  yes/no questions.  You might  extend it  so that  it  accepts
+numbers as well - so that it can ask questions like "how many legs  does
+it have?". You will need to change the format of the discrimination net,
+so that it explicitly shows possible  answers and the subtrees that  are
+appropriate for them.
+
+This is a  difficult exercise which  you probably won't  be able to  do.
+Here are some hints.  Instead of having the  discrimination tree in  the
+form:
+
+    [QUESTION text yestree notree]
+
+have it in the form:
+
+    [QUESTION
+        text
+        [answer1 subtree1]
+        [answer2 subtree2]
+        [answer3 subtree3]
+        ...]
+
+Here are two fragments of code that might be useful:
+
+    : tree --> [question ?text ??options];
+
+    : options --> [== [^answer ?newtree] ==];
+
+
+-- EXERCISE 8 ----------------------------------------------------------
+
+Adapt the program to use a discrimination net for another task, such  as
+identifying makes of car or wild  flowers. The program should still  ask
+questions and make its way down the net, but when it reaches the bottom,
+it should print out "It is a ....". Another possible adaptation would be
+to give the  translation, into a  foreign language, of  an English  word
+that can be used in different contexts. For instance, the translation of
+"in" into German might be "bei" if the object was "bad weather" but "in"
+if it was talking about one  thing being inside another. Try and  pick a
+word with lots of possible translations.
+
+An  example  of   the  discrimination   net  idea  being   used  in   an
+identification program  is  to  be found  in  LIB  TREE_IDENTIFY,  which
+identifies trees. See * TREE_IDENTIFY.
+
+
+-- EXERCISE 9 ----------------------------------------------------------
+
+Change the program so that it is only allowed, say, 20 questions  before
+it gives up.
+
+
+-- EXERCISE 10 ---------------------------------------------------------
+
+Write a program  that, given a  discrimination net and  an object  name,
+prints out  all the  questions  and answers  that  are known  about  the
+object. This is quite a hard exercise, and you might like to look at the
+SEARCH demo first.
+
+
+-- EXERCISE 11 ---------------------------------------------------------
+
+Exercise 4 should  have suggested  to you that  the order  in which  the
+program encounters new objects  as it is building  its tree will  affect
+the shape  of  the  tree  and  hence the  speed  with  which  items  are
+subsequently retrieved (if it didn't, go back and do it again). Design a
+program which will take an existing discrimination net and optimise  it,
+so that  the  average number  of  questions required  for  identifying a
+target is as small as possible. This is a HARD problem. You should think
+about how  you  would  recognise  which  bits  of  the  tree  should  be
+reorganised; how you would decide what the reorganised tree should  look
+like; and how your program would actually turn one tree into another.
+
+This is a design exercise. The answer should consist of one or two sides
+laying out roughly how you would expect a program which solved the  task
+to look; where you would expect to have difficulties; and any ideas  you
+have about how to solve those difficulties. You should NOT try to  write
+a program.
+
+--- C.all/teach/discrim ------------------------------------------------
+--- Copyright University of Sussex 1990. All rights reserved. ----------

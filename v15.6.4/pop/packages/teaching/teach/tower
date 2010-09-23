@@ -1,0 +1,2531 @@
+TEACH TOWER                 Chris Mellish and Aaron Sloman, October 1981
+                                          Updated: Aaron Sloman Nov 1998
+
+An introduction to searching using the tower-building problem as an
+example. (Sometimes known as the "knapsack problem").
+
+CONTENTS
+
+ -- CHAPTER 1 Introduction
+ -- Why searching is important
+ -- -- Techniques and ideas to be introduced
+ -- Prerequisites for this file
+ -- -- Knowledge about how to use VED
+ -- -- Knowledge about lists
+ -- -- Knowledge about how to build procedures
+ -- -- -- "inputs" and "outputs"
+ -- -- -- Types of objects: numbers, lists, booleans
+ -- -- -- Declaring variables: "lvars" and "vars" (pattern variables)
+ -- -- -- Assignments using "->"
+ -- -- -- The pattern matcher
+ -- -- Preparing a commented file header
+ -- -- Commented procedure headers
+ -- CHAPTER 2 The problem
+ -- finding a combination to meet a specification
+ -- -- An analogous problem: building a tower
+ -- Try describing an algorithm in English
+ -- -- Requirements for a correct solution
+ -- An abstract specification for the desired procedure
+ -- Choosing representations
+ -- CHAPTER 3 Implementing the procedure random_solve_tower
+ -- -- Utility procedures required: sumlist and random_subset
+ -- -- Using a loop to define sumlist.
+ -- -- A "for" loop that ranges over numbers
+ -- -- A more flexible type of "for" loop
+ -- -- Examples using "for ... in ... do ... endfor"
+ -- -- Defining sumlist at last
+ -- -- Understanding the definition of sumlist
+ -- -- The procedure random_subset
+ -- Towards defining random_subset
+ -- The Pop-11 procedure random
+ -- Randomly selecting elements of a set, using random
+ -- -- Deciding randomly whether to put something on the stack or not
+ -- -- Collecting a randomly generated set of numbers into a list
+ -- Requirements for random_subset
+ -- CHAPTER 4 Defining random_solve_tower
+ -- Revision exercises:
+ -- -- NOTE on trace printing and side effects
+ -- -- Put some comments into your file random_tower.p
+ -- -- Optional exercise: describe random_solve_tower
+ -- -- -- Describe WHAT it does
+ -- -- -- Describe HOW it does that
+ -- -- Exercise: Explain what is wrong with the solution
+ -- CHAPTER 5: Depth first searching
+ -- A more systematic search
+ -- -- Searching in physical mazes.
+ -- -- Searching in abstract mazes (search spaces)
+ -- Depth-first search
+ -- -- Depth first search as tree search
+ -- Defining a procedure to do the systematic search to build a tower
+ -- -- A strategy that tries 1, then 2, then 3 ... numbers at a time
+ -- -- Generating successors to the first state
+ -- -- Using a "history" list to avoid repeated states.
+ -- -- Depicting the search tree
+ -- -- A picture of the "solve_tower" search tree for inlist [6 5 7 4]
+ -- -- Some exercises concerning this search tree
+ -- Search spaces
+ -- CHAPTER 6 Representations for solve_tower
+ -- Keeping track of progress
+ -- How to represent the alternative states to consider
+ -- Generating "next states"
+ -- -- Efficiency considerations are ignored
+ -- Putting this into Pop-11
+ -- CHAPTER 7 The overall algorithm
+ -- Special cases
+ -- -- The importance of ordering choices.
+ -- Defining nextstates(this_state) -> newalternatives;
+ -- -- Numerical restrictions in the Pop-11 pattern matcher
+ -- Use the matcher arrow to define the procedure nextstates
+ -- -- An example definition of procedure nextstates
+ -- -- Putting test cases into your files
+ -- CHAPTER 8 Defining solve_tower, at last
+ -- CHAPTER 9 Some exercises and notes
+ -- Optional exercise 1
+ -- Optional exercise 2
+ -- Optional exercise 3
+ -- Revision questions
+ -- CHAPTER 10 Ambitious assignment
+ -- Reading
+ -- BACKGROUND TEACH FILES
+ -- Possible further reading
+
+-- CHAPTER 1 Introduction
+-- Why searching is important -----------------------------------------
+
+The object of this teach file is to introduce you to some problems of
+representing search strategies. This is a topic that is central to the
+study of intelligence, since many cognitive processes involve exploring
+combinations of options to find a solution to a problem. The things that
+are combined to form a solution may be
+
+    o Physical objects put together to form a larger object,
+        E.g parts of a construction kit making up a toy.
+
+    o Sequences of physical movements or actions put together to form a
+      complex action.
+        E.g. actions involved in assembling a toy
+
+    o Sequences of descriptions of actions put together to form a
+      plan of action.
+        E.g. a description of how to assemble a toy.
+
+    o More abstract items, such as ideas, or words or phrases, or
+      fragments of an interpretation of a sentence or a picture.
+        E.g. a description of the grammatical structure of a
+        sentence, or a "parse tree" for the sentence.
+
+The search for the desired complex object, or plan, or interpretation
+can be done in more or less intelligent ways, including random trial and
+error, "brute force" exhaustive search, and more intelligent search
+based on a deep understanding of the problem. The study of alternative
+search strategies and how to make them efficient has always been of
+central importance to AI.
+
+-- -- Techniques and ideas to be introduced
+
+This file introduces some of the basic ideas and techniques. This
+includes introducing
+
+    o techniques for representing information about states in
+      a "search space"
+
+    o techniques for representing sequences of states that solve
+      a problem.
+
+    o techniques for representing alternative options that remain to be
+      explored,
+
+    o techniques for representing and manipulating partial solutions.
+
+    o techniques for searching at random
+
+    o algorithms for making use of the information in a systematic way.
+
+Systematic search, as opposed to random exploration, ensures that
+options are not considered more than once and in some cases can ensure
+that all options are considered, so that solutions are not missed
+through carelessness. (Sometimes ensuring that all options are
+considered in a finite time is impossible because the search space is
+infinite, e.g. searching for a set of numbers that satisfy an equation.)
+
+At the same time as learning about search you will have practice in
+manipulating lists, creating new lists, defining procedures, and using
+the pattern matcher.
+
+The techniques described here are relevant to a wide variety of
+applications where search is important, though most of the discussion
+will be based on one problem: the problem of finding a combination of
+blocks from a collection of different sizes, in order to form a tower
+of exactly a specified height.
+
+Other examples of search include the problems of making plans to achieve
+some goal, searching for a proof of a theorem in logic or mathematics,
+finding the best move in board games like chess, parsing sentences to
+find out if they are grammatical and analysing images to find their best
+interpretation.
+
+We start with some very simple problem-solving strategies tailored to a
+particular problem. These strategies can later be generalised to a range
+of problems (as shown in TEACH * SEARCHING). However, the strategies
+have flaws, and therefore part of the purpose of this file is to start
+you thinking about about how to remedy those flaws.
+
+NOTE: if you are finding it difficult to keep up with the work, you can
+omit the portions of this file showing you how to search at random for a
+solution.
+
+
+-- Prerequisites for this file ----------------------------------------
+
+-- -- Knowledge about how to use VED
+
+You should be familiar with the editor VED so that you can easily
+produce files containing programs. (See TEACH * VED, TEACH * VEDPOP)
+You will need to know how to mark a range, and compile, or load, the
+marked range. (See TEACH * MARK, TEACH * LMR)
+
+-- -- Knowledge about lists
+
+You will need to know what lists are and how to construct them using
+list brackets [ ... ] as explained in TEACH * LISTS. (You can skim that
+file to get a rough idea of how lists work.) In particular you will have
+to know how to create a list containing the value of a variable, using
+the symbols "^" and "^^". You should already have dealt with some
+examples in TEACH * RESPOND.
+
+
+-- -- Knowledge about how to build procedures
+
+You will need to know how to form complex sets of instructions from
+simpler ones, e.g. by using the following formats which are actually
+illustrated in the programming examples that follow.
+
+    o Concatenating instructions
+        As explained in TEACH RIVER
+
+    o Using conditional instructions, of the form "if <condition> then
+       <action> endif" and more complex forms summarised in HELP * IF.
+        (TEACH * RESPOND included "multi-branch" conditionals.)
+
+    o Using "loops" in order to make a program do something repeatedly
+      until some task is complete (as used in TEACH * RESPOND)
+
+    o Running a named procedure which has its own instructions, which
+      may in turn call other procedures, etc., (as used in TEACH RIVER)
+
+You need to know about the creation of procedure definitions in Pop-11,
+as illustrated in the previous teach files, and in the Pop-11 PRIMER
+(TEACH PRIMER, Chapters 1, 2 and 3)
+
+-- -- -- "inputs" and "outputs"
+
+In particular you need to know that procedures can take inputs (often
+called "arguments") and produce results (sometimes called outputs). In
+Pop-11 procedures put their results in a special area of memory called
+"the stack". The results put there can be used by other procedures, or
+assigned to variables, or stored in an internal database. Besides
+producing outputs on the stack, some procedures also produce
+"side-effects", such as trace printing or modification of a database
+or disk file. We shall give examples of trace printing used to show what
+a program is doing.
+
+-- -- -- Types of objects: numbers, lists, booleans
+
+The inputs and outputs of Pop-11 procedures can be of many different
+kinds. In this file they will mostly be numbers and lists of various
+kinds.
+
+Some of the procedures will produce a BOOLEAN output, i.e. a result that
+is either TRUE or FALSE. In particular FALSE is a special Pop-11 object
+which is often used as the result of procedures which fail in some way.
+TRUE and FALSE are known as "boolean" objects.
+
+-- -- -- Declaring variables: "lvars" and "vars" (pattern variables)
+
+You will also need to know how to declare variables as local to a
+procedure, using "lvars" for ordinary variables and "vars" for "pattern
+variables" or "global variables" used outside procedures. If you use
+"lvars" to declare a "?" or "??" variable in the pattern matcher, the
+variable will not work properly unless you prefix the pattern with "!".
+
+-- -- -- Assignments using "->"
+
+You will need to know how to assign the result of a procedure to a
+variable, using the assignment arrow "->", which you can pronounce as
+"goes to". So "3 -> x" is read as "three goes to x".
+
+Another kind of assignment is used when a variable is declared and
+initialised at the same time, e.g.
+
+    vars x = [3 4 5];
+
+That declares x and assigns a list to it. It is equivalent to two Pop-11
+instructions:
+
+    vars x;
+
+    [3 4 5] -> x;
+
+Unlike BASIC and C, that is the only context in which Pop-11 uses "="
+for assignment. Normally "=" is a comparison, as in "if x = 3 then ...."
+
+-- -- -- The pattern matcher
+
+In TEACH * RESPOND you met invocations of the pattern matcher in the
+form:
+
+    if <list> matches <pattern> then .....
+
+In this exercise you will also meet a use of the pattern matcher in the
+form:
+
+    <list> --> <pattern>
+or
+    <list> --> ! <pattern>
+
+You can read this as "<list> must match <pattern>". Do not confuse "-->"
+with the assignment arrow "->".
+
+The matcher arrow can occur outside conditionals, and allows several
+components of the <list>, including sublists and components of sublists
+to be assigned simultaneously to the variables in <pattern>, as
+explained in the file TEACH * MATCHARROW.
+
+There is a very compressed summary of the features of Pop-11 required
+for this and similar exercises in the file TEACH * POPCORE
+
+-- -- Preparing a commented file header
+
+This file shows you how to produce a random procedure for solving a
+searching problem, and a systematic procedure. You can put the first one
+into a file called 'random_tower.p' and the second into a file called
+'solve_tower.p'. Each file should start with a "commented" heading
+giving information about the file. Here is a sample format for a file
+header.
+
+/*
+FILE:           <file name>
+AUTHOR:         <insert your name>
+CREATION DATE:  <insert date>
+COURSE:         <give the course code and name>
+LAST MODIFIED:  <change this date whenever you make a change>
+PURPOSE:        searching at random for a solution to the tower problem
+< add any other information about the file here >
+*/
+
+
+You can use the command "ENTER fileheader" to insert a header template.
+Later you can add extra fields, e.g. one called PROCEDURES: giving a
+list of procedures defined.
+
+Start a file called random_tower.p and one called solve_tower.p now, and
+put the header into each and edit it. If you are behind in your work,
+omit the random_tower examples.
+
+-- -- Commented procedure headers
+
+Before each procedure definition you should also insert a commented
+procedure header, something like this:
+
+/*
+PROCEDURE: sumlist(numlist) -> total
+INPUTS   : numlist is a ???
+OUTPUTS  : total is a ???
+USED IN  : ???
+CREATED  : 22 Feb 1998
+PURPOSE  : ???
+
+TESTS:
+
+*/
+
+
+The command "ENTER procheader <string>" will produce a template header
+which you can edit. E.g. the above was produced using the command
+
+    ENTER procheader sumlist(numlist) -> total
+
+After the header you can insert the procedure definition, then some
+comment-bracketed tests for the procedure. Or if you prefer you can put
+the tests in the header, in a TESTS: field.
+
+-- CHAPTER 2 The problem
+-- finding a combination to meet a specification ----------------------
+
+We now turn to the main topic, namely searching for a combination of
+steps in order to solve a problem. Many problems have that general form,
+but we shall consider only a very simple case, in order to bring out
+some of the main ideas.
+
+Suppose you are given a list of numbers, and a target number, and the
+task of finding a subset of the numbers which add up to the target. How
+would you do it? Try writing down a description of a suitable method
+in a file called 'addnums'.
+
+For example given the list [3 8 6 2] and the target 8 there are
+two solutions, if you disregard the order of numbers, namely
+
+    [6 2]   (or equivalently [2 6])
+and
+    [8]
+
+
+Both solutions involve SETS of numbers, and it is very convenient in
+Pop-11 and other AI languages to use lists to represent sets, though
+lists are ordered and sets are not.
+
+Thus we can represent one solution as a list of two numbers, and one
+solution as a list containing only one number. (Note that the *list* [8]
+containing only the number 8 is a different object from the *number* 8
+itself).
+
+Here are several problems of the same sort. Try to find an appropriate
+list of numbers to add up to the target, from the list given in each
+problem:
+
+
+PROBLEM NUMBER      LIST              TARGET        YOUR SOLUTION(S)
+    1               [1 1 2 3 4]          8
+    2               [1 4 7 9]            6
+    3               [7 15 11 3 9]       45
+    4               [2 2 2 2 2 2 2 2]    9
+
+After solving each problem, type in the fourth column a list of the
+numbers which add up to the target under "YOUR SOLUTION". If there is no
+solution simply write None.
+
+If you can find more than one solution for a particular case produce two
+lists.
+
+You could copy the above table into your file 'addnums' and record your
+solutions there. Later you can compare your solutions with the results
+of running the program described below.
+
+Having thought about the above examples consider whether your method
+would also work for the following example, which has far more numbers
+in the list (seventeen in all) and a bigger target:
+
+PROBLEM NUMBER      LIST              TARGET        YOUR SOLUTION(S)
+    5           [51 17 23 113 44 6
+                88 72 37 45 82 29
+                7 39 44 93 4]           470
+
+Try applying your method to this problem. See if you need to modify the
+method. Later in this file you'll meet a random selection method for
+trying to solve the problem and a more systematic method, and will see
+how to express both in Pop-11.
+
+
+-- -- An analogous problem: building a tower
+
+This problem of selecting numbers to add up to a given number is
+theoretically the same as the problem of building a tower of a given
+height, given a set of blocks of varying heights, which is how this
+teach file gets its name. (In practice, the powerful human visual system
+enables us to treat the problem with blocks as a different sort of
+problem.)
+
+Note that if we represent the tower-building problem as a problem of
+finding a combination of numbers representing heights that add up to a
+given total, then we are ignoring many properties of the blocks, e.g.
+their colour, what they are made of, their width, their weight, and so
+on. In some cases it is essential to abstract away from irrelevant
+details in order to find a good solution to a problem. But occasionally
+this can blind one to a feature that is relevant, for example where the
+only way to solve the tower problem is to lay one of the blocks on its
+side and use its width rather than its length to complete the height!
+
+
+-- Try describing an algorithm in English -----------------------------
+
+Assuming you managed to decide which of the tower problems had no
+solution, and managed to find solutions to the others, how did you do
+it?
+
+Try writing down your method in English in your file 'addnums' if you
+have not yet done so. Is it an algorithm? Did you use any heuristics to
+cut down the search?
+
+Writing down an algorithm may include a specification of the following:
+
+o A clear definition of possible starting points
+
+o A clear definition of possible actions that can be performed
+
+o A specification of which action can be peformed at which stage.
+
+o A specification of when the process should stop.
+
+o A specification of the kinds of intermediate stages that can occur,
+  e.g. the kinds of structures that can be built.
+
+
+-- -- Requirements for a correct solution
+
+The algorithm must satisfy the following minimal requirements:
+
+    1.  It should start with a list of numbers, and a target number to
+        be achieved by adding elements of the list.
+
+    2.  It should find a solution consisting of a list of numbers
+        occuring in the input list which add up to the target, wherever
+        such a solution is possible.
+
+    3.  It should detect which problems have no solution, and report
+        failure (i.e. it should not go on forever searching for a
+        non-existent solution.)
+
+    4.  It should never use the same number more times than it occurs in
+        the given list. (I.e. if there are only two occurrences of "2"
+        in the list, then your answer cannot include 2 2 2.)
+
+    5.  It should never use a number that is not in the list.
+
+Those are absolute minimum requirements for solving the problem at all.
+You could also add some "optimising requirements" such as the following.
+
+    6.  The program should not waste time repeating operations that have
+        already been proved to be unsuccessful. E.g. if you start with
+        the list [ 8 8 3 4 2 5] and want to get a subset adding up to 9,
+        then trying to add 8 to each of the subsequent numbers will
+        always fail immediately, so the first number can be discarded.
+        In that case there is no point trying again with the second 8.
+
+    7.  The program should notice short cuts and follow them wherever
+        possible.
+
+Does your algorithm satisfy all those requirements? Notice that the
+optimising requirements have a type of vaguess that is missing from the
+minimal requirements. That is because, for example, the notion of a
+"short cut" is not well defined.
+
+Would your algorithm find all the solutions in all cases? E.g. if
+starting from the list
+
+    [ 2 3 3 4 4 5 6 7 8]
+
+and the target 12, would your algorith find all the solutions? (What are
+all the solutions?)
+
+Would your algorithm ever get things wrong?
+
+Would your algorithm waste time trying out useless combinations when the
+input list is [ 7 8 9 10 11 12] and the target is 5 ?
+
+If you did not take account of all those points, then you may have gone
+wrong in either of the following ways:
+
+    o Finding wrong solutions to some problems  (unsound algorithm)
+
+    o Missing some solutions to problems (incomplete algorithm)
+
+    o Wasting time on pointless attempts at adding things to a number or
+      sub-total that is already too large for the target
+        (inefficient algorithm)
+
+    o Getting stuck in an endless search for a nonexistent solution
+      like wandering round in circles in a desert.
+        (non-terminating algorithm)
+
+
+-- An abstract specification for the desired procedure ----------------
+
+We'll now move towards writing a program called solve_tower to solve the
+problem.
+
+Try comparing the following with what you wrote down about your own
+solution.
+
+Before you write ANY program you must be very clear what the task is.
+In many cases (but not all) the task is to take some information as
+INPUT to the program, and then solve a problem by producing some output
+that has a specific relationship to the input. In this case the
+relationship is defined by the list of conditions given above.
+
+Notice that this says WHAT has to be done without saying HOW it has to
+be done. It is very important to separate these two. Having previously
+said WHAT should be done, we now consider HOW it can be done. We'll
+start by ignoring the optimising requirements, and merely try to build
+an algorithm that meets the minimal requirements for the problem.
+
+-- Choosing representations -------------------------------------------
+
+Often one of the hardest tasks in programming is choosing a
+representation for the information to be used or manipulated. Pop-11
+provides a large variety of possible forms of representations including
+lists and vectors, and lists of lists, lists of vectors, vectors of
+lists, records, arrays, object classes, and more besides.
+
+For our problem we shall use numbers and lists, including lists of
+lists. Lists are often the easiest type of datastructure to use because
+they combine great variety of forms and also because Pop-11 has a lot of
+built in operations for manipulating lists, including the pattern
+matcher used in TEACH RESPOND.
+
+First let's choose a format for inputs and outputs to the program.
+
+We wish to define a procedure called "solve_tower" that can be given two
+inputs
+
+    1. A list of numbers (call the list inlist)
+    2. A "target" number (call it target)
+
+and which will always produce as its result either
+
+    - the "boolean" value <false> if the problem cannot be solved
+
+or
+
+    - a list of numbers that add up exactly to the target, where
+      the list contains only numbers from the input list, subject
+      to the restrictions mentioned previously.
+
+Thus if there is a solution then the program should produce a list
+(let's call it outlist) of numbers such that
+
+    A. Every number in outlist is also a member of inlist
+
+    B. No number occurs more often in outlist than it does in
+       inlist.
+
+    C. The sum of all the numbers in outlist is equal to the target.
+
+This still doesn't say HOW the solution is to be produced. It is merely
+a description of WHAT is done, though in a form that is linked to
+specific programming representation using lists.
+
+Consistent with the preceding remarks, the general form of the
+definition could be something like this, expressed in a mixture of
+Pop-11 and English.
+
+    define solve_tower(inlist, target) -> outlist;
+
+        /* set up the intial stage in the search for a solution */
+
+        repeat
+            /* Examine next stage */
+
+            /* Check whether problem already solved, and if so assign
+            appropriate value to outlist and then do "quitloop" */
+
+            /*check if there are any more options to consider. */
+
+            /* If not do quitloop with value FALSE for outlist, to
+            signify failure.*/
+
+            /* otherwise generate another option */
+
+        endrepeat;
+
+    enddefine;
+
+
+This says that the procedure to be defined is called "solve_tower", and
+that it has two "local" input variables, called "inlist" and "target"
+and one local output variable, called "outlist". It may have some other
+variables declared in the body of the procedure. This format uses the
+same kind of repeat ... endrepeat loop that was used in TEACH RESPOND,
+though here the purpose is to do something repeatedly in the computer
+without interacting with the user.
+
+How can we complete the procedure?
+
+The simplest approach to a combinatorial problem like finding a
+collection of numbers with the right total is "random trial and error".
+That is: blindly go on trying random selections of numbers from the
+input list, until you find a solution.
+
+This method has several flaws, which you can examine later. But it is
+worth implementing it for practice. The next section of introduces a
+procedure that searches at random for combinations of numbers from the
+list that will solve the problem. Later you will develop a better
+version. Looking at the random version will help you understand what is
+wrong with random searching and will also help you learn some more
+Pop-11, which you will need later on.
+
+-- CHAPTER 3 Implementing the procedure random_solve_tower
+
+The procedures provided here could be put into a file called
+'random_tower.p'. Later on, your final non-random solution can go into a
+different file called 'solve_tower.p'
+
+-- -- Utility procedures required: sumlist and random_subset
+
+The procedures given here can be used with a searching program that has
+the form of the procedure sketched above. First we need some utility
+procedures to use as subroutines.
+
+In order to tell whether a solution has been found you have to be able
+to tell whether the list of numbers (outlist) actually adds up to the
+target. For this we need a procedure that we'll call sumlist that can be
+given a list of numbers, and will add them up to find the total. We also
+need a procedure that we'll call random_subset, that selects a random
+subset of the numbers to propose as a solution, to be checked by
+sumlist.
+
+-- -- Using a loop to define sumlist.
+
+It is going to be useful to define sumlist in terms of a procedure that
+takes each number from a list in turn and does something with it (e.g.
+adds it to a running total). This is one of many sorts of loops that are
+available in Pop-11. (Loops are expressions that define some sort of
+repeated action.)
+
+The type of loop we need has the following components:
+
+    o   a "loop variable"
+
+    o   some specification of the range of values of the variable
+
+    o   a "loop body", i.e. an action to be performed repeatedly,
+        e.g. once for each value of the loop variable.
+
+    o   some sort of "stopping" condition, saying when the loop should
+        terminate (e.g. when the last value has been used).
+
+(In more complex cases there can be more than one loop variable. In a
+repeat....endrepeat loop there is no loop variable.)
+
+Some "for" loops range over all the numbers between two specified
+numbers. Some range over the elements of a structure, such as a list,
+where the elements may be numbers, or words or other lists. We'll use
+the former type.
+
+-- -- A "for" loop that ranges over numbers
+
+Here is a for loop where the variable "item" ranges over the numbers
+3 6 9 12 and 15, and in each case the action is simply to print out the
+item:
+
+    ;;; First declare the loop variable item, then use it in the loop.
+    vars item;
+    for item from 3 by 3 to 15 do item => endfor;
+
+Try obeying those two commands. (Mark and load.) That means: let the
+variable "item" have the value 3, and then 3+3, then 3+3+3, and so on
+until it is greater than 15. For each such value perform the action
+between "do" and "endfor". In this example the action is to print out
+the value of "item".
+
+You can also make the variable range over the same numbers in reverse
+order by changing the start and end points and using a negative
+increment:
+
+    for item from 15 by -3 to 3 do item => endfor;
+    ** 15
+    ** 12
+    ** 9
+    ** 6
+    ** 3
+
+A for loop is convenient for a set of numbers that forms a sequence with
+a specified "start" and each number is got by adding the same
+"increment" to the previous number, until a "terminating" number has
+been reached, or passed.
+
+Exercise:
+
+In our first example the start number was 3 the increment was 3, and the
+terminating number was 15. What were the start number, the increment,
+and the terminating number in the second example?
+
+-- -- A more flexible type of "for" loop
+
+The previous examples worked for "regular" sequences of numbers, none of
+them repeated. However if we want the variable item to range over an
+arbitrary set of numbers that happen to be in a list, then a different
+type of "for" loop is needed, with the loop variable ranging over the
+elements of the list. We can do this using the following format:
+
+    for <variable> in <list> do <action> endfor;
+
+-- -- Examples using "for ... in ... do ... endfor"
+
+Here are some examples. Mark and load the next few lines, and see if you
+can understand what happens. If not, ask for help. The first few lines
+declare some global variables, after which a "for ... endfor" loop does
+something using the "built-in" Pop-11 procedure "pr", which prints an
+item:
+
+    ;;; Declare three variables
+    vars
+        item,
+        list1 = [the cat sat on the mat],
+        list2 = [ 3 5 8 2 3 99 5];
+
+    ;;; do something to each item in list1
+    for item in list1 do
+            pr(item); pr(space);
+            pr(item); pr(space);
+    endfor;
+
+Note: "for" loop instructions can spread over more than one line.
+Try marking and loading that, and then the following.
+
+    for item in list2 do item*item => endfor;
+
+
+The first example should print in your output.p file:
+
+    the the cat cat sat sat on on the the mat mat
+
+The second example should print the square of each of the numbers.
+
+    ** 9
+    ** 25
+    ** 64
+    ** 4
+    ** 9
+    ** 9801
+    ** 25
+
+
+what would this do (try it)?
+
+    for item in list1 do [^item] => endfor;
+
+Note that the expression [^item] means create a list containing the
+value of the variable "item". So that loop prints out a set of lists,
+each list containing one word.
+
+The procedure rev can be given a list and will create a list of the
+elements in reverse order. So you can range over the items of a list
+in reverse order by doing this
+
+    for item in rev(list1) do pr(item); pr(space); endfor;
+
+which should print out
+
+    mat the on sat cat the
+
+-- -- Defining sumlist at last
+
+We can now use a for loop to define the new procedure sumlist. which
+will be useful as a subroutine in several of our searching procedures.
+
+/*
+PROCEDURE: sumlist(numlist) -> total
+INPUTS:   numlist is a list of numbers
+OUTPUTS:  total is a number
+CREATION DATE: ???
+PURPOSE:  Add up a list of numbers
+    (Based on TEACH TOWER)
+TESTS:
+    <see tests below: insert them here>
+*/
+
+
+define sumlist(numlist) -> total;
+    ;;; Given a list of numbers return a number which is the sum
+    ;;; of all the numbers in the list.
+
+    ;;; initialise total to 0
+    0 -> total;
+
+    ;;; Repeatedly add the next number from the list to total.
+    lvars number;
+    for number in numlist do
+
+        ;;; use number and the previous value of total to get a new
+        ;;; number to assign to total
+
+        number + total -> total
+
+    endfor;
+
+enddefine;
+
+Put that in your file 'random_tower.p', and also in your file
+'solve_tower.p', as you will need it later.
+
+Alternatively you can put it in a separate file called sumlist.p, which
+can load as needed in other files, using the command:
+
+    load sumlist.p
+
+-- -- Understanding the definition of sumlist
+
+Read the procedure definition carefully. We use "lvars" here for the
+loop variable number because it is a local variable which is not to be
+accessible by any procedure defined anywhere else.
+
+Make sure you understand how that works. If anything puzzles you, ask
+for help. The line
+
+        number + total -> total
+
+means: take the value of number, and the value of total, add them up,
+and assign the result to total. This action is repeated for each number
+in turn, taken from numlist. So if the numbers are all positive then the
+value of total will steadily increase.
+
+After compiling the definition you can test the procedure by getting
+Pop-11 to obey each of the following lines. Make sure that the result
+printed in the output file each time is correct. Add some of your own
+tests, and try them.
+
+    /*
+    ;;; Test examples for sumlist. Mark and load them (or use ESC d)
+    sumlist([]) =>
+    sumlist([1 1]) =>
+    sumlist([3 1 2 ]) =>
+    sumlist([44 11 55 1]) =>
+    */
+
+Put those tests in the random_tower.p file, after the definition of
+sumlist, or in the TESTS field of the procedure header.
+
+Note that you always need to test special cases, like the empty
+list. Use the comment brackets "/*" and "*/" to prevent accidental
+running of the tests when you compile the whole file.
+
+Make sure you understand what sumlist does. If not ask someone.
+
+-- -- The procedure random_subset
+[Omit if you are skipping the random problem solver]
+
+Our random searching program needs a procedure to produce at random a
+subset of a given list of numbers. Let us call that procedure
+random_subset. It can be used to propose a solution to the tower
+problem, which can then be tested using sumlist. Prepare a commented
+description of the procedure in your random_tower.p file, then see if
+you can define the procedure.
+
+How would you randomly select a subset from a list of numbers? Think
+about how you would do it, before reading on. E.g. suppose you used a
+coin?
+
+An example of the use of random_subset could be as follows (you could
+put the first line in a test command in your file, for checking your
+definition, later.)
+
+    repeat 5 times random_subset([1 2 3 3 4 2 5 ]) => endrepeat;
+    ** [1 2 3 3 2]
+    ** [1 2 3 4 5]
+    ** [4 5]
+    ** [1 2 3 4 2 5]
+    ** [1 2 3 4 5]
+
+Notice that the repeated calls of the same procedure with the same input
+list will not all produce the same output.
+Notice also that the numbers
+in the output list happen to be in the same order as the numbers in the
+input list.
+
+
+-- Towards defining random_subset
+[Omit if you are skipping the random problem solver]
+
+We'll use the built in Pop-11 procedure "random" which is a
+pseudo-random number generator. This can be used in the process of
+selecting a random subset of elements of a given list.
+
+-- The Pop-11 procedure random
+[Omit if you are skipping the random problem solver]
+
+The system procedure random can be given a number N and will randomly
+produce a number between 1 and N, using a "pseudo-random" algorithm.
+(If you are curious look at HELP * RANDOM)
+
+Here are examples that you can experiment with. Try to mark and load
+each line several times, and see what happens.
+
+    ;;; randomly generate 10 numbers between 1 and 5 (inclusive)
+    repeat 10 times random(5) endrepeat =>
+    ;;; try the same thing again
+    repeat 10 times random(5) endrepeat =>
+    ;;; get random numbers between 1 and 500
+    repeat 10 times random(500) endrepeat =>
+    ;;; What will this do?
+    repeat 10 times random(1) endrepeat =>
+
+
+You can make a list of random numbers by calling the procedure
+random several times inside a list-building expression based on the
+brackets "[%" and "%]", as follows:
+
+    [% random(5), random(500), random(1) %] =>
+
+If you compile that line repeatedly (e.g. using "ESC d") you may get
+results something like this:
+
+    ** [2 88 1]
+    ** [1 278 1]
+    ** [3 114 1]
+    ** [1 430 1]
+    ** [5 64 1]
+
+Simlarly if you wish to make a list of ten randomly chosen numbers
+between 1 and 100 do
+
+    [% repeat 10 times random(100) endrepeat%] =>
+
+Every time this is obeyed it creates a list of ten randomly generated
+numbers, such as:
+
+    ** [98 36 31 39 9 28 49 88 57 13]
+    ** [52 14 62 48 23 46 41 89 45 94]
+
+
+-- Randomly selecting elements of a set, using random -----------------
+[Omit if you are skipping the random problem solver]
+
+If you have a list of numbers, e.g. [10 23 34 65] you can choose a
+subset at random by going down the list and saying in each case, at
+random, "yes" or "no", and if it is "yes" then include the number in
+your subset, otherwise not. You could toss a coin to decide each case.
+But the computer cannot do that. So we'll use random to enable us
+to make a binary decision (to do or not to do something), for each
+number.
+
+If we want sometimes to say "yes", and sometimes to say "no", we can use
+a randomising conditional instruction like this:
+
+    if random(100) > 50 then "yes" else "no" endif =>
+
+Run that several times, and observe what happens. How would it change
+if the "50" were replaced by "10", say? Compare this:
+
+    if random(100) > 50 then 66 else 33 endif =>
+
+Try that several times (ESC d).
+
+-- -- Deciding randomly whether to put something on the stack or not
+[Omit if you are skipping the random problem solver]
+
+In the previous example the conditional placed 66 on the stack if the
+randomly generated number turned out to be greater than 50, otherwise it
+placed 33 on the stack. Compare this version. (Try it several times.)
+
+    if random(100) > 50 then 66 endif =>
+
+This version also puts 66 on the stack if the randomly generated
+number exceeds 50, but in the other case it does not do anything because
+the conditional has no "else" clause.
+
+-- -- Collecting a randomly generated set of numbers into a list
+
+The "decorated" list brackets [% and %] tell Pop-11 to run the
+instructions in between and then make a list of any results left on the
+stack when those instructions are run. We shall use that technique in
+the definition of random_subset.
+
+The basic idea is to take each element of the input list in turn, and
+then decide at random whether to put it on the stack. If instructions to
+do that are put between the decorated list brackets a list will made
+containing anything left on the stack.
+
+Here is an example of how it works.
+
+First compile these two lines (e.g. ESC d).
+
+    vars numlist = [2 77 55 3 99 4 50];
+    vars num;
+
+Now try this one several times.
+
+[% for num in numlist do if random(100) > 50 then num endif endfor %]=>
+
+Here are examples of what it might generate
+
+    ** [2 77 55 99 4]
+    ** [2 99 4]
+    ** [55 99]
+    ** [2 3 99 4 50]
+
+This method can now be used to define random_subset, which when given a
+list of numbers produces a list containing a randomly selected subset.
+That can later be used, with sumlist to define random_solve_tower.
+
+-- Requirements for random_subset
+[Omit if you are skipping the random problem solver]
+
+Put  the following specification (inside a comment) in your
+random_tower.p file.
+
+/*
+PROCEDURE: random_subset(inlist) -> sublist
+INPUTS:    inlist is a list of items
+OUTPUTS:   sublist is a list of items
+CREATION DATE:   21 Oct 1996
+PURPOSE:   generate a randomly selected sublist from a given list
+SPECIFICATION:
+    o sublist must contain only items that are in inlist
+    o sublist must not contain more copies of any item than there are
+      copies of that item in inlist
+    o sublist should not always have the same items: the selection
+      must vary at random.
+TESTS:
+
+*/
+
+E.g. given as input the list [cat dog cat mouse] random_subset can
+produce [cat cat], but not [cat cat cat].
+
+We define random_subset to go down the input list of numbers considering
+each element in turn, and deciding at random (on a 50/50 basis) whether
+to include that element or not, using the technique illustrated above.
+
+Put the following into your file random_tower.p, and compile it: (ESC c,
+or ENTER lcp (= Load Current Procedure)):
+
+define random_subset(inlist) -> sublist;
+
+    ;;; Build a list of things randomly chosen to be left on the stack
+    [%
+        lvars item;
+        for item in inlist do
+            if random(100) > 50 then item endif
+        endfor
+
+    %] -> sublist
+
+enddefine;
+
+
+Note: random(100) will be greater than 50 only about half the time.
+
+Compile that procedure definition and then test it repeatedly, e.g.
+
+/*
+    repeat 10 times random_subset([1 2 3 3 4 2 5 ]) => endrepeat;
+*/
+
+Add other tests with different sets of numbers, and run them. Notice
+that the longer the list given to random_subset, the smaller the chance
+of it producing the empty list, or a list with only one element. (Why?)
+
+Exercise: if you can think about combinations of items -- how often, on
+average, will random_subset produce an empty list, if the input list has
+3 elements. Think about the proportion of runs through the list that
+will say "no" to each number.
+
+-- CHAPTER 4 Defining random_solve_tower
+[Omit if you are skipping the random problem solver]
+
+We can define a "random" version of the tower building procedure, as
+follows:
+
+We have already defined two new procedures required for it:
+
+    sumlist(numlist) -> total;
+        a procedure to add up the numbers in a list.
+
+    random_subset(inlist) -> sublist;
+        to generate a random subset of a given list
+
+With sumlist we can check whether we have found a solution to the
+problem using a conditional test of the form:
+
+    if sumlist(list) = target then ....
+
+Using those two, we can now define the random solver so that it
+repeatedly generate sets of numbers at random from inlist, and then
+checks whether they add up to the target like this:
+
+define random_solve_tower(inlist, target) -> outlist;
+    ;;; Given a list of numbers and a target number search at random
+    ;;; for a subset of the list adding up to the target. If a subset
+    ;;; is found, stop and return it as result.
+    repeat
+        ;;; generate a random subset, and put it in a local variable
+        lvars testlist;
+        random_subset(inlist) -> testlist;
+        ;;; Do a little "trace" printing to show what's happening
+        [Testing the list ^testlist] =>
+
+        ;;; Check if the solution has been found.
+        if sumlist(testlist) = target then
+            [Eureka : found the solution] =>
+
+            ;;; Assign the answer to the output local variable.
+            testlist -> outlist;
+
+            ;;; Exit this procedure, and "return" to previous program.
+            return()
+        endif;
+    endrepeat;
+enddefine;
+
+
+Notice the use of "return" in the "then" branch of the conditional. This
+makes the procedure stop after assigning the solution list to the output
+variable, if a solution is found. Otherwise the repeat loop continues
+indefinitely. Try drawing a flow chart for the procedure.
+
+Prepare a commented header for that, then copy the definition into your
+file random_tower.p and then study it carefully to make sure you
+understand all the instructions.
+
+Compile the procedure, and devise a set of test commands, and place them
+between comment brackets after the definition in your file, like this,
+and try them out with the procedure defined above.
+
+    /*
+        random_solve_tower([ 3 5 7 9], 12) =>
+        ....
+        ....
+    */
+
+Include some tests with a short list of numbers, and some with a long
+list. Include some that have no solution, and see what happens. If it
+seems to go on too long and you need  to interrupt use CTRL-C (i.e hold
+down  the Control button and type C).
+
+Try this example several times:
+
+    random_solve_tower([1 3 4 5 6 7],  11) =>
+
+Examine the printout very carefully. Look at the lists that are tried
+and then rejected. See how often it tries out cases that are no good.
+Could that be prevented? How?
+
+
+-- Revision exercises:
+
+A. The procedure defined above contains (1) a header, (2) input
+variables, (3) an output variable, (4) local variable declarations,
+(5) a loop, (6) a conditional, (7) several procedure calls,
+(8) decorated list brackets and (9) some instructions for "trace"
+printing.
+
+Can you identify all of those 9 items in the procedure?
+
+B. The conditional expression uses an infix operator that produces a
+boolean (true or false) result after comparing two items. What is that
+infix operator? Why is it called an infix operator?
+
+C. What does the up-arrow "^" do in a list expression?
+
+D. Try adding an "else" clause to the conditional, with a print
+instruction to show the result of sumlist, and print out something like
+
+    [Number ... is no good] =>
+
+
+-- -- NOTE on trace printing and side effects
+
+The procedure random_solve_tower produces one result when it terminates,
+namely the value of the output-local variable "outlist". In addition to
+producing a result (which is left on the stack), it also contains these
+two lines:
+
+        [Testing the list ^testlist] =>
+
+        [Eureka : found the solution] =>
+
+They are designed to produce "trace printing" while the procedure is
+running.
+
+This is not essential for the procedure to perform its task of solving
+the problem, but is a "side effect" to help us see what is going on when
+the program runs. Such side effects are often useful when de-bugging
+programs that contain errors. They are also useful for helping people
+understand how a program works.
+
+Sometimes the trace printing commands are removed after the program has
+been developed. (There are other ways of producing trace printing
+described in TEACH * TRACE)
+
+-- -- Put some comments into your file random_tower.p
+[Omit if you are skipping the random problem solver]
+
+By now your file should have the three procedure definitions (sumlist
+random_subset, and random_solve_tower). In addition you should have some
+tests in comments after the definition of each procedure.
+
+At the top of the file, for future reference you should have some
+further comments between comment brackets (/* ..... */) giving general
+information about the file. You could includ a list of the main
+procedures there.
+
+-- -- Optional exercise: describe random_solve_tower
+[Omit if you are skipping the random problem solver: but read the
+section anyway.]
+
+It is important to be able to explain clearly and simply WHAT
+a program achieves and HOW it does it. These are two different things
+and should not be muddled up.
+
+-- -- -- Describe WHAT it does
+For practice, try writing down WHAT random_solve_tower does:
+
+    The inputs are:
+
+    The output is:
+
+    The relations between inputs and output are:
+
+    The side effects are:
+
+
+-- -- -- Describe HOW it does that
+
+You could also practice writing down HOW it does it, but at a level that
+will be understood by someone who does not know any Pop-11 at all. I.e.
+describe the processes in terms of abstract operations on lists of
+numbers, not in terms of the syntax of Pop-11.
+
+Compare what you write with what another student writes: criticise
+each other's descriptions for clarity and accuracy. You could use the
+following format:
+
+1. The program has the following main steps:
+    (label them, A, B, C...)
+
+2. Those main steps can be broken down into the following main substeps:
+
+A:
+    A1
+
+    A2
+    ....
+
+B:
+
+    B1
+
+    B2
+    ....
+
+And so on.
+
+When you have produced a description of your program put it into the
+file random_tower.p, between comment brackets /* ... */
+so that it will not interfere with loading (compiling) the file.
+
+Compare your explanations of how the program works with explanations
+given by other students. Discuss the differences between your
+explanations and try to decide whether one is better than another.
+
+-- -- Exercise: Explain what is wrong with the solution
+[Omit if you are skipping the random problem solver]
+
+Think about the following:
+
+1. Why does random_solve_tower constitute a bad solution to the problem?
+   What exactly is wrong with it?
+
+2. What happens when there is no solution to the problem, as in this
+case:
+
+    random_solve_tower([1 2 3],  99) =>
+
+
+3. What happens as the size of the input list increases?
+
+E.g. suppose the input list contained one hundred occurrences of the
+number 1, and the target was to add up to 100. How many tries would the
+program have to make at random, on average before it found the solution?
+
+You could try running it with a much smaller problem, with only
+20 items in the list (interrupt if necessary):
+
+  random_solve_tower([1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1], 20) =>
+
+You will probably have to interrupt long before it finds the solution!
+On average, how many times would it have to go round the repeat loop
+before it found a solution?
+
+-- CHAPTER 5: Depth first searching
+
+-- A more systematic search -------------------------------------------
+
+A more sensible and systematic approach is to think of the set of
+possible combinations as a sort of "space" through which you can move,
+keeping track of your path. This is a bit like searching a maze, except
+that it is an abstract maze, often referred to as a "search space" or a
+"problem space". All introductory text books on AI include explanations
+of this notion, and you may find it useful to read chapters on
+searching in such books.
+
+Solving the river crossing problem (TEACH RIVER) involves another
+abstract maze, where you have to search for a combination of moves
+rather than a combination of numbers.
+
+-- -- Searching in physical mazes.
+
+When exploring an ordinary maze, you may go down "blind-alleys" and have
+to back-track. If you can systematically keep track of which paths you
+have explored and avoid repeating them, then you can systematically
+explore more and more different paths, until you have covered all
+options,
+
+One way to do this is to make sure that whenever you reach a dead end
+you "back track" to the last location at which there remains an option
+that you have not yet explored. I.e. you backtrack to the last "decision
+point". How can one do that when exploring a real maze? Various
+techniques are available, using paint, long strings, crawling along
+walls, always in the same direction, etc. You may find it useful to draw
+some simple mazes and think about how it can be done, either by someone
+with a birds-eye view of the whole maze, or someone embedded in the
+maze, like a garden maze with high hedges.
+
+
+-- -- Searching in abstract mazes (search spaces)
+
+The same problems arise when exploring an abstract maze, or search
+space, except that some search spaces are infinitely large and then
+there may be no guarantee that you can cover the whole maze.
+
+An example of an infinite search space is finding four whole numbers
+(non-zero positive integers) A, B, C and N such that
+
+     N    N    N
+    A  + B  = C
+
+(i.e. A to the power N, plus B to the power N equals C to the power N).
+The mathematician Fermat claimed to have proved this impossible for all
+N > 2, but gave no proof. Only recently was a proof of impossibility
+found. It was not proved impossible by exhaustive search through all
+possible numbers!
+
+Here are some solutions
+
+     2   2    2
+    3 + 4  = 5
+
+     2    2     2
+    5 + 12  = 13
+
+
+You can try to find more, if you wish to get a feel for searching in an
+infinite abstract space. It is infinite because there are infinitely
+many possible values for A, B, C, and N to consider.
+
+For now we'll consider only finite search spaces. If you have a finite
+set of numbers, is the "space" of possible subsets of that set finite or
+infinite? What happens if you allow each number to occur in the selected
+set a random number of times?
+
+-- Depth-first search -------------------------------------------------
+
+We'll now introduce a systematic searching strategy known as
+"depth-first" search. There are other systematic strategies that you
+will learn about, including "breadth-first" search. Depth-first search
+is the simplest strategy for searching a physical maze when you can't
+see over the maze walls. It's the sort of strategy you could use if you
+employed paint to mark the paths you had already explored.
+
+It is important that, before you read any further, you should have
+written down in English what strategy YOU would use to solve the tower
+problem in a systematic way, so that you can compare your strategy with
+that outlined below. Your strategy should be in your file 'addnums'.
+
+The central feature of depth first search is as follows.
+
+o Check the initial state. If it solves the problem, stop. Otherwise:
+
+o repeatedly do as follows:
+
+  o consider possible new states, select one and save the rest, then,
+
+    o if the selected state is the goal, stop,
+
+    o otherwise find its successors and add them to the saved set.
+
+    o if there are no successors go back to one of the saved states.
+
+        o if there are no saved states give up: you have failed.
+
+
+-- -- Depth first search as tree search
+
+Generally a depth first search explores a "tree" of possible states,
+which we can represent as an upside down tree as follows, with each node
+representing a possible state in the search. We'll number each node
+according to the order in which they are traversed. The successors of
+each node are suspended below it. I'll assume each node has one, two or
+three successors, but in fact there could be any number.
+
+
+                                0
+                                |
+                1---------------+----9---------14
+                |                    |         |
+             2--+--4------------8    10     15-+------16
+             |     |                 |                |
+             |   5-+----6        11--+---13           |
+             3         |         |               17---+--18
+                       7         |                       |
+                                 12                      19
+
+The successors of node 0 are nodes [1 9 14]. The successors of node 9
+are [11 13]. Trace through the nodes 1, 2, 3, 4, 5, 6, etc. to see
+the pattern of searching. If you were trying to solve a problem the
+solution might be anywhere, e.g. at node 1, node 8, node 10, or node 19.
+
+If you think of yourself starting at node 0 and traversing the tree
+downwards you can get through the nodes in the sequence indicated above
+if you always take a branch to the same side if you have never
+previously been there, and then after getting to a dead end start
+back-tracking. When you get back to a branch point take the remaining
+branches in order. Notice that if the only goal state is the one
+labelled "17" in the tree above, you could waste a lot of time exploring
+dud routes before you get there. If you explored the tree in the reverse
+order, namely 19, 18, 17, etc. you would find the goal far more quickly.
+
+The trouble is that when you start searching you generally don't know
+where the goal is.
+
+Can we explore the possible combinations of numbers on that systematic
+depth-first basis? There are several possible strategies, and this file
+will merely illustrate one of them.
+
+
+-- Defining a procedure to do the systematic search to build a tower
+
+-- -- A strategy that tries 1, then 2, then 3 ... numbers at a time
+
+Suppose you have to try to find a subset of [6 5 7 4] that adds up to
+15. I.e. inlist is [6 5 7 4] and target is 15.
+
+We'll represent each state with the selection so far (a list of numbers)
+and the remainder available (another list of numbers). Combining the two
+lists should give the original set of numbers. I.e. the initial state is
+
+    Selection so far:    []   (Henceforth we'll use the label "sofar")
+    Remainder available: [6 5 7 4]      (Henceforth "available")
+
+We shall search for a "state" in which the selection so far adds up to
+the target. We can combine the two lists into a single list containing
+two lists, and representing the total state, i.e. initially:
+
+    Total state description:  [ [] [6 5 7 4] ]
+
+Notice that for the first state, the remainder available, i.e. the
+second list, is always the input list inlist.
+
+First see if the initial state is a solution: does the "sofar" list add
+up to the target? Answer NO. The total is 0.
+
+So we need to generate successor states. One way of generating
+successors from a given state is to consider selecting each of the
+available (unselected) numbers in turn. That would give the following
+successors to the initial state:
+
+    sofar: [6]          [5]         [7]         [4]
+available: [5 7 4]      [6 7 4]     [6 5 4]     [6 5 7]
+
+Suppose we represent each state as a list containing two lists, the
+sofar list and the available list, as suggested: Then the initial "total
+state" would be
+
+    [ [] [6 5 7 4] ]
+
+and the other four "successor states" shown above would be represented
+thus:
+
+ [ [6] [5 7 4] ]   [ [5] [6 7 4] ]  [ [7] [6 5 4] ]  [ [4] 6 5 7] ]
+
+If we take the first state with sofar = [6] and available = [5 7 4]
+then we can attempt all possible ways of extending its sofar list
+with one element from the available list, to find its successor states.
+
+-- -- Generating successors to the first state
+
+Now consider all possible ways of extending the first of these states
+[[6][5 7 4]] by transferring one element from the available to the sofar
+list. That would give the following three "successor" states:
+
+    [ [6 5] [7 4] ]    [ [6 7] [5 4] ]  [ [6 4] [5 7] ]
+
+And the successors to the first of these are the following
+
+    [ [6 5 7] [4] ]     [ [6 5 4] [7] ]
+
+Exercise: Work out all the successors to this state: [[6 7] [5 4]],
+(i.e. successors to the state sofar = [6 7], and available = [5 4]),
+including the immediate successors, and the successors of the
+successors, and so on. Try drawing out the tree of all such successors.
+
+
+-- -- Using a "history" list to avoid repeated states.
+
+If you go through all the states generated in this way, you will find
+essentially the same state occurring more than once. For example one of
+the successors of the state [[6] [5 7 4] is the state [[6 5] [7 4]],
+with sofar adding up to 11.
+
+But equally one of the successors of the state [[5] [6 7 4]] is
+[[5 6] [7 4]], with sofar also adding up to 11, because it has the same
+numbers though in a different order.
+
+One way to avoid this kind of wasteful repetition is to maintain a
+"history" list, i.e. a list of all states previously examined.
+
+But noticing the identity of the two states
+
+    [[6 5] [7 4]] and [[5 6] [7 4]]
+
+would be easier if the order of the numbers were the same in both. We
+can achieve this by ensuring that the sofar list has been numerically
+ordered. In that case both states would have as sofar list [5 6], and
+they can be directly compared using the Pop-11 equality operator "=".
+So we shall need to ensure that we describe states in a "canonical"
+order to simplify comparing them.
+
+So let's see what the search tree looks like now.
+
+
+-- -- Depicting the search tree
+
+We are exploring a tree-structured search space as shown below, often
+referred to as a "search tree", although such trees are normally drawn
+upside down, with the "root" at the top.
+
+Each "node" in the tree has
+
+    1. A unique "node-number" in braces, e.g. {13} for node 13.
+        (That is merely for our convenience in talking about nodes.
+        We could have chosen arbitrary names instead.)
+
+    2. Two lists of numbers
+        a. sofar: the numbers selected so far,
+        b. available: the remaining numbers which have not been
+           considered in the path down to that node from the root.
+
+    3. The number total so far, preceded by an "=" sign. This is got by
+       adding up the numbers in the sofar list.
+
+
+For example here is the node numbered {3} in the tree below:
+
+Node number:                    {3}
+Sofar and Available lists:    [6 5 7] [4]
+Total for Sofar:                = 18
+
+The picture of the tree below is not complete, as it includes only some
+of the branches. Different ordering strategies would produce different
+search trees for the same problem.
+
+-- -- A picture of the "solve_tower" search tree for inlist [6 5 7 4]
+
+Here is a part of the search tree. Try to complete it. Some of the node
+numbers have been left out, and replaced by "?". Try inserting all node
+numbers in a sequence corresponding to a depth first search as described
+above.
+
+                            (start node)
+                                {0}
+                          [] [6 5 7 4]
+                                = 0
+                                 |
+                                 |
+      *------------------*------------------*------------------*
+     {1}                {?}                {?}                {?}
+     [6] [5 7 4]        [5][6 7 4]         [7][6 5 4]      [4][6 5 7]
+     = 6                = 5                = 7             = 4
+     |                  |                  |               |
+     |             *----*----*        *----*----*     *----*----*
+     |            {?}  {?}  {?}      {?}  {?}  {?}   {?}  {?}  {?}
+     |                 <..........missing subtrees............>
+  *------------*------------*
+ {2}          {7}          {?}
+[6 5] [7 4]  [6 7][5 4]   [6 4][5 7]
+= 11          = 13         = 10
+   |        <missing subtrees>
+   |
+ *-------------*
+{3}           {5}
+[6 5 7][4]    [6 5 4][7]
+= 18          = 15
+ |             |
+{4}           {6}
+[6 5 7 4][]   [6 5 4 7][]
+= 22          = 22
+
+
+Note that the tree thus constructed always has branches whose end nodes
+have sofar=[6 5 7 4] available=[].  How many such end nodes (or "leaves"
+of the tree) are there?
+
+The portion of the tree as drawn has some duplicate nodes, e.g. nodes
+{4} and {6}. Try redrawing the tree without any duplicates and see what
+difference it makes to the size of the search space.
+
+
+-- -- Some exercises concerning this search tree
+
+If you have time, do these exercises to check your understanding.
+
+Suppose the target is 9, i.e. the tower to be built has a height of 9
+and the block sizes are [6 5 7 4].
+
+1. Complete the tree on paper and decide which will be the goal state
+that is found first.
+
+2. Suppose the target were 11: how many goal states would there be, and
+which are they?
+
+3. How many paths are there in the complete tree from the root to any
+node? How many paths are there from the root to the bottom level nodes?
+How would these numbers grow if the input list grew? For example if the
+input list were twice as long, what would the numbers of paths be?
+
+4. Is it possible to GUARANTEE that if there is a solution, then the
+solution will be found somewhere on a tree like this?
+See if you can produce a proof that satisfies you and write it down.
+(This may be hard if you are not used to mathematical or logical
+reasoning.)
+
+5. Try drawing a search tree for a starting list with repeated numbers,
+e.g.  [3 4 4 7 8]
+
+
+What difference is made by the introduction of repeated numbers? Can you
+avoid unnecessary duplication in your search tree?
+
+
+-- Search spaces ------------------------------------------------------
+
+The (incomplete) tree shown above is an example of a "search space":
+one of the "abstract mazes" intelligent agents often have to explore.
+This is a maze whose components you have to build while you are
+exploring it, unlike a physical maze like the one at Hampton Court.
+
+Notice that there are different orders in which the nodes in the
+search space could be constructed.
+
+If the nodes shown above were explored in a different numerical sequence
+that could be a "breadth first" search instead of a "depth first"
+search.
+
+What would the sequence of states be for a "depth first" search in which
+the left-most branch was taken each time?
+
+What would the sequence of states be for a "depth first" search in which
+the right-most branch was taken each time?
+
+o In a breadth first search all the options following a given level are
+  explored before going to the next level. Look at the tree diagram, and
+  work out possible sequences of states for a breadth first search.
+
+o In depth first search, one option is chosen at each level and all the
+  branches from it are explored (by depth first search) before the next
+  option at that level is explored. This requires "backtracking".
+
+
+-- CHAPTER 6 Representations for solve_tower
+
+-- Keeping track of progress -------------------------------------------
+
+As indicated above, at any state in the problem-solving process, your
+progress along the current path can be summarised by the following
+information:
+
+    - A "sofar list" waiting to be extended
+         (the numbers you have picked so far)
+    - An "available list" of possible remaining numbers
+
+We shall use a list containing these two to represent each state, i.e. a
+total state description list.
+
+In addition there is
+
+    - The target, a number to be compared with the sum of numbers
+      in sofar.
+
+If you try a path and it doesn't work, you have to remember what to try
+next. At each "branch point" you then have the task of
+
+    (a) making a selection and
+    (b) recording alternatives in case you come back to that branch
+        point later.
+
+In the program below, we shall create a list of alternative nodes that
+still need to be explored. This list of alternatives will be a sort of
+memory for things to be done. It will keep changing on each cycle of the
+program in a "repeat" loop.
+
+Some forms of unsuccessful problem-solving behaviour in people may be
+related to the difficulty of building and keeping track of such
+descriptions of alternatives to try later. I.e. short term memory may be
+overloaded.
+
+How do we know what else to try if we can't find a solution by
+continuing on from a particular state, e.g. state {4} in the diagram,
+which has no solutions below it?
+
+In the diagram the alternatives are shown to your brain by the tree
+structure which you can look at. For a computer, which can't (yet) see
+diagrams, we can keep a LIST of alternative states to be explored, i.e.
+state descriptions that have already been constructed, but whose
+branches have not yet been followed.
+
+-- How to represent the alternative states to consider ----------------
+
+We have the overall plan:
+
+    Find a sequence of states, each one leading validly to the next,
+    starting from an initial state:
+
+        sofar list:          empty
+        available list:      the list provided initially inlist
+
+    and leading to a final state:
+
+        sofar list:          a list which sums to the target
+        available list:      some remaining set of options
+
+But we need to cope with intermediate stages and the alternatives
+associated with them. Alternatives to be tried at any point can be
+represented just by the new possible states that remain to be explored.
+Since each state is a two element list, the alternatives can be
+represented as a list of two-element lists:
+
+    [
+        [[6] [5 7 4]]
+        [[5] [6 7 4]]
+        [[7] [6 5 4]]
+        [[4] [6 5 7]]
+    ]
+
+These are all among the possible next states after the state
+
+    [] [5 6 7 4]
+
+Having made a list of possible next states, you will have to remember
+them, in case the state you choose to follow doesn't work. In general,
+you may have previously remembered earlier possible choices. So you'll
+have to join the new set of choices on to the old set, i.e. something
+like
+
+    [^^newalternatives  ^^alternatives] -> alternatives;
+
+(If you added newalternatives to the right of the existing alternatives
+that could produce a different, but equally systematic, strategy.)
+
+In the next section we show how to create the list newalternatives from
+a given total state description.
+
+Building the list alternatives is a bit like keeping a record in a
+physical maze of all the branches that you have encountered so far but
+have not yet explored.
+
+
+-- Generating "next states" -------------------------------------------
+
+How can we generate all the possible next states following from a given
+state, so that we can add them to the alternatives list to be considered
+later. You could try to work out your own algorithm (type it into your
+file 'addnums'), then read on.
+
+Suppose we are half way through working on the tower problem, and we are
+considering the following state:
+
+    sofar list:      [1 3]          (numbers selected so far)
+    available list:  [5 2 8]        (numbers available to be selected)
+
+with the target 17. How are we to enumerate the next possible states
+(the places we might go from here)? There are several ways we could look
+at the choices open to us. The one that is implicit in the tree diagram
+shown above is this:
+
+    For each item in available create a new state by adding that
+    item to a copy of sofar to get a new possible sofar and use the
+    remainder as the corresponding available.
+
+This would yield the following new sofar lists: [1 3 5] [1 3 2] [1 3 8]
+                                                     ^       ^       ^
+and the following remainders for available:     [2 8]   [5 8]   [5 2]
+
+(The new items in each sofar list are indicated by "^" below.)
+
+Assuming that the way you remember alternatives ensures that every
+alternative will eventually be tried, it does not matter greatly how you
+select next states.
+
+-- -- Efficiency considerations are ignored
+
+Although different methods of enumerating alternatives systematically
+will all lead to solutions being found if they exist, the methods are
+not necessarily all equally fast. For instance, some methods will
+generate more "next states" than are strictly necessary, because they
+duplicate states elsewhere in the tree.
+
+We shall ignore such efficiency issues for now.
+
+
+-- Putting this into Pop-11 -----------------------------------------
+
+We now start to design the solve_tower procedure, to solve the "sum of
+numbers" problem in a systematic way. You should prepare a file called
+'solve_tower.p' and copy into it the procedure sumlist from the file
+'random_tower.p', as you will need sumlist for solve_tower.
+
+The program uses the "list of alternatives to be tried" idea. The
+alternatives are represented as states you can get to via a path from
+the initial state.
+
+As above, each state is represented by a list whose first member is the
+"sofar list" and whose second member is the "available list". The list
+of alternative states will be updated at every branch point, by adding
+all the possible next states to the list.
+
+(Don't confuse the list of alternative states to be explored with the
+list of numbers available at each state.)
+
+
+-- CHAPTER 7 The overall algorithm
+
+We can plan the outline of solve_tower, as follows.
+
+-- Special cases -------------------------------------------------------
+
+We are assuming that our problem solver works in a cycle. In each cycle
+it considers the set of "alternative" states to be investigated, held in
+the list alternatives. It has to check the following set of cases in
+each cycle:
+
+Case 1:
+    If there are no more states because the alternatives list is empty,
+    then the problem has no solution, and the procedure should "return"
+    with false as its result.
+Case 2:
+    Select a new state from the alternatives list and examine it.
+
+    Case 2.a:
+        It is a goal state: success!
+        The procedure should "return" with the sofar list as its result.
+
+    Case 2.b:
+        The next state is not a goal state, and it has no successors.
+        You have come down a path leading to a dead end. So you need to
+        examine other unexplored states on the list of alternatives.
+
+    Case 2.c:
+        The state has successors. So generate a list of them, and add
+        them to the list of alternatives to be considered next time
+        round the loop.
+
+
+How does all that compare with your own algorithm expressed in English
+in your file 'addnums' ?
+
+This description must be translated into Pop-11. This requires more
+"implementation details" to be worked out.
+
+-- -- The importance of ordering choices.
+
+How you select a state to examine in case 2, and how you add new
+alternatives to the list in Case 2.c can make a big difference to the
+order in which states are explored.
+
+The simplest strategy for Case 2 is to choose the first of the
+alternatives list and saving the rest to examine later.
+
+Similarly the simplest strategy for Case 2.c. is adding all the new
+states to the front of the alternatives list.
+
+Adopting these two strategies together means that the alternatives list
+is treated as a STACK (last in first out).
+
+The stack-based strategy is approximately like the strategy of always
+choosing the left-most untried branch in a maze. It produces a
+depth-first search.
+
+Optional exercise:
+
+Can you prove that those cases (Case 1, 2.a., 2.b., 2c) exhaust the
+possibilities? Could there be some additional case that we have not
+considered?
+
+We now look at how to define the procedure nextstates, and then how to
+use it in the complete problem solver.
+
+
+-- Defining nextstates(this_state) -> newalternatives;
+
+The subsidiary procedure nextstates is required in your solve_tower.p
+file, to determine the possible next states for a state (given by a
+"sofar list", e.g. [4] and an "available list", e.g. [5 6 7 8]).
+
+Try writing down a specification for nextstates: the formats for the
+inputs, the formats for the ouputs, and how they are to be related. E.g.
+use your header template file to copy a commented procedure heading into
+solve_tower.p and edit it to produce a specification.
+
+It will be convenient to use the Pop-11 matcher to extract different
+items from the list available using the fact that a matcher variable can
+use a numerical restriction on the length of a matching sublist. This is
+now explained.
+
+-- -- Numerical restrictions in the Pop-11 pattern matcher
+
+In defining the procedure nextstates we shall find it useful to start
+with a list of unused numbers, and then extract the first element, the
+second element, the third element, etc. in turn, leaving the unused
+elements to be tried later. Thus given the list
+
+    [3 4 5 6 7 8 9 10]
+
+we need to be able to get the item 3 and the list [4 5 6 7 8 9 10],
+then the item 4 and the list [3 5 6 7 8 9 10], then the item 5 and the
+list [3 4 6 7 8 9 10], and so on.
+
+In order to achieve that, we shall find it useful to use the Pop-11
+pattern matcher to decompose a list into the first N elements (the
+lefts), the next element, and the remaining elements (the rights).
+
+Suppose you are given the following list:
+
+    vars list = [3 4 5 6 7 8 9 10];
+
+and you want to use the matcher to get the first three items into a
+variable lefts, then the next item into a variable number and then the
+remaining items into a variable rights. You can use the matcher arrow
+
+        -->
+
+as follows. First declare the pattern variables to be set by the
+matcher. (Inside the procedure we'll use the "!" pattern prefix, so that
+lvars can be used for pattern variables. But for now use "vars").
+
+    vars lefts, number, rights;
+
+If you simply ask the matcher to break the list into three components, a
+lefts list a number list and a rights list, as follows, it will
+essentially choose the simplest way of satisfying the match, by making
+one of the two sublists empty:
+
+    ;;; assign some elements of list to lefts, one to number some to
+    ;;; rights, thus:
+    list --> [??lefts ?number ??rights]
+    ;;; examine the result of that matching operation
+    lefts =>
+    ** []
+    number =>
+    ** 3
+    rights =>
+    ** [4 5 6 7 8 9 10]
+
+
+If you wish to force the lefts list to have exacly three items, you can
+add a numerical *restriction* after the pattern variable "??lefts". Do
+the following, where ":3" restricts the length of lefts, and the single
+query "?" before "number" means that it has to match only one item from
+the list. Because the pattern element "??rights" has no restriction, it
+can match any number of items, and will pick up all the unused items
+(possibly the empty set). So compile this (e.g. using loadline):
+
+    list --> [??lefts:3 ?number ??rights]
+
+And check what has been assigned to the variables:
+
+    lefts =>
+    ** [3 4 5]
+    number =>
+    ** 6
+    rights =>
+    ** [7 8 9 10]
+
+
+You can then then combine the lefts and the rights to form the remainder
+list, by using "^^" to insert the values of the variables into a
+new list, thus (note the missing number in the result):
+
+    [^^lefts ^^rights] =>
+    ** [3 4 5 7 8 9 10]
+
+If you wanted to try all ways of selecting one number from the list
+and combining the lefts and the rights then instead of using only the
+numerical restriction ":3" you should try all the different possible
+numerical restrictions from 0 up to (the length of the list - 1).
+
+You could do that as follows. Note the use of the space between ":" and
+"^". This is essential to prevent Pop-11 combining them into one symbol,
+whereas here we need ":" to indicate that a restriction is coming next,
+and then "^" to indicate that the restriction is the value of the
+variable index:
+
+    vars index;
+    for index from 0 to length(list) - 1 do
+        list --> [??lefts: ^index ?number ??rights];
+        [^number [^^lefts ^^rights]] =>
+    endfor;
+
+Mark and load all that. It should print out the following, assuming
+the variable list has been given the value above.
+
+    ** [3 [4 5 6 7 8 9 10]]
+    ** [4 [3 5 6 7 8 9 10]]
+    ** [5 [3 4 6 7 8 9 10]]
+    ... and so on ...
+
+Check that these are the required outputs for that loop. I.e. make sure
+that each number in turn has been restricted from the original list.
+Try assigning a different value to lists, and go back and do that again,
+e.g.
+
+    [a b c d] -> list
+
+-- Use the matcher arrow to define the procedure nextstates
+
+If you feel ready, try using the above ideas to produce a Pop-11
+procedure nextstates with the header:
+
+    define nextstates(this_state) -> newalternatives;
+
+The input variable this_state should have value a list containing a
+state description, i.e. it should consist of two lists of numbers, one
+the sofar list, and one the available list, and it should return as
+result a list of possible next states.
+
+I.e. given this_state [[]  [5 6 7]], with an empty sofar list nextstates
+should produce:
+
+    [ [[5] [6 7]]  [[6] [5 7]]  [[7] [5 6]] ]
+(I have added extra spaces for clarity).
+
+Given this_state [[4] [5 6 7]] it should produce:
+
+    [ [[4 5] [6 7]]  [[4 6] [5 7]]  [[4 7] [5 6]] ]
+
+Given this_state [[4 6] [5 7]] nextstates should produce:
+    [ [[4 6 5] [7]]  [[4 6 7] [5]] ]
+
+
+Note that the last example produces only two next states because there
+were only two numbers in the available list, namely 5 and 7.
+
+If you find it too difficult to define nextstates, use the version
+below.
+
+-- -- An example definition of procedure nextstates
+
+You could try uncovering it a line at a time, and trying to work out in
+advance what the next line should be. (There is no unique solution: this
+is just one possible solution among many.)
+
+NOTE: put this procedure and others described below into your file
+'solve_tower.p', and add some test commands after it.
+
+define nextstates(this_state) -> newalternatives;
+    ;;; Given a state, produce a list of successor states.
+    ;;; Each state is a list containing a sofar list
+    ;;;         and an available list.
+    ;;; Each successor state adds one item from the available list to
+    ;;; the original sofar list to give a the new sofar list.
+    ;;; The rest go into a new available list.
+
+    ;;; Local variable needed below
+    lvars nextstate;
+
+    ;;; Five pattern variables are needed, for use with -->
+    ;;; We'll use "!" as pattern prefix to allow them to be lvars
+
+    lvars sofar, available, number, lefts, rights;
+
+    ;;; Dig out the sofar and available lists from the current state
+    this_state --> ! [?sofar ?available];
+
+    ;;; Declare a variable index to range from 0 to
+    ;;;         (length(available) - 1),
+    ;;; and repeatedly get a new item for sofar, and a combined set of
+    ;;; lefts and rights for the new available.
+
+    ;;; start building a list to be assigned to newalternatives
+    [%
+        lvars index;    ;;; loop counter
+        for index from 0 to length(available) - 1 do
+
+            ;;; split the list before and after the indexed item
+            available --> ! [??lefts: ^index ?number ??rights];
+
+            ;;; Now build a new state.
+            ;;; the new sofar, is the old one, with number added.
+            ;;; The new available is made from lefts and rights
+            [[^^sofar ^number]  [^^lefts ^^rights]] -> nextstate;
+
+            ;;; Add some trace printing to help you during development
+            [nextstate ^nextstate] =>
+
+            ;;; leave nextstate on the stack, to go into the list
+            ;;; made by the list brackets.
+            nextstate;
+        endfor
+    %] -> newalternatives;
+
+enddefine;
+
+
+Put that in your file, compile it, then test it.
+
+-- -- Putting test cases into your files
+
+Put some test cases after your procedure definition, inside a comment,
+or in the commented procedure heading e.g. like this:
+
+    /*
+    ;;; Some test examples for nextstates
+
+    nextstates([[]  [5 6 7]]) =>
+    nextstates([[4] [5 6 7]]) =>
+    nextstates([[4 5] [6 7]]) =>
+    */
+
+Every time you change a procedure it is *essential* to run all your
+tests again to make sure that the changes have not introduced some new
+error.
+
+What will happen if you give nextstates a state whose available list is
+empty? e.g.
+
+    nextstates([[4 5 6] []]) =>
+
+What should the result be in this case? What is it?
+
+
+-- CHAPTER 8 Defining solve_tower, at last
+
+The main procedure, solve_tower, can be built up from the procedures
+defined above, including sumlist and nextstates.
+
+You could try defining it yourself, using those procedures. If you put
+a definition into your file 'solve_tower.p' you can test it out using
+tests below. Start a commented heading for the proceure solve_tower
+at the end of your file.
+
+If you find it too difficult, then copy the definition below. but make
+sure you understand how it works. Look back at the cases listed above
+(Case 1, Cases 2, 2.a, 2.b, 2.c) when you try to understand this.
+
+solve_tower starts by initialising the memory list alternatives. It puts
+on this list just one state to be explored - the initial state for the
+problem. In this state,
+
+    the sofar list is []    (nothing selected so far)
+    the available list is the input list
+
+It then repeatedly cycles through the steps described above. Here is the
+complete definition in Pop-11
+
+define solve_tower(inlist, target) -> outlist;
+    ;;; local lexical variables, not for use in patterns
+    lvars alternatives, newalternatives;
+
+    ;;; pattern variables used below
+    lvars state, remainder, sofar, available;
+
+    ;;; add some "trace printing" which can later be removed
+    [Starting with inlist ^inlist and target ^target] =>
+
+    ;;; create a list of alternatives containing one state, the
+    ;;; initial state, with empty sofar list. Derived states will be
+    ;;; added to the list after
+    ;;; this state has been checked
+
+    [ [ [] ^inlist ] ] -> alternatives;
+
+    repeat
+        if alternatives = [] then
+            ;;; Case 1: failed -- no more alternatives to consider
+            ;;; so make outlist false, and return from this procedure
+            false -> outlist;
+            return();
+        else
+            ;;; Explore remaining alternatives
+            ;;; get next state and remainder of alternatives
+            ;;; Case 2
+            alternatives --> ! [?state ??remainder];
+
+            ;;; get the elements of the state
+            state --> ! [?sofar ?available];
+
+            ;;; Some temporary trace printing during development and
+            ;;; testing
+            [Trying to extend state with
+                ^sofar sofar and ^available left] =>
+
+            ;;; First check this state against the goal
+            if sumlist(sofar) = target then
+                ;;; Case 2.a: problem solved. Insert some trace printing
+                [Solution found: choose ^sofar] =>
+                sofar -> outlist;
+                return()
+            elseif available = [] then
+                ;;; Case 2.b: no successors for this state
+                ;;; so continue with remainder, from alternatives
+                remainder -> alternatives;
+                [No successors for ^state, so backtrack] =>
+            else
+                ;;; Case 2.c: Generate successors to this state
+                nextstates(state) -> newalternatives;
+                ;;; add them to the front of remaining alternatives
+                [^^newalternatives ^^remainder] -> alternatives
+            endif
+        endif;
+    endrepeat;
+enddefine;
+
+
+You may be surprised at how simple that procedure looks.
+Test the procedure (put these and other tests in your file). Before
+running each test, try to work out what the program should print out.
+
+/*
+   solve_tower([1 2], 8) =>
+   solve_tower([], 8) =>
+   solve_tower([6 2], 8) =>
+   solve_tower([1 2 3 4], 8) =>
+   solve_tower([1 3 2 4], 7) =>
+   solve_tower([8 2 3 4], 6) =>
+   solve_tower([2 2 2 2], 1) =>
+*/
+
+
+The messages printed out will show you which alternative "sofar lists"
+the program tries to extend in what order, and with which "available
+lists". They also show when a branch of the search tree has been
+exhausted and the program is about to backtrack.
+
+When the program runs, the trace printing will show the "sofar" list
+getting longer, then getting shorter then getting longer, etc. Try to
+relate this to the process of searching down the tree then back-tracking
+then searching down another branch then backtracking, and so on.
+
+In the last example an amazing number of stupid and repetitive attempts
+will be made. How can the program be changed to prevent them?
+
+Are you convinced that all possibilities are going to be covered by this
+program? Could it possibly miss a solution?
+
+To get more information you can also try tracing sumlist and nextstates
+(See HELP * TRACE)
+
+When you have got this far, if you are on a course, you should show your
+demonstrator or tutor the file solve_tower.p containing the complete
+program, and demonstrate that it can be compiled and run on some tests.
+
+Make sure your file as a proper header at the top, including a list of
+all the procedures defined in the file. Make sure that each procedure
+has a commented heading preceding it specifying its inputs, outputs,
+purpose, etc. Remove any junk from the file, e.g. old versions of
+procedures. Make sure that each procedure has a set of tests (in comment
+brackets) that you can run if ever you change the procedure.
+
+TEACH * SEARCHING shows how to generalise these techniques to produce
+a "general" problem solver.
+
+
+-- CHAPTER 9 Some exercises and notes
+-- Optional exercise 1
+
+You may be able to think of ways of making solve_tower behave less
+stupidly.
+
+For instance, the program tries extending "sofar lists" even if they
+already sum to more than the target, as these examples show:
+
+   solve_tower([2 2 2 2], 1) =>
+   solve_tower([1 3 5 7], 2) =>
+   solve_tower([7 3 5 1], 4) =>
+
+You could prevent these states ever being extended. How?
+
+If you can make this change it will prevent a lot of very stupid
+searching done by this program.
+
+Try comparing the Pop-11 version of solve_tower with your solution
+expressed in English in your file 'addnums'. Compare both with the
+English description given previously in terms of the cases 1, 2.a, 2.b,
+2.c.
+
+
+-- Optional exercise 2
+
+This is a bit harder. Do not attempt this exercise if you are behind
+with your work.
+
+Another form of stupidity is creating essentially the same state more
+than once. You could try to rule this out by changing the procedure
+solve_tower to keep a list called "history" in which it stores all the
+combinations of sofar and alternatives that it has previously tried.
+
+One way is to include a local variable called history initialised to the
+empty list:
+
+    lvars history = [];
+
+Then every time your program looks at a state, it should add that state
+to the history list:
+
+        [^state ^^history] -> history;
+
+Then you could extend nextstates to take an extra argument, the history
+list, and when it creates a new state, instead of always blindly
+adding it to the list of newalternatives, as in
+
+        [^nextstate ^^newalternatives] -> newalternatives;
+
+it could first compare nextstate with each item in the history list
+to make sure that it is not equivalent to a state that has been examined
+previously.
+
+Doing that could reduce the amount of wasteful searching. You could ask
+yourself whether the history list needs to keep a history of complete
+states including both the sofar and the available list for each
+remembered state, or whether it is enough to keep only the sofar lists,
+and to check that the sofar list is new before adding a new state to
+newalternatives.
+
+You may have to "order" the items in each state list to ensure that
+testing for membership of the history list can use the Pop-11 procedure
+member. (See HELP MEMBER). The library procedure sort can be used to put
+elements of a list into increasing numerical order. (See HELP SORT.)
+
+-- Optional exercise 3
+
+Try designing a program that will search for a solution to the river
+crossing problem (See TEACH RIVER). I.e. a man has to get his fox,
+chicken and grain across a river, using a boat that allows him to take
+only one item at a time. He cannot ever leave a river bank with the fox
+together with the chicken, nor the chicken together with the grain, as
+the first will eat the second. The program should search for a sequence
+of moves that do not violate the constraints, and eventually attain the
+goal. Try to formulate the program so that it accepts any legal state of
+the river world as a start state and any legal state as a goal state.
+
+
+-- Revision questions -------------------------------------------------
+
+Write down answers to these questions. You should be able to check some
+of your answers by looking back through this file.
+
+1. Why is searching important in AI?
+
+2. Give a list of at least five types of thinking or reasoning that
+involve searching.
+
+3. What are breadth-first and depth-first search, and in what ways
+are they different?
+
+4. One of them can be implemented using a "stack-like" list of
+alternatives to explore, in which new alternatives are added at
+one end of the list and then selected from the same end. Which one?
+
+5. What are the advantages of breadth-first and depth-first search over
+random search?
+
+6. In what ways are breadth-first and depth-first search sometimes
+inefficient? Are there any general ways of overcoming this inefficiency?
+(That's a deep question. Some people think there are general forms of
+intelligence that can avoid inefficiency. Other people think that one
+always has to use "domain specific" knowledge, not general intelligence,
+to avoid inefficiency.
+
+
+-- CHAPTER 10 Ambitious assignment
+
+The following outlines some tasks for an ambitious student. It may be
+that your course tutor will set a more restricted assignment for the
+course you are on.
+
+1. Make sure you understand how solve_tower works, and write a
+description of it, following the guidelines in TEACH REPORTS.
+
+2. If you have modified the procedure in any way, e.g. to increase
+efficiency, write an explanation of the difference between your version
+and the version given above, and explain why you preferred yours.
+
+Bear in mind that being able to EXPLAIN how programs work is almost more
+important than being able to create them. (More people can create
+programs than can explain them well.)
+
+Explaining how something works can include discussing how it might have
+been different and what difference that would have made.
+
+3. Is any version of TOWER remotely like the strategy a person might
+use? How could we find out? Why do some strategies impose a bigger
+memory load than others?
+
+Some optional follow-on exercises can be found in
+
+    TEACH * SEARCHING
+
+That file describes how to generalise the ideas described here to
+produce a general purpose problem solver that can do either depth first
+or breadth first search.
+
+
+-- Reading ------------------------------------------------------------
+
+Most books on AI have sections on searching, e.g. the books by Boden,
+Winston, Rich and Knight, Charniak and McDermot, Russell and Norvig, and
+others.
+
+Two books that introduce searching using Pop-11 are
+
+M.Sharples, D.Hogg, C.Hutchison, S.Torrance and D.Young (1989),
+    Computers and Thought, A Practical Introduction to Artificial
+    Intelligence,
+    MIT Press
+    (OK as an introduction, but you should read more up to date books.)
+
+Chris Thornton & Benedict du Boulay, (1992),
+    Artificial Intelligence Through Search,
+    Paperback version Intellect Books.
+
+The role of searching in natural language processing is explained in
+
+G.Gazdar, and C.Mellish (1989).
+    Natural Language Processing in POP-11,
+    Addison Wesley
+
+There are several online teach files that involve searching.
+
+Examples include
+
+    TEACH * ROUTE,
+    TEACH * PARSING
+    TEACH * SCHEMATA
+    TEACH * WHYSYNTAX
+
+TEACH * GRAMMAR introduces a library program that searches for
+a way to parse a sentence in accordance with a given grammar. But
+it finds only one parse then stops.
+
+HELP TPARSE introduces a more sophisticated program that
+finds all the parses that are possible in accordance with the grammar.
+
+See
+
+    TEACH * TEACHFILES
+    TEACH * LOCALINDEX
+
+
+-- BACKGROUND TEACH FILES
+More general background information can be found in
+
+TEACH * VEDPOP
+TEACH * LMR
+TEACH * DEFINE
+TEACH * LISTSUMMARY
+TEACH * POPSUMMARY
+TEACH * POPCORE
+    (This summarises a subset of the syntax and semantics of Pop-11)
+TEACH * MATCHES
+TEACH * MOREMATCH
+TEACH * MATCHARROW
+
+TEACH * RANDOM
+    (On the random number generator in Pop-11)
+TEACH * PRIMER
+    (A book-length general introudction to Pop-11. A printed version
+    of this is available for loan or purchase in the School library.
+
+-- Possible further reading -------------------------------------------
+
+The following will extend your understanding of Pop-11, recursive
+programming and list processing.
+
+TEACH * SETS
+TEACH * RECURSION
+TEACH * RECURSE2
+TEACH * RECURSE3
+TEACH * SETS2
+TEACH * FUNCTIONAL.STYLE
+
+--- $poplocal/local/teach/tower
+--- Copyright University of Birmingham 2000. All rights reserved. ------

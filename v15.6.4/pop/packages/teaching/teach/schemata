@@ -1,0 +1,207 @@
+TEACH SCHEMATA                                  Steven Hardy, June 1982
+                                                 updated A.Sloman Nov 86
+
+This is a simple introduction to ideas of "scripts" or "frames" and the
+problems of fitting a script or frame (here called a "schema") to some
+information that corresponds with it only in part, where some of the
+correspondences are ambiguous.
+
+The package LIB *SCHEMA makes available two procedures, SCHECK and
+SCHOOSE, for handling simple 'database schemata'.
+
+LIB *SOMESCHEMATA provides some sample stories and sample schemas.
+
+This teach file presupposes familiarity with the POP-11 database and the
+matcher. See TEACH *MATCHES, TEACH *DATABASE.
+
+CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Using LIB SCHEMA
+ -- Stories and schemata
+ -- Matching a schema against a story
+ -- Using SCHECK
+ -- How scheck works
+ -- Using SCHOOSE
+ -- Using IDENTIFY
+
+-- Using LIB SCHEMA ---------------------------------------------------
+
+To make available SCHOOSE and SCHECK do:
+
+    lib schema;
+
+To make available some sample stories and schemata, and a procedure
+called IDENTIFY do:
+
+    lib someschemata;
+
+-- Stories and schemata -----------------------------------------------
+
+For the purposes of this demonstration, a story is just a list of lists.
+
+There are four stories provided, by LIB SOMESCHEMATA, story1 to story4,
+though the user can add more. Each is just a list of lists which can be
+assigned to DATABASE for use with PRESENT, LOOKUP, etc.
+For example:
+
+    vars story4;
+    [[john is going to holland]
+     [john phones cooks]
+     [cooks phones british airways]
+     [cooks writes ticket to holland for john]
+     [john is very excited]] -> story4;
+
+
+A schema is a list of patterns such as might be given to ALLPRESENT.
+
+For example, the schema "bookticket" provided in LIB SOMESCHEMATA is
+defined as:
+
+    vars bookticket;
+    [[??x is going to ??y]
+     [??x phones ??z]
+     [??z is a travel agent]
+     [??x asks for ticket to ??y]
+     [??z phones ??w]
+     [??w is an airline]
+     [??z asks for reservation to ??y]
+     [??z writes ticket to ??y for ??x]
+    ] -> bookticket;
+
+-- Matching a schema against a story ----------------------------------
+
+Notice that there is only a partial match rather than a one to one
+correspondence between the story and the schema. Moreover even when
+items match it is not clear which ones match. There are two assertions
+using "phones" in the story and two patterns involving "phones" in the
+schema: how should they be matched. The answer depends on what else is
+found to match.
+
+So the procedure SCHECK has to try various ways of matching the schema
+against the database, and find the BEST one. (How would you define
+"best" match?). It also records the things which correspond and which
+fail to correspond.
+
+-- Using SCHECK -------------------------------------------------------
+The procedure SCHECK takes as argument a schema and finds the best way
+of matching it up against the DATABASE.
+
+Having found the best match, SCHECK assigns information to three global
+variables - SAME, MISSING and EXTRA.
+
+SAME is a list of those items from DATABASE that match some item in the
+    SCHEMA in the best match.
+EXTRA is a list of the remaining items from DATABASE
+MISSING is a list of those elements of the schema that are not in the
+DATABASE (these will have been instantiated using INSTANCE).
+
+So for example,
+
+    lib someschemata;       ;;; get the schemata and the stories
+    story4 -> database;     ;;; the database now has a story
+
+    scheck(bookticket);   ;;; Find how well bookticket fits the story
+
+That can take a little time as different ways of matching have to be
+considered. The results can be observed by examining the three global
+variables SAME, MISSING, EXTRA.
+
+The items that matched:
+    same ==>
+    ** [[cooks writes ticket to holland for john]
+        [cooks phones british airways]
+        [john phones cooks]
+        [john is going to holland]]
+
+The items that were predicted but not found in the story:
+
+    missing ==>
+    ** [[cooks is a travel agent]
+        [john asks for ticket to holland]
+        [british airways is an airline]
+        [cooks asks for reservation to holland]]
+
+Items in the database not matching anything in the bookticket schema:
+
+    extra ==>
+    ** [[john is very excited]]
+
+
+-- How scheck works ---------------------------------------------------
+
+SCHECK finds the maximal subset of the schema that is ALLPRESENT (hence
+SAME will be as long as SCHECK can make it). Briefly, what SCHECK does
+is consider succesively shorter subsets of the schema until it finds one
+that is ALLPRESENT.
+
+Advanced programmers may attempt to understand the details by doing
+    <ENTER> showlib schema
+
+SCHECK takes an optional second parameter, being a procedure which must
+return TRUE if applied in an environment corresponding to the selection
+made by SCHECK. This can be used to make it reject certain matches.
+
+No claim is made that SCHECK is generally useful - it merely illustrate
+the problems and an approach to solving them. Realistic schema matching
+programs are too slow if they are too general -- they need to have some
+built in knowledge, or be given some guidance, relevant to the specific
+problem domain.
+
+-- Using SCHOOSE ------------------------------------------------------
+The procedure SCHOOSE takes as argument a list of words, being the names
+of variables whose values are schemata. It returns the name of the
+schema which best matches the current DATABASE.
+
+The criterion of 'best' is that the LENGTH(SAME) divided by
+LENGTH(SCHEMA) is a maximum. If the variable TRACING is true then
+SCHOOSE prints out a table justifying its conclusion.
+
+Another story provided is:
+
+    story1==>
+    ** [[john intends to meet mary]
+        [john car wont start]
+        [john phones mary]]
+
+And another schema is
+    sorry ==>
+    ** [[?? x intends to meet ?? y]
+        [?? x car wont start]
+        [?? x phones ?? y]
+        [?? x apologizes to ?? y]]
+
+We can ask SCHOOSE decide whether this story fits the bookticket schema
+or the sorry schema best.
+
+To make SCHOOSE print out information about what it finds do:
+
+    true -> tracing;
+
+Set up the story:
+
+    story1 -> database;
+
+Ask schoose to try the two schemata:
+
+    schoose([sorry bookticket]) =>
+    ** [sorry same = 3 missing = 1 extra = 0]
+    ** [bookticket same = 1 missing = 7 extra = 2]
+    ** [best is sorry]
+    ** [this suggests]
+    ** [john apologizes to mary]
+    ** sorry
+
+Notice that it predicts an apology, from the MISSING result of the best
+fitting schema.
+
+-- Using IDENTIFY -----------------------------------------------------
+
+The procedure IDENTIFY is defined in LIB SOMESCHEMATA. It takes a story,
+assigns it to the database and then tries all the four schemata to see
+which fits best. Try looking at the stories and schemata, using SHOWLIB,
+then ask identify to find the best fit for various stories, e.g.
+
+    identify(story3);
+
+--- C.all/teach/schemata -----------------------------------------------
+--- Copyright University of Sussex 1990. All rights reserved. ----------

@@ -1,0 +1,398 @@
+HELP ARRAYLOOKUP                                David Young
+                                                January 1994
+
+LIB * ARRAYLOOKUP provides a procedure for passing the data in an array
+through a lookup table. The table can be specified in a variety of ways.
+Particular cases useful for image processing are optimised. Arrays
+containing floating point numbers can be efficiently quantised. LIB *
+VISION must be loaded to give access to this and related libraries.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- The procedure arraylookup
+ -- Lookup tables
+ -- Optimisations
+ -- Examples
+
+-- The procedure arraylookup ------------------------------------------
+
+arraylookup(ARRIN, REGION, LUT, ARROUT_FALSE) -> ARROUT
+        ARRIN is the input array. It may have any number of dimensions.
+        It must be arrayed "by row" (the default - see REF *ARRAYS).
+
+        Data is taken from the part of array specified by REGION in
+        boundslist style. REGION is a list twice as long as the number
+        of dimensions of ARRIN, giving the minimum and maximum indices
+        of the data region along the first dimension, then along the
+        second dimension, and so on. If REGION is given as <false>, it
+        defaults to the boundslist of ARRIN - the whole array is used.
+
+        LUT is the lookup table.  This gives an output value for each
+        possible data value in the input array. Various forms of the
+        lookup table are described below.
+
+        ARROUT_FALSE may be <false>, in which case a new array with
+        boundslist given by REGION is created, receives the results, and
+        is returned. The new array's arrayvector has the same key as
+        ARRIN's. To avoid creating garbage, or to fill part of an
+        existing array, ARROUT_FALSE may an array, in which case the
+        results are placed in the part of it specified by REGION, and it
+        is returned. If it is an array, ARROUT_FALSE must have the same
+        number of dimensions as ARRIN and must be arrayed by row.
+
+        ARRIN and ARROUT_FALSE may be the same array. If they are
+        different arrays, they may have different boundslists and
+        offsets in their arrayvectors. (If they are different arrays,
+        they may not share the same arrayvector, unless they have the
+        same boundslist and same offset in the arrayvector.)
+
+        The result ARROUT will contain the data, transformed by lookup.
+        If the arrays have N dimensions, then on exit
+
+            ARROUT(X1, X2, ..., XN) = LUT(ARRIN(X1, X2, ..., XN))
+
+        where LUT(V) means the result of looking up V in the table (but
+        should not be taken literally - see below). The indices X1 ...
+        XN take all possible values such that
+
+            REGION(2*I - 1) <= XI <= REGION(2*I)
+
+
+-- Lookup tables ------------------------------------------------------
+
+The lookup table argument, LUT, can take one of several basic forms.
+
+In all cases, if ARROUT does not have a standard full arrayvector (e.g.
+if it has been made with *NEWSFLOATARRAY or *NEWBYTEARRAY) the values
+returned from LUT must be suitable for storing in ARROUT. Note that if
+ARRIN is a special kind of array, and arraylookup creates ARROUT, then
+ARROUT will also be special.
+
+The forms of LUT are:
+
+
+1.  A mapping function.  In this case, LUT can be
+
+        a procedure of one argument, returning one result,
+        a 1-D array,
+        or a property.
+
+    A value V in ARRIN is replaced by LUT(V).
+
+    If LUT is a procedure, it must know what to do with all values
+    encountered in the input array. If LUT is an array with boundslist
+    [I0 I1], then all the values in the input region of ARRIN must be
+    integers in the range I0 ... I1.
+
+    In addition, if ARRIN and ARROUT are both byte arrays, then LUT must
+    be able to handle all values from 0 to 255, not just those actually
+    present in the input region.
+
+
+2.  A vectorclass object (including standard full vectors, strings etc.)
+
+    A value V is replaced by LUT(V+1).  The values in the input region
+    of ARRIN must all be integers in the range 0 ... length(LUT)-1.
+
+    The addition of 1 may seem idiosyncratic. However, it is necessary
+    in order to look up integer grey-level values which commonly include
+    zero, and for which a vector is the natural lookup table structure.
+
+    If ARRIN and ARROUT are both byte arrays, then LUT's length must be
+    at least 256, even if it is known that the maximum value in the
+    input region will be less than 255.
+
+
+3.  A quantisation table, for handling arrays containing arbitrary real
+    numbers (including integers and decimals). The numbers are quantised
+    by comparison with a set of thresholds, and the quantised values are
+    then looked up in a table of output values.
+
+    Graphically we have:
+
+        Thresholds:  {   T1  T2  T3  T4   ...   TI     ...   TN     }
+        Values:      { V1  V2  V3  V4  V5 ... VI  VI+1 ... VN  VN+1 }
+
+    The N thresholds increase from left to right. Imagine sliding a
+    value A (from the input array) along the top line until it is
+    ordered correctly in the sequence of thresholds. Then take the V
+    value under A. If A is equal to one of the thresholds, then we take
+    the value to the right. E.g., if A is between T2 and T3, or it
+    equals T2, then V3 is stored.
+
+    A single threshold and two values gives "ordinary" thresholding.
+
+    To specify a quantisation table, LUT must be a pair, other record,
+    or list, containing two elements: a vector of N thresholds, THRESH,
+    and vector of output values VALS. VALS must have one more element
+    than THRESH and the numbers in THRESH must be monotonically
+    increasing (THRESH(I) < THRESH(I+1)).
+
+    Formally, a value A is replaced as follows
+
+        A < THRESH(1):   VALS(1)
+        A >= THRESH(N):  VALS(N+1)
+        otherwise:       VALS(I)  where  THRESH(I-1) <= A < THRESH(I)
+
+    The vector VALS may include one or more occurrences of the word
+    undef. Whenever this value would normally have been stored, the
+    original value from the input array is simply copied to the
+    corresponding place in the output array. Thus it is possibly to
+    quantise part of the range of values and leave other parts
+    unaffected.  (This can only be used when the values in the input
+    array are compatible with the type of the output array.  In
+    particular, it cannot be used when the input array is a float array
+    and the output array is a byte array.)
+
+
+4.  A linear quantisation table.  This is a special case of a
+    quantisation table where the thresholds are evenly spaced. To
+    specify this, LUT should be a list or record of 3 values, T1, TN and
+    a vector of N+1 output values.  The process behaves as if
+    intermediate thresholds T2 ... TN-1 had been given, with equal
+    intervals between them.
+
+    In the case of floating-point data, rounding errors may mean that
+    input values equal or very close to one of the thresholds go into
+    the wrong slot.  If absolute exactness is required for such data, it
+    is necessary to specify a full quantisation table with explicit
+    thresholds.
+
+    As with a quantisation table, undef may be included in the output
+    values to signal retention of the input data for a particular slot.
+
+    Formally, a value A is replaced by
+
+        A < T1:      VALS(1)
+        A >= TN:     VALS(N+1)
+        otherwise:   VALS(I) where I = floor((A-T1)*(N-1)/(TN-T1)) + 2
+
+
+-- Optimisations ------------------------------------------------------
+
+1.  General quantisation table lookup is handled using an intermediate
+    linear quantisation step, and a table of "best guesses" at the
+    correct slot. Search in the thresholds vector is then sequential. In
+    most cases this will be quite fast.
+
+2.  Simple thresholding (a quantisation table with one threshold and two
+    values) is handled as a special case to avoid unnecesary tests.
+
+3.  Linear quantisation is handled directly, without generating a full
+    quantisation table of the intermediate thresholds.
+
+4.  Certain cases are handled using external procedures written in C,
+    for greatly increased speed. These are as follows:
+
+        ARRIN type      ARROUT type         LUT type
+          byte            byte              all types
+          float           byte          quantisation and lin. quant.
+          float           float         quantisation and lin. quant.
+
+    Here "float" means a single precision floating point array, e.g. one
+    created using *NEWSFLOATARRAY (or array_of_real or array_of_float
+    from *EXTERNAL).  The type "byte" means an array of bytes, e.g. one
+    created using *NEWBYTEARRAY.  Byte-to-byte operations are done by
+    converting the LUT to a vector containing the results for all values
+    from 0 to 255. The other operations call specific C procedures; the
+    exact procedure used depends on whether undef values are present in
+    the table.
+
+    It is not necessary for vectors used in the LUT to be of the correct
+    type for these cases to be handled externally.
+
+5.  If the region specified fills continuous sections of both
+    arrayvectors, the POP-11 and C procedures take advantage of this to
+    carry out the operation in a single fast loop.  Both also check for
+    2-D arrays as another special case and handle these efficiently, as
+    they are probably the most common application. The general case of
+    an array of 3 or more dimensions, with a region which is
+    discontinuous in the arrayvector, is handled by a general mechanism
+    for scanning multidimensional arrays in POP-11 (see
+    *BOUNDSLIST_UTILS), and by repeated calls to the 2-D procedure when
+    the C code can be called.
+
+
+-- Examples -----------------------------------------------------------
+
+The examples use 2-D arrays for display purposes, but arraylookup works
+equally well for any number of dimensions.
+
+We use *SHOWARRAY to print the outputs.
+
+    uses arraylookup        ;;; load libraries
+    uses showarray
+    vars arrin, arrout;     ;;; to hold the arrays
+
+1. LUT is a procedure
+
+Make and display a simple test array:
+
+    newarray([1 10 1 4], nonop +) -> arrin;
+    sa_simple_nums(arrin);
+
+      2  3  4  5  6  7  8  9 10 11
+      3  4  5  6  7  8  9 10 11 12
+      4  5  6  7  8  9 10 11 12 13
+      5  6  7  8  9 10 11 12 13 14
+
+Negate the middle part (negate is a system procedure), creating a new
+array:
+
+    arraylookup(arrin, [2 9 2 3], negate, false) -> arrout;
+    sa_simple_nums(arrout);
+
+      -4  -5  -6  -7  -8  -9 -10 -11
+      -5  -6  -7  -8  -9 -10 -11 -12
+
+Alternatively, overwrite the existing data by giving the input array as
+the output argument:
+
+    arraylookup(arrin, [2 9 2 3], negate, arrin) -> ;
+    sa_simple_nums(arrin);
+
+       2   3   4   5   6   7   8   9  10  11
+       3  -4  -5  -6  -7  -8  -9 -10 -11  12
+       4  -5  -6  -7  -8  -9 -10 -11 -12  13
+       5   6   7   8   9  10  11  12  13  14
+
+2. LUT is a property
+
+Make a property to convert some numbers to strings, and return '?' for
+the rest:
+
+    vars prop;
+    newproperty([[5 'f'] [6 's'] [8 'e']], 3, '?', "perm") -> prop;
+    newarray([1 10 1 4], nonop +) -> arrin;     ;;; renew test data
+
+Apply the property to the whole of the array, creating a new array.
+
+    arraylookup(arrin, false, prop, false) -> arrout;
+    sa_simple_nums(arrout);
+
+    ???fs?e???
+    ??fs?e????
+    ?fs?e?????
+    fs?e??????
+
+3. LUT is a vector
+
+We make a vector table to multiply by 10, except for a special value for
+7. Note the table starts from 0.
+
+    vars v;
+    {0 10 20 30 40 50 60 'X' 80 90 100 110 120 130 140} -> v;
+
+    arraylookup(arrin, false, v, false) -> arrout;
+    sa_simple_nums(arrout);
+
+      20  30  40  50  60   X  80  90 100 110
+      30  40  50  60   X  80  90 100 110 120
+      40  50  60   X  80  90 100 110 120 130
+      50  60   X  80  90 100 110 120 130 140
+
+4. LUT is a quantisation table
+
+Set up some quantisation thresholds and values:
+
+    vars thresh, vals;
+    {     3.1       7       7.5      8      9      } -> thresh;
+    {-100      0      -200      300     'Z'    555 } -> vals;
+
+    arraylookup(arrin, false, conspair(thresh, vals), false) -> arrout;
+    sa_simple_nums(arrout);
+
+     -100 -100    0    0    0 -200    Z  555  555  555
+     -100    0    0    0 -200    Z  555  555  555  555
+        0    0    0 -200    Z  555  555  555  555  555
+        0    0 -200    Z  555  555  555  555  555  555
+
+Note that 0 replaces the values 4, 5 and 6 (those between 3.1 and 7).
+However, 7 gets mapped to -200, not to 0.
+
+Leave some values unchanged:
+
+    vars thresh, vals;
+    {      3.1       7       7.5      8      9      } -> thresh;
+    {-100       0     undef      300     'X'   undef} -> vals;
+    arraylookup(arrin, false, conspair(thresh, vals), false) -> arrout;
+    sa_simple_nums(arrout);
+
+     -100 -100    0    0    0    7    X    9   10   11
+     -100    0    0    0    7    X    9   10   11   12
+        0    0    0    7    X    9   10   11   12   13
+        0    0    7    X    9   10   11   12   13   14
+
+The 7 and the values 9 and greater filter through.
+
+5. LUT is a linear quantisation table
+
+Set up quantisation thresholds and values. The thresholds happen to have
+unity spacing.
+
+    vars t1, tn, vals;
+    4.5 -> t1;
+    8.5 -> tn;
+    {undef  50 -60 70 -80 undef} -> vals;
+
+    arraylookup(arrin, false, [% t1, tn, vals %], false) -> arrout;
+    sa_simple_nums(arrout);
+
+       2   3   4  50 -60  70 -80   9  10  11
+       3   4  50 -60  70 -80   9  10  11  12
+       4  50 -60  70 -80   9  10  11  12  13
+      50 -60  70 -80   9  10  11  12  13  14
+
+6. Speedups for byte arrays
+
+Make a random mapping:
+
+    consstring(repeat 256 times random0(256) endrepeat, 256) -> v;
+
+and a biggish random array (3-D for variety) with a S.F arrayvector (you
+may need to increase *POPMEMLIM):
+
+    newarray([1 100 1 100 1 10], erasenum(%3%) <> random0(% 256 %))
+        -> arrin;
+
+    .timediff -> ; arraylookup(arrin, false, v, false) -> ; .timediff=>
+    ** 0.48     ;;; on a SPARCstation 10
+
+Now the same with a byte array
+
+    newbytearray([1 100 1 100 1 10], arrin) -> arrin;  ;;; copy the data
+
+    .timediff -> ; arraylookup(arrin, false, v, false) -> ; .timediff=>
+    ** 0.03     ;;; substantial speedup
+
+7. Speedups for float arrays and float-to-byte conversion
+
+Make a random quantisation table, ensuring that the thresholds increase
+monotonically:
+
+    {% explode( sort(
+                [% repeat 20 times random0(256.0) endrepeat %]
+            ) ) %} -> thresh;
+    {% repeat 21 times random0(100) endrepeat %} -> vals;
+    vars qt = conspair(thresh, vals);
+
+and apply to ordinary array and float array:
+
+    newarray([1 100 1 100 1 10], erasenum(%3%) <> random0(% 256 %))
+        -> arrin;       ;;; ordinary array
+    .timediff ->; arraylookup(arrin, false, qt, false) ->; .timediff=>
+    ** 3.44
+
+    newsfloatarray([1 100 1 100 1 10], arrin) -> arrin; ;;; float array
+    .timediff -> ; arraylookup(arrin, false, qt, false) -> ; .timediff=>
+    ** 0.26
+
+and to float-to-byte conversion
+
+    newbytearray([1 100 1 100 1 10]) -> arrout;
+    .timediff ->; arraylookup(arrin, false, qt, arrout) -> ; .timediff=>
+    ** 0.23
+
+
+--- $popvision/help/arraylookup
+--- Copyright University of Sussex 1994. All rights reserved.

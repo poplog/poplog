@@ -1,0 +1,50 @@
+HELP ERANDOM                                    David Young
+                                                August 1996
+
+LIB * ERANDOM (for External random) generates pseudo-random numbers
+using an externally-loaded random number generator. This is faster than
+LIB * NEWRANDOM, and the statistical properties may be superior to those
+of the standard generator *random. The numbers may be drawn from a
+uniform or a Gaussian distribution.
+
+erandom(spec) -> repeater
+        The argument spec specifies the distribution of the random
+        numbers produced by the procedure repeater.
+            spec may be a list or vector of the form [type p0 p1]. The
+        first element, type, must be either the word "uniform" or the word
+        "gaussian". In the uniform case, results are drawn from a
+        uniform distribution on the range [p0 p1) - i.e. the results are
+        greater than or equal to p0 but less than p1. In the gaussian
+        case, results are drawn from a Gaussian distribution with mean
+        p0 and standard deviation p1.
+            If both p0 and p1 are integers and the type is uniform,
+        the results are integers; otherwise they will be floating point.
+        (So note that [uniform 0 256] produces values in the range 0 to
+        255 inclusive, but not including 256. See *array_hist for a
+        rationale of this.)
+            The word "uniform" can be used as shorthand for [uniform 0.0
+        1.0] and the word "gaussian" for [gaussian 0.0 1.0].
+            A number x can be used as shorthand for [uniform 0 x].
+            The value <false> is equivalent to "uniform".
+
+        The result repeater is a procedure which when called returns
+        successive numbers from the distribution:
+
+                repeater() -> num
+
+This procedure makes use of LIB * ARRAY_RANDOM. See HELP *array_random
+for more details of the underlying procedures. Calls to erandom will
+affect the sequence of numbers produced by array_random, and vice versa.
+
+The generator can be set to a repeatable state, and its state saved, by
+assigning to or accessing array_random_seed, which is an active variable
+with multiplicity 3 (see *array_random). Since the numbers returned by
+each repeater are cached, such an assignment must be followed
+immediately by a call to erandom to set up any repeaters to be used, Any
+existing repeater which continues to be called will see the effect of
+the assignment after some arbitrary number of calls has exhausted its
+cache.
+
+
+--- $popvision/help/erandom
+--- Copyright University of Sussex 1996. All rights reserved.

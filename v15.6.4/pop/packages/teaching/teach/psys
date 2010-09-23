@@ -1,0 +1,180 @@
+To Be Withdrawn
+TEACH PSYS                                                     Steve Hardy
+                                                    (adapted by Chris Mellish)
+
+=== Production Systems =====================================================
+
+** See LIB PRODSYS, HELP PRODSYS for improved production system interpreter **
+
+
+If you want to experiment with writing some production systems  of  your
+own  you will find that the DATABASE package provides all you need.
+
+To use the DATABASE routines you will probably want to make use  of  the
+procedures  ALLPRESENT,  ALLADD  and  ALLREMOVE.   A  typical production
+system program would look like the following:
+
+        : DEFINE PSYS(DATABASE) -> DATABASE;
+        :       WHILE TRUE THEN
+        :               IF ALLPRESENT([[...] ...]) THEN
+        :                       ALLREMOVE(...);
+        :                       ALLADD(...);
+        :               ELSEIF ALLPRESENT(...) THEN
+        :                       ...
+        :               ELSE
+        :                       RETURN;
+        :               ENDIF
+        :       ENDIF
+        : ENDDEFINE;
+
+The basic idea of a production system program is that it should  contain
+a  master  loop  (WHILE  TRUE THEN ... ENDWHILE), which contains a multiway
+conditional.  The conditions should be the presence of certain items  in
+the DATABASE (a call of ALLPRESENT).  The action should be simply a call
+of ALLADD and/or a call of ALLREMOVE.  To facilitate  contact  with  the
+outside  world  you  are  permitted to have a print statement (using the
+print arrow) and a read statement the result of which should be added to
+the DATABASE, thus
+
+        : ADD(READLINE());
+
+The strict conditions on the form of program you are  allowed  to  write
+suggests  that  it  may  be  simpler  to  store  the productions as data
+structures (a bit like LISP programs), for example:
+
+        : (PRODUCTION P1
+        :       (TRIGGERS ...)
+        :       (DELETES ...)
+        :       (ADDS ...)
+        :       (ASK ...))
+
+The PSYS  package  provides  a  primitive  interpreter  for  productions
+written  in  a  form  similar  to this. To use it, type
+
+        : LIB PSYS;
+
+and then
+
+        : INTERPRET(SYSTEM);
+
+to run it on an example. SYSTEM should be a list of production rules
+according to the following rules:
+
+|     A production rule looks like:
+|             [trigger ... => action ...]
+|
+|     A trigger is either:
+|             [not data item]
+|             in which case [data item] must NOT be in the
+|             DATABASE
+|     or it is
+|             [data item]
+|             in which case [data item] must be in the DATABASE
+|
+|     A data item is a list, some of whose elements may be preceded
+|     by "?" or "??"
+|
+|     An action is either:
+|             [say some thing]
+|             in which case [some thing] is printed out
+|     or
+|             [read some thing]
+|             in which case a line is read in and the item
+|                     [some thing ...]
+|             is added to the database where ... is what was read in
+|     or
+|             [stop message]
+|             in which case the production system run is halted and
+|                     [message]
+|             printed out
+|     or
+|             [not data item]
+|             in which case [data item] is removed from the DATABASE
+|     or
+|             [data item]
+|             in which case [data item] is added to the DATABASE
+
+There are two control variables which alter the way the production system
+works:
+             chatty
+                     if this is set true then the system prints out
+                     the database before each rule is activated
+                     and also prints out the rule being used
+             repeating
+                     if this is set false the system will not trigger the
+                     same rule on the same database items twice.
+                     Use of this option slows the system up considerably
+
+WARNING: The procedure INTERPRET uses DATABASE as a local variable, with
+initial value []. This means that it won't work if you want it to start
+with a non-empty database. It also means that you can't look at the
+database afterwards. To fix this, make a copy of the program and
+change the definition of INTERPRET so as to miss the VARS DATABASE and
+[] -> DATABASE bits. You will then have to make sure that DATABASE has a
+suitable value whenever INTERPRET is called.
+
+EXERCISES
+=========
+
+1. Read some of the references below.
+
+2. Write some simple production systems for LIB PSYS and run them. Some
+   possible examples:
+
+      - A program that guesses an animal thought up by the user
+        (as in * DISCRIM)
+
+      - A program that reads in two lists and puts them together into
+        one big list
+
+      - A program for simplifying arithmetic expressions, eg.
+        "x*1 + 0" is simplified to "x". Expressions will have to be
+        represented as lists in some way.
+
+3. See what ways you can find to implement something like LIB PSYS
+   yourself. How would it look in Prolog, for instance?
+   What problems are there with the design as it stands?
+   How could it be made like some of the more sophisticated
+   production system interpreters around?
+
+4. How would your designs for PSYS have to change if the rules were to
+   represent only plausible truths, or if some of the data that the
+   program was to work on had a degree of uncertainty? Think of an
+   example domain where this would actually happen.
+
+
+                ----------------------------------------
+
+                               References
+                               ----------
+
+The most useful of the following references is likely to be the Waterman
+and  Hayes  book,  "Pattern Directed Inference Systems", as this book is
+intended as an introduction to  the  field  and  contains  an  extensive
+bibliography.  The library has at least one copy of this book.
+
+Bundy A. et al section on production systems in Artificial Intelligence.
+
+Davis, R. & King, J. "An Overview of Production Systems", Machine
+     Intelligence 8.
+
+Newell, A. - "Production systems: Models of control structures", In W.G.
+     Chase (ed), "Visual Information Processing" 1973, pp463-526.
+
+Newell, A. "On The Analysis of Human Problem Solving Protocols". In
+     Johnson-Laird, P.N. and Wason, P.C, "Thinking".
+
+Waterman, D.A. "Adaptive production  systems",  4th IJCAI Proceedings,
+     September, 1975, pp.296-303.
+
+Waterman, D.A.  &  Hayes-Roth,  F  (eds)  -  "Pattern-Directed Inference
+     Systems", Academic Press, 1978
+
+Winston, P. Section on production systems  in  Artificial Intelligence,
+     Addison Wesley
+
+Young, R.M.  "Production Systems as Models of  Cognitive  Development",
+     in AISB I (1974), conference proceedings.
+
+Young, R.M. "Production Systems for Modelling Human Cognition" in
+     "Expert Systems in the Micro Electronic Age", ed Michie, D.

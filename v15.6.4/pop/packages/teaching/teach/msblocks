@@ -1,0 +1,503 @@
+TEACH MSBLOCKS                        David Hogg and A. Sloman June 1983
+                                                        updated Jan 1987
+
+
+CONTROLLING A SIMPLE ROBOT IN THE "BLOCKS WORLD"
+
+This teach file is intended to illustrate some basic principles in the
+processing of natural language, by introducing part of a design for a
+the program which simulates manipulation of arrangements of blocks on a
+table in response to English commands.  This domain was used originally
+by Winograd's SHRDLU program.
+
+This teach file introduces the general ideas and provides some
+programming exercises. TEACH MSDEMO explains how to run the
+demonstration program in the library, which draws pictures representing
+changes in the world as commands are obeyed.
+
+
+CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Blocks world grammar
+ -- Blocks world database
+ -- Extracting meaning from parse trees
+ -- The general form of a facets rule
+ -- Choosing the rules
+ -- Load lib facets and define MNG
+ -- Testing all that
+ -- Control program for the analysis of 'wh' sentences
+ -- Assignment
+
+-- Blocks world grammar -----------------------------------------------------
+
+Here is a grammar for handling both questions and movement commands. Try
+compiling the grammar by marking the range and typing ENTER LMR (or
+CTRL-D), then check that it can handle a variety of sentences using
+listparses.
+
+;;; ***********************************
+lib tparse
+
+vars blocks_grammar blocks_lexicon;
+
+[
+    [s [v np pp] [wh1 vbe np] [wh2 vbe pp]]
+    [np [pn] [det snp] [det snp pp]]
+    [snp [noun] [ap noun]]
+    [ap [adj] [adj ap]]
+    [pp [prep np]]
+] -> blocks_grammar;
+
+[
+    [noun   block box table one]
+    [wh1    where]
+    [wh2    what]
+    [pn     it]
+    [v      put move pickup putdown]
+    [vbe    is]
+    [adj    white red blue green big small large little]
+    [prep   on onto to over in at under above by]
+    [det    each every the a some]
+] -> blocks_lexicon;
+
+
+setup(blocks_grammar,blocks_lexicon);
+
+;;; ******************************
+
+You can test the grammar using commands like the following (mark the
+range, then CTRl-D):
+
+    listparses("s",[where is the large red block]) ==>
+
+    listparses("s",[put the small green block on the large blue one]) ==>
+
+Try some variations. Make sure you understand what gets printed out. Try
+to work out in advance what sort of tree the following will produce,
+then do it:
+    listparses("s",[what is on the little white block]) ==>
+
+If you can't get it mostly right in advance, try again with several
+sentences, till you can. Don't worry if you can't get the layout exactly
+right, so long as you have the right components and the right numbers of
+brackets.
+
+Notice that the grammar accepts some sentences which have an obscure
+meaning.
+
+    eg.  what is onto each small table
+
+See if you can find some other 'strange' sentences which it accepts?
+
+-- Blocks world database ----------------------------------------------
+
+Now define the database which describes the current state of the blocks
+world. Look at the notation we have used to make the name of each block
+tell you its size and colour! (It doesn't tell POP-11 however).
+
+;;; ******************************
+vars database;
+
+    [
+        [isa block objR] [colour red objR]   [size large objR]
+        [isa block objr] [colour red objr]   [size small objr]
+        [isa block objG] [colour green objG] [size large objG]
+        [isa block objg] [colour green objg] [size small objg]
+        [isa block objB] [colour blue objB]  [size large objB]
+        [isa block objb] [colour blue objb]  [size small objb]
+        [objb ison objG]
+        [objG ison objR]
+        [objR ison table]
+        [objg ison table]
+        [objr ison objB]
+        [objB ison table]
+
+    ] -> database;
+
+;;; ***********************************
+
+Compile this in the same way as the grammar (marking the range, and
+doing CTRL-D) then try accessing different objects using WHICH and a
+list of patterns.
+
+    eg.
+     vars x;
+     which("x",[ [size large ?x] [colour blue ?x] [isa block ?x] ]) =>
+
+In this case only one object satisfies all the patterns, namely objB.
+Notice how this corresponds to the question:
+    which is the large blue block ?
+
+Try the same thing using an 'ambiguous' pattern such as:
+
+    [ [size small ?x] [isa block ?x] ]
+
+Now you should get get several objects back all of which are small
+blocks but with different colours. Try different questions, and in each
+case compare the POP-11 instruction using WHICH with the corresponding
+English question.
+
+For practice at writing down explanations you should try writing notes
+on how to translate a which question in English into a which instruction
+in POP-11. (Don't expect this to be easy!) Keep your notes on this for
+future reference. This exercise will prepare you for what comes later in
+this file.
+
+Can we get POP-11 to take a question in English then transform it into
+something like an instruction using the POP-11 procedure WHICH? The next
+sections indicate how this might be done.
+
+-- Extracting meaning from parse trees --------------------------------
+
+Having established that we can produce parse trees from the required
+sentences the next task is to extract the necessary meaning. LIB FACETS
+provides facilities to help with this.
+
+LIB FACETS is a package for extracting meaning from parse trees of the
+sort produced by LIB GRAMMAR or LIB TPARSE.  The idea is that you write
+down a series of 'semantic' rules using a format understood by LIB
+FACETS in much the same way as one specifies grammar rules to LIB
+GRAMMAR or LIB TPARSE.  Each rule specifies how to evaluate a meaning
+for a particular kind of constituent in a parse tree.
+
+Actually LIB FACETS allows you to associate different sorts of meanings
+with the same word or phrase, i.e. different 'facets', hence its name.
+We shall use only one facet, called MNG. In fact LIB FACETS will make it
+a procedure. The procedure MNG, given a parse tree for a sentence will
+construct a 'meaning' with two parts. First it establishes the overall
+kind of sentence, namely that it is a WHERE question. The other part is
+a list of database patterns corresponding to the noun phrase of the
+original sentence.
+
+Thus, given a parse tree corresponding to the sentence:
+
+        where is the large red block
+
+    MNG produces the meaning:
+
+        [where  [ [isa block ?x] [colour red ?x] [size large ?x] ] ]
+
+Notice that the meaning is here taken to be a list, of which the second
+element is a list of patterns which may identify a value for X in the
+database. (I.e. it is the sort of list we gave to WHICH).
+
+Here is a parse tree for the above sentence:
+
+[s
+    [wh1 where]
+    [vbe is]
+    [np
+        [det the]
+        [snp
+            [ap
+                [adj large]
+                [ap
+                    [adj blue]]]
+            [noun block]]]]
+
+The last 8 lines have the form
+    [np [det the] [snp ....] ]
+
+For this sort of phrase we shall give lib facets the rule:
+
+semrule nprule   [np [det =] ?snp]
+    mng(snp) -> mng(self);
+endsemrule
+
+which roughly says 'if you have an NP made of a DET and a SNP then the
+meaning (MNG) of the whole NP (i.e. self) is just the meaning of the
+SNP.' (This is not an adequate rule for real English, but will do for
+demonstration purposes.) The use of 'semrule' and 'endsemrule' is
+special syntax added to POP-11 by lib facets, to simplify the typing of
+facet rules. The alternative would have been something like:
+
+   newfacet([ nprule   [np [det =] ?snp]   mng(snp) -> mng(self); ]);
+
+
+So the MNG of
+    [the large blue block]
+will turn out to be just the meaning of
+    [large blue block].
+
+Convince yourself that the portion of the parse tree corresponding to
+the latter phrase has the form:
+        [ap [adj large] [ap .... ]]
+
+For this sort of phrase we shall give the facets rule:
+
+semrule aprule2 [ap ?adj ?ap]
+    [^^(mng(ap)) ^^(mng(adj))] -> mng(self);
+endsemrule
+
+which says that the MNG of the whole phrase is got by adding the meaning
+of the adjective part (ap)  to the meaning of the embedded phrase. I.e.
+find the meaning of [blue block] and then add the meaning of [large].
+
+-- The general form of a facets rule ----------------------------------
+
+These examples of rules fit the following general specification which we
+shall use for all facet rules:
+
+    semrule <rule_name>  <pattern>
+        <the_meaning> -> mng(self)
+    endsemrule
+
+    The rule_name is not important and simply serves to identify the
+rule if anything goes wrong and a MISHAP occurs.  It is useful to give
+the rule a name which identifies it with a particular grammatical
+category. In the first example above the rule name was 'nprule'.
+
+    The second element is a pattern which matches certain parts of a
+parse tree. In the first example above it was:  [np [det =] ?snp]
+
+    The third element says how to compute the meaning of 'self', i.e. of
+the part of the parse tree matching the patter. The use of the word
+'self' is a convention of the facets package. In general the MNG will be
+built up from the meanings of the constituents. In our first example it
+was:
+        mng(snp) -> mng(self);
+
+I.e. just use the same meaning. And in the second example the more
+complex instruction:
+        [^^(mng(ap)) ^^(mng(adj))] -> mng(self);
+
+-- Choosing the rules -------------------------------------------------
+
+    Before defining rules for lib facets, you have to think about how
+you want to define meanings. We shall give rather simple definitions,
+for the sake of demonstrating what is possible.
+
+    For adjectives and nouns the meaning will be defined as a pattern
+corresponding to the word itself. For example,
+
+    [adj red]     means   [= red ?x]               (adjrule)
+    [adj large]   means   [= large ?x]             (adjrule)
+    [noun block]  means   [isa block ?x]           (nounrule)
+
+Notice that for adjectives the first entry ('colour' or 'size') is left
+unspecified in the pattern.  This makes specification of the meaning
+easier, and for our simple demonstration causes no problems.
+
+    For compound categories like 'np', 'snp' and ' ap' which decompose
+into nouns and adjectives the meaning is a list of the patterns which
+are the meanings of these individual words.  For example,
+
+    [ap [adj red]]     means   [ [= red ?x] ]           (aprule1)
+    [ap [adj large]]   means   [ [= large ?x] ]         (aprule1)
+
+    [ap [adj large] [ap [adj large]]]
+              means   [ [= red ?x] [= large ?x] ]       (aprule2)
+
+    The important point to note is that in most cases the meaning of a
+constituent is defined in terms of the meanings of its component
+constituents.
+
+Thus, to find the meaning of a simple noun phrase (snp) with an
+adjectival phrase (ap) and a noun as its constituents, snprule2 (below)
+says: combine their individual meanings into a single list and assign
+this to the meaning.
+
+The actual rules are given below. They do not cover all possible forms
+of sentence. Look back at parts of the parse tree (or the rules of the
+grammar), and look at how the instructions for lib facets below
+correspond to different parts of the parse tree (or different
+grammatical rules). You may find it useful to try working through all
+the grammar rules asking yourself what kind of meaning rule should
+correspond to the grammar rule.
+
+Notice that in the rules below two of the grammatical categories (ie.
+snp and ap) have more than one rule associated with them corresponding
+to the different forms in the grammar.
+
+-- Load lib facets and define MNG -------------------------------------
+
+Mark the following instructions, then compile them with ENTER LMR.
+
+This will load lib facets, then define the facet procedure MNG.
+
+;;;***************************
+
+lib facets;
+
+resetfacets();      ;;; required to get the facets package ready
+
+facet mng;          ;;; tell lib facets that you want to use MNG as a 'facet'
+
+    ;;; rule for [s ... [wh1 vbe np] ... ]
+semrule srule  [s [wh1 where] [vbe is] ?np]
+    [where ^(mng(np))] -> mng(self);
+endsemrule
+
+    ;;; rule for [np ... [det snp] ... ]
+semrule nprule   [np [det =] ?snp]   mng(snp) -> mng(self); endsemrule
+
+    ;;; rule for [snp [noun] ... ]
+semrule snprule1 [snp ?noun]   mng(noun) -> mng(self); endsemrule
+
+    ;;; rule for [snp ... [ap noun]]
+semrule snprule2   [snp ?ap ?noun]
+    [^^(mng(ap)) ^^(mng(noun))] -> mng(self);
+endsemrule
+
+    ;;; rule for [ap [adj] ... ]
+semrule aprule1 [ap ?adj]   mng(adj) -> mng(self); endsemrule
+
+    ;;; rule for [ap ... [adj ap]]
+semrule aprule2   [ap ?adj ?ap]
+    [^^(mng(ap)) ^^(mng(adj))] -> mng(self);
+endsemrule
+
+    ;;; now rules for the lexical categories
+semrule nounrule [noun ?wrd]
+    [[isa ^wrd ?x]] -> mng(self);
+endsemrule
+
+semrule adjrule [adj ?wrd]   [[= ^wrd ?x]] -> mng(self); endsemrule
+
+;;;************************************
+
+-- Testing all that ---------------------------------------------------
+
+Having compiled all those rules, generate a parse tree using listparses
+and extract just one of the alternatives (there will probably be just
+one).  Then apply the procedure MNG to this tree and look at the result.
+
+    eg.
+        vars trees tree;
+        listparses("s",[where is the small blue block]) -> trees;
+        trees ==>
+        trees(1) -> tree;
+        mng(tree) ==>
+
+If all goes well you should get something like:
+    ** [where [[= blue ? x] [= small ? x] [isa block ? x]]]
+
+Try different examples.
+
+-- Control program for the analysis of 'wh' sentences -----------------
+
+Compile the following pair of procedures and then ask questions by
+invoking the procedure ANALYSE with a sentence.
+
+
+
+;;;************************************
+
+vars  process_where_question process_what_question;
+
+
+define analyse(sentence);
+
+    ;;; Parses and extracts meaning from given sentence and calls an
+    ;;; appropriate procedure to answer the question
+
+    vars trees tree meaning;
+
+    ;;; Begin by finding all the parses of the given sentence
+
+    listparses("s",sentence) -> trees;
+
+    ;;; Check that the sentence was parsed ok then select the first parse
+    ;;; for further analysis (the others will be ignored)
+
+    if trees = [] then
+        [cannot parse sentence] =>
+    else
+        trees(1) -> tree;
+
+        ;;; extract the meaning from the parse tree
+
+        mng(tree) -> meaning;
+
+        ;;; find out whether this was a WHERE or WHAT question and call the
+        ;;; appropriate procedure
+
+        if meaning matches [where ==] then
+            process_where_question(meaning)
+        elseif meaning matches [what ==] then
+            process_what_question(meaning)
+        endif;
+    endif;
+enddefine;
+
+
+
+define process_where_question(meaning);
+
+    ;;; Answers WHERE questions
+
+    vars patterns objects x y;
+
+    ;;; extract the patterns from the meaning and use WHICH to find those
+    ;;; objects in the database which satisfy it
+
+    meaning --> [where ?patterns];
+    which("x",patterns) -> objects;
+
+    ;;; If nothing or more than one object matches the patterns then
+    ;;; output an appropriate message otherwise answer the question
+
+    if objects = [] then
+        [no block matches that description] =>
+    elseif objects matches [?x] then
+
+        ;;; find an object underneath the selected object and output a message
+        ;;; stating giving this location
+
+        lookup([^x ison ?y]);
+        [on top of ^y] =>
+    else
+        [more than one block matches that description] =>
+    endif;
+enddefine;
+
+;;; ***************************
+
+For example, try:
+
+    analyse([where is the small red block]);
+
+-- Assignment ---------------------------------------------------------
+
+Work through the procedures ANALYSE and PROCESS_WHERE_QUESTION to
+understand each step.
+
+Now have a go at modifying the  code to answer WHAT questions. A copy of
+this file without the descriptive text is in TEACH * MSBLOCKPROG. If you
+use TEACH to read it, you can follow the instructions at the top to make
+your own copy.
+
+The grammar is already powerful enough and can therefore be left
+unchanged. Similarly,  no change needs to  be made to the  database.
+However, two extra semantic rules will be required:
+
+1. An additional srule is needed to make up an entire  meaning for WHAT
+   sentences.  This will be almost the same as the current srule
+   for WHERE sentences except that the word WHAT replaces the word WHERE.
+   Call this rule srule2 and rename srule as srule1.
+
+2. A rule must be added to cope with prepositional phrases (pprule)
+   The effect of this rule will be to assign the meaning of the
+   constituent noun phrase to the meaning of the prepositional phrase.
+   The rule will look something like nprule in which the meaning of the
+   constituent simple noun phrase becomes the meaning of the noun phrase.
+
+Make a copy of PROCESS_WHERE_QUESTION and rename it as
+PROCESS_WHAT_QUESTION, then change it to handle the different question.
+
+Finally, write a report (a couple of pages) on the way in which meaning
+is extracted from parse trees in this program.  Don't worry about the
+detailed format required by the FACETS package but instead concentrate
+on the hierarchical nature of the process.
+
+For information on Winograd's original program see:
+
+T. Winograd UNDERSTANDING NATURAL LANGUAGE, Academic Press, 1972
+
+Summary descriptions can be found in various text-books on AI, e.g.
+M.Boden ARTIFICIAL INTELLIGENCE AND NATURAL MAN
+    Harvester Press, 1977
+
+See also TEACH MSDEMO
+
+-----<Copyright University of Sussex 1987.  All rights reserved.>-------

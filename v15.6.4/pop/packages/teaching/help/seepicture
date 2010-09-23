@@ -1,0 +1,128 @@
+HELP SEEPICTURE                                  Steven Hardy, February 1978
+
+LIB SEEPICTURE - FINDLINES, FINDJUNCS, PAINTPICTURE
+Simple programs to analyse straight-line drawings in a binary 2-D array.
+Uses the POP-11 * TURTLE and * DATABASE. It also works with * VTURTLE,
+the VED-based turtle.
+
+    seepicture();
+
+This procedure analyses and repaints TURTLE pictures in terms of lines
+and junctions. Set up a TURTLE picture containing a few lines meeting at
+a variety of junctions and then type:
+
+    seepicture();
+    display();
+
+Each marked point of the picture has been 'coded' as either part of a
+line or as a junction between lines; furthermore the paint used
+indicates what type of line or junction, viz
+
+    |  VRT, a vertical line
+    -  HRZ, a horizontal line
+    /  RHT, a right diagonal line
+    \  LFT, a left diagonal line
+    e  END, a free end
+    l  ELL, an ell junction
+    f  FRK, a fork junction
+    a  ARW, an arrow junction
+    t  TEE, a tee junction
+    c  CRS, a crossover junction
+    k  KAY, a kay junction
+    p  PSI, a psi junction
+    j  JNn, an unclassifiable junction
+
+SEEPICTURE also uses the DATABASE package to record its findings, as you
+can see by typing:
+
+    database ==>
+
+SEEPICTURE performs three operations in turn:
+
+(a) The first phase, called FINDLINES, searches the TURTLE picture for
+straight lines whose lengths exceed MINLINELENGTH (initially three) and
+records details of these lines in the DATABASE. FINDLINES 'breaks' lines
+at junctions so that a single line may give rise to several line records
+in the DATABASE. For example, the picture:
+
+    5    *
+    4    *
+    3    *
+    2    *
+    1*********
+     123456789
+
+would yield three lines, [1 1] to [5 1], [5 1] to [5 5] and
+[5 1] to [9 1].
+The items actually added to the DATABASE would be:
+
+    [line hrz [1 1] [5 1]]
+    [line hrz [5 1] [9 1]]
+    [line vrt [5 1] [5 5]]
+
+You should not expect the two points associated with a line to be in any
+particular order, that is the last line above might just as easily have
+been described as:
+
+    [line vrt [5 5] [5 1]]
+
+You can prevent this breaking of lines by setting the variable BREAKLINES to
+FALSE, thus typing:
+
+    false -> breaklines;
+    findlines();
+
+would yield only two lines [1 1] to [9 1] and [5 1] to [5 5].
+
+(b) the second phase of SEEPICTURE, called FINDJUNCS, uses the DATABASE
+records to classify the junctions indicated by the line records (ie
+FINDJUNCS doesn't use the TURTLE picture). FINDJUNCS classifies the
+junctions between the ends of lines as represented in the DATABASE. For
+the above picture it would yield three ENDs and one TEE. (If BREAKLINES
+was FALSE it would not detect the TEE and so produce four ENDs). The
+output of FINDJUNCS is stored as a set of records in the DATABASE like
+that of FINDLINES. The items added here would be:
+
+    [junc end [1 1] [5 1]]
+    [junc end [5 5] [5 1]]
+    [junc end [9 1] [5 1]]
+    [junc tee [5 1] [9 1] [5 1] [1 1]]
+
+The points at the other ends of lines radiating away from the junction
+are given in counter-clockwise order, starting with the point following
+the largest angle, thus:
+
+    [junc tee centre barb stem barb]
+    [junc arw centre barb stem barb]
+
+(c) The final phase of SEEPICTURE, PAINTPICTURE, merely repaints the
+TURTLE picture according to to the information stored in the DATABASE.
+
+We can represent the whole process schematically:
+
+    A TURTLE picture
+        is processed by
+    FINDLINES
+        to yield
+    DATABASE items representing lines
+        which are processed by
+    FINDJUNCS
+        which yields
+    DATABASE items representing junctions
+        which, with the output of FINDLINES, is processed by
+    PAINTPICTURE
+        to give a TURTLE picture
+
+TEACH * SEEPICTURE gives a more verbose introduction to these
+facilities.
+
+TEACH * SEEPICS adds more detail
+
+TEACH * REGIONS shows how to use the output of FINDJUNCS to locate
+boundaries of picture regions.
+
+-----<Copyright University of Sussex 1987.  All rights reserved.>-------
+
+
+--- $usepop/pop/help/seepicture
+--- Copyright University of Birmingham 2009. All rights reserved.

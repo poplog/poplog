@@ -1,0 +1,285 @@
+REF XPT_CLASSAPPLY                              Jonathan Meyer, Jul 1991
+                                        Updated: Adrian Howard, Sep 1992
+
+        COPYRIGHT University of Sussex 1992. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<   DESCRIPTOR CLASS APPLY    >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<          PROCEDURES         >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This REF  file  describes  the  default behaviour  of  the  class  apply
+procedures for  the  following descriptor  types:  Widget,  WidgetClass,
+DisplayPtr, ScreenPtr.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   XptWidgetApply
+
+  3   XptWidgetClassApply
+
+  4   XptDisplayPtrApply
+
+  5   XptScreenPtrApply
+
+
+
+---------------
+1  Introduction
+---------------
+
+The  class_apply  procedure  for   am  XptDescriptor  concatenates   the
+XptDataType of  the descriptor  with  the prefix  "Xpt" and  the  suffix
+"Apply",  and  then  calls  the  procedure  (after  autoloading  it   if
+necessary) associated with the resulting word, passing it the descriptor
+that is being applied.
+
+In update mode, the updater of the class_apply procedure associated with
+the same word is called.
+
+The apply action will  mishap if there is  no procedure associated  with
+the word and autoloading is unsuccessful.
+
+    Descriptor Type         Class Apply Procedure
+    ---------------         ---------------------
+    Widget                  See LIB * XptWidgetApply
+    WidgetClass             See LIB * XptWidgetClassApply
+    DisplayPtr              See LIB * XptDisplayPtrApply
+    ScreenPtr               See LIB * XptScreenPtrApply
+
+All  of  these  class  apply  procedures  take  an  additional  name_key
+argument, and return a single value. That is, the class_apply procedures
+take the form:
+
+        descriptor_apply_p(name_key, descriptor) -> value
+
+For some descriptors, there are also updaters, which have the form:
+
+        value -> descriptor_apply_p(name_key, descriptor)
+
+To use the class_apply  procedures, just apply a  descriptor on a  valid
+name_key.  For  example,  for  a   variable  widget  holding  a   widget
+descriptor, you can do:
+
+       widget("name") =>
+
+       widget("width") =>
+
+And also, for some cases you can use the updater, as in:
+
+       100 -> widget("height")
+
+
+
+
+-----------------
+2  XptWidgetApply
+-----------------
+
+XptWidgetApply(name_key, widget) -> value                    [procedure]
+value -> XptWidgetApply(name_key, widget)
+        LIB * XptWidgetApply defines the  following semantics for  class
+        apply on widgets:
+
+        If the  name_key field  is a  string, XptPopValue  is called  to
+        retrieve (or set, in update mode) the value of the resource with
+        that name, eg:
+
+            uses rc_graphic;
+            rc_start();
+            rc_window =>
+            ** <Widget Xgraphic>
+
+            rc_window(XtN lineWidth) =>
+            ** 0
+
+            3 -> rc_window(XtN lineWidth)
+
+        Note that  XptPopValue performs  type conversion  and  checking.
+        (See REF * XPT_RESOURCE for details).
+
+        xptwidgetapply can also be passed a word as a name_key. A  small
+        subset of special words have Toolkit procedures associated  with
+        them. Such  procedures  are called  with  the descriptor  as  an
+        argument and return a single  result. The following is the  list
+        of  such  words  and   their  associated  procedures  (see   the
+        documentation for the procedures for  more details of what  they
+        return):
+
+                 Name_key        Procedure
+                 --------        ---------
+                 appcontext      XtWidgetToApplicationContext
+                 children        XptChildren
+                 class           XtClass
+                 display         XtDisplayOfObject
+                 managed         XtIsManaged
+                 name            XptDataProps
+                 parent          XtParent
+                 realized        XtIsRealized
+                 screen          XtScreenOfObject
+                 shell           XptShellOfObject
+                 superclass      XtSuperclass
+                 tree            XptWidgetTree
+                 window          XtWindowOfObject
+
+        For example:
+
+            rc_window("parent") =>
+            ** <Widget Xgraphic_shell>
+
+            rc_window("class") =>
+            ** <Poplog WidgetClass GraphicWidget>
+
+        Additionally, the words "managed" and "realized" can be used  in
+        update mode, with  a boolean VALUE  (the effect is  the same  as
+        calling  XtManageChild,  XtUnmanageChild,  XtRealizeWidget,   or
+        XtUnrealizeWidget.)
+
+        eg:
+
+            false -> rc_window("managed");
+
+        If passed a word which is not in the above list,  XptWidgetApply
+        will convert NAME_KEY into a string and call XptPopValue to  get
+        (or set, in update mode) the resource with that name. So:
+
+            rc_window("width")
+
+        is the same as:
+
+            rc_window(XtN width)
+
+        Finally, XptWidgetApply can  take an integer  as a NAME_KEY.  If
+        the supplied widget is  a composite widget,  and if the  integer
+        NAME_KEY is greater than 1 and less than the number of  children
+        of the  widget, the  NAME_KEY'th  child is  returned.  Otherwise
+        false is returned. For example:
+
+            ;;; returns the first child of rc_windows parent (ie
+            ;;; rc_window!):
+            rc_window("parent")(1) =>
+            ** <Widget Xgraphic>
+
+
+
+
+----------------------
+3  XptWidgetClassApply
+----------------------
+
+XptWidgetClassApply(name_key, widgetclass) -> value          [procedure]
+        The class_apply  for  WidgetClass descriptors  responds  to  two
+        name_key words:  "superclass" will  return the  superclass  of a
+        class, and "name" will return the XptDataProps of the class. eg.
+
+            xtCompositeWidget("superclass") =>
+            ** <WidgetClass Core>
+
+            xtCompositeWidget("name") =>
+            ** CompositeWidget
+
+
+
+
+---------------------
+4  XptDisplayPtrApply
+---------------------
+
+XptDisplayPtrApply(name_key, display) -> value               [procedure]
+        The class_apply  for  DisplayPtr descriptors  responds  to  then
+        following name_key words:
+
+            appcontext
+                The application context of the display
+
+            name
+                The display string used to make the server connection
+
+            vendor
+                The VendorString string for the display
+
+        e.g.
+
+            XptDefaultDisplay("vendor") =>
+            ** MIT X Consortium
+
+
+
+
+--------------------
+5  XptScreenPtrApply
+--------------------
+
+XptScreenPtrApply(widget, screenptr) -> value                [procedure]
+        The class_apply  for ScreenPtr  descriptors  is used  to  access
+        information  held  in  the  XLIB  screen  structure  (See   your
+        reference manual  on Xlib  for details  of what  this  structure
+        contains). The following NAME_KEY words will return a result:
+
+        "display"
+            Returns the display associated with the screen (as returned
+            by * XDisplayOfScreen.)
+
+        "height" "width"
+            Returns the width and height of the screen in pixels (as
+            returned by * XHeightOfScreen and * XWidthOfScreen.)
+
+        "mheight" "mwidth"
+            Returns the width and height of the screen in millimetres
+            (as returned by * XHeightMMOfScreen and * XWidthMMOfScreen.)
+
+        "black_pixel" "white_pixel"
+            Returns the pixel value for two colors that are guaranteed
+            to  contrast  (as  returned  by  * XBlackPixelOfScreen   and
+            * XWhitePixelOfScreen.)
+
+        "default_cmap"
+            Returns the default colormap of  the screen (as returned  by
+        * XDefaultColormapOfScreen.)
+
+        "num_cells"
+            Returns the number of color cells in the default colormap of
+            the screen (as returned by * XCellsOfScreen.)
+
+        "max_cmaps" "min_cmaps"
+            Return the maximum and minimum number of installed colormaps
+            that   the   screen    can   support    (as   returned    by
+            * XMaxCmapsOfScreen * XMinCmapsOfScreen.)
+
+        "root"
+            The root  window  of the  specified  screen as  returned  by
+            * XRootWindowOfScreen.
+
+        "depth" "root_depth"
+            Both return the depth of the screens root window (as
+            returned by * XPlanesOfScreen.)
+
+        "does_backing"
+            Returns whether the screen supports backing-store (as for a
+            call to * XptDoesBackingStore.)
+
+        "default_gc"
+            Returns the * XptXID of the screens default graphic context
+            (as returned by * XDefaultGCOfScreen.)
+
+        "save_unders"
+            Returns whether the screen supports save-unders (as for a
+            call to * XDoesSaveUnders.)
+
+        "event_mask"
+            The event mask of the screens root window at connection
+            setup time (as returned by * XEventMaskofScreen.)
+
+        "number"
+            The  numerical  number  of   the  screen  (as  returned   by
+            * XScreenNumberOfScreen.)
+
+
+
+
+--- C.x/x/pop/ref/xpt_classapply
+--- Copyright University of Sussex 1993. All rights reserved.

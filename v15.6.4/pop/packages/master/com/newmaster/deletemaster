@@ -1,0 +1,181 @@
+#!/bin/sh -e
+# --- Copyright University of Sussex 1990. All rights reserved. ----------
+# File:             $poplocal/local/com/newmaster/deletemaster
+# Purpose:			Deletes a file from a master tree
+# Author:           Rob Duncan, Nov 27 1990
+# Documentation:	HELP * NEWMASTER
+# Related Files:	LIB * VED_NEWMASTER, * NEWMASTER_DELETE
+
+
+#######################################################################
+# NB:                                                                 #
+# This file should never be run except via NEWMASTER_DELETE           #
+# It should be owned by POP and have the setuid bit on: this must be  #
+# reset after every edit                                              #
+# The first line must read: #!/bin/sh -e                              #
+# The "-e" flag causes the program to abort if any command fails      #
+#######################################################################
+
+
+CMD=`basename $0`
+USAGE="Usage: $CMD [-v] [-test dir] root dir file key"
+
+case "$1" in
+	-v)
+		# verbose: echo all commands executed
+		set -x
+		shift
+		;;
+esac
+
+case "$1" in
+	-test)
+		# testmaster directory
+		case "$2" in
+			*/)
+				TEST="$2"
+				;;
+			*)
+				TEST="$2/"
+				;;
+		esac
+		shift; shift
+		;;
+	*)
+		TEST=
+		;;
+esac
+
+if [ $# -ne 4 ]
+then
+	echo $USAGE 1>&2
+	exit 1
+fi
+
+case "$1" in
+	*/)
+		ROOT="$1"
+		;;
+	*)
+		ROOT="$1/"
+		;;
+esac
+if [ ! -d $ROOT ]
+then
+	echo "Error: no such root directory: $ROOT" 1>&2
+	exit 1
+fi
+shift
+
+case "$1" in
+	*/)
+		DIR="$1"
+		;;
+	*)
+		DIR="$1/"
+		;;
+esac
+if [ ! -d ${ROOT}$DIR ]
+then
+	echo "Error: no such directory: ${ROOT}$DIR" 1>&2
+	exit 1
+fi
+shift
+
+FILE=$1
+shift
+
+KEY=$1
+shift
+
+TARGET=${DIR}$FILE
+
+NEWMASTER="@"NEWMASTER"@"
+DATE="`date`"
+INSTALL=${ROOT}install
+LOG=$INSTALL/LOG
+DELETIONS=${ROOT}deletions
+IDFILE=$DELETIONS/fileid
+
+cd $ROOT
+if [ ! -f $TARGET ]
+then
+	echo "Error: no such file: ${ROOT}$TARGET" 1>&2
+	exit 1
+elif [ ! -f $IDFILE ]
+then
+	echo "Error: missing ID file: $IDFILE" 1>&2
+	exit 1
+fi
+
+ID=`expr \`cat $IDFILE\` + 1`
+
+echo $NEWMASTER DEL $TARGET $KEY $DATE >> $LOG
+
+sfiles=
+case $DIR in
+C.*/*)
+    # If the file is in a C. directory, remove any S. links
+	Cdir=`expr $DIR : '\(C\.[^/]*\)'`
+	subdir=`expr $DIR : 'C\.[^/]*/\(.*\)'`
+	if Sdirs=`grep -l $Cdir S.*/CDIRS`
+	then
+		for Sdir in $Sdirs
+		do
+			Sdir=`expr $Sdir : '\(.*\)/CDIRS'`
+			if [ -d $Sdir/$subdir ]
+			then
+				if [ -f $Sdir/TRANSLATE_NAME ]
+				then
+					sfile=`$Sdir/TRANSLATE_NAME $FILE`
+				else
+					sfile=$FILE
+				fi
+				sfile=$Sdir/${subdir}$sfile
+				if [ -f $sfile ]
+				then
+					sfiles="$sfiles $sfile"
+				fi
+			fi
+		done
+	fi
+	if [ -n "$sfiles" ]
+	then
+		rm -f $sfiles
+	fi
+	# delete any associated DIFFS
+	rm -f $Cdir/${subdir}DIFFS/$FILE $Cdir/${subdir}DIFFS/$FILE.Z
+	;;
+esac
+
+# Check for oustanding links
+nlinks=`ls -l $TARGET | awk '{ print ($2-1) }'`
+case $nlinks in
+    0)  ;;
+	1)	echo "Warning: $TARGET has 1 outstanding link" 1>&2;;
+    *)  echo "Warning: $TARGET has $nlinks outstanding links" 1>&2;;
+esac
+
+# Save a copy of the file and delete the original
+mv $TARGET $DELETIONS/RM$ID
+echo $ID > $IDFILE
+echo $TARGET RM$ID $KEY $DATE >> $INSTALL/DELETED
+
+# Remove any soft links in the testmaster directory
+if [ -n "$TEST" ]
+then
+	case $DIR in
+		S.*) sfiles="$sfiles $TARGET";;
+	esac
+	if [ -n "$sfiles" ]
+	then
+		cd $TEST
+		for sfile in $sfiles
+		do
+			mfile=`echo "$sfile" | sed -e 's#^S\.\([^/]*\)/#M.\1/pop/#'`
+			rm -f $mfile
+		done
+	fi
+fi
+
+exit 0

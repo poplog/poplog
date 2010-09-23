@@ -1,0 +1,336 @@
+/*
+TEACH PRBZOO                                       Aaron Sloman Nov 1995
+                                          Updated for new ruleset syntax
+                                                              April 1996
+                          Based on lib animals, produced by Louise Pryor
+                                                        in October 1993
+
+For a general, elementary, introduction to Poprulebase, see
+
+    TEACH * RULEBASE
+
+-- Introduction -------------------------------------------------------
+
+This file shows how to use Poprulebase to create a simple question
+and answer program for identifying animals: a discrimination tree.
+
+All the non-program text in this file is `commented out'. So you can
+load the program by doing
+    ENTER l1
+
+This defines:
+
+(a) a set of rules for identifying animals
+
+(b) a set of possible initial working memories, one for each
+    of four animals, called stretch, swifty, splashy, and sandy.
+
+(c) A procedure to run the rules with a given initial working
+    memory. It then attempts to identify the animal.
+
+Note, some of the rules produce intermediate inferred results in the
+database. Others produce a final answer, by adding an assertion of the
+form
+
+    [answer X is a Y]
+or
+    [answer X is an Y]
+
+At that point the answer is printed out and the program stops.
+
+-- Running the program ------------------------------------------------
+
+Load the program by doing: ENTER l1
+
+The program is (under some conditions) able to identify an animal as
+falling into one of these categories:
+
+    albatross cheetah giraffe ostrich penguin tiger zebra
+
+You will get four alternative working memories to try out held in the
+variables:
+
+    stretch_wm  swifty_wm  splashy_wm  sandy_wm
+
+You can print them out to see their contents, e.g.
+
+    stretch_wm ==>
+
+You can print them all out. See if you can identify the animals.
+
+To identify one of the animals, give its working memory to the procedure
+run_zookeeper. E.g.
+
+    run_zookeeper(stretch_wm);
+
+Try running it with the other initial working memories.
+
+-- Running the program with more trace printing. ----------------------
+
+You can make it tell you more about what's going on if you assign a
+number to prb_chatty, coded to give more information (as described in
+detail in HELP * POPRULEBASE/prb_chatty ).
+
+    13 * 17 -> prb_chatty;
+
+    run_zookeeper(swifty_wm);
+
+Doing this will make it print out the state of the database more often.
+
+    5 * 13 * 17 -> prb_chatty;
+
+    run_zookeeper(swifty_wm);
+
+Doing this will make it pause repeatedly. On each pause, it prints the
+prompt
+    Walking>
+then waits for you to press RETURN:
+
+    true -> prb_walk;
+    13 * 17 -> prb_chatty;
+    run_zookeeper(sandy_wm);
+
+-- Exercises ----------------------------------------------------------
+
+1. Try out the different working memories.
+
+2. Study the rules given below. May a copy of them in a file of your own
+   called:  prbzoo.p
+
+   Try adding different rules to identify more types of animals, and
+   produce more working memories on which to test the program.
+
+3. Would it be possible to make the program infer additional properties,
+   after it has discovered something about the test animal?
+
+-- Further reading ----------------------------------------------------
+
+For another tutorial example of the use of rule based programming see
+TEACH * PRBWINE. This introduces an expert system for choosing a wine.
+
+For a more general overview see: TEACH * RULEBASE
+
+That file gives pointers to additional online information, demonstration
+programs, and some relevant literature.
+
+=======================================================================
+
+
+         CONTENTS - (Use ENTER g to access required sections)
+
+ -- Introduction
+ -- Running the program
+ -- Running the program with more trace printing.
+ -- Exercises
+ -- Further reading
+ -- The zoo rules
+ -- The initial databases of information about objects
+ -- Now define a procedure to run the system
+
+*/
+
+
+;;; Make sure that poprulebase is compiled
+
+uses poprulebase
+
+;;; Turn off tracing, and pausing:
+
+false -> prb_chatty;
+false -> prb_walk;
+
+/*
+-- The zoo rules
+*/
+;;; First define the rule set. the rules are all added to a list called
+;;; zoo_rules.
+
+
+vars animal, type;
+
+define :ruleset zoo_rules;
+
+RULE answer_found  ;;; in zoo_rules
+    [answer ?animal is = ?type]
+    ==>
+    ;;; print out the whole database
+    [POP11 prb_print_database()]
+    [STOP ANSWER the category of ?animal is ?type]
+
+RULE Z1  ;;; in zoo_rules
+    [?animal has hair]
+    ==>
+    [?animal is a mammal]
+
+RULE Z2  ;;; in zoo_rules
+    [?animal gives milk]
+    ==>
+    [?animal is a mammal]
+
+RULE Z3  ;;; in zoo_rules
+    [?animal has feathers]
+    ==>
+    [?animal is a bird]
+
+RULE Z4  ;;; in zoo_rules
+    [?animal flies]
+    [?animal lays eggs]
+    ==>
+    [?animal is a bird]
+
+RULE Z5  ;;; in zoo_rules
+    [?animal is a mammal]
+    [?animal eats meat]
+    ==>
+    [?animal is a carnivore]
+
+RULE Z6  ;;; in zoo_rules
+    [?animal is a mammal]
+    [?animal has pointed teeth]
+    [?animal has claws]
+    [?animal has forward-pointing eyes]
+    ==>
+    [?animal is a carnivore]
+
+RULE Z7  ;;; in zoo_rules
+    [?animal is a mammal]
+    [?animal has hooves]
+    ==>
+    [?animal is an ungulate]
+
+RULE Z8  ;;; in zoo_rules
+    [?animal is a mammal]
+    [?animal chews cud]
+    ==>
+    [?animal is an ungulate]
+
+RULE Z9  ;;; in zoo_rules
+    [?animal is a carnivore]
+    [?animal has tawny colour]
+    [?animal has dark spots]
+    ==>
+    [answer ?animal is a cheetah]
+
+RULE Z10  ;;; in zoo_rules
+    [?animal is a carnivore]
+    [?animal has tawny colour]
+    [?animal has black stripes]
+    ==>
+    [answer ?animal is a tiger]
+
+RULE Z11  ;;; in zoo_rules
+    [?animal is an ungulate]
+    [?animal has long legs]
+    [?animal has a long neck]
+    [?animal has tawny colour]
+    [?animal has dark spots]
+    ==>
+    [answer ?animal is a giraffe]
+
+RULE Z12  ;;; in zoo_rules
+    [?animal is an ungulate]
+    [?animal has white colour]
+    [?animal has black stripes]
+    ==>
+    [answer ?animal is a zebra]
+
+RULE Z13  ;;; in zoo_rules
+    [?animal is a bird]
+    [?animal does not fly]
+    [?animal has long legs]
+    [?animal has a long neck]
+    [?animal is black and white]
+    ==>
+    [answer ?animal is an ostrich]
+
+RULE Z14  ;;; in zoo_rules
+    [?animal is a bird]
+    [?animal does not fly]
+    [?animal swims]
+    [?animal is black and white]
+    ==>
+    [answer ?animal is a penguin]
+
+RULE Z15  ;;; in zoo_rules
+    [?animal is a bird]
+    [?animal is a good flyer]
+    ==>
+    [answer ?animal is an albatross]
+enddefine;
+
+/*
+-- The initial databases of information about objects
+
+The objects are called stretch, swifty, splashy, and sandy.
+*/
+
+;;; Set up working memory for each animal. It is a list of assertions.
+;;; We define several different initial working memories,
+;;; for different animals
+
+global vars stretch_wm, swifty_wm, splashy_wm, sandy_wm;
+
+[[stretch has hair]
+ [stretch chews cud]
+ [stretch has long legs]
+ [stretch has a long neck]
+ [stretch has tawny colour]
+ [stretch has dark spots]] -> stretch_wm;
+
+[[swifty has hair]
+ [swifty has pointed teeth]
+ [swifty has claws]
+ [swifty has forward-pointing eyes]
+ [swifty has tawny colour]
+ [swifty has dark spots]] -> swifty_wm;
+
+[[splashy has feathers]
+ [splashy lays eggs]
+ [splashy does not fly]
+ [splashy is black and white]
+ [splashy swims]] -> splashy_wm;
+
+[[sandy has long legs]
+ [sandy has a long neck]
+ [sandy has feathers]
+ [sandy lays eggs]
+ [sandy does not fly]
+ [sandy is black and white]] -> sandy_wm;
+
+/*
+-- Now define a procedure to run the system
+*/
+
+;;; You can identify an animal using the procedure run_zookeeper with
+;;; an initial working memory. For example,
+;;;     run_zookeeper(sandy_wm)
+
+define global procedure run_zookeeper(zoo_database);
+    lvars zoo_database;
+    ;;; Make sure it does not run the same rule twice for the same
+    ;;; reason.
+    false -> prb_repeating;
+    ;;; Let it run all runnable rules on each cycle
+    true -> prb_allrules;
+
+    'INITIAL DATABASE' =>
+    zoo_database ==>
+    pr(newline);
+
+    prb_run(zoo_rules, zoo_database)
+enddefine;
+/*
+
+;;; Test it
+run_zookeeper(zoo_database);
+
+    run_zookeeper(stretch_wm);
+    run_zookeeper(swifty_wm);
+    run_zookeeper(splashy_wm);
+    run_zookeeper(sandy_wm);
+*/
+
+/*
+--- $poplocal/local/prb/teach/prbzoo
+--- The University of Birmingham 1995.  --------------------------------
+*/

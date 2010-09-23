@@ -1,0 +1,57 @@
+HELP RC_APP_MOUSE                               Aaron Sloman, April 1997
+
+rc_app_mouse(pdr, stop_button);
+
+pdr is a procedure that can be applied to two numbers representing
+x and y coordinates in a graphical window and stop_button is an integer.
+
+rc_app_mouse enables you to point at a set of locations in the current
+rc_graphic window, and apply the procedure pdr to locations pointed at
+by clicking in the window. When the stop_button is clicked the procedure
+terminates and the location pointed at at that time is ignored.
+
+E.g. this one terminates when button 3, i.e. the right button, is
+clicked, and collects points as pairs, in a list:
+
+    uses rclib;
+    rc_start();
+
+    [% rc_app_mouse(conspair, 3) %] =>
+
+whereas this collects them as lists of two numbers:
+
+    [% rc_app_mouse(conslist(%2%), 3) %] =>
+
+If you use a mouse button other than stop_button it assumes you are not
+yet finished.
+
+The library includes a default value for the procedure
+
+   rc_app_mouse_xyin(x, y) -> (x, y);
+
+which is given the absolute coordinates of the mouse location and should
+return coordinates relative to the current coordinate frame. It can be
+redefined to deal with rotated frames, for instance.
+
+The default definition is something like this, except that it does some
+optimisations.
+
+define vars procedure rc_app_mouse_xyin( x, y ) -> (x, y);
+    ;;; Warning - this can produce ratios as results
+
+        (x - rc_xorigin) / rc_xscale -> x;
+
+        (y - rc_yorigin) / rc_yscale
+    endif -> y
+enddefine;
+
+
+The procedure rc_app_mouse is approximately modelled on LIB * RC_MOUSE
+described in:
+
+    HELP * RC_GRAPHIC/RC_MOUSE
+    TEACH * RC_GRAPHIC/rc_mouse_draw
+
+
+--- $poplocal/local/rclib/help/rc_app_mouse
+--- Copyright University of Birmingham 1997. All rights reserved. ------

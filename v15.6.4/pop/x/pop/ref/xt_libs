@@ -1,0 +1,1259 @@
+REF XT_LIBS                                            R.Evans, Feb 1991
+                                                Jonathan Meyer, Mar 1991
+
+        COPYRIGHT University of Sussex 1993. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<     X TOOLKIT INTERFACE     >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<      SUPPORT LIBRARIES      >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This file provides an overview and reference material for the  libraries
+which support the  Poplog X  Toolkit interface.  See REF * XTOOLKIT  for
+details of  the  interface itself,  REF  *X for  references  to  other X
+facilities in Poplog.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+      1.1   General Purpose Utility Libraries
+      1.2   Data structure support
+      1.3   Type specifications
+
+  2   The Xt libraries
+
+  3   Autoloadable libraries
+
+  4   Macros For Loading Procedures and Widgetclasses
+
+  5   Miscellaneous Poplog Libraries
+      8.1   LIB XPT_ATOMCACHE
+      8.2   LIB XPT_CURSORPLANE
+      8.3   LIB XPT_CLIENTCALLBACK
+      8.4   LIB XPT_TYPETEST
+      8.4   LIB XPT_TYPECHECK
+
+  6   Widget Set Interfaces
+      6.1   Other Widget Set Libraries
+
+  7   Widget Tree Manipulation
+
+  8   Other Data structure support libraries
+
+  9   Resource access facilities
+
+ 10   Include Files
+      10.1  INCLUDE XT_CONSTANTS
+      10.2  INCLUDE XPT_CONSTANTS
+      10.3  XLIB include files
+
+ 11   PROPSHEET
+
+ 12   RC_GRAPHIC libraries
+
+
+
+---------------
+1  Introduction
+---------------
+
+This file provides  and overview  of the libraries  which support  the X
+Toolkit interface. These libraries fall loosely into three classes:  (i)
+libraries which are part of the  basic low level interface which  happen
+not to be  implemented in the  system core (ii)  general purpose  higher
+level  support  utilities  (iii)  libraries  which  are   self-contained
+packages (and generally documented in full elsewhere).
+
+IMPORTANT NOTE: most of the libraries and documentation cross-references
+in this  file will  only  be easily  accessible  after you  have  loaded
+LIB * POPXLIB (e.g. by doing
+
+        uses popxlib;
+
+,see REF * X). If you are  reading this file on-line, you have  probably
+already loaded LIB * POPXLIB, but you should bear in mind that you  will
+need to ensure it  has been loaded before  loading these libraries.  (If
+you do  not,  you will  probably  get a  'MISHAP  - library  not  found'
+message.)
+
+
+1.1  General Purpose Utility Libraries
+--------------------------------------
+In addition to the base interface libraries, a range of general  purpose
+support facilities are provided for  "filling out" the Poplog X  Toolkit
+interface, making the interface easier to use from Poplog.
+
+Some of these  libraries are simply  for data structure  support -  they
+provide type checking and a  few simple field-access procedures as  well
+as * SHADOWCLASS definitions for all X Toolkit datatypes.
+
+Other libraries go well  beyond the facilities  provided in the  basic X
+Toolkit interface,  and are  supplied to  make programming  using  the X
+Toolkit simpler and easier.
+
+
+1.2  Data structure support
+---------------------------
+Include files containing typespecs for  most X Toolkit and related  data
+are in the Poplog X include directory.
+
+The low level and data structure support libraries all make use of exacc
+with these  include  files,  and  shadowclass  to  provide  support  for
+managing X toolkit and related data.  For more information about how  to
+access data using typespecs and shadowclasses, see REF * SHADOWCLASS and
+REF * DEFSTRUCT.
+
+
+1.3  Type specifications
+------------------------
+A description of the type specifications used by the Xlib and X  Toolkit
+routines  is  given  in  REF * XPT_XTYPES,  REF * XPT_GENERALTYPES   and
+REF * XPT_CORETYPES.
+
+
+
+
+-------------------
+2  The Xt libraries
+-------------------
+
+The basic X Toolkit interface can be considered as being provided by the
+following set of libraries:
+
+    Library name            Purpose
+    ------------            -------
+    LIB * XT_ACTION         Management of action tables
+    LIB * XT_APPCON         Handling application contexts
+    LIB * XT_APPINIT        Initialisation of X Toolkit applications
+    LIB * XT_CALLBACK       Management of callbacks
+    LIB * XT_COMPOSITE      Managing the children of composite widgets
+    LIB * XT_CONVERTER      Managing resource conversion tables
+    LIB * XT_DISPLAY        Handling display objects
+    LIB * XT_EVENT          event management routines
+    LIB * XT_GRAB           X Toolkit keyboard and pointer grabs
+    LIB * XT_INIT           X Toolkit initialisation routines
+    LIB * XT_KEYBOARD       Intrinsics Keyboard Handling
+    LIB * XT_POPUP          Management of pop-up widgets
+    LIB * XT_R2COMPAT       X11R2 compatibility procedures
+    LIB * XT_RESOURCE       Management of widget resources
+    LIB * XT_TRANS          Management of event translation tables
+    LIB * XT_UTIL           General X Toolkit utilities
+    LIB * XT_WIDGET         Widget handling routines
+    LIB * XT_WIDGETCLASS    Widget class handling routines
+    LIB * XT_WIDGETINFO     Routines for accessing widget information
+
+These libraries actually come  in two forms:  the libraries cited  above
+provided type  checking and  data-structure  support for  the  interface
+routines, but they all have 'fast' versions which do no checking.  These
+libraries are  obtained by  prefixing 'fast_'  to the  library name  (eg
+LIB * FAST_XT_ACTION). Each library  pair is documented  in its own  REF
+file,  with   the   name   given   above.   Thus   LIB * XT_ACTION   and
+LIB * FAST_XT_ACTION are both documented in REF * XT_ACTION.
+
+In practice, some of this support is provided in the core Poplog  system
+itself. For such modules, the 'fast' version of the library is in fact a
+dummy file,  containing no  code (note  that the  checking version  does
+contain code: none  of the type  checking code is  in the core  system).
+LIB * FAST_XT_ACTION is an example of such a dummy library. However, the
+distribution of code between core and libraries is not yet fully  stable
+and may change  in future releases.  To protect itself  from this,  USER
+CODE SHOULD LOAD THE  LIBRARIES DEFINING MODULES IT  USES, EVEN IF  THEY
+ARE DUMMY LIBRARIES - in future releases they may not be.
+
+Note: it is not necessary to explicitly load both fast and slow  version
+of a library: the slow versions automatically load the fast ones.
+
+
+
+
+-------------------------
+3  Autoloadable libraries
+-------------------------
+
+The central higher-level (autoloadable)  toolkit related facilities  are
+as follows:
+
+
+XptArgList(list) -> (arglist, len)                           [procedure]
+        This routines is a convenience procedure used to convert between
+        Pop-11 list structures and X Toolkit "ArgList" structures, which
+        are name-value pairs used to specify resources and their  values
+        in various X  Toolkit routines.  For details  of the  XptArgList
+        type also  see  the  reference for  the  XptArgList  shadowclass
+        typespec under LIB * XPT_GENERALTYPES (below).
+
+        list should contain a list of  vectors, where each vector is  of
+        the form  {NAME  VALUE},  in  which  NAME  is  a  word  or  null
+        terminated string and VALUE is  a single piece of Poplog  data).
+        If NAME is a word the string cache used by the * XtN macro  will
+        be used to convert the word into a fixed address null-terminated
+        string.
+
+        NOTE: the values  specified are  not passed  through X  resource
+        converters. For example, when  specifying colours pixel  numbers
+        should be supplied as arguments,  not colour names. If you  wish
+        to use  resource converters  see * XptVaArgList  and the  Va  Xt
+        procedures.
+
+        XptArgList will accept single  XptArgPtr structures as  returned
+        by consXptArgPtr instead of 2 element vectors.
+
+        Alternatively, list can  itself by an  XptArgList structure,  in
+        which case the XptArgList structure  and its length are left  on
+        the stack.
+
+        For example, the following constructs an ArgList referring  to a
+        resource name 'width' and a value of 10:
+
+            XptArgList([{width 10}]) =>
+            ** <XptArgList {width 10}> 1
+
+        Note that the length of the constructed ArgList is also left  on
+        the stack. All toolkit routines that take ArgLists also  require
+        a length argument.
+
+        Note also that the above call to XptArgList could be replaced by
+        a call to consXptArgList:
+
+            consXptArgList( #| consXptArgPtr(XtN width, 10) |#),  1
+
+        Or  more  efficiently  still,   the  non-constructive  form   of
+        consXptArgList could be used (see REF * SHADOWCLASS):
+
+            nc_consXptArgList(#| XtN width, 10, |# div 2), 1
+
+        In general, XptArgList  is useful but  does generate  additional
+        data structures which are never  reused. See the description  of
+        XptSetArg below for an example of how to build an reuse a single
+        XptArgList structure.
+
+
+XptVaArgList(list) -> (arg_1, ..., arg_n, n)                 [procedure]
+        The 'Va'  procedure  XptVaArgList  works in  a  similar  way  to
+        XptArgList, but  is  used  with the  corresponding  'Va'  vararg
+        procedures in the X Toolkit (eg XtVaCreateManagedWidget).
+
+        Vararg versions of  the X Toolkit  procedures differ from  their
+        non-vararg counterparts in two important ways:
+
+        1) They don't require  "ArgList" structures to  be built,  since
+           all the arguments  are passed "exploded"  on the call  stack.
+           This  can  significantly  reduce  the  amount  of  additional
+           ArgList structures  which are  often generated  and  garbaged
+           when the non-varargs toolkit procedures are used.
+
+        2) As well as specifying name-value pairs, the vararg procedures
+           allow    you    to    specify    typed    arguments     using
+           name-type-value-size tuples. If a typed argument is used, the
+           toolkit will automatically call resource converters if needed
+           to convert between  the specified type  and the desired  type
+           for any widget resource.
+
+        For XptVaArgList, list  is a list  of 2 element  vectors of  the
+        form {NAME VALUE} (as  with XptArgList), or it  can be a 3  or 4
+        element vector,  of the  form {NAME  TYPE VALUE}  or {NAME  TYPE
+        VALUE SIZE}.  In  the  former case  the  SIZE  is  automatically
+        determined as the datalength of VALUE. TYPE should be a word  or
+        a null terminated string,  and should be  one of the  recognised
+        resource representation types  as registered  with the  toolkit(
+        for example String,  Color, Font, Dimension  etc). If TYPE  is a
+        word, the * XtN string cache is used to convert it into a  fixed
+        address null terminated string.
+
+        As well as vectors, list  can also contain XptArgPtr  structures
+        (as returned by consXptArgPtr), and nested lists. Any  XptArgPtr
+        structures will be  exploded onto  the stack.  Nested lists  are
+        recursively descended, and  each element in  the nested list  is
+        exploded onto the stack.
+
+        As a convenience,  XptVaArgList will  automatically specify  any
+        {NAME VALUE} vector for which the  VALUE field is a string  as a
+        typed argument, where the resource representation type is String
+        and the size field is the  length of the string. This is  almost
+        always the desired  behaviour. In  cases where this  is not  the
+        desired behaviour  the  name-value  can be  specified  using  an
+        XptArgPtr structure as returned by consXptArgPtr.
+
+        The consequence of this  is that the  vararg interface lets  you
+        easily specify resources using strings instead of X  structures.
+        For example to specify a widget's width as 100 and is foreground
+        as the colour 'red', use:
+
+            XptVaArgList([{width 100}{foreground 'red'}]) =>
+            ** width
+
+        Note that the number of items  placed on the stack is  returned.
+        Note also that each argument is simply exploded onto the stack.
+
+
+XptSetArgv(list) -> argv -> argc                             [procedure]
+        This procedure converts an argument list (eg popunderx) into the
+        argv/argc format required by fast_XtDisplayInitialize etc.  list
+        is a list of strings (any non-list being treated as []). argv is
+        a vector containing the  strings (null-terminated if  necessary)
+        and a final NULL,  argc is a one  element intvec containing  the
+        number of strings. IMPORTANT  NOTE: the NULL in  argv is a  real
+        NULL,  like  those  returned  by  external_NULL,  and  the  same
+        restriction applies:  argv  should  be used  only  as  a  direct
+        argument  to  an  external  procedure,  and  not  retained  in a
+        variable etc - if  the garbage collector  encounters it it  will
+        break. Hence this routine  should be used  at the last  possible
+        moment before  the  external call,  and  no references  to  argv
+        retained.
+
+
+fast_XptSetUnprocessedArgs(argc, argv)                       [procedure]
+        This procedure takes  a list  of command line  arguments in  the
+        format required  by fast_XtDisplayInitialize  etc and  sets  the
+        variable XptUnprocessedArgs with the  command line arguments  in
+        argv. No checks are made for argc and argv being of the  correct
+        type.
+
+
+XptUnprocessedArgs                                            [variable]
+        This   variable   is   set   by   various   toolkit   procedures
+        (XtDisplayInitialize, XtOpenDisplay etc)  to contain  a list  of
+        any   unprocessed    command    line   arguments.    Also    see
+        fast_XptSetUnprocessedArgs.
+
+
+XptCallbackList(list) -> cblist                              [procedure]
+        This procedure converts a Pop-11 list into an X Toolkit callback
+        list structure. list  should contain  2 element  vectors of  the
+        form {PROC CLIENT_DATA},  where PROC is  a Pop-11 procedure  and
+        CLIENT_DATA is any Poplog object.
+
+        XptCallbackList is used to make static callback structures  that
+        can be  passed  in an  ArgList  to  one of  the  toolkit  widget
+        creation procedures.  This  allows  you  to  specify  a  widgets
+        callbacks in a single toolkit procedure call. The following code
+        illustrates how XptCallbackList is used:
+
+          constant foo = XptCallbackList([{^my_cb_proc ^my_cb_data}]);
+
+          XtCreateManagedWidget('example', ExampleClass, example_parent,
+                XptArgList([{selectCallback ^foo}]) ) -> widget;
+
+        Note that it is your responsibility  to keep a reference on  the
+        callback list  structure. If  you do  not do  this the  callback
+        procedure and client data may become garbage collected.
+
+
+XptSetArg(name, arglist, index) -> val                       [procedure]
+val -> XptSetArg(name, arglist, index)
+        This procedure is used to set a specified element of the arglist
+        to the given VALUE. If name is non-false, the name field is also
+        updated.
+
+        XptSetArg is used in situations where a single static XptArgList
+        structure is  built  and  then elements  of  the  structure  are
+        modified. This is much more  memory efficient than building  new
+        XptArgList structures every time (as XptArgList does).
+
+        XptSetArg is designed  with Pop-11  closures in  mind (for  more
+        information, see HELP * CLOSURES). It is easy to make a  closure
+        of  XptSetArg  which  sets/retrieves  a  single  element  of  an
+        arglist.
+
+        The following examples illustrate the use of XptSetArg:
+
+        ;;; make a new blank arglist structure
+        constant arglist = initXptArgList(10);
+
+        ;;; set some args.
+        100 -> XptSetArg(XtN width,  arglist,1);
+        200 -> XptSetArg(XtN height, arglist,2);
+        ...
+
+        ;;; XptSetArg is useful for making closures which change a
+        ;;; single arglist value:
+
+        lconstant width_arg = XptSetArg(%false,arglist,1%);
+        200 -> width_arg();
+
+        ;;; pass arglist to toolkit procedure:
+        fast_XtSetValues(widget, arglist, shadow_length(arglist));
+
+
+XptParseGeometry(string) -> (x, y, width, height)            [procedure]
+(x, y, width, height) -> XptParseGeometry() -> string
+        Parses or creates a standard X geometry string of the form
+
+                widthxheight+x+y
+
+        Given  a  geometry  string,  the  base  procedure  returns   the
+        individual components as integers or false. width and height are
+        always positive,  whereas x  and  y may  be negative;  false  is
+        returned for any component not present in string. string  itself
+        may also  be false:  in this  case, false  is returned  for  all
+        results.
+
+        The updater takes an  integer or false  for each component,  and
+        returns the  equivalent  geometry  string.  Any  combination  of
+        integers or false  will create a  valid geometry string  (except
+        that x cannot be false  if y is not --  a mishap occurs in  this
+        case.) If all four arguments are false, false is returned.
+
+
+XptGeometrySpec(list) -> string                              [procedure]
+        Similar to  the updater  of  XptParseGeometry, except  that  the
+        arguments are specified as either a 2-element list
+
+                [width height]
+
+        or 4-element list
+
+                [width height x y]
+
+
+XptEvenlySizeWidgets(widget1, ..., widgetN, N, size_spec)    [procedure]
+        Sets the width and/or height of  a collection of widgets to  the
+        specified value according  to size_spec.  size_spec should  be a
+        two element full vector, of the form
+
+            {width_spec height_spec}
+
+        where the first element specifies  the width of the widgets  and
+        the second specifies the height. The following values are  legal
+        values for width_spec or height_spec:
+
+            false         don't change the dimension
+            max           set dimension to the largest of widgets
+            min           set dimension to the smallest of widgets
+            an integer    set the size to the specified integer pixels
+
+        For example, to set all of the widgets to be 10x10 pixels, use a
+        size_spec of:
+
+            {10 10}
+
+        To set all of the widgets to be the same width, where that width
+        is the  width of  the widest  widget, but  without changing  the
+        height, use:
+
+            {max ^false}
+
+
+XptCenterWidgetOn(widget, reference_widget)                  [procedure]
+XptCenterWidgetOn(widget, x, y)                              [procedure]
+XptCenterWidgetOn(widget, "screen")                          [procedure]
+        This convenience  procedure is  used mainly  to position  pop-up
+        windows over their parents, or in  the middle of the screen.  It
+        places the center of widget over a reference point, which can be
+        specified in one of three ways:
+
+            # By passing a reference_widget; the reference point is
+                the center of the reference_widget.
+
+            # Passing the reference point as an integer x, y screen
+                coordinate.
+
+            # Passing the word "screen"; the reference point is the
+                center of the screen.
+
+        The widget  is  positioned  so  that  its  center  is  over  the
+        reference point by changing the XtN x and XtN y resources of the
+        widget's SHELL parent (or  the widget itself, if  it is a  shell
+        widget). Thus the position of  the widget within the shell  does
+        not change  - only  the position  of the  widget on  the  screen
+        changes.
+
+
+XptMaxWidgetVisibility(widget)                               [procedure]
+        This convenience procedure  can be used  to ensure that  pop-ups
+        can be  seen on  the screen.  It moves  widget to  maximise  the
+        amount of  widget  that is  visible  on the  screen.  It  uses a
+        top-left "gravity"  when  calculating  the  coordinates  of  the
+        widget - ie. if the widget is larger than the screen, it will be
+        moved to ensure that its top left corner is visible.
+
+        The widget  is  positioned  by  changing the  XtN  x  and  XtN y
+        resources of the widget's SHELL parent (or the widget itself, if
+        it is a shell  widget). Thus the position  of the widget  within
+        the shell does not change,  although the position of the  widget
+        on the screen does.
+
+        Note that XptMaxWidgetVisibility  also adds  some extra  padding
+        space between the widget and the edge of the screen - this is to
+        allow for  any  window  manager border  that  may  surround  the
+        window.
+
+
+XptWidgetCoords(widget) -> (x, y, width, height)             [procedure]
+x, y, width, height -> XptWidgetCoords(widget)
+        Getting and setting a  widgets size and  position is a  commonly
+        performed toolkit application operation.
+
+        XptWidgetCoords  performs  this  operation,  using  the  toolkit
+        procedures XtGetValues and XtVaSetValues to retrieve and set the
+        x, y, width  and height  resources of  widget. x,  y, width  and
+        height should be integers.
+
+        In update mode, XptWidgetCoords ignores  any of the x, y,  width
+        or height arguments that are  false. This allows you pass  false
+        for eg. the width  and height arguments  and integers for  the x
+        and y arguments to only specify the x and y coordinates for  the
+        window.
+
+        XptWidgetCoords does nothing particularly  special -- it  simply
+        uses XptVal.
+
+
+XptWMShellCoords(widget) -> (x, y, width, height)            [procedure]
+x, y, width, height -> XptWMShellCoords(widget)
+        This utility function takes a widget and returns or sets the  x,
+        y, width and  height pixel  coordinates of  the innermost  shell
+        widget ancestor of  widget (or widget  itself if it  is a  shell
+        widget). x and y specify the top left hand corner of the window.
+
+        If the window has any window manager decorations around it,  the
+        coordinates of the topmost left  hand corner of the  decorations
+        are returned  or set. Similarly, width  and height  specify  the
+        total  width/height  of  the  window  including  window  manager
+        decorations.
+
+        This procedure is useful when you wish to position a new  window
+        exactly over an  old window and  need to take  into account  any
+        window manager decorations.
+
+        In update mode, XptWMShellCoords ignores any of the x, y,  width
+        or height arguments that are  false. This allows you pass  false
+        for e.g. the width and  height arguments and integers for  the x
+        and y arguments to only specify the x and y coordinates for  the
+        window.
+
+        When updating an unrealised shell widget, the given  (non-false)
+        values are used to  replace the corresponding  parts of any  XtN
+        geometry string the shell may have, i.e. they are merged with an
+        existing string, or a new one is created. This ensures that when
+        the shell is realised, the given values are actually used by the
+        window manager.
+
+
+XptGetFontProperty(fontstruct, name)    -> int_or_false      [procedure]
+XptGetFontProperty(fontstruct, name, to_name)
+                                        -> string_or_int_or_false
+XptGetFontProperty(fontstruct, name, displayptr)
+                                        -> int_or_false
+XptGetFontProperty(fontstruct, name, to_name, displayptr)
+                                        -> string_or_int_or_false
+        Takes an X FontStruct, and looks for the standard font  property
+        identified by name (using XGetFontProperty). name should  either
+        be  an  unsigned  integer  or   a  string/word.  If  name   is a
+        string/word then LIB * XPT_ATOMCACHE is used to convert it to an
+        integer atom (mishaping if the  atom doesn't exist). If name  is
+        an  integer,   it  should   be  in   the  range   XA_MIN_SPACE -
+        XA_CAP_HEIGHT, or be XA_FONT. (See the file INCLUDE * X_ATOMS.PH
+        for a definition of these and other standard X11 Atoms.)
+
+        If the optional boolean third  argument to_name is supplied  and
+        true, XptGetFontProperty will call XptGetAtomName on the integer
+        result of  the XGetFontProperty  call and  return the  resulting
+        string. This is useful when the font property specified by  name
+        is of type ATOM and you wish to know that string associated with
+        the atom rather than the atom itself.
+
+        By default, conversions between  names and integer atoms  assume
+        the display XptDefaultDisplay, but the optional third or  fourth
+        argument displayptr may be supplied to override this.
+
+        If   the   property   specified    by   name   doesn't    exist,
+        XptGetFontProperty returns false. Note  that, whilst many  fonts
+        will  support  the  standard   font  properties,  it  is   not a
+        requirement that they do so.
+
+        Examples
+        If widget is an instance of the Poplog XpwGraphic Widget  class,
+        you can do:
+
+            include x_atoms;        ;;; defines standard XA_<name> atoms
+
+            ;;; get the widget's FontStruct
+            vars font = XptVal graphic(XtN font:exptr);
+
+            ;;; Y offset in pixels to the underline start position
+            XptGetFontProperty(font, XA_UNDERLINE_POSITION) =>
+            ** 7
+
+            ;;; Copyright Owner for font
+            XptGetFontProperty(font, XA_COPYRIGHT, true) =>
+            ** 'Public domain font. Share and enjoy'
+
+            ;;; Full name of the font as string
+            XptGetFontProperty(font, XA_FONT, true) =>
+            ** -Misc-Fixed-Medium-R-Normal--13-120-75-75-C-80-ISO8859-1
+
+            ;;; Note: you could get the name of the font as an ATOM too-
+            XptGetFontProperty(font, XA_FONT) =>
+            ** 94
+
+
+XptConvertUnit(num,from,to,axis,screen) -> num2              [procedure]
+        This procedure  converts between  standard  units and  X  screen
+        pixels. It takes into account the resolution of the screen.  See
+        HELP * XptConvertUnit for more details.
+
+
+XptNewWindow(name, size, args, class, shellargs) -> widget   [procedure]
+XptNewWindow(name, size, args, class) -> widget
+        This routine creates a new "top level application shell" widget,
+        and then creates  an instance  of a single  widget class  within
+        that shell.  The  shell  is  realised  and  the  new  widget  is
+        returned.  This  is  useful  for  creating  simple  stand  alone
+        windows.
+
+        name is  a string  that is  used as  the title  of the  widget's
+        window and icon.
+
+        size is a  2 or 4  element vector or  list (see  XptGeometrySpec
+        above).
+
+        class is the class to use as the child of the application  shell
+        widget. args is a list of args (as taken by XptArgList) that  is
+        used to  create  an instance  of  class within  the  application
+        shell. The optional shellargs argument  is a similar list,  used
+        to create the application shell widget.
+
+
+XptDestroyWindow(widget)                                     [procedure]
+        Companion procedure to XptNewWindow. Takes a widget and destroys
+        it's shell.  This  will cause  all  the children  of  the  shell
+        (including widget) to be destroyed as well.
+
+
+XptShellDeleteResponse(widget) -> widentproc                 [procedure]
+widentproc -> XptShellDeleteResponse(widget)
+        A high level autoloadable procedure for setting the response  of
+        a Shell widget to the 'WM_DELETE_WINDOW' window manager protocol
+        message, which is sent by a window manager to a client when  the
+        shell widget should be removed from the workspace.
+
+        widget must  be  realized  before  setting  a  delete  response.
+        Setting a delete response overrides any previous widget handling
+        for the WM_DELETE_WINDOW for widget.
+
+        widentproc  should  be  a  procedure,  or  a  word/ident   which
+        evaluates to a procedure. The procedure is passed widget as  its
+        only argument. ie. the form for widentproc is:
+
+                delete_response(widget)
+
+        The delete response  procedure should decide  whether to  accept
+        the request to delete the window, and call for example XtPopdown
+        or XtDestroyWidget to close the window. Useful procedures to use
+        as a simple delete response procedures are:
+
+            erase
+                Assigning erase as  the delete response  for a  window
+                causes WM_DELETE_WINDOW messages to be ignored.
+
+            XtPopdown
+                Causes   the   window   to   be   popped   down   when a
+                WM_DELETE_WINDOW  message   arrives  (useful  for  popup
+                shells).
+
+            XtDestroyWidget
+                The widget  will be destroyed  when  a   WM_DELETE_WINDOW
+                message is received.
+
+            XtUnmapWidget
+                The  widget will be unmapped when  a WM_DELETE_WINDOW  is
+                received.
+
+            XtUnmanageChild
+                This delete response is useful as a way to pop down Motif
+                dialog boxes.
+
+        Note that, if widget is not a shell widget, XptShellOfObject  is
+        used to  find the  nearest  ancester shell  of widget,  and  the
+        delete response  for that  widget is  returned/updated  instead.
+        However, when the delete response  is invoked, WIDENT is  always
+        called   with    the    widget    that    you    specified    to
+        XptShellDeleteResponse. This  allows you  to direct  the  delete
+        response handling for a shell widget to one of its children.
+
+        Note that widentproc will  be false for  widgets which have  not
+        had  a  delete  response  specified.  You  can  also   specify a
+        widentproc of false as the delete action for a widget to  cancel
+        handling of WM_DELETE_WINDOW messages for that widget. If  there
+        is no specified delete response for widget, the reaction of  the
+        widget to WM_DELETE_WINDOW is unspecified.
+
+        The delete response procedure  is called via  XptCallbackHandler
+        with a TYPE argument of "delete_window". You can therefore trace
+        delete response actions by doing:
+
+            [delete_window] -> XptTraceCallback;
+
+        The following example will make the delete response for an  XVed
+        window be to print something. NB. After doing this, you will not
+        be able to  use the  window manager  to close  the current  XVed
+        window (use <ENTER> q instead):
+
+            npr -> XptShellDeleteResponse(wvedwindow);
+
+
+
+XptResizeResponse(widget) -> widentproc                      [procedure]
+widentproc -> XptResizeResponse(widget)
+        Assigns  an  action  to  be  called  when  widget  is   resized.
+        widentproc is a  word, ident or  procedure. If it  is a word  or
+        ident  then  valof/idval  is  used  to  obtain  the   underlying
+        procedure. The procedure should takes one argument, widget,  and
+        return  no  results.  The  procedure  can  perform  any  actions
+        necessary to update the contents  of the widget, but should  not
+        itself cause the widget  to resize since this  may cause a  race
+        condition.
+
+
+
+
+--------------------------------------------------
+4  Macros For Loading Procedures and Widgetclasses
+--------------------------------------------------
+
+The following are  all macros  which provide special  interfaces to  the
+exload syntax form  (see REF * EXTERNAL). Multiple  uses or mixtures  of
+them can be batched within exload_batch ... endexload_batch brackets.
+
+
+XptLoadProcedures                                                [macro]
+        This macro is used by all of the Poplog X Toolkit libraries that
+        perform  external  loads  to  obtain  'raw'  Toolkit  and   Xlib
+        procedures to be  applied with exacc.  The macro constructs  and
+        executes an  exload  command  (see  REF * EXTERNAL),  and  takes
+        similar (though simplified) arguments to exload.
+
+        The following example will load  several Xlib and Xt  procedures
+        and store them in global identifers:
+
+            XptLoadProcedures 'myprocs'
+                XtFree, XClearArea, XSetInputFocus, XtSetSensitive;
+
+        As with exload, you can also declare typespecs automatically for
+        any of the identifiers, e.g.
+
+            XptLoadProcedures 'myprocs'
+                XtFree(ptr),
+                XClearArea(dpy,w,x,y,width,height,exposures),
+                XSetInputFocus(dpy,focus,revert_to,time),
+                XtSetSensitive(w,sensitive)
+               ;
+
+        The full syntax for this macro is:
+
+            XptLoadProcedures mark-item
+                { [input-file-list] }
+                { (attribute-list) }
+                { declarator }
+                    funcname { function-typespec } ,
+                  { funcname ... }
+            ;
+
+        where things inside { ... } are optional.
+
+        If  input-file-list  is   omitted,  the  autoloadable   variable
+        XLINK_EXLIBS is used instead.
+
+        declarator can be  one of constant,  vars, lconstant, lvars,  or
+        dlvars, and defaults to whatever define would default to.  (Note
+        however, that  because of  the restrictions  described in  The =
+        Form is a  Runtime Action  in REF * EXTERNAL,  XptLoadProcedures
+        cannot actually assign the  identifiers until 'run-time';  there
+        is thus little  point in using  constant/lconstant, since  these
+        will be coerced by  exload to vars/lvars  when creating a  saved
+        image etc.)
+
+        One or more funcname can  be specified. Each funcname should  be
+        the name of  an external  procedure. If no  prefix attribute  is
+        present in attribute-list, the external procedure is loaded  and
+        stored in  a identifier  called  raw_funcname (so  the  external
+        procedure XtFree  would  be  stored  in  the  Poplog  identifier
+        raw_XtFree).  If   prefix  (or   no   prefix)  is   present   in
+        attribute-list, that is used instead of raw_.
+
+        Procedures   are   imported   using   XptImportProcedure.   More
+        accurately, funcname  FooBaz  is converted  into  the  following
+        identifier-spec for exload:
+
+            raw_FooBaz = #XptImportProcedure <- FooBaz,
+
+
+XptPopLoadProcedures                                             [macro]
+        This macro is  similar in form  to XptLoadProcedures above,  but
+        instead of loading raw external procedures it puts Pop  wrappers
+        around  them,  so  they  can   be  called  as  ordinary   Poplog
+        procedures.
+
+        Unlike XptLoadProcedures, the function-typespec is NOT optional,
+        and must be present for each funcname: this information is  used
+        to create an apply procedure which calls the external  function,
+        taking the  correct  number  of arguments  off  the  stack,  and
+        returning the specified return type. (* XptPopImportProcedure is
+        used for this.)
+
+        Also unlike  XptLoadProcedures, no  default prefix  is added  to
+        funcname to get the Pop identifier name. Thus
+
+            XptPopLoadProcedures 'myprocs'
+                XDefaultScreen(dpy) :int
+            ;
+
+        will create the Pop identifier XDefaultScreen; however, you  can
+        specify a prefix in attribute-list.  Also, this form allows  the
+        exload syntax
+
+                funcname function-typespec <- external-name,
+
+        to specify an  external name different  from the Pop  identifier
+        name.
+
+        As with  XptLoadProcedures, declarator  can be  constant,  vars,
+        lconstant, lvars,  or dlvars,  and defaults  to whatever  define
+        would   default    to.   However,    the   remarks    concerning
+        constant/lconstant in XptLoadProcedures  above DO  NOT apply  to
+        XptPopLoadProcedures, since this form is able to assign the  Pop
+        procedures to the identifiers  immediately at compile-time.  All
+        identifiers are made procedure-type.
+
+
+XptLoadWidgetClass                                               [macro]
+        This macro loads  widgetclass records into  identifiers, and  is
+        used by all of the Poplog widgetclass libraries. Its syntax is
+
+            XptLoadWidgetClass mark-item
+                { [input-file-list] }
+                { (attribute-list) }
+                { declarator }
+                    widgetclass-name { <- external-name },
+                  { widgetclass-name ... }
+            ;
+
+        where things inside { ... } are optional.
+
+        No default prefix is  added to widgetclass-name  to get the  Pop
+        identifier name. Thus
+
+            XptPopLoadProcedures 'wclass'
+                xtApplicationShellWidget <- applicationShellWidgetClass
+            ;
+
+        creates the Pop identifier xtApplicationShellWidget.
+
+        The  Poplog  standard  for   widgetclass  identifier  names   is
+        exemplified  by  xtApplicationShellWidget,  i.e.  a  widget  set
+        prefix beginning with lowercase "x", followed by the class  name
+        but omitting the 'Class' suffix.  Unless you specify a  separate
+        <- external-name clause, the external name of the widgetclass is
+        thus assumed to be
+
+                widgetclass-nameClass
+
+        The widgetclass records created will print as
+
+                <Prefix WidgetClass ClassName>
+
+        where Prefix  is  all  lowercase letters  at  the  beginning  of
+        widgetclass-name  with   the  first   letter  capitalised,   and
+        ClassName is the rest. E.g.
+
+                xtApplicationShellWidget =>
+                <Xt WidgetClass ApplicationShellWidget>
+
+        As  with  XptLoadProcedures   and  XptPopLoadProcedures   above,
+        declarator can be constant,  vars, lconstant, lvars, or  dlvars,
+        and  defaults  to  whatever   define  would  default  to.   Like
+        XptPopLoadProcedures, the remarks concerning  constant/lconstant
+        in XptLoadProcedures above DO  NOT apply to  XptLoadWidgetClass,
+        since this form is able  to assign its widgetclass records  into
+        the identifiers immediately at compile-time.
+
+        (However, the  widgetclass record  pointers  are not  filled  in
+        until 'run-time'. Printing a record loaded when Poplog has  been
+        invoked with %nort will produce
+
+                <(NULL)WidgetClass FooBazWidget>
+
+        showing that the pointer has not yet been filled in.)
+
+
+
+
+---------------------------------
+5  Miscellaneous Poplog Libraries
+---------------------------------
+
+8.1  LIB XPT_ATOMCACHE
+----------------------
+This  simple  library  extends  the  functionality  of  XInternAtom  and
+XGetAtomName to  include client-side  caching of  the results.  Its  two
+procedures XptInternAtom and  XptGetAtomName also take  and return  atom
+names as Poplog words. See REF * XPT_ATOMCACHE for more.
+
+
+8.2  LIB XPT_CURSORPLANE
+------------------------
+A library for throwing a  cursor plane up over  a widget - defining  the
+cursor used  in  that  widget and  its  children.  REF * XPT_CURSORPLANE
+describes this facility, and also discusses how to change the cursor for
+widgets when your  application is  busy or when  Poplog is  performing a
+garbage collection.
+
+
+8.3  LIB XPT_CLIENTCALLBACK
+---------------------------
+A library providing a  modular way of extending  the notion of  callback
+lists to  include  arbitrarily named  callback  lists for  widgets.  The
+client application can  create and manage  these callback lists  using a
+programming interface similar to standard X toolkit callbacks..
+
+
+8.4  LIB XPT_TYPETEST
+---------------------
+The library LIB * XPT_TYPETEST provides procedures for testing that data
+belongs  to  certain   XptDataTypes.  This  library   is  used  by   the
+LIB * XPT_TYPECHECK library  to recognise  XptDataTypes and  mishap  for
+incorrect XptDataTypes. See REF * XPT_TYPECHECK for details of both sets
+of procedures. The following procedures are provided to test for data of
+specific XptDataTypes:
+
+    XptIsType       - does an object belong to a type
+    XptIsLiveType   - XptIsType and external pointer is non-NULL.
+
+
+8.4  LIB XPT_TYPECHECK
+----------------------
+Provide type checking procedures  for X Toolkit  types (for details  see
+REF * XPT_TYPECHECK).
+
+
+
+
+------------------------
+6  Widget Set Interfaces
+------------------------
+
+Predefined C  widget classes  can be  externally loaded  like any  other
+external data. However, Poplog provides direct support for the following
+widget sets:
+
+    Name        Prefix      Description
+    ----        ------      -----------
+    Toolkit     Xt          The basic widgets provided by the X  Toolkit
+                            Intrinsics are in this set.
+
+    Athena      Xaw         The 'project Athena'  sample widget set,  as
+                            provided  with  the  MIT  distribution  of X
+                            Windows (see HELP * ATHENA).
+
+    OpenLook    Xol         The 'OLIT'  widget  set,  as  provided  with
+                            Sun's      OpenWindows      system      (see
+                            HELP * OPENLOOK).
+
+    Motif       Xm          The Motif widgetset  from the Open  Software
+                            Foundation (see HELP * MOTIF).
+
+    Poplog      Xpw         The  'Poplog'  widget  set,  provided   with
+                            Poplog (see HELP * Xpw).
+
+
+Except for Toolkit, each of these sets has a corresponding sub-directory
+of the main Poplog X library directory, and a library file in the latter
+which adds that sub-directory to popuseslist (making the widgetset files
+available via  uses).  The library  files  are named  by  the  widgetset
+prefix, viz:
+
+        # LIB * Xaw
+        # LIB * Xol
+        # LIB * Xm
+        # LIB * Xpw
+
+So for example,
+
+        uses Xpw;
+
+would add the Poplog widgetset sub-directory to popuseslist.
+
+Within  each  sub-directory,  each  widget   class  in  the  set   has a
+corresponding .p file that loads that class into a constant  identifier.
+The name of both the file and the identifier is the class name  prefixed
+by the widgetset prefix with a lowercase "x". E.g.
+
+        # xawGripWidget
+        # xolButtonGadget
+        # xmScrollBarWidget
+        # xpwScrollTextWidget
+
+etc. Thus
+
+        uses Xpw, xpwScrollTextWidget;
+
+would load the Poplog ScrollText widget. The Toolkit widget classes  are
+similarily named (e.g. xtApplicationShellWidget), but these  identifiers
+are directly autoloadable from the main X autoloadable directory.
+
+Each widgetset directory also contains a file called
+
+         prefixAllWidgets
+
+which loads all the widget classes in the set, e.g.
+
+        uses Xol, XolAllWidgets;
+
+will load all the OpenLook widgetclasses. Similarily,
+
+        uses XtAllWidgets;
+
+would load all the Toolkit widgets.
+
+Include files for the different widget  sets are situated in the  main X
+include directory (e.g. INCLUDE * XmConstants, * XolConstants, etc).
+
+Further interfaces will be  provided in future  releases. Note that  the
+presence of the library does not indicate the presence of the underlying
+widget set. The latter takes the form of a C archive library which  must
+be provided independently for these facilities to work. The only  widget
+sets guaranteed to be present with Poplog are Xt and Xpw.
+
+As already mentioned, the  Toolkit widget identifiers are  autoloadable.
+These are:
+
+
+xtApplicationShellWidget -> widgetclass                       [constant]
+xtCompositeWidget        -> widgetclass                       [constant]
+xtConstraintWidget       -> widgetclass                       [constant]
+xtCoreWidget             -> widgetclass                       [constant]
+xtObject                 -> widgetclass                       [constant]
+xtOverrideShellWidget    -> widgetclass                       [constant]
+xtRectObj                -> widgetclass                       [constant]
+xtShellWidget            -> widgetclass                       [constant]
+xtTopLevelShellWidget    -> widgetclass                       [constant]
+xtTransientShellWidget   -> widgetclass                       [constant]
+xtVendorShellWidget      -> widgetclass                       [constant]
+xtWidget                 -> widgetclass                       [constant]
+xtWmShellWidget          -> widgetclass                       [constant]
+        These autoloadable constants contain widgetclass structures  (as
+        produced by * XptLoadWidgetClass)  for all the  basic X  Toolkit
+        widgets. (Note that xtWidget is the same as xtCoreWidget.)
+
+
+XtAllWidgets                                                   [library]
+        This library  loads  all  the  Toolkit  widgetclass  identifiers
+        above.
+
+
+
+6.1  Other Widget Set Libraries
+-------------------------------
+OpenLook, Motif and Athena widget set support is provided. The following
+libraries contain example code that you might find useful:
+
+    LIB * XolDemos       see TEACH * XolDemos
+    LIB * XolTutorial    see TEACH * OPENLOOK
+    LIB * XmDemos        see TEACH * XmDemos
+    LIB * XmTutorial     see TEACH * MOTIF
+    LIB * XawTutorial    see TEACH * ATHENA
+
+
+
+
+---------------------------
+7  Widget Tree Manipulation
+---------------------------
+
+The following procedures (not  provided by the C  X Toolkit) are  useful
+for manipulating widget trees:
+
+
+XptChildren(widget) -> list                                  [procedure]
+        Returns all  of the  direct descendents  of a  composite  widget
+        widget, in the order that they appear in the XptWidgetList  held
+        in the  XtN children  resource.  If widget  is not  a  composite
+        widget, the procedure will return nil.
+
+
+XptAncestors(widget) -> list                                 [procedure]
+        Returns a list containing widget, and all the parents of  widget
+        up to the  nearest ancestor which  is a subclass  of Shell.  The
+        list is ordered with the topmost (Shell) ancestor first.
+
+
+XptWidgetTree(widget) -> list                                [procedure]
+        Takes a widget and returns a tree of lists or widgets, mirroring
+        the widget tree downwards from the given widget.
+
+
+XptShellOfObject(widget) -> shell_widget                     [procedure]
+        Returns widget, or  the nearest  ancestor of  widget which  is a
+        subclass of Shell.
+
+
+
+
+-----------------------------------------
+8  Other Data structure support libraries
+-----------------------------------------
+
+The following libraries  are used to  provide additional data  structure
+support via shadowclasses and typespecs:
+
+
+XptGCValuesPtr                                    [shadowclass typespec]
+        LIB * XptGCValuesPtr provides a specification for a  shadowclass
+        for accessing and building XGCValues structures.
+
+
+
+
+-----------------------------
+9  Resource access facilities
+-----------------------------
+
+As well as  the basic X  Toolkit procedures for  accessing and  updating
+resources (XtSetValues and XtGetValues),  Poplog includes more  friendly
+utilities for accessing  widget resources. REF * XPT_RESOURCE  describes
+these utilities. The main procedures are:
+
+    XtN               simple macro for building resource names
+    XptVal            efficient access/update of multiple resources
+    XptResourceInfo   resource database for widget resources
+    XptPopValue       high level access/update of multiple resources
+
+
+
+
+-----------------
+10  Include Files
+-----------------
+
+The X  Toolkit interface  includes  a number  of header  files  defining
+commonly used constants etc. associated with the interface. These should
+be included  into  user  programs  using  include  or  loadinclude  (see
+HELP * INCLUDE). The  constants are  all  defined using  iconstant  (see
+REF * SYNTAX), and so are lexically  scoped when included, but  globally
+scoped if the file is COMPILED directly (i.e. if loadincluded).
+
+Note: some of  these files  are included by  many of  the other  library
+files documented in this  file. This means that  compilation of a  large
+application may  cause these  files to  be read  many times,  each  time
+declaring the same constants (in different lexical scopes) with the same
+values. However, the files contain  a test for global compilation.  If a
+file  is  loaded  globally  (ie  compiled  rather  than  included)  then
+subsequent attempts to include it will not repeat the definitions.  Thus
+applications  may  decrease  load  time  by  explicitly  compiling  (NOT
+including) these files before loading  other libraries. The syntax  word
+loadinclude, defined in LIB * INCLUDE, may be used exactly like  include
+to cause compilation rather than inclusion of an include file.
+
+
+10.1  INCLUDE XT_CONSTANTS
+--------------------------
+INCLUDE * XT_CONSTANTS defines  Poplog  versions of  various  X  Toolkit
+constants. See REF * XT_CONSTANTS for full details.
+
+
+10.2  INCLUDE XPT_CONSTANTS
+---------------------------
+INCLUDE * XPT_CONSTANTS defines additional constants used by the  Poplog
+extensions to the  Toolkit interface. See  REF * XPT_CONSTANTS for  full
+details.
+
+
+10.3  XLIB include files
+------------------------
+The Poplog X  Toolkit interface  has include  files containing  constant
+declarations and  typespecs  for  many of  the  XLIB  structures.  These
+typespecs make full use of the XptDescriptor mechanism, and so integrate
+well with the  Poplog X Toolkit.  These include files  can also be  used
+independently of the Poplog  Xlib interface, and  may therefore save  on
+overheads. They simplify the task of accessing XLIB data structures.
+
+The following include files define typespecs and constants needed to use
+many of the Xlib structures:
+
+    Include file                Xlib typespecs
+    ------------                --------------
+    INCLUDE * XPT_XEVENT         See REF * XPT_XEVENT
+    INCLUDE * XPT_XCOLOR         XColor
+    INCLUDE * XPT_XFONTSTRUCT    XFontProp, XCharStruct, XFontStruct
+    INCLUDE * XPT_XGCVALUES      XGC, XGCValues
+    INCLUDE * XPT_XIMAGE         XImage
+    INCLUDE * XPT_XSCREEN        XScreen
+    INCLUDE * XPT_XWINDOW        XWindowAttributes, XSetWindowAttributes
+
+The following Xlib include files are also available:
+
+INCLUDE * X_ATOMS -  defines constants  for all  of the  the  standard X
+Server atoms (atoms are  integers), eg. XA_NAME, XA_WM_NAME,  XA_WINDOW,
+XA_STRING etc. The constant XA_LAST_PREDEFINED defines the largest  Atom
+value for builtin X server atoms.
+
+INCLUDE * X_KEYSYMS - defines constants for all of the standard X KeySym
+numbers (integers), eg. XK_BackSpace, XK_A, etc. Also defines the macros
+IsKeypadKey, IsCursorKey, IsPFKey, IsFunctionKey, IsMiscFunctionKey, and
+IsModifierKey, which  are used  to  test what  type  of key  the  KeySym
+corresponds to.
+
+
+
+
+-------------
+11  PROPSHEET
+-------------
+
+LIB * PROPSHEET is a  high level  tool for building  OpenLook and  Motif
+dialog boxes and property sheets.  See TEACH * PROPSHEET for a  tutorial
+and examples.
+
+
+
+
+------------------------
+12  RC_GRAPHIC libraries
+------------------------
+
+RC_GRAPHIC  is  a  collection  of  libraries  which  provide   'relative
+coordinate' graphics  operations  on a  simple  graphics tablet  on  the
+screen (using the XpwGraphic widget -see REF * XpwGraphic). Full details
+are given in HELP * RC_GRAPHIC.  A tutorial discussion  can be found  in
+TEACH * RC_GRAPHIC.
+
+The principal libraries are as follows:
+
+LIB * RC_GRAPHIC
+    Defines the  basic  interface and  graphical  procedures,  including
+    turtle graphics, i.e. drawing procedures relative to a current state
+    represented as the location and heading of a "turtle" moving on  the
+    screen.
+
+LIB * RC_ROTATE_XY
+    This extension to  RC_GRAPHIC provides procedures  for rotating  the
+    coordinate frame.
+
+LIB * RC_MOUSE
+    This extension to RC_GRAPHIC provides procedures for using the mouse
+    in the graphics window to draw pictures or for other purposes.
+
+LIB * RC_DRAWGRAPH
+    A procedure for drawing a graph of a given function. This makes  use
+    of LIB RC_GRAPHIC
+
+LIB * RC_GRAPHPLOT, * RC_GRAPHPLOT2
+    These files extend the graph drawing facilities by providing a wider
+    range of options. See TEACH * RC_GRAPHPLOT, HELP * RC_GRAPHPLOT.
+
+LIB * RC_SET_SCALE
+    A procedure for specifying the user co-ordinates in terms of inches,
+    centimetres or frame height or width.
+
+LIB * RC_CONTEXT
+    A mechanism  that  makes it  possible  to switch  between  different
+    windows by saving and restoring  the variables associated with  each
+    window.
+
+
+
+--- C.x/x/pop/ref/xt_libs
+--- Copyright University of Sussex 1993. All rights reserved.

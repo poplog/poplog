@@ -1,0 +1,1666 @@
+REF XpwScrollText               Jonathan Meyer, Andreas Schoter Aug 1990
+                                            Revised John Gibson Oct 1995
+
+        COPYRIGHT University of Sussex 1995. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<         XPWSCROLLTEXT       >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+Xpw is the Poplog Widget Set.  It contains a variety of object  oriented
+user interface components (called widgets) which are controlled  through
+the X Windows Toolkit (Xt). For an introduction to Xpw, see HELP * Xpw.
+    This  file  describes  the  XpwScrollText  widget,  and  the  Pop-11
+interface to XpwScrollText. It assumes  a basic understanding of the  Xt
+toolkit. Concepts such as resources, actions, translations, etc. are all
+introduced in the X  Toolkit Intrinsics -  C Language Interface  manual.
+See the  section  on  associated  documentation  for  a  list  of  other
+documents describing Xpw.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   XpwScrollText Widget
+      1.1   Synopsis
+
+  2   Methods
+      2.1   XpwCore Methods
+      2.2   XpwScrollText Methods
+
+  3   Convenience Procedures
+      3.1   Scrolling
+      3.2   Clearing
+      3.3   Writing
+      3.4   Cursor/Miscellaneous
+
+  4   Resources
+      4.1   Summary of Core and XpwCore Resources
+      4.2   Summary of XpwScrollText Resources
+      4.3   XpwScrollText Resources in Detail
+            ... Resources Not Actually Used by the Widget
+      4.4   Note on Exposure and Resize Events
+
+  5   Actions & Translations
+      5.1   Actions
+      5.2   Translations
+
+  6   C Programming Information
+
+
+
+-----------------------
+1  XpwScrollText Widget
+-----------------------
+
+     Superclass:   XpwCore
+
+The XpwScrollText widget  is a low  level text widget.  It provides  the
+programmer with the  ability to write  text on a  window, and scroll  it
+about. The widget  notifies the  application of  input events,  converts
+mouse locations  into  text  rows/columns, and  allows  applications  to
+manipulate a text cursor.
+
+The widget keeps a copy of the text that is displayed in the window, and
+automatically refreshes itself. Characters in the window may be drawn in
+upto 4  different fonts  of the  same  width, and  in upto  8  different
+foreground/background colour pairs.
+
+There are a variety of operations that can be performed on XpwScrollText
+widgets. Most of the operations involve scrolling text, or writing text.
+
+
+1.1  Synopsis
+-------------
+In C:
+
+        #include <Intrinsic.h>
+        #include <StringDefs.h>
+        #include <X11/Xpw/XpwScrollText.h>
+        widget = XtCreateWidget(name, xpwScrollTextWidgetClass...);
+
+
+In Pop-11:
+
+
+xpwScrollTextWidget -> widgetclass                            [constant]
+        A member of the Poplog Widget Set.
+
+        To  make  available   both  the  Xpw   library  directory,   and
+        xpwScrollTextWidget from it, requires either
+
+            uses Xpw, XpwScrollText;
+
+        or
+
+            uses Xpw, xpwScrollTextWidget;
+
+        The first loads all the method  procedures in this file as  well
+        as the widget itself, whereas  the second just loads the  widget
+        and * XpwCallMethod.
+
+        Then call either of
+
+            XtCreateWidget(name, xpwScrollTextWidget, ...) -> w;
+            fast_XtCreateWidget(name, xpwScrollTextWidget, ...) -> w;
+
+        to create an instance of the XpwScrollText widget.
+
+
+
+
+----------
+2  Methods
+----------
+
+For more information about Poplog Widget Methods, see REF * XpwMethods.
+
+The XpwScrollText  widget  responds  to  all  of  the  XpwCore  methods.
+Additionally it responds to a set of methods that are used to manipulate
+the text on the widget. The methods can be grouped as follows:
+
+    # Scrolling methods
+    # Clearing methods
+    # Writing methods
+    # Cursor/Misc methods
+
+In the case of Scrolling, Clearing  and Writing, there is one  primitive
+generic method for  each action,  and several  convenience methods  that
+call the  generic  method  with calculated  arguments.  The  Cursor/Misc
+methods   include    several   methods    that   apply    the    generic
+writing/clearing/scrolling methods at the current cursor location.
+
+Note that row and columns are numbered from 0 upwards.
+
+
+
+2.1  XpwCore Methods
+--------------------
+
+    Method Name             Arguments        Notes
+    -----------             ---------        -----
+    XpwMSetColor            string           either name or #rgb format
+    XpwMFreeColor           string
+    XpwMSetFont             string           font name
+    XpwMFreeFont            string
+    XpwMSetCursor           shape            shape in cursorfont.h
+    XpwMFreeCursor          shape
+
+
+
+2.2  XpwScrollText Methods
+--------------------------
+
+   Method Name             Arguments
+   -----------             ---------
+   (Scrolling)             (Scrolling)
+   XpwMScroll              col, row, ncols, nrows, cdis, rdis
+   XpwMScrollScreenUp      -
+   XpwMScrollScreenDown    -
+   XpwMScrollScreenLeft    -
+   XpwMScrollScreenRight   -
+   XpwMScrollLines         row, nrows, rdis
+   XpwMScrollTail          col, row, cdis
+   XpwMScrollTails         col, row, nrows, cdis
+   XpwMScrollTailLeft      col, row
+   XpwMScrollTailRight     col, row
+
+   (Clearing)
+   XpwMClear               col, row, ncols, nrows
+   XpwMClearScreen         -
+   XpwMClearLine           row
+   XpwMClearLines          row, nrows
+   XpwMClearTail           col, row
+   XpwMClearTails          col, row, nrows
+   XpwMClearChar           col, row
+
+   (Writing)
+   XpwMWrite               col,row,soffs,nrows,strings,coffs,ncols,clear
+   XpwMWriteLine           col, row, string, ncols, clear
+   XpwMWriteLines          col, row, soffs, nrows, strings, ncols, clear
+   XpwMWriteSubstr         col, row, string, coffs, ncols, clear
+
+   (Cursor/Misc)
+   XpwMCursorTo            col,row
+   XpwMCursorUp            -
+   XpwMCursorDown          -
+   XpwMCursorLeft          -
+   XpwMCursorRight         -
+   XpwMInsertLineAtCursor  -
+   XpwMInsertCharAtCursor  -
+   XpwMDeleteLineAtCursor  -
+   XpwMDeleteCharAtCursor  -
+   XpwMClearLineAtCursor   -
+   XpwMClearTailAtCursor   -
+   XpwMClearCharAtCursor   -
+   XpwMInsert              col, row, string, ncols
+   XpwMInsertAtCursor      string, ncols
+   XpwMWriteAtCursor       string, ncols
+   XpwMGetCharAttributes   -
+   XpwMSetCharAttributes   attributes
+   XpwMGetTextCursor       -
+   XpwMSetTextCursor       cursor_char
+   XpwMBell                volume
+
+
+
+
+-------------------------
+3  Convenience Procedures
+-------------------------
+
+3.1  Scrolling
+--------------
+
+XpwTextScroll(widget, col, row, ncols, nrows, cdis, rdis)    [procedure]
+        Calls the XpwMScroll method for widget.
+
+        Scrolls the rectangular  region starting at  col, row, of  width
+        ncols and height nrows, by distance cdis columns and rdis  rows.
+        cdis and  rdis  can  be positive  or  negative  integers,  where
+        positive means right for  cdis and down  for rdis, and  negative
+        means left for cdis and up for rdis.
+
+        If ncols  or nrows  are zero,  the number  of columns/rows  from
+        col/row  onwards   is  used   instead  (i.e.   NUM_COLS-col   or
+        NUM_ROWS-row, where  the whole  window  is NUM_COLS  columns  by
+        NUM_ROWS rows).
+
+        Here 'scroll'  means  sweep  the  specified  rectangle  of  text
+        up/down and/or then left/right across the window, leaving  blank
+        areas behind  (and possibly  losing text  off the  edges of  the
+        window). It is then  upto the application to  write text in  the
+        blank areas generated by the scroll.
+
+
+XpwTextScrollScreenUp(widget)                                [procedure]
+XpwTextScrollScreenDown(widget)                              [procedure]
+XpwTextScrollScreenLeft(widget)                              [procedure]
+XpwTextScrollScreenRight(widget)                             [procedure]
+        Calls XpwMScrollScreenUp/Down/Left/Right respectively.
+
+        Scrolls the window of the specified widget by one character cell
+        in the required direction. Same as
+
+            XpwTextScroll(widget, 0,0, 0,0, 0,-1)
+            XpwTextScroll(widget, 0,0, 0,0, 0,1)
+            XpwTextScroll(widget, 0,0, 0,0, -1,0)
+            XpwTextScroll(widget, 0,0, 0,0, 1,0)
+
+        respectively.
+
+
+XpwTextScrollLines(widget, row, nrows, rdis)                 [procedure]
+        Calls the XpwMScrollLines method for widget.
+
+        Scroll the region  of text starting  at row of  height nrows  by
+        rdis rows, which can be positive or negative. If nrows is  zero,
+        the number of rows from row onwards is used. Same as
+
+            XpwTextScroll(widget, 0,row, 0,nrows, 0,rdis)
+
+
+XpwTextScrollTail(widget, col, row, cdis)                    [procedure]
+        Calls the XpwMScrollTail method for widget.
+
+        Moves all text  from col on  row by cdis  columns, which can  be
+        positive or negative. Same as
+
+            XpwTextScroll(widget, col,row, 0,1, cdis,0)
+
+        For example, to move a whole line left by one character, use:
+
+            XpwTextMoveTail(W, LINE, 0, -1);
+
+
+XpwTextScrollTails(widget, col, row, nrows, cdis)            [procedure]
+        Calls the XpwMScrollTails method for widget.
+
+        Moves all text from col on  nrows lines starting at row by  cdis
+        columns, which can be  positive or negative.  If nrows is  zero,
+        the number of rows from ROWS onwards is used. Same as
+
+            XpwTextScroll(widget, col,row, 0,nrows, cdis,0)
+
+        E.g, To move all of the text in a window right by one character,
+        for XpwScrollText widget W, use:
+
+            XpwTextMoveTails(W, 0, 0, 0, 1);
+
+
+XpwTextScrollTailLeft(widget, col, row)                      [procedure]
+XpwTextScrollTailRight(widget, col, row)                     [procedure]
+        Calls the XpwMScrollTailLeft/Right methods for widget.
+
+        Insert or delete a character at  col, row by scrolling the  tail
+        of the line left or right by one character cell. Same as
+
+            XpwTextScroll(widget, col,row, 0,1, -1,0)
+            XpwTextScroll(widget, col,row, 0,1, 1,0)
+
+        respectively.
+
+
+
+3.2  Clearing
+-------------
+
+XpwTextClear(widget, col, row, ncols, nrows)                 [procedure]
+        Calls the XpwMClear method for widget.
+
+        Clear the region starting  at col, row,  of width ncols  columns
+        and height nrows rows. If ncols or nrows are zero, the number of
+        columns/rows  from  col/row  onwards   is  used  instead   (i.e.
+        NUM_COLS-col or NUM_ROWS-row, where the whole window is NUM_COLS
+        columns by NUM_ROWS rows).
+
+
+XpwTextClearScreen(widget)                                   [procedure]
+        Calls the XpwMClearScreen method for widget.
+
+        Clear the whole window of the widget. Same as
+
+            XpwTextClear(widget, 0,0, 0,0)
+
+
+XpwTextClearLine(widget, row)                                [procedure]
+XpwTextClearLines(widget, row, nrows)                        [procedure]
+        Calls the XpwMClearLine(s) method for widget.
+
+        Clears the  specified  row of  the  widget. The  second  version
+        clears nrows lines starting at row, or all rows from row onwards
+        if nrows is zero. Same as
+
+            XpwTextClear(widget, 0,row, 0,1)
+            XpwTextClear(widget, 0,row, 0,nrows)
+
+        respectively.
+
+
+XpwTextClearTail(widget, col, row)                           [procedure]
+XpwTextClearTails(widget, col, row, nrows)                   [procedure]
+        Calls the XpwMClearTail(s) method for widget.
+
+        Clears all of the text to right of col on row (or nrows starting
+        at row in the second form). If nrows is zero, then all rows from
+        row onwards. Same as
+
+            XpwTextClear(widget, col,row, 0,1)
+            XpwTextClear(widget, col,row, 0,nrows)
+
+        respectively.
+
+
+XpwTextClearChar(widget, col, row)                           [procedure]
+        Calls the XpwMClearChar method for widget.
+
+        Clear the character at (col, row) for widget. Same as
+
+            XpwTextClear(widget, col,row, 1,1)
+
+
+
+3.3  Writing
+------------
+
+XpwTextWrite(widget, col, row, soffs, nrows,                 [procedure]
+                               coffs, ncols, strings, clear)
+        Calls the XpwMTextWrite method for widget.
+
+        Paints a  rectangle  of  characters from  a  vector  of  strings
+        strings onto the screen.
+
+        The rectangle is  ncols columns  by nrows rows,  and is  painted
+        starting at  col,  row  on  the window.  Within  the  vector  of
+        strings, characters are taken starting from the string at offset
+        soffs within the vector, and character offset coffs within  each
+        string (note  that both  soffs  and coffs  are offsets  not  pop
+        subscripts, i.e.  are  based at  0  not  1). That  is,  the  top
+        left-hand character is
+
+            subscrs(coffs+1, subscrv(soffs+1, strings))
+
+        If ncols is 0, it is replaced (for each string) by the number of
+        characters in that string from coffs onwards. In any case,  only
+        as many  characters  as there  are  in each  string  from  coffs
+        onwards will be drawn, upto a maximum of ncols (or the width  of
+        the window from col onwards if that is less).
+
+        If the boolean argument clear is true, the tail of each row from
+        col onwards is cleared first.
+
+
+XpwTextWriteLine(widget, col, row, string, clear)            [procedure]
+        Calls the XpwMWriteLine method for widget.
+
+        Writes the  string  on  the  widget  starting  at  the  position
+        designated by col and row. If clear is true then the whole  line
+        from col onwards is cleared first. Same as
+
+           XpwTextWrite(widget, col,row, 0, 1, 0, 0, {^string}, clear)
+
+
+XpwTextWriteLines(widget, col, row, soffs, nrows,            [procedure]
+                                        strings, clear)
+        Calls the XpwMWriteLines method for widget.
+
+        The same  as  XpwTextWriteLine,  only this  takes  a  vector  of
+        strings strings and  writes nrows strings  starting from  offset
+        soffs in the vector. Same as
+
+           XpwTextWrite(widget,col,row,soffs,nrows,0,0,strings,clear)
+
+
+XpwTextWriteSubstr(widget, col, row, coffs, ncols,           [procedure]
+                                         string, clear)
+        Calls the XpwMWriteSubstr method for widget.
+
+        Writes ncols characters of  string starting at character  offset
+        coffs at position col,row  of the widget. If  clear is true  the
+        line from col is cleared first. If ncols is zero, it is replaced
+        by the number of  characters in the  string from coffs  onwards.
+        Same as
+
+          XpwTextWrite(widget,col,row,0,1,coffs,ncols,{^string},clear)
+
+
+
+3.4  Cursor/Miscellaneous
+-------------------------
+
+XpwTextCursorTo(widget, row, col)                            [procedure]
+        Calls the XpwMCursorTo method for widget.
+
+        Moves the text cursor for widget to (row, col).
+
+
+XpwTextCursorUp(widget)                                      [procedure]
+XpwTextCursorDown(widget)                                    [procedure]
+XpwTextCursorLeft(widget)                                    [procedure]
+XpwTextCursorRight(widget)                                   [procedure]
+        Calls  the  XpwMCursorUp/Down/Left/Right   methods  for   widget
+        respectively.
+
+        Moves the  cursor for  the widget  one character  cell from  its
+        current location in the specific direction. The cursor will  not
+        move off the screen.
+
+
+XpwTextInsertLineAtCursor(widget)                            [procedure]
+        Calls the XpwMInsertLineAtCursor method for widget.
+
+        Insert a blank line at the current cursor position by  scrolling
+        the text currently on that line, and lines below it, down.
+
+
+XpwTextInsertCharAtCursor(widget)                            [procedure]
+        Calls the XpwMInsertCharAtCursor method for widget.
+
+        Insert a space at the current cursor location by moving the tail
+        of the line right by one character cell.
+
+
+XpwTextDeleteLineAtCursor(widget)                            [procedure]
+        Calls the XpwMDeleteLineAtCursor method for widget.
+
+        Remove a line at the cursor position by scrolling the text below
+        the line up one row.
+
+
+XpwTextDeleteCharAtCursor(widget)                            [procedure]
+        Calls the XpwMDeleteCharAtCursor method for widget.
+
+        Delete the  character under  the  current cursor's  location  by
+        scrolling the tail of the line left by one character.
+
+
+XpwTextClearLineAtCursor(widget)                             [procedure]
+        Calls the XpwMClearLineAtCursor method for widget.
+
+        Clears the text on the current cursor row.
+
+
+XpwTextClearTailAtCursor(widget)                             [procedure]
+        Calls the XpwMClearTailAtCursor method for widget.
+
+        Clears the text to from current cursor column to end of the line
+        on the current cursor row.
+
+
+XpwTextClearCharAtCursor(widget)                             [procedure]
+        Calls the XpwMClearCharAtCursor method for widget.
+
+        Clears the character under the cursor.
+
+
+XpwTextInsert(widget, row, col, string)                      [procedure]
+        Calls the XpwMInsert method for widget.
+
+        Inserts the string at row, col  of widget. Text on that row  and
+        column will be moved right to make room for the string. This  is
+        a combination of XpwMScroll and XpwMWrite.
+
+
+XpwTextInsertAtCursor(widget, string)                        [procedure]
+        Calls the XpwMInsertAtCursor method for widget.
+
+        This  operates  like  XpwTextInsert,  only  using  the   current
+        location of the  cursor as the  ROW and COL  of the insert.  The
+        Cursor is moved to the end of the string.
+
+
+XpwTextWriteAtCursor(widget, string)                         [procedure]
+        Calls the XpwMWriteAtCursor method for widget.
+
+        Writes the string to the specified widget at the current  cursor
+        position. Moves the cursor to the end of the string.
+
+
+XpwGetCharAttributes(widget) -> attributes                   [procedure]
+        Calls the XpwMGetCharAttributes method for widget.
+
+        Returns  the   state   of   XtNcolorNumber   and   the   boolean
+        character-attribute   resources    XtNunderlineOn,    XtNboldOn,
+        XtNaltFontOn, XtNblinkOn  and XtNactiveOn  as flag  bits in  the
+        integer attributes.
+
+        The corresponding flag bits are
+
+            # XpwFcolorNumber
+            # XpwFunderlineOn
+            # XpwFboldOn
+            # XpwFaltFontOn
+            # XpwFblinkOn
+            # XpwFactiveOn
+
+        defined in XpwScrollText.ph (which you  will need to include  to
+        use them).
+
+        For the boolean resources,  a set bit equals  true and an  unset
+        bit equals false; for the colour, XpwFcolorNumber is a mask  for
+        the 3-bit  colour number,  which starts  at bit  XpwFcolorShift.
+        Thus for example,
+
+            XpwGetCharAttributes(widget) -> attributes;
+            (attributes && XpwFcolorNumber) >> XpwFcolorShift -> color;
+
+        would extract the current XtNcolorNumber.
+
+        Note that all attributes are contained within 8 bits starting at
+        bit 16. Thus  you can add  attributes to an  ordinary 8 (or  16)
+        -bit    character     value     to    represent     a     24-bit
+        'character-with-attributes'.
+
+
+XpwSetCharAttributes(widget, attributes)                     [procedure]
+        Calls the XpwMSetCharAttributes method for widget.
+
+        Sets  XtNcolorNumber   and   the   boolean   character-attribute
+        resources XtNunderlineOn,  XtNboldOn,  XtNaltFontOn,  XtNblinkOn
+        and XtNactiveOn from  flag bits  in the  integer attributes  (as
+        defined in XpwGetCharAttributes above).
+
+        For example, using
+
+                (5 << XpwFcolorShift) || XpwFaltFontOn
+
+        for attributes would set XtNcolorNumber to 5, XtNaltFontOn true,
+        and the other booleans false.
+
+        Note that the  cursor is not  displayed while XtNcolorNumber  is
+        non-zero or any of the booleans are true, i.e. while  attributes
+        is non-zero.
+
+
+XpwGetTextCursor(widget) -> cursor_char                      [procedure]
+        Calls the XpwMGetTextCursor method for widget.
+
+        Returns   the   value   of   the   XtNcursorChar   resource   if
+        XtNcursorStatus is  true  (i.e.  if  the  cursor  is  on),  or 0
+        otherwise.
+
+
+XpwSetTextCursor(widget, cursor_char)                        [procedure]
+        Calls the XpwMSetTextCursor method for widget.
+
+        If cursor_char is 0, sets  XtNcursorStatus false (i.e. sets  the
+        cursor off); otherwise, sets XtNcursorStatus true (i.e. sets the
+        cursor on).
+
+        In addition,  if cursor_char  is  nonzero and  not equal  to  1,
+        assigns cursor_char is to XtNcursorChar.
+
+
+XpwTextBell(widget, volume)                                  [procedure]
+        Calls the XpwMBell method for widget.
+
+        Calls XBell to make a beep of the specified volume (0-100).
+
+
+
+
+------------
+4  Resources
+------------
+
+XpwScrollText inherits all of the Core and XpwCore widget resources, and
+adds some additional resources.
+
+The following  resources are  retrieved from  the argument  list or  the
+resource database when XpwScrollText widgets are created.
+
+
+
+4.1  Summary of Core and XpwCore Resources
+------------------------------------------
+See REF * XpwCore for information on the following resources:
+
+ Name                    Class                   Type            Access
+ ----                    -----                   ----            ------
+ XtNancestorSensitive    XtCSensitive            Boolean         G*
+ XtNautoFlush            XtCBoolean              Boolean         SGI
+ XtNautoGeometry         XtCParameter            String          SGI
+ XtNbackground           XtCBackground           Pixel           SGI
+ XtNbackgroundPixmap     XtCPixmap               Pixmap          SGI
+ XtNborderColor          XtCBorderColor          Pixel           SGI
+ XtNborderPixmap         XtCPixmap               Pixmap          SGI
+ XtNborderWidth          XtCBorderWidth          short           SGI
+ XtNdepth                XtCdepth                short           SGI
+ XtNdestroyCallback      XtCCallback             XtCallbackList  SI
+ XtNfont                 XtCFont                 XFontStruct     SGI
+ XtNforeground           XtCForeground           Pixel           SGI
+ XtNheight               XtCHeight               short           SGI
+ XtNmappedWhenManaged    XtCMappedWhenManaged    Boolean         SGI
+ XtNmodifiers            XtCModifiers            int             G
+ XtNpointerShape         XtCCursor               Cursor          SGI
+ XtNsensitive            XtCSensitive            Boolean         GI*
+ XtNtileForeground       XtCTileForeground       Pixel           GI
+ XtNtranslations         XtCTranslations         XtTranslations  GI
+ XtNwidth                XtCWidth                short           SGI
+ XtNx                    XtCPosition             short           SGI
+ XtNy                    XtCPosition             short           SGI
+
+The Access Column is interpreted as follows:
+
+     S   Value can be set by XtSetValues
+     G   Value can be read by XtGetValues
+     I   Value can be set at initialization
+     *   Value set in other ways
+
+
+
+4.2  Summary of XpwScrollText Resources
+---------------------------------------
+The following table is divided up for easier reading.
+
+ Name                    Class                   Type            Access
+ ----                    -----                   ----            ------
+ XtNactiveChange         XtCCallback             XtCallbackList  SI
+ XtNactiveOn             XtCParameter            Boolean         SGI
+ XtNaltFontOn            XtCParameter            Boolean         SGI
+ XtNaltFont              XtCAltFont              XFontStruct     SGI
+ XtNblinkOn              XtCParameter            Boolean         SGI
+ XtNboldAltFont          XtCBoldAltFont          XFontStruct     SGI
+ XtNboldFont             XtCBoldFont             XFontStruct     SGI
+ XtNboldOn               XtCParameter            Boolean         SGI
+ XtNbuttonEvent          XtCCallback             XtCallbackList  SI
+ XtNcolorNumber          XtCParameter            Short           SGI
+ XtNcolor2Background     XtCParameter            Pixel           SGI
+ XtNcolor2Foreground     XtCParameter            Pixel           SGI
+ XtNcolor3Background     XtCParameter            Pixel           SGI
+ XtNcolor3Foreground     XtCParameter            Pixel           SGI
+ XtNcolor4Background     XtCParameter            Pixel           SGI
+ XtNcolor4Foreground     XtCParameter            Pixel           SGI
+ XtNcolor5Background     XtCParameter            Pixel           SGI
+ XtNcolor5Foreground     XtCParameter            Pixel           SGI
+ XtNcolor6Background     XtCParameter            Pixel           SGI
+ XtNcolor6Foreground     XtCParameter            Pixel           SGI
+ XtNcolor7Background     XtCParameter            Pixel           SGI
+ XtNcolor7Foreground     XtCParameter            Pixel           SGI
+
+...
+
+ Name                    Class                   Type            Access
+ ----                    -----                   ----            ------
+ XtNcolor0ABackground    XtCParameter            Pixel           SGI
+ XtNcolor0AForeground    XtCParameter            Pixel           SGI
+ XtNcolor1ABackground    XtCParameter            Pixel           SGI
+ XtNcolor1AForeground    XtCParameter            Pixel           SGI
+ XtNcolor2ABackground    XtCParameter            Pixel           SGI
+ XtNcolor2AForeground    XtCParameter            Pixel           SGI
+ XtNcolor3ABackground    XtCParameter            Pixel           SGI
+ XtNcolor3AForeground    XtCParameter            Pixel           SGI
+ XtNcolor4ABackground    XtCParameter            Pixel           SGI
+ XtNcolor4AForeground    XtCParameter            Pixel           SGI
+ XtNcolor5ABackground    XtCParameter            Pixel           SGI
+ XtNcolor5AForeground    XtCParameter            Pixel           SGI
+ XtNcolor6ABackground    XtCParameter            Pixel           SGI
+ XtNcolor6AForeground    XtCParameter            Pixel           SGI
+ XtNcolor7ABackground    XtCParameter            Pixel           SGI
+ XtNcolor7AForeground    XtCParameter            Pixel           SGI
+ XtNcursorChar           XtCParameter            Int             SGI
+ XtNcursorColor          XtCParameter            Pixel           SGI
+ XtNcursorColumn         XtCPosition             Position        SGI
+ XtNcursorRow            XtCPosition             Position        SGI
+ XtNcursorStatus         XtCCursorStatus         Boolean         SGI
+
+...
+
+ Name                    Class                   Type            Access
+ ----                    -----                   ----            ------
+ XtNdefaultColorMask     XtCParameter            Int             SGI
+ XtNdrawGraphicChars     XtCParameter            Boolean         SGI
+ XtNdrawShadowMask       XtCParameter            Int             SGI
+ XtNfocusChange          XtCCallback             XtCallbackList  SI
+ XtNfontHeight           XtCHeight               Dimension       G
+ XtNfontWidth            XtCWidth                Dimension       G
+ XtNgeometry             XtCGeometry             String          GI
+ XtNhMargin              XtCMargin               Short           SGI
+ XtNhighlightBackground  XtCParameter            Pixel           SGI
+ XtNhighlightForeground  XtCParameter            Pixel           SGI
+ XtNhighlightOn          XtCParameter            Boolean         SGI
+ XtNkey                  XtCKey                  String          G
+ XtNkeyboardEvent        XtCCallback             XtCallbackList  SI
+ XtNmenubarBackground    XtCBackground           Pixel           SGI
+ XtNmenubarForeground    XtCForeground           Pixel           SGI
+ XtNmenubarOn            XtCMenubarOn            Boolean         SGI
+ XtNmotionEvent          XtCCallback             XtCallbackList  SI
+ XtNmouseColumn          XtCPosition             Int             SG
+ XtNmouseRow             XtCPosition             Int             SG
+ XtNmouseX               XtCPosition             Int             SG
+ XtNmouseY               XtCPosition             Int             SG
+
+...
+
+ Name                    Class                   Type            Access
+ ----                    -----                   ----            ------
+ XtNnoBlink              XtCParameter            Boolean         SGI
+ XtNnoGrayScale          XtCParameter            Boolean         SGI
+ XtNnumColumns           XtCDimension            Dimension       SGI
+ XtNnumRows              XtCDimension            Dimension       SGI
+ XtNpointer2Shape        XtCCursor               Cursor          SGI
+ XtNroundSize            XtCRoundSize            Boolean         SGI
+ XtNscrollbarBackground  XtCBackground           Pixel           SGI
+ XtNscrollbarForeground  XtCForeground           Pixel           SGI
+ XtNscrollbarOn          XtCScrollbarOn          Boolean         SGI
+ XtNselectionColorNum    XtCParameter            Short           SGI
+ XtNstatusBackground     XtCBackground           Pixel           SGI
+ XtNstatusForeground     XtCForeground           Pixel           SGI
+ XtNstatusStyle          XtCParameter            Short           SGI
+ XtNsynthetic            XtCParameter            Boolean         G*
+ XtNunderlineOn          XtCParameter            Boolean         SGI
+ XtNvMargin              XtCMargin               Short           SGI
+ XtNvisible              XtCVisible              Boolean         G*
+ XtNxpwCallback          XtCCallback             XtCallbackList  SI
+
+
+4.3  XpwScrollText Resources in Detail
+--------------------------------------
+
+XtNunderlineOn                                                [resource]
+XtNboldOn                                                     [resource]
+XtNaltFontOn                                                  [resource]
+XtNblinkOn                                                    [resource]
+XtNactiveOn                                                   [resource]
+        All BOOL, default false.
+
+        These booleans together with XtNcolorNumber control the  current
+        attributes of characters being drawn. When any of them are true,
+        the cursor is not displayed.
+
+        When XtNunderlineOn is true, text is drawn underlined.
+
+        When XtNboldOn is  true, text  is drawn  in bold.  This is  done
+        either by using XtNboldFont (XtNboldAltFont for alt) if that  is
+        non-NULL, or  by overstriking  otherwise (i.e.  redrawing  every
+        character a second time shifted one pixel to the right).
+
+        When XtNaltFontOn  is  true,  text  is  drawn  using  XtNaltFont
+        instead of XtNfont. If XtNaltFont  is NULL, text is drawn  using
+        XtNfont but with underlining.
+
+        When XtNblinkOn is true, text is drawn blinking, i.e.  flashing.
+        (Or rather, it blinks while XtNnoBlink is false.)
+
+        When XtNactiveOn  is  true,  text is  drawn  with  the  'active'
+        attribute. This attribute  (a) causes  XtNcolorNumber to  select
+        colours 0A  -  7A  rather  than  0  -  7,  and  (b)  causes  the
+        XtNactiveChange callback  to be  called when  the mouse  pointer
+        moves in or out of active text.
+
+        These booleans can also be got and set with XpwGetCharAttributes
+        and XpwSetCharAttributes.
+
+
+XtNboldFont                                                   [resource]
+XtNaltFont                                                    [resource]
+XtNboldAltFont                                                [resource]
+        All FONTSTRUCT, default empty (NULL).
+
+        These specify upto 3 optional  fonts to use instead of  XtNfont.
+        (These fonts may  be any size,  including proportional, but  see
+        XtNfontWidth below.)
+
+        XtNboldFont is used when XtNboldOn is true. If NULL (or the same
+        as XtNfont), bolding  of text is  achieved by overstriking  with
+        XtNfont.
+
+        XtNaltFont is used when  XtNaltFontOn is true.  If NULL (or  the
+        same as XtNfont), text is drawn with XtNfont underlined.
+
+        XtNboldAltFont is used when both XtNaltFontOn and XtNboldOn  are
+        true. If NULL (or the  same as XtNaltFont), bolding is  achieved
+        by overstriking  with  XtNaltFont. If  both  XtNboldAltFont  and
+        XtNaltFont are NULL (or  the same as  XtNfont), then XtNfont  is
+        used with underlining.
+
+
+XtNstatusForeground                                           [resource]
+XtNstatusBackground                                           [resource]
+        PIXEL, Default values:
+
+            XtNDefaultBackground (XtNstatusBackground)
+            XtNDefaultForeground (XtNstatusForeground).
+
+        The widget allows  row 0  (the status  line in  XVed) to  behave
+        specially -- see XtNstatusStyle below. In particular, it  allows
+        different basic  colours  to be  used  for it;  these  resources
+        specify the background and foreground for that row.
+
+
+XtNhighlightForeground                                        [resource]
+XtNhighlightBackground                                        [resource]
+XtNcolor2Foreground                                           [resource]
+XtNcolor2Background                                           [resource]
+XtNcolor3Foreground                                           [resource]
+XtNcolor3Background                                           [resource]
+XtNcolor4Foreground                                           [resource]
+XtNcolor4Background                                           [resource]
+XtNcolor5Foreground                                           [resource]
+XtNcolor5Background                                           [resource]
+XtNcolor6Foreground                                           [resource]
+XtNcolor6Background                                           [resource]
+XtNcolor7Foreground                                           [resource]
+XtNcolor7Background                                           [resource]
+XtNcolor0AForeground                                          [resource]
+XtNcolor0ABackground                                          [resource]
+XtNcolor1AForeground                                          [resource]
+XtNcolor1ABackground                                          [resource]
+XtNcolor2AForeground                                          [resource]
+XtNcolor2ABackground                                          [resource]
+XtNcolor3AForeground                                          [resource]
+XtNcolor3ABackground                                          [resource]
+XtNcolor4AForeground                                          [resource]
+XtNcolor4ABackground                                          [resource]
+XtNcolor5AForeground                                          [resource]
+XtNcolor5ABackground                                          [resource]
+XtNcolor6AForeground                                          [resource]
+XtNcolor6ABackground                                          [resource]
+XtNcolor7AForeground                                          [resource]
+XtNcolor7ABackground                                          [resource]
+        PIXEL, Default values: empty (-1).
+
+        These specify upto 15 alternative colour pairs to use instead of
+        XtNforeground and XtNbackground when drawing text (or instead of
+        XtNstatusForeground and XtNstatusBackground when on row 0).
+
+        The  current   pair  of   colours  to   use  is   specified   by
+        XtNcolorNumber, which ranges from 0 - 7, in combination with the
+        boolean attribute XtNactiveOn.
+
+        Colour 0 with  XtNactiveOn false is  XtNforeground/XtNbackground
+        for     text     on     rows      other     than     0,      and
+        XtNstatusForeground/XtNstatusBackground for text on row 0.
+
+        The 15 alternative colours are then 1 - 7 with XtNactiveOn false
+        (note  that   colour   1  is   called   XtNhighlightForeground /
+        XtNhighlightBackground for backward compatibility reasons),  and
+        0A - 7A with XtNactiveOn true.
+
+        With any  of  these,  either foreground  or  background  may  be
+        specified as  -1  (empty). When  empty,  the colour  used  for a
+        particular   colour   number   component   is   determined    by
+        XtNdefaultColorMask (see  below). The  default value  (2:10)  of
+        XtNdefaultColorMask maps  all  unset  colours except  1  to  the
+        corresponding (row-dependent) colour  0 component, but  reverses
+        the colour 0 background and foreground for an unset colour 1.
+
+        Note that  for  monochrome displays  (StaticGray  visuals),  all
+        colours other  than  0 and  1  are automatically  defaulted  via
+        XtNdefaultColorMask. (That is, the  resources for colours 2  - 7
+        and 0A  - 7A  are not  used.) This  also happens  for  GrayScale
+        visuals if the XtNnoGrayScale resource is set true.
+
+        All these colours default to -1 (and thus by default just act as
+        colour  0,  or  that  reversed  for  XtNhighlightForeground  and
+        XtNhighlightBackground).
+
+
+XtNcolorNumber                                                [resource]
+        SHORT, default 0.
+
+        The current colour number for drawing text, selecting 0 - 7 when
+        XtNactiveOn is false, and 0A - 7A when XtNactiveOn is true.
+
+        Colour 0 with XtNactiveOn false is XtNforeground / XtNbackground
+        when not on row 0, and XtNstatusForeground / XtNstatusBackground
+        when on row 0.
+
+        With XtNactiveOn false, colour 1 selects  XtNhighlightForeground
+        /   XtNhighlightBackground,   and   colours   2   -   7   select
+        XtNcolor2Foreground / XtNcolor2Background to XtNcolor7Foreground
+        / XtNcolor7Background respectively.
+
+        With  XtNactiveOn   true,  colours   numbers   0  -   7   select
+        XtNcolor0AForeground       /       XtNcolor0ABackground       to
+        XtNcolor7AForeground / XtNcolor7ABackground respectively.
+
+
+XtNdefaultColorMask                                           [resource]
+        INT, default 2:0000000000000010.
+
+        Bits 0  -  15  in  this integer  control  whether  empty  colour
+        components are defaulted to the corresponding colour 0 or colour
+        1 component. Bits  0 - 7  refer to  colour numbers 0  - 7  (with
+        XtNactiveOn false), and bits  8 - 15 to  colour numbers 0A -  7A
+        (with XtNactiveOn true).
+
+        That is,  if  text  is  painted in  colour  number  N,  and  the
+        foreground or background of N is not set (i.e. is -1), then  the
+        colour 1 component  is used  in its  place if  bit N  is set  in
+        XtNdefaultColorMask,  otherwise  the  (row-dependent)   colour 0
+        component.
+
+        However, for monochrome displays (i.e. StaticGray visuals),  all
+        colours >=  2  are automatically  defaulted  in this  way.  This
+        enables clients to have resources set for colours 2 - 7 and 0A -
+        7A, while at the same time ensuring that an appropriate  default
+        of black/white or  white/black is used  on monochrome  displays.
+        The same applies  for GrayScale visuals  when XtNnoGrayScale  is
+        true.
+
+        Note   that    if    a    component   of    colour    1    (i.e.
+        XtNhighlightForeground  or  XtNhighlightBackground)  is   itself
+        unset, then colour components defaulting  to 1 use the  opposite
+        (row-dependent) colour 0 component, i.e. colour 0 inverted; this
+        applies  to  XtNhighlightForeground  or   XtNhighlightBackground
+        themselves when bit 1 is set in XtNdefaultColorMask.
+
+        The default value of XtNdefaultColorMask is 2:10 (i.e. has bit 1
+        only set),  which  maps  any  unset  colours  except  1  to  the
+        corresponding (row-dependent) colour 0 component, but unset 1 to
+        to the inverse colour 0 component.
+
+        But (for example), setting XtNdefaultColorMask to
+
+                2:1010101010101010
+
+        would default all  even-numbered colours  to colour  0, but  all
+        odd-numbered colours to colour 1.  (This is the default used  by
+        XVed,  and   makes   all   odd-numbered   colours   display   as
+        inverse-video on a monochrome screen.)
+
+
+XtNdrawShadowMask                                             [resource]
+        INT, default 0.
+
+        Bits 0 -  15 in this  integer allow characters  in a  particular
+        colour to be drawn with a 3-dimensional 'shadow' effect. As with
+        XtNdefaultColorMask, bits 0 -  7 refer to  colour numbers 0  - 7
+        (XtNactiveOn false), and bits 8 -  15 to colour numbers 0A -  7A
+        (XtNactiveOn true).
+
+        If a bit  is set  for colour N,  characters in  that colour  are
+        drawn shadowed; the colour used for the shadow is black on light
+        backgrounds, and a shade of white on dark backgrounds.
+
+        With monochrome  displays  (StaticGray  visuals),  or  GrayScale
+        visuals with  XtNnoGrayScale  true,  shadowing  is  replaced  by
+        underlining.
+
+
+XtNnoGrayScale                                                [resource]
+        BOOL, Default false.
+
+        Setting this resource  true will cause  displays with  GrayScale
+        visuals to be treated like StaticGray, i.e. all colours >= 2 are
+        automatically defaulted via XtNdefaultColorMask.
+
+
+XtNhighlightOn                                                [resource]
+        BOOL, Default false.
+
+        This  resource  is  retained  for  backward  compatibility  with
+        previous versions of the widget; previously it selected colour 1
+        (XtNhighlightForeground/XtNhighlightBackground) as  the  drawing
+        colour.
+
+        It now  reflects  the state  of  the least  significant  bit  of
+        XtNcolorNumber, i.e. setting it from false -> true will set that
+        bit (making the  colour number  odd), whereas  changing it  from
+        true ->  false will  clear  the bit  (making the  colour  number
+        even). On  the other  hand, any  change to  XtNcolorNumber  sets
+        XtNhighlightOn appropriately for the new state of the bit.
+
+
+XtNbuttonEvent                                                [resource]
+        CALLBACKLIST, default empty (NULL).
+
+        Called by the "notify-button-event" action in response to button
+        events. The  call data  argument  passed to  the  XtNbuttonEvent
+        callback is an integer containing 3 fields, viz:
+
+            (clicks << 16) || (mode << 8) || button
+
+        where button is the button number, mode is either 0, 1, or 2  to
+        indicate RELEASE, PRESS or HOLD respectively, and clicks is  the
+        number  of  clicks  that  were  made.  See  the  description  of
+        "notify-button-event" under Actions below.
+
+
+XtNcursorColumn                                               [resource]
+XtNcursorRow                                                  [resource]
+        INT, defaults 0, 0.
+
+        An inverse  rectangle  is used  to  represent the  text  cursor.
+        Changing these resources will cause  the cursor to be  unplotted
+        and moved to the  new location. Any of  the methods that can  be
+        applied to the XpwScrollText widget are aware of the cursor, and
+        will replot it  if necessary.  The text cursor  is filled  (i.e.
+        highlighted) whenever the widget has  input focus, and drawn  in
+        outline only when it does not.
+
+
+XtNcursorChar                                                 [resource]
+        INT, Default ASCII `O`.
+
+        This resource is a 24-bit character-with-attributes defining the
+        text cursor displayed when XtNcursorStatus is true, i.e.
+
+            23            16 15            8 7               0
+            ---------------------------------------------------
+            |   Attributes   |       0       | Character Code |
+            ---------------------------------------------------
+
+        The   character    attributes    are    as    described    under
+        XpwGetCharAttributes      above       (and      defined       in
+        INCLUDE * XpwScrollText).
+
+        The cursor is drawn in the foreground of XpwFcolorNumber (as for
+        XtNcolorNumber). If XpwFblinkOn  is set, the  cursor will  blink
+        while the window has keyboard input focus.
+
+        The  actual  character  code   defines  the  cursor  shape,   in
+        combination with the  XpwFboldOn attribute;  this attribute  is,
+        however, added automatically  when the window  has input  focus.
+        Thus specifying  a character  without XpwFboldOn  will give  the
+        bold version when  the window  has input focus,  and the  dimmed
+        version otherwise:
+
+            ASCII Char     Description
+            ----------     -----------
+               `O`         Rectangle occupying the whole character  cell
+                           --  filled  in  bold  (with  any   underlying
+                           character  drawn   in   the   background   of
+                           XpwFcolorNumber), or  just  in  outline  when
+                           dimmed.
+
+               `I`         I-beam occupying whole character cell.
+
+               `^`         Triangular block  or  outline  occupying  the
+                           bottom part of the character cell.
+
+               `_`         Flat rectangular  block  or  outline  (like a
+                           thick   underscore)   underneath   the   font
+                           baseline.
+
+               ` `         A space character gives an invisible cursor.
+
+        (The XpwFaltFontOn, XpwFunderlineOn and XpwFactiveOn  attributes
+        currently have no effect on the cursor.)
+
+
+XtNcursorColor                                                [resource]
+        PIXEL, Default value empty (-1).
+
+        This resource specifies  the colour  0 foreground  for the  text
+        cursor,  i.e.  is  used   when  the  XpwFcolorNumber  field   of
+        XtNcursorChar is 0. (If  XpwFcolorNumber has a value  of 1 -  7,
+        the foreground of that colour is used.)
+
+        If -1, it defaults to the foreground of ordinary colour 0,  i.e.
+        XtNstatusForeground when on row 0, and XtNforeground when not.
+
+
+XtNcursorStatus                                               [resource]
+        BOOL, Default true.
+
+        If this resource is false, the  text cursor is not displayed  in
+        the widget window.  By default the  cursor is displayed  (unless
+        XtNcolorNumber is non-zero, or any of XtNunderlineOn, XtNboldOn,
+        XtNaltFontOn, XtNblinkOn or XtNactiveOn are true).
+
+
+XtNdrawGraphicChars                                           [resource]
+        BOOL, Default false.
+
+        When  true,  character  codes  in  the  range  1  -  16:1F   are
+        interpreted as VT100-style graphics characters and drawn as such
+        (in the appropriate size for  the character cell). That is,  the
+        encodings 1 - 16:1F correspond to the characters given by  codes
+        16:60 - 16:7E (` to ~) when sent to a VT100 in graphics mode.
+
+        However, currently only  the 15  line-drawing characters  (VT100
+        codes 16:6A -  16:78) and  a few others  are actually  supported
+        (other  values  are   drawn  using   the  fonts,   i.e.  as   if
+        XtNdrawGraphicChars were false).  The supported characters  with
+        their widget codes are:
+
+                16:01  diamond
+                16:07  degree sign
+                16:0B  bottom-right corner
+                16:0C  top-right corner
+                16:0D  top-left corner
+                16:0E  bottom-left corner
+                16:0F  cross
+                16:10  horizontal line 1
+                16:11  horizontal line 2
+                16:12  horizontal line 3 (middle)
+                16:13  horizontal line 4
+                16:14  horizontal line 5
+                16:15  tee left
+                16:16  tee right
+                16:17  tee down
+                16:18  tee up
+                16:19  vertical line
+                16:1F  centred dot
+
+
+XtNfocusChange                                                [resource]
+        CALLBACKLIST, default empty (NULL).
+
+        This callback is called by the widget whenever it gains or loses
+        keyboard input focus: the call  data argument is 1 when  gaining
+        the focus, and 0 when losing it.
+
+
+XtNactiveChange                                               [resource]
+        CALLBACKLIST, default empty (NULL).
+
+        This callback  is called  whenever there  are no  mouse  buttons
+        pressed and  the  mouse  pointer enters  or  leaves  an  'active
+        segment' of text, that is,  a contiguous sequence of  characters
+        on a line  all having  the 'active'  attribute (see  XtNactiveOn
+        above).
+
+        When the pointer  enters an active  segment, XtNactiveChange  is
+        called, with  a call  data argument  which is  a pointer  to  an
+        "int". The client procedure may then set any combination of  the
+        following bits in  the integer  to control whether  and how  the
+        active segment is highlighted, and whether a corresponding leave
+        callback is performed:
+
+            Bit     Meaning
+            ---     -------
+             0      Do  leave   callback:   if  this   bit   is   set, a
+                    corresponding  XtNactiveChange   callback  will   be
+                    performed when the mouse leaves the active  segment,
+                    with a NULL pointer for the call data argument. (The
+                    segment and/or  pointer is  restored to  its  normal
+                    state before making the leave callback.)
+
+             1      Invert:  redraw  the  segment  with  foreground  and
+                    background colours swapped.
+
+             2      Box: draw a box around the segment.
+
+             3      Change  pointer:   change  the   mouse  pointer   to
+                    XtNpointer2Shape  (as   opposed   to   the   default
+                    XtNpointerShape).
+
+        For  both  enter   and  leave   callbacks,  XtNmouseColumn   and
+        XtNmouseRow are set to the position of the active character  the
+        pointer is (or was) on.
+
+
+XtNfontWidth                                                  [resource]
+XtNfontHeight                                                 [resource]
+        INT, No default value.
+
+        XtNfontWidth  and  XtNfontHeight  are  the  dimensions  of  each
+        character cell in pixels;  they are set  by the widget  whenever
+        fonts are initialised or changed.
+
+        XtNfontWidth is set to the maximum width of any character in any
+        of the fonts being  used (i.e. XtNfont, XtNboldFont,  XtNaltFont
+        XtNboldAltFont), and  (regardless  of  their  size,  or  whether
+        fixed-width or proportional), all fonts are drawn one  character
+        per cell.
+
+        (However, note that  drawing a  fixed-width font  at its  normal
+        width is more  efficient than anything  else. You are  therefore
+        recommended to have (at least) the main XtNfont be  fixed-width,
+        greater than or  equal in width  to any of  the others, so  that
+        XtNfontWidth = width(XtNfont).)
+
+        XtNfontHeight is the actual row height of the widget, and is set
+        to
+
+            (max ascent of all fonts) + (max descent of all fonts)
+
+        with text being drawn at offset  (max ascent) down from the  top
+        of each row.
+
+
+XtNhMargin                                                    [resource]
+XtNvMargin                                                    [resource]
+        SHORT, Default values
+
+            XtNhMargin: -50
+            XtNvMargin: -30
+
+        Specifies the horizontal and vertical margins, i.e. the distance
+        in pixels from  the left  and top of  window to  where the  text
+        starts.
+
+        A negative value for either  of these means use that  percentage
+        of  the   corresponding  character   cell  dimension,   i.e   of
+        XtNfontWidth or XtNfontHeight. Thus the default values give  50%
+        of fontWidth as the horizontal margin, and 30% of fontHeight  as
+        the vertical.
+
+
+XtNkeyboardEvent                                              [resource]
+        CALLBACKLIST, default empty (NULL).
+
+        This   callback   is   called   both   by   the   "string"   and
+        "notify-key_event"   actions   (see   'Actions'   below);    the
+        XtNsynthetic resource can  be used to  distinguish between  them
+        (true for "string" and false for "notify-key_event").
+
+        For "notify-key_event" the call data  argument is the keysym  of
+        the event key,  negated for  a key release  (and positive  for a
+        press). For "string", the call data argument is unused.
+
+        In  both  cases,  the   XtNkey  resource  contains  the   string
+        pertaining to the event, i.e. the argument given to the "string"
+        action, or the ASCII key translation from XLookupString.
+
+
+XtNkey                                                        [resource]
+        STRING, default NULL.
+
+        Set  to  the  relevant  string  whenever  the   XtNkeyboardEvent
+        callback is called.  For a  "string" action it  is the  argument
+        given to that action. For a key event it is the translation  for
+        the key returned by XLookupString (which in most cases will just
+        be a 1-character string containing the ASCII code for the key).
+
+
+XtNmodifiers                                                  [resource]
+        INT, no default.
+
+        This is set to the event  state field (i.e. button and  modifier
+        mask  bits)   before  making   any  of   the   XtNkeyboardEvent,
+        XtNbuttonEvent and XtNmotionEvent callbacks.
+
+
+XtNmotionEvent                                                [resource]
+        CALLBACKLIST, default empty (NULL).
+
+        Called by the "notify-motion-event" action in response to  mouse
+        movement while  a  button is  pressed.  See the  description  of
+        "notify-motion-event" under Actions below.
+
+
+XtNmouseColumn                                                [resource]
+XtNmouseRow                                                   [resource]
+XtNmouseX                                                     [resource]
+XtNmouseY                                                     [resource]
+        INT, defaults 0.
+
+        These contain the current position of the mouse pointer, and are
+        set before making  any of  the XtNkeyboardEvent,  XtNbuttonEvent
+        and XtNmotionEvent callbacks.
+
+        Column and Row give the character cell within which the mouse is
+        located, whereas X and Y give its position in pixels.
+
+
+XtNnoBlink                                                    [resource]
+        BOOL, Default false.
+
+        Controls whether text drawn  with XtNblinkOn actually blinks  or
+        not; setting this false stops  the text blinking, and  resetting
+        it to true starts blinking again.
+
+
+XtNnumRows                                                    [resource]
+XtNnumColumns                                                 [resource]
+        Both INT, default value 0.
+
+        These are  based  upon the  current  character cell  and  window
+        sizes. They are calculated from XtNfontWidth and  XtNfontHeight,
+        as well as  the width  and height of  the window.  They are  the
+        number of text  rows and  columns that  can be  fitted into  the
+        window (row 0, column 0 is the top left corner of the window).
+
+        If these resources are specified during initialisation, they are
+        used in preference to  XtNwidth and XtNheight (or  XtNgeometry).
+        If no values are specified for any of XtNnumRows, XtNnumColumns,
+        XtNwidth, XtNheight or XtNgeometry, then XtNnumRows defaults  to
+        24, and XtNnumColumns to 80.
+
+        Modifying these resources will cause the widget to resize.
+
+
+XtNgeometry                                                   [resource]
+        STRING, default NULL.
+
+        Specifies the initial  geometry for  the widget  window, in  the
+        usual X format
+
+                numColumnsxnumRows+x+y
+
+        etc. If either numColumns or  numRows is specified in this  way,
+        it will override  any initial value  for XtNwidth or  XtNheight,
+        but not explicit values  for XtNnumColumns or XtNnumRows  (which
+        take precedence).
+
+        An x, y position specified in the resource is not used  directly
+        by the widget (but, for example, XVed extracts and makes use  of
+        it after widget creation).
+
+
+XtNroundSize                                                  [resource]
+        BOOL, default true.
+
+        Whenever the widget is  resized, it will  by default attempt  to
+        round up its XtNwidth (XtNheight) to maintain the overall  width
+        (height) of the window as an exact number of columns (rows) plus
+        XtNhMargin*2 (XtNvMargin*2).
+
+        Setting this resource false stops it from doing so, i.e. it just
+        fits as many columns (rows)  into the width (height) given,  and
+        adjusts the actual margins used to take up any slack.
+
+
+XtNpointer2Shape                                              [resource]
+        CURSOR, default "hand2".
+
+        An  alternate  pointer  shape  useable  by  the  XtNactiveChange
+        callback to indicate that the pointer is in an active segment of
+        text.
+
+
+XtNstatusStyle                                                [resource]
+        SHORT, default 0.
+
+        Being the status  line in  XVed, the widget  allows for  special
+        treatment of row 0:
+
+        First, it allows different basic  (colour 0) colours for row  0,
+        i.e. XtNstatusForeground  and XtNstatusBackground.  (The use  of
+        these for row 0 should  be dependent on XtNstatusStyle, but  for
+        historical reasons is not.)
+
+        Second, with XtNstatusStyle nonzero, it allows row 0 to be drawn
+        with a surrounding border, either
+
+            # at the top of the window, separated by XtNvMargin from row
+              1, or
+
+            # at the bottom of the window, separated by XtNvMargin  from
+              the last row (i.e. from row (XtNnumRows-1) ).
+
+        These two behaviours are selected by XtNstatusStyle values  of 1
+        and 2 respectively. In  either case, a  2-pixel border is  added
+        around row 0, with the inner border pixel in XtNstatusBackground
+        and the  outer  in  XtNborderColor. The  outer  border  is  then
+        separated from  the top  or  bottom edge  of  the window  by  an
+        additional max(2,XtNvMargin-4) pixels.
+
+        When XtNstatusStyle  is  0,  row  0  is  just  drawn  above  and
+        contiguous with row 1 in the normal way.
+
+
+XtNsynthetic                                                  [resource]
+        BOOL, no default value.
+
+        This resource is set before making an XtNkeyboardEvent callback,
+        so that  "string"  actions  (true)  can  be  distinguished  from
+        "notify-key-event" actions (false).
+
+
+XtNvisible                                                    [resource]
+        BOOL, no default value.
+
+        Set true whenever the widget  window is completely visible,  and
+        false when it is (even partially) obscured.
+
+
+XtNxpwCallback                                                [resource]
+        CALLBACKLIST, default empty (NULL).
+
+        Called by the  widget whenever  the text area  is resized,  i.e.
+        whenever numRows or numColumns changes. See Note on Exposure and
+        Resize Events below.
+
+
+...  Resources Not Actually Used by the Widget
+----------------------------------------------
+
+XtNautoGeometry                                               [resource]
+        STRING, default NULL.
+
+        This resource  is not  used  by the  widget.  (XVed uses  it  to
+        specify automatic sizing for windows.)
+
+
+XtNmenubarBackground                                          [resource]
+XtNmenubarForeground                                          [resource]
+        PIXEL, default values:
+            XtNDefaultBackground
+            XtNDefaultForeground
+
+        These resources are not used by the widget. (XVed uses them  for
+        the background and foreground colours of menubars.)
+
+
+XtNmenubarOn                                                  [resource]
+        BOOL, Default true.
+
+        This resource  is not  used  by the  widget.  (XVed uses  it  to
+        control whether menubars are displayed or not.)
+
+
+XtNscrollbarBackground                                        [resource]
+XtNscrollbarForeground                                        [resource]
+        PIXEL, default values:
+            XtNDefaultBackground
+            XtNDefaultForeground
+
+        These resources are not used by the widget. (XVed uses them  for
+        the background and foreground colours of scrollbars.)
+
+
+XtNscrollbarOn                                                [resource]
+        BOOL, Default true.
+
+        This resource  is not  used  by the  widget.  (XVed uses  it  to
+        control whether scrollbars are displayed or not.)
+
+
+XtNselectionColorNum                                          [resource]
+        This resource  is not  used  by the  widget.  (XVed uses  it  to
+        control which colour is used for selections.)
+
+
+
+4.4  Note on Exposure and Resize Events
+---------------------------------------
+Exposure events are  dealt with  automatically by  the widget.  However,
+whenever numRows or  numColumns change, the  XtNxpwCallback callback  is
+called, and this is expected to set the new contents of the window.
+
+Note that this does not necessarily  happen for any window size  change,
+only when  numRows or  numColumns actually  changes. Thus  for  example,
+changing  fonts  or  margins  may  cause  the  window  to  resize,   but
+XtNxpwCallback is  not  called  unless this  necessitates  changing  the
+number of rows or columns.
+
+In general, when any  resources such fonts or  margins are changed,  the
+widget will attempt to  resize to maintain the  same number of rows  and
+columns; if  this  fails, the  rows  and  columns will  be  adjusted  to
+accomodate the new conditions with the existing size.
+
+
+
+
+-------------------------
+5  Actions & Translations
+-------------------------
+
+5.1  Actions
+------------
+
+The XpwScrollText widget has some generic actions that are each designed
+to handle a specific event. The actions all perform some decoding of the
+event (extracting information such as  mouse coordinates etc), and  then
+call an  associated  callback  list,  usually with  a  useful  piece  of
+call_data or information  set in widget  resource fields. The  following
+table shows the actions defined in XpwScrollText:
+
+ Action Name             X Event              Callback
+ -----------             -------              --------
+ string                  Any                  XtNkeyboardEvent
+ notify-key-event        Key press            XtNkeyboardEvent
+ notify-button-event     ButtonPress/Release  XtNbuttonEvent
+ notify-motion-event     Mouse Motion         XtNmotionEvent
+ bell                    Any                        -
+
+
+string(string)                                                  [action]
+string(char)
+        ACTION,   resulting   from   some   (usually   keyboard)   event
+        translation,  calls   XtNkeyboardEvent   callback   list   (with
+        XtNsynthetic set true).
+
+        This action is called with an ASCII string as argument, e.g.
+
+                string("abcd")
+
+        or with a hexadecimal specification for a single character, e.g.
+
+                string(0x1b)
+
+        In the first  case, it  sets the  XtNkey resource  to the  given
+        string; in the  second it  sets it  to a  string containing  the
+        given character. string may also  contain \X to indicate  Ctrl-X
+        (e.g. \[ = ESCAPE).
+
+        The  XtNkeyboardEvent   callback  is   then  called   with   the
+        XtNsynthetic  resource  set   true  (to   distinguish  it   from
+        notify-key-event). The call data argument is unused.
+
+
+notify-key-event()                                              [action]
+        ACTION, handle X KeyPress event, calls XtNkeyboardEvent callback
+        list (with XtNsynthetic set false).
+
+        This action  is activated  when  a keyboard  key is  pressed  or
+        released within an XpwScrollText widget.
+
+        It first sets XtNmodifiers, XtNmouseX, XtNmouseY, XtNmouseColumn
+        and XtNmouseRow according to the  event. It then translates  the
+        keycode into a keysym, and  sets the XtNkey resource to  reflect
+        the ASCII translation for that key (got from XlookupString).
+
+        The  XtNkeyboardEvent   callback  is   then  called   with   the
+        XtNsynthetic  resource  set  false   (to  distinguish  it   from
+        "string"); if the event  is a KeyRelease, the  call data is  the
+        negated KeySym of  the key, otherwise  the (positive) keysym  is
+        used as call data.
+
+
+notify-button-event()                                           [action]
+        ACTION,  handle  X   ButtonPress  event,  calls   XtNbuttonEvent
+        callback list.
+
+        This action  is activated  when  a mouse  button is  pressed  or
+        released  within  an  XpwScrollText  widget.  Rather  than  just
+        calling back for each press or release, it automatically filters
+        button 'clicks',  that  is, presses  and  releases of  a  button
+        within MultiClickTime, as well as button 'hold', i.e.  holding a
+        button down (for at least twice MultiClickTime).
+
+        The call data argument passed to the XtNbuttonEvent callback  is
+        an integer containing 3 fields, viz:
+
+            (clicks << 16) || (mode << 8) || button
+
+        where button is the button number, mode is either 0, 1, or 2  to
+        indicate RELEASE, PRESS or HOLD respectively, and clicks is  the
+        number of clicks that were made.
+
+        The sequence of callbacks  in a 'dialog' for  a given button  is
+        shown below:
+
+                            PRESS
+                              |
+                      ------------------
+                      |                |
+                N-click PRESS     N-click RELEASE
+                      |
+                  ----|
+                  |  HOLD
+                  ----|
+                      |
+                   RELEASE
+
+        First, an initial  button press event  produces a callback  with
+        mode PRESS and clicks = 0.
+
+        A timer is then set  going, and subsequent releases,  re-presses
+        and releases all within MultiClickTime of the previous event are
+        counted as  clicks. A  release with  no following  press  within
+        MultiClickTime  generates  a  callback  with  mode  RELEASE  for
+        however many clicks there were.
+
+        If at  any  stage  a  press  has  no  following  release  within
+        MultiClickTime, then a callback is generated with mode PRESS and
+        however many  clicks preceded  it.  If the  press still  has  no
+        release after twice MultiClickTime,  another callback with  mode
+        HOLD (and 0 clicks) results. Finally, when the release  comes, a
+        RELEASE callback with 0 clicks is made.
+
+        A button press for  any other button  terminates the dialog  for
+        the  current   button.   XtNmodifiers,   XtNmouseX,   XtNmouseY,
+        XtNmouseColumn  and  XtNmouseRow  are  set  accordinging  before
+        making any callbacks.
+
+
+notify-motion-event()                                           [action]
+        ACTION, handle X MotionNotify event, may call XtNactiveChange or
+        XtNmotionEvent callback list.
+
+        This action  is activated  when  the mouse  is moved  within  an
+        XpwScrollText widget.
+
+        If no buttons  are pressed, an  XtNactiveChange callback may  be
+        generated if the pointer has entered or left a segment of active
+        text (see XtNactiveChange above). Otherwise, no action results.
+
+        If buttons are pressed, it generates an XtNmotionEvent callback,
+        except while  "notify-button-event" is  waiting for  a  'click',
+        i.e. less than MultiClickTime has  elapsed since the button  was
+        pressed.  (If  however,  notify-button-event  is  waiting  for a
+        'hold' and the movement changes the current row or column,  then
+        the hold wait is aborted and the motion callback is generated.)
+
+        Before  callback,   the  XtNmodifiers,   XtNmouseX,   XtNmouseY,
+        XtNmouseColumn and  XtNmouseRow resources  are set  accordingly.
+        The  call  data  to  a  callback  is  the  same  value  as   for
+        XtNmodifiers, i.e. the event button/modifier state.
+
+
+bell()                                                          [action]
+        ACTION, called in an event translation.
+
+        Rings the bell (by calling XBell).
+
+
+5.2  Translations
+-----------------
+The default translations for XpwScrollText  widgets simply map X  events
+into the actions described above, using the following translation table:
+
+    "<BtnDown>:         notify-button-event() \n\
+     <BtnUp>:           notify-button-event() \n\
+     <Motion>:          notify-motion-event() \n\
+     <KeyPress>:        notify-key-event() \n\
+     <KeyRelease>:      notify-key-event()";
+
+Other X events  such as EnterNotify  and LeaveNotify are  dealt with  by
+internal event handlers.
+
+
+
+
+----------------------------
+6  C Programming Information
+----------------------------
+
+Xpw follows all of the Xt conventions, and so should be  straightforward
+to use  in C,  and in  other languages.  Widget creation,  and  resource
+setting etc, all follow the Xt norms. The one addition to Xt is the  use
+of methods instead  of a collection  of global C  procedures to  perform
+widget-class specific operations  on a  widget. See  REF * XpwCallMethod
+for a  description of  the calling  syntax for  methods, and  a  C-style
+synopsis of all of the methods available in Xpw.
+
+
+
+
+--- C.x/x/pop/ref/XpwScrollText
+--- Copyright University of Sussex 1995. All rights reserved.

@@ -1,0 +1,126 @@
+HELP prb_checkpatterns                                A.Sloman, Feb 2002
+                                  Facility suggested by Catriona Kennedy
+
+
+CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Overview
+ -- Global variable: prb_ignore_words
+ -- How the procedure works
+ -- Using the procedure
+ -- Using a procedure to exclude words
+ -- Example
+
+-- Overview -----------------------------------------------------------
+
+prb_checkpatterns(infile, oklist, outfile);
+prb_checkpatterns(infile, oklist, outfile, true);
+
+This procedure can be used to create a file of information (outfile)
+about keywords and other symbols used in conditions and actions in a
+file defining rulesets (infile). This is useful for debugging purposes,
+since a keyword can be mistyped and produce no error at compile time,
+only bizarre behaviour at run time.
+
+The arguments are as follows:
+
+    infile:
+        A string, the name of the file (on disk) to be tested. This
+        file will contain rule sets.
+
+    oklist:
+        A list of keywords known to be required, and not to be reported
+        if found in the program.
+        It can also contain procedures which can recognize such words,
+        e.g. is_syntax_word. In that case the procedure itself, not its
+        name, should be in the list.
+
+    outfile:
+        A string, the name of the file to which the list of unexpected
+        condition and action keywords is to be written. This can be
+        used when the file is known to be OK  to build up the oklist for
+        a future test.
+        For debugging purposes the fourth argument can be used to make
+        the file contain line numbers.
+
+    true (optional)
+        The optional fourth argument, true, specifies that line numbers
+        should not be shown, and each found word should be reported only
+        once. This is useful for creating a list of accepted key words.
+
+
+
+-- Global variable: prb_ignore_words ----------------------------------
+
+The value of this variable should be a list of words. Those words will
+be ignored by the procedure prb_checkpatterns. It can be used to specify
+system keywords.
+
+By default it includes condition and action keywords known to
+Poprulebase, something like this:
+
+    global vars prb_ignore_words =
+        [NOT OR AND NOT_EXISTS IMPLIES FILTER INDATA VAL
+        DLOCAL INSTRUCTIONS FINAL WINDOW STARTWINDOW ENTITIES
+        $$ ?? ? -> ->> sim_myself prb_allrules prb_sortrules];
+
+The user can change that list.
+
+-- How the procedure works --------------------------------------------
+
+The procedure prb_checkpatterns reads in the file with name <infile>,
+goes through it looking for list expressions and checking them, except
+those starting [POP11 ... ] or [WHERE ...] since these can contain
+arbitrary pop-11 code.
+
+For each word found in such a list expression it checks whether it
+occurs in the list oklist or is recognized by one of the procedures
+there or is in the list prb_ignore_words.
+
+For each word that is not so recognised it prepares a warning which goes
+into <outfile>, along with the line number at which it was located. If
+the true fourth argument is provided, the word is reported without
+a line number, and is not reported more than once even if it occurs more
+than once.
+
+-- Using the procedure ------------------------------------------------
+
+To use the procedure:
+    1. Make a list of words you expect to find in your patterns,
+       and use that list as the oklist argument.
+       (You can use prb_checkpatterns to produce such a list).
+
+    2. Then to test a file called 'input.p' and write  a list of unrecognised
+       words in list elements to the file 'test.out' do
+
+        prb_checkpatterns('input.p', oklist , 'test.out');
+
+The file test.out will report words that are not recognized.
+
+-- Using a procedure to exclude words ---------------------------------
+
+Suppose you don't want pop-11 syntax words to be included in the
+<outfile>. You can then use the pop-11 procedure is_syntax_word
+(not its name) in the <oklist>, to exclude syntax words.
+
+
+
+-- Example ------------------------------------------------------------
+
+To see how this works on the file TEACH sim_feelings do this
+
+    vars oklist =
+        [new_x new_y old_x old_y sim_coords sim_heading_from
+         sim_name my_target sim_distance new_sense_data It];
+
+    prb_checkpatterns('$local/newkit/sim/teach/sim_feelings', oklist, 'test.out');
+
+Then look at the file test.out
+
+To see what it does with the optional true argument suppressing line numbers
+and repeated occurrences, try
+
+    prb_checkpatterns('$local/newkit/sim/teach/sim_feelings', oklist, 'test.out', true);
+
+--- $poplocal/local/newkit/prb/help/prb_checkpatterns
+--- Copyright University of Birmingham 2002. All rights reserved. ------

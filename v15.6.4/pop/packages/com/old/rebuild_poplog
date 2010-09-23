@@ -1,0 +1,88 @@
+#!/bin/tcsh
+
+# prevent local files being found and compiled
+mv $poplocal/local $poplocal/local.temp
+
+ls -l $poplocal/local.temp
+
+cd $popsys
+
+pwd
+echo "rebuilding system images"
+
+$popsrc/mksyscomp popc poplibr poplink
+
+$popsrc/mknewpop
+
+ls -l *.psv
+
+cd $popexternlib
+pwd
+
+echo "mklibpop"
+./mklibpop
+
+cd $popcom
+pwd
+
+echo "mkXpw"
+./mkXpw
+
+echo "mkXpm"
+./mkXpm
+
+cd $usepop/pop/obj
+    pwd
+    echo 'saving library files in old'
+    mkdir old
+    ls -l
+    mv *.* old
+
+cd $usepop/pop/src
+    pwd
+    echo 'pgcomp'
+    pgcomp *.[ps]
+    echo 'pglibr'
+    pglibr -c ../obj/src.wlb *.w
+    rm *.[ow]
+
+cd $usepop/pop/ved/src/
+    pwd
+    echo 'pgcomp'
+    pgcomp *.[ps]
+    echo 'pglibr'
+    pglibr -c ../../obj/vedsrc.wlb *.w
+    rm *.[ow]
+
+cd $usepop/pop/x/src/
+    pwd
+    echo 'pgcomp'
+    pgcomp *.[ps]
+    echo 'pglibr'
+    pglibr -c ../../obj/xsrc.wlb *.w
+    rm *.[ow]
+
+
+
+# link a complete system into a newpop11 image, using pglink
+cd $popsys
+#pglink -xm
+#ls -l newpop11
+#cp -p newpop11 basepop11
+
+mv $poplocal/local.temp $poplocal/local
+
+ls -l $poplocal/local
+
+$usepop/pop/src/newpop -link -x=-xm -norsv
+
+### The following are done by the newpop command
+## $popcom/mkstartup
+##
+## ## Needed for next items
+## setenv pop_pop11 "-$popsavelib/startup.psv"
+##
+## $popcom/mkplog
+## $popcom/mkclisp
+## $popcom/mkpml
+## $popcom/mkxved

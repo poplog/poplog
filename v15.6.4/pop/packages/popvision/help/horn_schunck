@@ -1,0 +1,148 @@
+HELP HORN_SCHUNCK                               David Young
+                                                April 1994
+
+LIB * HORN_SCHUNCK implements an algorithm for extracting optic flow
+vectors from a pair of images. The algorithm is close to that described
+in "Determining Optical Flow" by B.K.P. Horn & B.G. Schunck (Artificial
+Intelligence, 17, 141-184, 1981). LIB * VISION must be loaded to use
+this library.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Algorithm
+ -- The procedure horn_schunck
+ -- Example
+
+-- Algorithm ----------------------------------------------------------
+
+For details, see the paper cited above, or any of the textbooks that
+describe this or related methods.
+
+The method is gradient-based. In the initialisation stage, spatial and
+temporal image gradients are estimated. In this implementation, only a
+pair of images is used. Gradients are estimated using Gaussian smoothing
+and differencing.
+
+The optic flow vector field p(r) = (u(x, y), v(x, y)) is required to
+satisfy the constraint equation
+
+    Ix * u + Iy * v + It = 0
+
+at all (x, y), where Ix, Iy and It are the spatial and temporal
+gradients of image intensity. As this is underconstrained, we also
+require the flow to be smooth:
+
+    u = <u>
+    v = <v>
+
+where <u> and <v> are local spatial averages of u and v. In the present
+implementation, these averages are formed using Gaussian smoothing.
+
+At each iteration, the second constraint is first enforced by smoothing
+the current estimates of u and v; then the smoothed vectors are moved
+towards the "constraint line" corresponding to the first constraint,
+using
+                                                  2     2
+    u - Ix * (Ix * u + Iy * v + It) / (lambda + Ix  + Iy )  ->  u
+                                                  2     2
+    v - Iy * (Ix * u + Iy * v + It) / (lambda + Ix  + Iy )  ->  v
+
+where lambda is a damping constant controlling the amount of movement
+towards the constraint line. For lambda = 0, the vectors will satisfy
+the first constraint when this update is complete; for lambda > 0 a
+smaller adjustment will occur.
+
+-- The procedure horn_schunck -----------------------------------------
+
+horn_schunck(image1, image2, sigma1, sigma2, lmbda) -> hs_proc
+        This returns a procedure to carry out the horn_schunck algorithm
+        using the pair of images and parameters given.
+
+        image1 and image2 must be 2-D single-precision floating point
+        arrays with the same dimensions. (They can be created using
+        *newsfloatarray.)
+
+        sigma1 must be a number giving the width of the Gaussian used to
+        smooth the images when estimating the gradients.
+
+        sigma2 must be a number giving the width of the Gaussian used to
+        smooth the flow vectors when enforcing the smoothness
+        constraint.
+
+        lmbda gives the lambda parameter described above. It should be a
+        positive number. The closer it is to zero, the more tightly the
+        first constraint is enforced at the end of each iteration.
+
+        The result hs_proc is a procedure which should be called once
+        for each iteration required. It returns two arrays:
+
+            hs_proc() -> (u, v)
+
+        where u is the array of x-components of the current flow vector
+        estimates and v is the array of y-components of the current flow
+        vector estimates.  The contents of these arrays must not be
+        changed between calls to hs_proc.
+
+        u and v give the flow in units of pixels per frame.
+
+-- Example ------------------------------------------------------------
+
+It is simplest to check the program on a synthetic image pair with
+uniform flow. Load the library:
+
+    uses popvision
+    uses horn_schunck
+
+First, create a random array:
+
+    vars iii = newsfloatarray([1 100 1 100], erase<>erase<>random0(% 2 %));
+
+and smooth and binarise it to provide a splodgy pattern:
+
+    convolve_gauss_2d(iii, 3) -> iii;
+    arraylookup(iii, false, [{0.5} {0 1}], iii) -> ;    ;;; binarise
+    rci_show(iii) -> ;              ;;; display if wished
+
+Now get two versions of it it, shifted by the vector (-1, 2):
+
+    vars jjj
+      = arraysample(iii, [9 91 11 92], false, [9 91 11 92], "nearest");
+    vars kkk
+      = arraysample(iii, [10 92 9 90], false, [9 91 11 92], "nearest");
+
+(The shift is defined by the difference in the boundslists in the second
+call to *arraysample.)
+
+Calculate the gradients and set up the iteration; both smoothing
+constants are 3 pixels, and lambda is fairly small:
+
+    vars u, v, hs_proc = horn_schunck(jjj, kkk, 3, 3, 0.001);
+
+We are now in a position to iterate. We can look at the results as they
+come out with *display_flow.
+
+    uses display_flow
+    2 -> rci_show_scale;        ;;; enlarge the for display
+    vars win = false;           ;;; for display_flow to use
+    repeat 12 times
+        hs_proc() -> (u, v);         ;;; One iteration of the algorithm
+        display_flow(u, v, 5, 10, win) -> win
+    endrepeat;
+
+The 5 in the call to display_flow is a magnification factor for the
+vectors relative to positions in the image. Vectors are only drawn for
+every tenth pixel.
+
+We can check the overall results by finding the mean vector in the
+central region:
+
+    uses float_arrayprocs
+    float_arraymean(arraysample(u,[20 80 20 80],false,false,"nearest")) =>
+    float_arraymean(arraysample(v,[20 80 20 80],false,false,"nearest")) =>
+
+These should print out values reasonably close to -1 and 2 respectively.
+More iterations will get closer to the true values of the shift.
+
+
+--- $popvision/help/horn_schunck
+--- Copyright University of Sussex 1994. All rights reserved.

@@ -1,0 +1,671 @@
+TEACH ELIZA                                    Steve Hardy, October 1981
+
+This handout describes how to write a simple 'eliza like' program. ELIZA
+was an early AI program which embodied some knowledge about the rules of
+conversation. It was developed by Joseph Weizenbaum (author of 'Computer
+Power and Human Judgement'). Descriptions of ELIZA can be found in:
+
+    Margaret Boden: 'Artificial Intelligence and Natural Man'
+                            pages 96, 106 etc (see subject index)
+    Bertram Raphael: 'The Thinking Computer'
+                            table 6.4, page 199
+
+         CONTENTS - (Use <ENTER> g to access sections)
+
+ -- PLAY WITH ELIZA
+ -- PREPARATORY READING
+ -- ASK FOR HELP IF YOU NEED IT
+ -- CONVERSE, A FIRST EXAMPLE
+ -- MAKING CONVERSE INTERACTIVE
+ -- CONVERSE EXPLAINED A LINE AT A TIME
+ -- HOW TO SWITCH BETWEEN TEACH AND VED
+ -- WRITE YOUR OWN VERSION OF CONVERSE
+ -- MAKING CONVERSE CONDITIONAL
+ -- DOCTOR, A MORE COMPLICATED EXAMPLE
+ -- DOCTOR EXPLAINED A LINE AT A TIME
+ -- SUMMARY
+ -- A DIAGRAMMATIC EXPLANATION OF DOCTOR
+ -- BIG PROCEDURES CAN BE BROKEN UP INTO SMALLER COMPONENTS
+ -- AN EXERCISE: EXTEND THE DOCTOR PROGRAM
+ -- GUESS, A DIFFERENT SORT OF EXAMPLE
+ -- MAKE UP YOUR OWN EXAMPLE
+ -- BREAK BIG PROCEDURES UP INTO BITS
+ -- INTRODUCING MATCHES
+ -- A COMMENT ON CONDITIONS
+ -- SOME EXERCISES USING MATCHES
+ -- USING MATCHES TO EXTEND DOCTOR
+ -- RESPONDTO EXPLAINED
+ -- FURTHER READING
+
+-- PLAY WITH ELIZA -----------------------------------------------------
+
+You can  play with  a  mini-version of  ELIZA too.  To  do this  do  the
+following:
+
+    PRESS the ENTER key
+    TYPE    $eliza                          (include the dollar symbol)
+    PRESS the RETURN key
+
+and wait for instructions. When you have finished, you can continue with
+this teach file.
+
+
+-- PREPARATORY READING ------------------------------------------------
+
+Before reading the rest  of this help file,  you should have read  TEACH
+VED, and TEACH VEDPOP, since you will  need to create a program file  of
+your own. TEACH VARS will also be useful.
+
+Use the LF button, or keypad 2 or the DOWN-SCREEN button to read on:
+
+
+-- ASK FOR HELP IF YOU NEED IT -----------------------------------------
+
+This help file will suggest things for you to try out on POP-11 and make
+suggestions about creating program files. If you have difficulities, ask
+for help.
+
+
+-- CONVERSE, A FIRST EXAMPLE -------------------------------------------
+
+A procedure definition follows, which you should put into a file called,
+say: 'converse.p'. To tell VED you want  to create (or alter) a file  of
+this name give  an 'ENTER  ved converse.p'  command, that  is press  the
+ENTER key, type the  'ved converse.p' then press  RETURN. If you  didn't
+know how to do this then you didn't read VEDPOP properly.
+
+    define converse();
+        [sorry - i am too stupid to talk] =>
+    enddefine;
+
+Once you have typed in the  definition you can have a particularly  dumb
+conversation, all you need  do next is go  to POP-11 (with ENTER-X)  and
+try the new procedure, by giving the the POP-11 command:
+
+    converse();
+
+Type TEACH; to get back here.
+
+
+-- MAKING CONVERSE INTERACTIVE -----------------------------------------
+
+We can  make this  program  a bit  smarter by  getting  it to  ask  some
+question and then use the answer  to form the next bit of  conversation.
+This is easiest if the question demands a stereotyped answer like  'yes'
+or, perhaps, a name. Use VED to change your procedure to:
+
+    define converse();
+        vars name;
+        [hello] =>
+        [what is your name] =>
+        readline() -> name;
+        [pleased to meet you ^^name] =>
+        [well - i must go now] =>
+    enddefine;
+
+To invoke VED  give an 'ENTER  ved' command, that  is press ENTER,  type
+'ved' and then press RETURN.
+
+Don't worry if you don't understand the new definition. By the way,  the
+'^' character is at the top right  of the keyboard close to the DEL  key
+and between the '-' and '\' keys.  Try the new definition by giving  the
+command (after getting to POP-11 with ENTER-X):
+
+    converse();
+
+Then type 'TEACH;' to get back here.
+
+
+-- CONVERSE EXPLAINED A LINE AT A TIME ---------------------------------
+
+Look back at the definition of  the procedure CONVERSE, and try to  work
+out what it means. Then read on. Use UP-SCREEN and DOWN-SCREEN keys.
+
+Let us take  the definition a  line at a  time and work  out what it  is
+doing. The first line:
+
+    define converse();
+
+tells the  system  that  you want  to  define  a new  command  -  called
+'converse'. The  parentheses  are necessary  but  for the  moment  we'll
+ignore them. The second line says:
+
+    vars name;
+
+From reading TEACH VARS you will know that this tells POP-11 that 'name'
+is to be used as  a 'variable' for storing  something (in this case,  it
+will be used to store a list). The third and fourth lines:
+
+    [hello] =>
+    [what is your name] =>
+
+simply tell POP-11 that it should print something. The fifth line:
+
+    readline() -> name;
+
+is very curious. It tells  POP-11 that at this point  it is to stop  and
+wait for the user to type in something. So that the user knows something
+odd is happening, READLINE will prompt the user with a '?'. Whatever the
+user types in response  will be made  up into a  list and 'returned'  by
+readline as its 'result'. The  '-> name' bit of  the line says to  store
+the result of readline in the variable 'name' for later use. If the user
+types, for example:
+
+    i am not going to tell you my name
+
+then the statement:
+
+    readline() -> name;
+
+will have the same effect as:
+
+    [i am not going to tell you my name] -> name;
+
+The sixth line of  the definition of converse  makes use of this  stored
+value:
+
+    [pleased to meet you ^^name] =>
+
+This tells POP-11  to print  something with  the VALUE  of the  variable
+'name', not  the word  itself, inserted  at the  given point.  The  '^^'
+prefix tells POP-11 to insert the value of 'name'; if you omit the  '^^'
+prefix then all POP-11 will print is:
+
+    ** [pleased to meet you name]
+
+The seventh line  of the  definition is straightforward.  The last  line
+tells POP-11 that you have  finished the definition. 'enddefine' is  the
+'closing bracket' corresponding to the opening bracket 'define', just as
+']' is the closing bracket for ']'.
+
+
+-- HOW TO SWITCH BETWEEN TEACH AND VED ---------------------------------
+
+Look back at your file and check that you now understand what each  line
+does.
+
+ENTER-ved (ie press ENTER,  type 'ved' and then  press RETURN) will  get
+you to your file  and ENTER-help (ie press  ENTER, type 'help' and  then
+press RETURN) should get you back here.
+
+Alternatively, you  can switch  between two  files by  pressing the  ESC
+button (top left) and then X (for  exchange). Try ESC X a few times.  It
+may not work correctly when  you have more than  two files in VED.  When
+you feel you understand how converse works, come back here and read on.
+
+
+-- WRITE YOUR OWN VERSION OF CONVERSE ----------------------------------
+
+A valuable exercise would be to  write a second procedure like  converse
+but of your own invention.
+
+Here's a possibility:
+
+    define doctor();
+        vars name, problem;
+        [hello - what is your name] =>
+        readline() -> name;
+        [tell me ^^name - what is it that worries you most] =>
+        readline() -> problem;
+        [strange you should say that ^^name] =>
+        [i worry about ^^problem too] =>
+        [i see it is time for my next patient] =>
+        [goodbye ^^name] =>
+    enddefine;
+
+You can put  this definition into  the same file  as your definition  of
+converse. If you put two definitions of  the same word in the same  file
+then POP-11 will always use  the one it has  most recently read (ie  the
+second one).
+
+
+-- MAKING CONVERSE CONDITIONAL -----------------------------------------
+
+So  far,  the  definitions  considered  do  not  use  any  'conditional'
+statements.  These  are  most  important  since  they  give  a   program
+flexibility to modify its behaviour depending on circumstances (provided
+all the  options have  been considered  in advance  by the  programmer).
+Let's look at a simple conditional definition:
+
+    define greet();
+        vars answer;
+        [are you happy] =>
+        readline() -> answer;
+        if answer = [yes] then
+            [good] =>
+        else
+            [oh dear] =>
+        endif;
+    enddefine;
+
+Try out this definition.
+
+
+-- DOCTOR, A MORE COMPLICATED EXAMPLE ----------------------------------
+
+Here is  a more  complicated example  (read the  following notes  before
+trying it):
+
+    define doctor();
+        vars answer;
+        [are you feeling well] =>
+        readline() -> answer;
+        if answer = [yes] then
+            [you do not need my services] =>
+        else
+            [do you hurt somewhere] =>
+            readline() -> answer;
+            if answer = [yes] then
+                [take two aspirins every four hours] =>
+            else
+                [you need to see a specialist] =>
+                [make an appointment with the receptionist] =>
+            endif
+        endif;
+        [that will be $50 please] =>
+    enddefine;
+
+It will simplify copying  these examples into your  own file if,  before
+giving the 'ENTER ved' command you position the text you want to  remain
+visible at the bottom  of the screen.  Part of this  text will still  be
+visible whilst you are editing your own file. You can flit back to  this
+file half  way  through by  giving  an  'ENTER help'  command  and  then
+repositioning the  help file  text before  returning to  your own  file.
+Also, you can try using the ESC-X command (ie press ESC then press  'x')
+to flit back and forth between two files.
+
+Alternatively, you could write it on  paper but would that would  rather
+be against the spirit of this course.
+
+
+-- DOCTOR EXPLAINED A LINE AT A TIME -----------------------------------
+
+Let's examine  the 'doctor'  example in  some detail  - there  are  some
+interesting points about it. The procedure has four steps:
+
+    (1) Printing [are you feeling well]
+    (2) Reading a reply
+    (3) A big conditional statement
+    (4) Printing [that will be $50 please]
+
+Each step is  'separated' from  the next  by a  'separator'. The  'print
+arrow' (ie '=>') is a separator and so is the semi-colon.
+
+Step (3) has three parts:
+
+    (3.1) A condition, answer = [yes]
+    (3.2) What to do if the condition is true
+    (3.3) What to do if the condition is false
+
+Step (3.2) is a simple  print statement. Step (3.3),  what to do if  the
+condition is false, itself contains several steps:
+
+    (3.3.1) Print [do you hurt somewhere]
+    (3.3.2) Read a reply from the user
+    (3.3.3) Another conditional statement
+
+The steps of (3.3) are separated from one another, either by '=>' or  by
+';'. Step (3.3.3)  is itself a  conditional statement and  so has  three
+components:
+
+    (3.3.3.1) A condition, answer = [yes]
+    (3.3.3.2) What to do if the condition is true,
+                        ie print [take two aspirins ...]
+    (3.3.3.3) What do to if the condition is false
+
+Step (3.3.3.3) is itself a componunt step with two sub-steps:
+
+    (3.3.3.3.1) Print [you need ...]
+    (3.3.3.3.2) Print [make an appointement ...]
+
+Notice that  step  (4)  (asking  for the  money)  always  gets  'obeyed'
+whatever happens in the two conditional statements.
+
+
+-- SUMMARY -------------------------------------------------------------
+
+To summarize: procedure  definitions can  have several  steps which  are
+obeyed in sequence. These steps may  be conditionals, in which case  the
+condition itself will  always be  'evaluated' and  then one  of the  two
+'arms' of the  conditional statement  will be evaluated.  The arms  of a
+conditional statement may contain several steps (including conditionals)
+and these sub-steps are obeyed in sequence. Steps of a procedure (or  an
+arm of a conditional)  should be separated either  by a print arrow,  ie
+'=>', or by a semicolon, ie ';'.
+
+
+-- A DIAGRAMMATIC EXPLANATION OF DOCTOR --------------------------------
+
+We can illustrate what is happening diagramatically thus:
+
+
+    [are you feeling well] =>
+    readline() -> answer;
+
+    answer = [yes] ? if so ->->->->->: [you do not need my services] =>
+            |                                                      |
+            | if not                                               |
+            |                                                      |
+    [do you hurt somewhere] =>                                     |
+    readline() -> answer;                                          |
+    answer = [yes] ? if so, ->->: [take two aspirins ...] =>       |
+            |                                    |                 |
+            | if not                             |                 |
+            |                                    |                 |
+    [you need to see ...] =>                     |                 |
+    [make an appointment ...] =>                 |                 |
+            |                                    |                 |
+            *-<-<-<-<-<-<-<-<-<-<-<-<-<-<-<-<-<-<*                 |
+            |                                                      |
+            *-<-<-<-<-<-<-<-<-<-<-<-<-<-<-<-<-<-<-<-<-<-<-<-<-<-<-<*
+            |
+    [that will be $50 please] =>
+
+
+-- BIG PROCEDURES CAN BE BROKEN UP INTO SMALLER COMPONENTS -------------
+
+It is often sensible  to break up  a procedure into  several bits if  it
+gets too complicated for you to take  in at a glance. This isn't  really
+necessary with the 'doctor' procedure of  above since it is less  than a
+screenful of text but if we did want to split it up here would be a good
+way:
+
+    define doctor();
+        vars answer;
+        [are you feeling well] =>
+        readline() -> answer;
+        if answer = [yes] then
+            [you do not need my services] =>
+        else
+            feelbad()
+        endif;
+        [that will be $50 please] =>
+    enddefine;
+
+    define feelbad();
+        vars answer;
+        [do you hurt somewhere] =>
+        readline() -> answer;
+        if answer = [yes] then
+            [take two aspirins every four hours] =>
+        else
+            [you need to see a specialist] =>
+            [make an appointment with the receptionist] =>
+        endif
+    enddefine;
+
+Although the program is longer overall (since it now has two  procedures
+in it rather than one) each procedure is simpler to understand than  the
+original.
+
+
+-- AN EXERCISE: EXTEND THE DOCTOR PROGRAM ------------------------------
+
+Try extending the 'doctor' procedure.  Note that conditions need not  be
+as simple as 'answer = [yes]'; you could have, for example:
+
+    if answer = [head] then
+
+or
+
+    if answer = [my back hurts most] then
+
+
+-- GUESS, A DIFFERENT SORT OF EXAMPLE ----------------------------------
+
+As a  final  example  of  procedures created  according  to  this  basic
+pattern, we look at a simple program to play 'twenty questions'  (though
+not very well):
+
+    define guess();
+        vars answer;
+        [think of a thing] =>
+        [is it animal vegetable or mineral] =>
+        readline() -> answer;
+        if answer = [animal] then
+            [does it have four legs] =>
+            readline() -> answer;
+            if answer = [yes] then
+                [i think it is a horse] =>
+            else
+                [i think it is a person] =>
+            endif
+        elseif answer = [vegetable] then
+            [i think it is a carrot] =>
+        else
+            [i give up] =>
+        endif
+    enddefine;
+
+This example, introduces one new  concept - the 'multi-way  conditional'
+which has the form:
+
+    IF first condition THEN
+         actions to be done if first condition is true
+    ELSEIF second condition THEN
+         actions to be done if first condition is false
+                                       and second condition is true
+    ELSE
+         actions to be done if neither condition is true
+    ENDIF
+
+The word 'elseif' mustn't have a space in the middle of it. You can have
+as many 'ELSEIF  condition THEN  actions' as  you like.  Whilst you  are
+permitted to omit the 'ELSE actions' bit, it is very unwise to do so.
+
+
+-- MAKE UP YOUR OWN EXAMPLE --------------------------------------------
+
+Use you imagination  to create some  new procedure. It  might be one  to
+simulate a conversation with a car  mechanic, trying to fix your car  or
+it might be a conversation with a very rude person who just insults  you
+the whole time or it might be a conversation with a ...
+
+
+-- BREAK BIG PROCEDURES UP INTO BITS -----------------------------------
+
+Remember - as a general rule any procedure definition that won't fit  on
+a the VDU screen is probably too big and should be split up into several
+procedures. If the 'guess' procedure gets  too big it could be split  up
+as follows:
+
+    define guess();
+        vars answer;
+        [think of an object] =>
+        [is it animal vegetable or mineral] =>
+        readline() -> answer;
+        if answer = [animal] then
+            guessanimal()
+        elseif answer = [vegetable] then
+            guessvegetable()
+        else
+            guessmineral()
+        endif
+    enddefine;
+
+    define guessanimal();
+        vars answer;
+        [does it have four legs] =>
+        readline() -> answer;
+        if answer = [yes] then
+            guessanimalfourlegs()
+        else
+            guessanimalnotfourlegs()
+        endif
+    enddefine;
+
+The   four   remaining   undefined   procedures   (ie    guessvegetable,
+guessmineral, guessanimalfourlegs and guessanimalnotfourlegs) would  all
+have to be defined  for the program to  work. Notice that although  file
+names can only be eight letters  long, POP-11 procedure names can be  as
+long as you like. Notice also how  splitting up a big procedure in  this
+way makes it  much easier to  understand since there  are fewer  'nested
+conditionals'  (ie   conditional   statements   inside   a   conditional
+statement). Experience has  shown that nested  conditionals can make  it
+harder to follow what is going on.
+
+
+-- INTRODUCING MATCHES -------------------------------------------------
+
+We have already seen how a 'condition'  can be used to see if two  lists
+are identical, for example:
+
+    if answer = [mind your own business] then ...
+
+This is often too rigid. For example, when the 'doctor' program asks:
+
+    [where does it hurt] =>
+
+the user might respond in any of the following ways:
+
+    well it is my head that hurts most
+    my head
+    all over the back of my head
+
+It would  be  impossible to  provide  explicitly for  all  these  cases.
+Fortunately, POP-11 provides a 'matches' procedure that is useful  here.
+Here is a typical call of 'matches':
+
+    if answer matches [??x head ??y] then ...
+
+This condition  is  true  if  the  value  of  'answer'  contains  'head'
+anywhere; if answer doesn't contain 'head' then the condition is  false.
+Moreover, the variables 'x' and 'y' will be 'set' to the words on either
+side of  the  word 'head'.  To  make  this clearer,  try  the  following
+example:
+
+    [my head hurts] matches [??x head ??y] =>
+    x =>
+    y =>
+
+
+-- A COMMENT ON CONDITIONS ---------------------------------------------
+
+If POP-11 complains  about 'undeclared variables'  then just ignore  it;
+the POP-11 system is sometimes a  bit pedantic (later you'll be glad  of
+that).
+
+Notice how we can ask POP-11  to evaluate a condition directly,  without
+having to write something as cumbersome as:
+
+    if [my head hurts] matches [??x head ??y] then
+        true =>
+    else
+        false =>
+    endif;
+
+
+-- SOME EXERCISES USING MATCHES ----------------------------------------
+
+Try the following examples, and look at the values of X and Y each time:
+
+    [my mother makes apple pies] matches [??x mother ??y] =>
+    [my father makes apple pies] matches [??x mother ??y] =>
+    [father makes apple pies for mother] -> data;
+    data matches [??x mother ??y] =>
+    data matches [??x father ??y] =>
+    data matches [??x apple ??y] =>
+    data matches [??x father ??y mother ??z] =>
+    data matches [??x mother ??y father ??z] =>
+
+
+-- USING MATCHES TO EXTEND DOCTOR --------------------------------------
+
+We can use  'matches' to write  a far cleverer  version of the  'doctor'
+program. In fact, this is precisely how the ELIZA program is written, so
+we call this program  MYELIZA. I use this  example to introduce  several
+new ideas so you'll need  to read the notes  below the example to  fully
+understand it.
+
+    define myeliza();
+        vars x, y, z;
+        [good day - what is your problem] =>
+        readline() -> z;
+        until z matches [??x bye ??y] do
+            respondto(z);
+            readline() -> z;
+        enduntil;
+        [good bye] =>
+    enddefine;
+
+    define respondto(list);
+        vars x, y;
+        if list matches [??x mother ??y] then
+            [tell me more about your family] =>
+        elseif list matches [i want to ??x] then
+            [do you know anyone else who wants to ^^x] =>
+        elseif list matches [i ??x you] then
+            [perhaps in your fantasy we ^^x each other] =>
+        elseif list matches [??x ill ??y] then
+            [have you tried the health centre] =>
+        else
+            [how interesting - do go on] =>
+        endif;
+    enddefine;
+
+This example introduces one new syntactic construction-the 'until loop'.
+The form of such a loop is:
+
+    UNTIL condition DO actions ENDUNTIL
+
+When POP-11 comes across  such a statement,  it evaluates the  condition
+and if it  true does  no more.  If the  condition is  false then  POP-11
+performs the  actions and  then returns  to retest  the condition.  This
+continues until the  condition comes  out true.  Notice that  it is  not
+quite like an UNTIL in English since you might expect that POP-11  would
+break off in the middle of the actions if the condition became true half
+way through performing them.
+
+In this case,  the condition is  a simple call  of MATCHES. The  actions
+involve a call of a user defined procedure called 'respondto'. From  the
+way RESPONDTO is invoked we can see that it needs an 'argument' (in this
+case the  argument is  the value  of  the variable  'z') and  it  prints
+something.
+
+
+-- RESPONDTO EXPLAINED --------------------------------------------------
+
+The definition of 'respondto' also  introduces some new ideas.  Firstly,
+we see that 'respondto' is defined to need an argument which is referred
+to as 'list' in the definition.  The name of the actual argument  (which
+in this case is  'z') and the  name of the  'formal argument' (which  in
+this case  is  'list') can  be  the  same if  you  wish -  it  makes  no
+difference. A fundamental  principle of POP-11  programming is that  the
+names used for variables  in a procedure should  not have any effect  on
+the rest of a program.  Notice that it is necessary  to have a 'vars  x,
+y;' statement in 'respondto'  as well as in  'myeliza'; this is  because
+the X  and  Y  in  'myeliza'  are 'local'  to  that  definition  and  so
+'respondto' must have  its own  X and Y,  declared as  local within  it,
+using VARS. (For  more on  local variables  try TEACH  DEFINE and  TEACH
+VARS.
+
+    -----------------------------------------------------------
+
+It would not affect the meaning of the definition of 'respondto' if  all
+the variables in it were systematically renamed, for example:
+
+    define respondto(arthur);
+        vars mary, jane;
+        if arthur matches [??mary mother ??jane] then
+            [tell me more about your family] =>
+        ....
+    enddefine;
+
+These variable names are a bit silly - but since their meaning to POP-11
+is determined completely by how they are used you will only affect human
+readers of your program by using daft variables names.
+
+    -------------------------------------------------------------
+
+Make efforts  to extend  the definition  of 'respondto'  to get  a  more
+interesting conversation from the system. If you have time to spare then
+look at TEACH ELIZA2 which describes more complicated improvements  that
+can be made to ELIZA.
+
+
+-- FURTHER READING -----------------------------------------------------
+
+TEACH DATABASE is a good file to read next.
+
+--- C.all/teach/eliza --------------------------------------------------
+--- Copyright University of Sussex 1992. All rights reserved. ----------

@@ -1,0 +1,122 @@
+REF XBuffers                                         A.Schoter, Jun 1991
+                                        Revised: Adrian Howard, Jun 1993
+
+        COPYRIGHT University of Sussex 1993. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<< XLIB CUT AND PASTE BUFFERS  >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+Cut  and  paste  is  a  method  for  communicating  information  between
+different applications. For example, in many applications you can select
+an area of text with the mouse, "cut" it from the application, and  then
+"paste" it into a different window. The following details one method  of
+implementing cut and paste in Xlib.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   LIB XBuffers
+      1.1   Buffer Management Procedures
+
+
+
+---------------
+1  LIB XBuffers
+---------------
+
+X provides eight properties  explicitly for programs to  use as cut  and
+paste buffers  (they are  implemented as  properties of  the first  root
+window of the display.)
+
+Applications must decide what the data in these buffers is to represent,
+unlike selections (see REF * XSelections) the  data is not typed in  any
+way. Often, the data is just ASCII or ISO Latin-1 text.
+
+It should be noted  that selections are usually  a better mechanism  for
+communicating information between different  programs. When writing  new
+applications you are  encouraged to  use selections over  cut and  paste
+buffers if at all possible.
+
+To load LIB * XBuffers do:
+
+    uses xlib, XBuffers;
+
+The procedures supplied by  this library are  direct equivalents of  the
+Xlib C  types and  functions. For  information on  the C  functions  see
+section 10.7 'Using the Cut and Paste Buffers' in:
+
+                      Xlib - C Language X Interface
+                        MIT X Consortium Standard
+                         X Version 11, Release 4
+
+        Copyright (C) 1985, 1986, 1987, 1988, 1989 Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+
+1.1  Buffer Management Procedures
+---------------------------------
+XStoreBytes(displayptr, string, numbytes)                    [procedure]
+        XStoreBytes stores the arbitrary  bytes contained in the  string
+        string in cut buffer 0 of the display referred to by displayptr.
+        numbytes should contain the number of characters in string.
+
+        XStoreBytes can  generate a  "BadAlloc" error  if there  is  not
+        enough space to store the given string.
+
+
+XStoreBuffer(displayptr, string, numbytes, buffernum)        [procedure]
+        XStoreBuffer is just like  * XStoreBytes, except that it  stores
+        the string in the cut buffer  buffernum instead of in buffer  0.
+        XStoreBytes could have been implemented as:
+
+                XStoreBuffer(%0%)
+
+        buffernum should  be  in the  range  0 to  7.  XStoreBuffer  can
+        generate a "BadAtom" error if buffernum is out of range.
+
+
+XFetchBytes(displayptr, numbytes_ret) -> ptr                 [procedure]
+        XFetchBytes retrieves  the  contents  of cut  buffer  0  of  the
+        display referred to by displayptr. It returns a pointer ptr to a
+        section of memory  containing the information.  The client  must
+        free this memory when finished with it by calling * XFree.
+
+        numbytes_ret should be a pointer to an integer as produced,  for
+        example, by:
+
+                initexptr_mem(SIZEOFTYPE(:int))
+
+        numbytes_ret will point  to the  the number of  bytes of  memory
+        returned in ptr.
+
+        If  no  data  can  be  retrieved  then  ptr  will  be  null  and
+        numbytes_ret will point to zero.
+
+
+XFetchBuffer(displayptr, numbytes_ret, buffernum) -> ptr     [procedure]
+        XFetchBuffer is just like * XFetchBytes, except that it  fetches
+        the contents of the specified buffer buffernum instead of buffer
+        0. XFetchBytes could have been implemented as:
+
+                XFetchBuffer(%0%)
+
+        buffernum should  be  in the  range  0 to  7.  XFetchBuffer  can
+        generate a "BadValue" error if buffernum is out of range.
+
+
+XRotateBuffers(displayptr, int)                              [procedure]
+        Rotates the cut buffers of the display referred to by displayptr
+        by int. Buffer 0 becomes buffer int, buffer 1 becomes (int +  1)
+        mod 8, and  so on. This  cut buffer numbering  is global to  the
+        display. A  "BadMatch" error  will  occur if  any of  the  eight
+        buffers have not been created.
+
+
+
+
+--- C.x/x/pop/ref/XBuffers
+--- Copyright University of Sussex 1993. All rights reserved.

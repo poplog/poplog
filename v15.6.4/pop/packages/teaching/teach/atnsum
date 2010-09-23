@@ -1,0 +1,254 @@
+TEACH ATNSUM (ATN SUMMARY)                   Chris Mellish February 1983
+
+
+This file gives a short summary of a small subset of the ATN  formalism.
+For more details  and an  introduction, see  * ATNS  and especially  the
+references cited  in  it. This  summary  is necessarily  simplified  and
+contains a core that  is probably present  in most ATN  implementations,
+even though all  ATN systems differ  in details. It  is mainly the  LISP
+notation for  ATNs  that  is  described.  The  alternative  diagrammatic
+notation is usually easier for people to read, but is normally used only
+as a device  to summarise an  ATN, since  it does not  readily show  all
+relevant detail.
+
+
+--- NOTATION -----------------------------------------------------------
+
+This summary will make use of a number of notational devices. Any string
+of characters in between < and > are supposed to stand for any member of
+the class  specified, which  must  appear in  this position.  Thus,  for
+instance, one could describe the format of the VED command in POP-11 by:
+
+    ved <filename>;
+
+This does not mean  that one has to  literally type the characters  "<",
+"f", etc. after  the string "ved".  Rather, one types  any file name  in
+this position. A second convention concerns the use of the symbol "*" to
+indicate that any number of  items of a given  class can appear in  some
+position. Using both notations together, the following:
+
+    vars <variable name>* ;
+
+indicates one possible form of the POP-11 VARS statement.
+
+
+--- THE NETWORK AS A WHOLE ---------------------------------------------
+
+An ATN as a whole is a list of nodes. These are written in LISP notation
+between brackets, and  separated by  spaces. I.e. the  structure of  the
+network is:
+
+   ( <node>* )
+
+For example, the following are possible forms for an ATN:
+
+   ( <node> )
+   ( <node> <node> )
+   ( <node> <node> <node> )
+   ................
+
+A node is  a list consisting  of the name  of the node  followed by  the
+representation of the arcs that leave this node, ie:
+
+   (<node name> <arc>*)
+
+So the following would be a node with 4 arcs leaving it:
+
+   (<node name> <arc> <arc> <arc> <arc>)
+
+
+--- THE FORMAT OF ARCS -------------------------------------------------
+
+Each arc specifies a special condition that must be satisfied for it  to
+be followed and a special action  to be performed, as well as  (usually)
+an additional test and additional actions  to be carried out when it  is
+traversed. We consider here 5 kinds of arc:
+
+(WRD <word> <test> <action>*)
+
+   This can  be traversed  if the  next word  in the  input is  the  one
+   specified and in  addition the  test specified is  true. The  special
+   register * is given this word as  its value and the input pointer  is
+   moved on.
+
+(CAT <category> <test> <action>*)
+
+   This can  be traversed  if  the next  word in  the  input is  of  the
+   specified syntactic  category  and  also  the  test  is  true.  The *
+   register is given  the word  as its value  and the  input pointer  is
+   moved on.
+
+(PUSH <node name> <test> <action>*)
+
+   This can be traversed if the test is true and the network starting at
+   the node named can successfully process part of the input string.  If
+   this is  so, the  actions are  performed  with *  set to  the  result
+   returned by that network. The input  pointer is moved on as  directed
+   by the path through the subnetwork.
+
+(POP <value> <test>)
+
+   This can be  traversed if  the test is  true. It  indicates that  the
+   current network has  successfully processed  part of  the input.  The
+   value specified is  returned as the  result of this  work. The  input
+   pointer is not moved.
+
+(JUMP <node name> <test> <action>*)
+
+   This can be  traversed if  the test  if true.  The arc  has the  node
+   specified as its destination.  The * register  and the input  pointer
+   are not altered.
+
+
+--- VALUES (FORMS) -----------------------------------------------------
+
+In order to build syntax trees and other structures, an ATN must be able
+to pass pieces of  information around from place  to place and to  build
+larger  structures  from  smaller  ones.  There  are  various  ways   of
+specifying these values.
+
+(GETR <register name>)
+
+   This refers to the current value of the register named
+
+*
+
+   This refers to the current value of the * register (it is a shorthand
+   for (GETR *))
+
+()
+
+   This refers to the empty list (NIL)
+
+(QUOTE <pattern>)
+
+   This refers to the constant  value provided by the pattern.  Constant
+   values are treated in this way  to distinguish them from values  that
+   have to be treated  specially - a constant  value stands for  itself,
+   whereas something like "(GETR NP)"  has to be specially  interpreted.
+   However, constants appearing in BUILDQs (see below) do not have to be
+   explicitly marked.
+
+(GETF <feature name> <register name>)
+
+   This refers to the  value of a given  property (eg plurality) of  the
+   value of a register.
+
+(BUILDQ <pattern> <register name>*)
+
+   This refers  to  a structure  built  up  from the  given  pattern  by
+   substituting values of registers for  occurrences of the symbol  "+".
+   The value of the first register is substituted for the first "+", the
+   value of  the second  for the  second,  and so  on. For  example,  if
+   register "A" has the value "(CAT)"  and "B" has the value "DOG"  then
+   the value of:
+
+     (BUILDQ (F + +) A B)
+
+   is (F (CAT) DOG)
+
+(APPEND <list of values> <value>)
+
+   This refers to the list formed  by appending the single value to  the
+   end of the list specified.
+
+--- TESTS --------------------------------------------------------------
+
+The tests on ATN arcs  either look for particular relationships  between
+different values, or are composed by logical operations of tests of that
+form.
+
+T
+
+   This is the test that always succeeds (T stands for "true")
+
+(EQ <value> <value>)
+
+   This is the test that the first value is the same as the second
+
+(AND <test> <test>)
+
+   This succeeds if the first test succeeds and the second test succeeds
+
+(OR <test> <test>)
+
+   This succeeds if either of the two tests succeeds
+
+(NOT <test>)
+
+   This succeeds if the test specified within it does not succeed
+
+--- ACTIONS ------------------------------------------------------------
+
+The actions on ATN arcs cause values to be associated with registers, or
+particular events to occur.
+
+(SETR <register name> <value>)
+
+   This causes the register to be set to the value (assignment)
+
+(TO <node name>)
+
+   This causes  processing of  the  network to  continue from  the  node
+   named. Every arc except a JUMP or  POP arc must have one of these  as
+   its last action.
+
+--- EXAMPLE ------------------------------------------------------------
+
+Here is an example of a simple  ATN, expressed in the LISP notation  and
+partially summarised in diagrammatic form.
+
+(
+
+ (s     (push np t (setr np *) (to s_np)))
+ (s_np  (push vp t (setr vp *) (to s_vp)))
+ (s_vp  (pop (buildq (s + +) np vp) t))
+
+ (np    (cat det t (setr det (buildq (det *))) (to np_det))
+        (cat npr t (setr np (buildq (np (npr *)))) (to np_np)))
+ (np_det(cat n t (setr np (buildq (np (det +) (noun *)) det))(to np_np)))
+ (np_np (jump np_np1 t (setr pps ())))
+
+ (np_np1 (push pp t (setr pps (append (getr pps) *))(to np_np1))
+         (jump np_end t))
+
+ (np_end (pop (buildq (np + (pps +)) np pps) t))
+
+ (vp    (cat verb t (setr verb *)(setr pps ())(to vp_v)))
+ (vp_v  (push np t (setr obj *) (to vp_np)))
+ (vp_np (push pp t (setr pps (append (getr pps) *))(to vp_np))
+        (jump vp_np1 t))
+ (vp_np1 (pop (buildq (vp (verb +) + +) verb obj pps) t))
+
+ (pp    (cat prep t (setr prep *) (to pp_p)))
+ (pp_p  (push np t (setr np *) (to pp_pp)))
+ (pp_pp (pop (buildq (pp (p +) +) prep np) t))
+
+)
+
+
+*------*          *------*          *------*
+|      |    NP    |      |    VP    |      |
+|  S   |---->-----| S/NP |---->-----| S/VP |----->
+|      |          |      |          |      |
+*------*          *------*          *------*
+
+
+          *------*          *--------*
+          |      |   DET    |        |
+          |  NP  |---->-----| NP_DET |
+          |      |          |        |
+          *------*          *--------*
+             |                   |
+             |                   |
+         NPR |     *-------*     | N
+             |     |       |     |
+             `-->--| NP_NP |--<--'
+                   |       |
+                   *-------*
+                       |
+                       |
+                     .....
+
+--- C.all/teach/atnsum -------------------------------------------------
+--- Copyright University of Sussex 1988. All rights reserved. ----------

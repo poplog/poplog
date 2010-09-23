@@ -1,0 +1,96 @@
+HELP RC_GET_COORDS                                 Aaron Sloman Dec 1999
+
+Modified 29 Mar 2006
+
+
+rc_get_coords(win_obj, pdr, button)
+rc_get_coords_from(win_obj, pdr, button, boolean)
+
+The first method method takes an instance of the class rc_window_object,
+win_obj, a procedure pdr of two arguments (coordinates), and an integer
+representing a mouse button.
+
+When invoked, it warps the mouse pointer to the window and then waits
+until a mouse button is clicked in that window.
+
+When that happens, the procedure pdr, is applied to the two integers X,
+and Y, and the procedure returns. If pdr is identifn, then the two
+integers are simply left on the stack. If it is conspair, then a pair is
+created containing the two integers, and so on.
+
+The integers are coordinates relative the current coordinate frame of
+the window, as defined by the procedure rc_app_mouse_xyin, which can be
+found in LIB rc_app_mouse.
+
+The second method, rc_get_coords_from, is similar except that if the
+boolean is false it does not warp to the window. This is useful for
+repeated applications involving the same window.
+
+-- Examples -----------------------------------------------------------
+
+uses rclib
+uses rc_window_object
+uses rc_get_coords
+
+;;; create two windows
+vars
+
+    win1 = rc_new_window_object( 600, 20, 300, 300, true, 'win1'),
+    win2 = rc_new_window_object( 900, 20, 300, 300, true, 'win2');
+
+Draw a pair of axes in each window
+
+win1 -> rc_current_window_object;
+    rc_drawline(0, -300, 0, 300);
+    rc_drawline(-300, 0, 300, 0);
+
+win2 -> rc_current_window_object;
+    rc_drawline(0, -300, 0, 300);
+    rc_drawline(-300, 0, 300, 0);
+
+;;; Get and print out a pair of coordinates in win1
+;;; using mouse button 1
+rc_get_coords(win1, identfn, 1)=>
+
+;;; Get and print out a pair of coordinates in win2
+;;; using mouse button 3
+rc_get_coords(win2, identfn, 3)=>
+
+;;; Get and save a pair of coordinates in win1, and another in win2,
+;;; using conspair to save the coordinates.
+
+vars
+    p1 = rc_get_coords(win1, conspair, 1),
+    p2 = rc_get_coords(win2, conspair, 1);
+
+p1,p2=>
+
+
+;;; Draw a red blob of radius 10 at the selected location, in win1 and a
+;;; bigger blue blob in win1. We use partial application to create
+;;; closures of rc_draw_blob (see HELP CLOSURES)
+
+rc_get_coords(win1, rc_draw_blob(%10, 'red'%), 1);
+rc_get_coords(win2, rc_draw_blob(%20, 'blue'%), 1);
+
+;;; NB No results were returned. To return the results as a list of two
+;;; numbers, as well as drawing the blob use this procedure:
+
+define rc_draw_blob_point(x, y, rad, colour) -> point;
+    ;;; draw the blob
+    rc_draw_blob(x, y, rad, colour);
+
+    ;;; save the coordinates in a pair, representing the point
+    [^x ^y] -> point;
+enddefine;
+
+vars
+    p1 = rc_get_coords(win1, rc_draw_blob_point(%10, 'red'%), 1),
+    p2 = rc_get_coords(win2, rc_draw_blob_point(%20, 'blue'%), 1);
+
+p1, p2 =>
+
+$poplocal/local/rclib/help/rc_get_coords
+
+--- $usepop/pop/packages/rclib/help/rc_get_coords
+--- Copyright University of Birmingham 2006. All rights reserved.

@@ -1,0 +1,839 @@
+REF XEvents                                       A.Schoter, August 1991
+
+        COPYRIGHT University of Sussex 1991. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<        X EVENT HANDLING     >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+The data structures,  macro constants and  procedures described in  this
+REF file shadow the equivalent C strcutures, constants and functions for
+event handling.
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Introduction
+
+  2   List of procedures
+
+
+
+---------------
+1  Introduction
+---------------
+
+The procedures below are made available by doing:
+
+         uses xlib, XEvents;
+
+For more details see:
+
+                     Xlib - C Language X Interface,
+                       MIT X Consortium Standard,
+                         X Version 11, Release 4
+
+        Copyright (C) 1985, 1986, 1987, 1988, 1989 Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+An XEvent structure generally exhibits certain features. In  particular,
+it is usually  the case  that the  first field  of the  structure is  an
+integer specifying  the  type  of event  that  the  structure  describes
+(listed below),  the second  field is  an unsigned  long specifying  the
+number of the last request processed by the server, the third field is a
+Boolean which is set  TRUE if the event  came from a SendEvent  request,
+the forth field is usually a Display pointer indicating the display that
+the event was read from, and the  fifth field is a Window ID  indicating
+the window that the event is reported relative to. So, the beginning  of
+an XEvent structure usually has the following format:
+
+    typedef struct {
+        int type;
+        unsigned long serial;
+        Bool send_event;
+        Display *display;
+        Window window;
+            ...
+    }
+
+Where the XEvent structure conforms to  this format we shall not  repeat
+the above information.
+
+
+
+
+---------------------
+2  List of procedures
+---------------------
+
+XAnyEvent                                                      [typedef]
+        This structure provides information on the general X event - the
+        details of its  internal structure  are described  above in  the
+        Introduction.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window window;
+            } XAnyEvent;
+
+
+XButtonEvent                                                   [typedef]
+        This structure provides information relating to button events.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window window;
+                Window root;
+                Window subwindow;
+                Time time;
+                int x, y;
+                int x_root, y_root;
+                unsigned int state;
+                unsigned int button;
+                Bool same_screen;
+            } XButtonEvent;
+
+        The first  five  fields are  as  described in  the  Introduction
+        above. root  is a  Window specifying  the root  window that  the
+        event occured  in;  subwindow is  a  Window specifying  a  child
+        window; time is is an unsigned long measured in  milliseconds; x
+        and y  specify  the coordinates  of  the pointer  in  the  event
+        window; x_root and y_root specify the coordinates of the pointer
+        realtive to the  root window;  state specifies a  key or  button
+        mask; button gives details of  the event; same_screen is a  flag
+        which specifies whether the event occured in the same screen.
+
+
+XButtonPressedEvent                                            [typedef]
+XButtonReleasedEvent                                           [typedef]
+        Both of these structures are instances of XButtonEvent
+
+
+XMotionEvent                                                   [typedef]
+        This structure provides  information relating to  the motion  of
+        the pointer.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window window;
+                Window root;
+                Window subwindow;
+                Time time;
+                int x, y;
+                int x_root, y_root;
+                unsigned int state;
+                char is_hint;
+                Bool same_screen;
+            } XMotionEvent;
+
+        The details of the  structure are as  for XButtonEvent with  the
+        single alteration that the field is_hint provides the detail  of
+        the event.
+
+
+XPointerMovedEvent                                             [typedef]
+        This structure is an instance of XMotionEvent.
+
+
+XCrossingEvent                                                 [typedef]
+        This structure provides information relating to the event of the
+        pointer crossing the boundary of a window.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window window;
+                Window root;
+                Window subwindow;
+                Time time;
+                int x, y;
+                int x_root, y_root;
+                int mode;
+                int detail;
+                Bool same_screen;
+                Bool focus;
+                unsigned int state;
+            } XCrossingEvent;
+
+        The first ten  fields are as  described for XButtonEvent  above.
+        mode is one of NotifyNormal, NotifyGrab, or NotifyUngrab; detail
+        is  one   of  NotifyAncestor,   NotifyVirtual,   NotifyInferior,
+        NotifyNonLinear, NotifyNonLinearVirtual;  the  reaminign  fields
+        are as described above.
+
+
+XEnterWindowEvent                                              [typedef]
+XLeaveWindowEvent                                              [typedef]
+        These structures are instances of XCrossingEvent.
+
+
+XFocusChangeEvent                                              [typedef]
+        This structure is generated when the input focus changes.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window window;
+                int mode;
+                int detail;
+            } XFocusChangeEvent;
+
+        The first  five  fields are  as  described in  the  Introduction
+        above.   mode   is   one   of   NotifyNormal,   NotifyGrab,   or
+        NotifyPointer; detail is  one of NotifyAncestor,  NotifyVirtual,
+        NotifyInferior,     NotifyNonLinear,     NotifyNonLinearVirtual,
+        NotifyPointer, NotifyPointerRoot, or NotifyDetailNone.
+
+
+XFocusInEvent                                                  [typedef]
+XFocusOutEvent                                                 [typedef]
+        These structures are instances of XFocusChangeEvent.
+
+
+XKeymapEvent                                                   [typedef]
+        This structure is  generated on EnterWindow  and FocusIn  events
+        when KeyMapState is selected.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window window;
+                char key_vector[32];
+            } XKeymapEvent;
+
+
+XExposeEvent                                                   [typedef]
+        This  structure  contains  information  about  general  exposure
+        events.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window window;
+                int x, y;
+                int width, height;
+                int count;
+            } XExposeEvent;
+
+        If count is  non-zero then there  are at least  that  many  more
+        events.
+
+
+XGraphicsExposeEvent                                           [typedef]
+        This structure  contains  information  about  graphics  exposure
+        events.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Drawable drawable;
+                int x, y;
+                int width, height;
+                int count;
+                int major_code;
+                int minor_code;
+            } XGraphicsExposeEvent;
+
+
+XNoExposeEvent                                                 [typedef]
+        This structure  is used  to provide  information about  NoExpose
+        events.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Drawable drawable;
+                int major_code;
+                int minor_code;
+            } XNoExposeEvent;
+
+
+XVisibilityEvent                                               [typedef]
+        This structure is used  to provide information about  Visibility
+        events.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window window;
+                int state;
+            } XVisibilityEvent;
+
+        state is either Obscured or UnObscured.
+
+
+XCreateWindowEvent                                             [typedef]
+        This structure provides information about the event of  creating
+        a window.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window parent;
+                Window window;
+                int x, y;
+                int width, height;
+                int border_width;
+                Bool override_redirect;
+            } XCreateWindowEvent;
+
+        The first  four  fields are  as  described in  the  Introduction
+        above. parent is  the Window  ID of  the parent  of the  created
+        window; window is  the Window ID  of the created  window; x,  y,
+        width and height specify  the size and  location of the  created
+        window; border_width specifies the width  of the border for  the
+        window; override_redirect determines whether the creation should
+        be overridden.
+
+
+XDestroyWindowEvent                                            [typedef]
+        This data  structure provides  information associated  with  the
+        event of destroying a window.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window event;
+                Window window;
+            } XDestroyWindowEvent;
+
+
+XUnmapEvent                                                    [typedef]
+        This structure provides data on the event of unmapping a window.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window event;
+                Window window;
+                Bool from_configure;
+            } XUnmapEvent;
+
+
+XMapEvent                                                      [typedef]
+        This structure provides  information on the  event of  mapping a
+        window.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window event;
+                Window window;
+                Bool override_redirect;
+            } XMapEvent;
+
+
+XMapRequestEvent                                               [typedef]
+        This structure provides information on the event of a request to
+        map a window.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window parent;
+                Window window;
+            } XMapRequestEvent;
+
+
+XReparentEvent                                                 [typedef]
+        This has the following structure:
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window event;
+                Window window;
+                Window parent;
+                int x, y;
+                Bool override_redirect;
+            } XReparentEvent;
+
+
+XConfigureEvent                                                [typedef]
+        This has the following structure.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window event;
+                Window window;
+                int x, y;
+                int width, height;
+                int border_width;
+                Window above;
+                Bool override_redirect;
+            } XConfigureEvent;
+
+
+XGravityEvent                                                  [typedef]
+        This has the following structure.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window event;
+                Window window;
+                int x, y;
+            } XGravityEvent;
+
+
+XResizeRequestEvent                                            [typedef]
+        This structure provides  information on the  event of a  request
+        for resize.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window window;
+                int width, height;
+            } XResizeRequestEvent;
+
+
+XConfigureRequestEvent                                         [typedef]
+        This has the following structure.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window parent;
+                Window window;
+                int x, y;
+                int width, height;
+                int border_width;
+                Window above;
+                int detail;
+                unsigned long value_mask;
+            } XConfigureRequestEvent;
+
+        detail is one of Above, Below, TopIf, BottomIf, or Opposite.
+
+
+XCirculateEvent                                                [typedef]
+        This has the following structure.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window event;
+                Window window;
+                int place;
+            } XCirculateEvent;
+
+        place is one of PlaceOnTop or PlaceOnBottom
+
+
+XCirculateRequestEvent                                         [typedef]
+        This structure provides  information on the  event of a  request
+        for a Circulate event.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window parent;
+                Window window;
+                int place;
+            } XCirculateRequestEvent;
+
+        place is as defined for XCirculateEvent
+
+
+XPropertyEvent                                                 [typedef]
+        This has the following structure.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window window;
+                Atom atom;
+                Time time;
+                int state;
+            } XPropertyEvent;
+
+        state is one of NewValue or Deleted.
+
+
+XSelectionClearEvent                                           [typedef]
+        This has the following structure.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window window;
+                Atom selection;
+                Time time;
+            } XSelectionClearEvent;
+
+
+XSelectionRequestEvent                                         [typedef]
+        This  structure  details  the  information  for  the  event   of
+        requesting a Selection event.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window owner;
+                Window requestor;
+                Atom selection;
+                Atom target;
+                Atom property;
+                Time time;
+            } XSelectionRequestEvent;
+
+
+XSelectionEvent                                                [typedef]
+        This has the following structure.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window requestor;
+                Atom selection;
+                Atom target;
+                Atom property;
+                Time time;
+            } XSelectionEvent;
+
+
+XColormapEvent                                                 [typedef]
+        This has the following structure.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window window;
+                Colormap colormap;
+                Bool new;
+                int state;
+            } XColormapEvent;
+
+        colormap  is  either  a  colormap  or  None;  state  is  one  of
+        ColormapInstalled or ColormapUninstalled.
+
+
+XClientMessageEvent                                            [typedef]
+        This structure provides  information on  the event  of a  client
+        sending a messgae.
+
+            typedef struct {
+                int type;
+                unsigned long serial;
+                Bool send_event;
+                Display *display;
+                Window window;
+                Atom message_type;
+                int format;
+                union {
+                    char b[20];
+                    short s[10];
+                        int l[5];
+                    } data;
+            } XClientMessageEvent;
+
+
+XErrorEvent                                                    [typedef]
+        This structure provides information on X error events.
+
+            typedef struct {
+                int type;
+                Display *display;
+                XID resourceid;
+                unsigned long serial;
+                char error_code;
+                char request_code;
+                char minor_code;
+            } XErrorEvent;
+
+        resourceid is  the ID  of  the resource;  serial is  the  serial
+        number of the failed  request; error_code is  the error code  of
+        the failed request;  request_code is  the major  op-code of  the
+        failed request; minor_code  is the minor  op-code of the  failed
+        request.
+
+
+XEvent                                                         [typedef]
+        In addition  to all  the  individual event  structures  detailed
+        above Xlib defines the  following general event structure.  This
+        union is defined  so that  Xlib can  always use  the same  sized
+        event structure internally.
+
+            typedef union _XEvent {
+                int type;
+                XAnyEvent xany;
+                XKeyEvent xkey;
+                XButtonEvent xbutton;
+                XMotionEvent xmotion;
+                XCrossingEvent xcrossing;
+                XFocusChangeEvent xfocus;
+                XExposeEvent xexpose;
+                XGraphicsExposeEvent xgraphicsexpose;
+                XNoExposeEvent xnoexpose;
+                XVisibilityEvent xvisibility;
+                XCreateWindowEvent xcreatewindow;
+                XDestroyWindowEvent xdestroywindow;
+                XUnmapEvent xunmap;
+                XMapEvent xmap;
+                XMapRequestEvent xmaprequest;
+                XReparentEvent xreparent;
+                XConfigureEvent xconfigure;
+                XGravityEvent xgravity;
+                XResizeRequestEvent xresizerequest;
+                XConfigureRequestEvent xconfigurerequest;
+                XCirculateEvent xcirculate;
+                XCirculateRequestEvent xcirculaterequest;
+                XPropertyEvent xproperty;
+                XSelectionClearEvent xselectionclear;
+                XSelectionRequestEvent xselectionrequest;
+                XSelectionEvent xselection;
+                XColormapEvent xcolormap;
+                XClientMessageEvent xclient;
+                XMappingEvent xmapping;
+                XErrorEvent xerror;
+                XKeymapEvent xkeymap;
+                long pad[24];
+            } XEvent;
+
+        XKeyEvent and XMappingEvent are both described in REF * XUser.
+
+
+XTimeCoord                                                     [typedef]
+        This data  structure is  used by  the function  XGetMotionEvents
+        described below.
+
+            typedef struct {
+                Time time;
+                unsigned short x, y;
+            } XTimeCoord;
+
+
+KeyPress -> 2                                                    [macro]
+KeyRelease -> 3                                                  [macro]
+ButtonPress -> 4                                                 [macro]
+ButtonRelease -> 5                                               [macro]
+MotionNotify -> 6                                                [macro]
+EnterNotify -> 7                                                 [macro]
+LeaveNotify -> 8                                                 [macro]
+FocusIn -> 9                                                     [macro]
+FocusOut -> 10                                                   [macro]
+KeymapNotify -> 11                                               [macro]
+Expose -> 12                                                     [macro]
+GraphicsExpose -> 13                                             [macro]
+NoExpose -> 14                                                   [macro]
+VisibilityNotify -> 15                                           [macro]
+CreateNotify -> 16                                               [macro]
+DestroyNotify -> 17                                              [macro]
+UnmapNotify -> 18                                                [macro]
+MapNotify -> 19                                                  [macro]
+MapRequest -> 20                                                 [macro]
+ReparentNotify -> 21                                             [macro]
+ConfigureNotify -> 22                                            [macro]
+ConfigureRequest -> 23                                           [macro]
+GravityNotify -> 24                                              [macro]
+ResizeRequest -> 25                                              [macro]
+CirculateNotify -> 26                                            [macro]
+CirculateRequest -> 27                                           [macro]
+PropertyNotify -> 28                                             [macro]
+SelectionClear -> 29                                             [macro]
+SelectionRequest -> 30                                           [macro]
+SelectionNotify -> 31                                            [macro]
+ColormapNotify -> 32                                             [macro]
+ClientMessage -> 33                                              [macro]
+MappingNotify -> 34                                              [macro]
+LASTEvent -> 35                                                  [macro]
+        These macros  define event  names used  in the  "type" field  of
+        XEvent structures.  They  start  from  2 because  0  and  1  are
+        reserved in the protocol for errors and replies.
+
+
+NoEventMask -> 0                                                 [macro]
+KeyPressMask -> 1 << 0                                           [macro]
+KeyReleaseMask -> 1 << 1                                         [macro]
+ButtonPressMask -> 1 << 2                                        [macro]
+ButtonReleaseMask -> 1 << 3                                      [macro]
+EnterWindowMask -> 1 << 4                                        [macro]
+LeaveWindowMask -> 1 << 5                                        [macro]
+PointerMotionMask -> 1 << 6                                      [macro]
+PointerMotionHintMask -> 1 << 7                                  [macro]
+Button1MotionMask -> 1 << 8                                      [macro]
+Button2MotionMask -> 1 << 9                                      [macro]
+Button3MotionMask -> 1 << 10                                     [macro]
+Button4MotionMask -> 1 << 11                                     [macro]
+Button5MotionMask -> 1 << 12                                     [macro]
+ButtonMotionMask -> 1 << 13                                      [macro]
+KeymapStateMask -> 1 << 14                                       [macro]
+ExposureMask -> 1 << 15                                          [macro]
+VisibilityChangeMask -> 1 << 16                                  [macro]
+StructureNotifyMask -> 1 << 17                                   [macro]
+ResizeRedirectMask -> 1 << 18                                    [macro]
+SubstructureNotifyMask -> 1 << 19                                [macro]
+SubstructureRedirectMask -> 1 << 20                              [macro]
+FocusChangeMask -> 1 << 21                                       [macro]
+PropertyChangeMask -> 1 << 22                                    [macro]
+ColormapChangeMask -> 1 << 23                                    [macro]
+OwnerGrabButtonMask -> 1 << 24                                   [macro]
+        These macros are used by XSelectInput as masks to determine what
+        events a window is interested in.
+
+
+XSelectInput(DspPtr,xid,ulong)                               [procedure]
+        Defines which  input  events  the window  specified  by  xid  is
+        interested in. If  a window is  not interested in  an event,  it
+        usually will  propagate  up  to the  closest  ancestor  that  is
+        interested. The interesting events are specified by the bits  of
+        the mask ulong. The bits of the mask are defined in in the  Mask
+        macro constants  above. A  call  on XSelectInput  overrides  any
+        previous call on XSelectInput for the same window, whether  from
+        the same client or a different  one. It is not possible for  two
+        clients to  each  select  events simultaneously  from  the  same
+        window. Initially, no events will be generated on a window.
+
+
+XPending(DspPtr) -> int                                      [procedure]
+        XPending flushes the output buffer,  then returns the number  of
+        input events that have  been received from  the server, but  not
+        yet removed from the queue.  (Events are removed from the  queue
+        by calling XNextEvent or XWindowEvent).
+
+
+XNextEvent(DspPtr,XEventPtr)                                 [procedure]
+        XNextEvent flushes  the output  buffer,  then removes  an  input
+        event from the head of the queue and returns it in XEventPtr. If
+        the  queue  is  empty,  XNextEvent  blocks  until  an  event  is
+        received.
+
+
+XPutBackEvent(DspPtr,XEventPtr)                              [procedure]
+        XPutBackEvent pushes  an XEventPtr  back onto  the head  of  the
+        display's input queue. This  can be useful if  you have read  an
+        event and then decide that you'd rather deal with it later. Note
+        that the event is NOT copied.
+
+
+XPeekEvent(DspPtr,XEventPtr)                                 [procedure]
+        XPeekEvent flushes the  output buffer,  then peeks  at an  input
+        event from the head of the  queue and copies it into  XEventPtr,
+        without removing it from the input queue. If the queue is empty,
+        XPeekEvent blocks until an  event is received.  You can use  the
+        QLength function to determine  if there are  any events to  peek
+        at.
+
+
+XWindowEvent(DspPtr,xid,int,XEventPtr)                       [procedure]
+        This procedure is used to look for specific events from specific
+        windows. XWindowEvent flushes  the output  buffer, then  removes
+        the next  event  in the  queue  which matches  both  the  window
+        specified by xid and the mask  specified in int, and returns  it
+        in XEventPtr. Events earlier in the queue are not discarded.  If
+        no such event has been queued, XWindowEvent blocks until one  is
+        received.
+
+
+XMaskEvent(DspPtr,ulong,XEventPtr)                           [procedure]
+        This procedure is used to  look for specific events.  XMaskEvent
+        flushes the output buffer,  then removes the  next event in  the
+        queue which matches the mask specified in ulong, and returns  it
+        in XEventPtr. Events earlier in the queue are not discarded.  If
+        no such event has  been queued, XMaskEvent  blocks until one  is
+        received.
+
+
+XCheckWindowEvent(DspPtr,xid,int1,XEventPtr) -> int2         [procedure]
+        This procedure is used to look for specific events from specific
+        windows.  XCheckWindowEvent  flushes  the  output  buffer,  then
+        removes the  next event  in  the queue  which matches  both  the
+        window specified by the xid and the mask specified by int1,  and
+        returns it in  XEventPtr. Events  earlier in the  queue are  not
+        discarded. If no such  event has been queued,  XCheckWindowEvent
+        immediately returns 0.
+
+
+XCheckMaskEvent(DspPtr,ulong,XEventPtr) -> int               [procedure]
+        This  procedure   is  used   to   look  for   specific   events.
+        XCheckMaskEvent flushes the output buffer, then removes the next
+        event in the queue  which matches the  mask specified by  ulong,
+        and returns it in XEventPtr. Events earlier in the queue are not
+        discarded. If  no such  event has  been queued,  XCheckMaskEvent
+        immediately returns 0.
+
+
+XSendEvent(DspPtr,xid,int1,ulong,XEventPtr) -> int2          [procedure]
+XSetInputFocus(DspPtr,xid,int,ulong)                         [procedure]
+XGetInputFocus(DspPtr,ulongptr,intvec)                       [procedure]
+XCheckTypedEvent(DspPtr,int1,XEventPtr) -> int2              [procedure]
+XCheckTypedWindowEvent(DspPtr,xid,int1,XEventPtr) -> int2    [procedure]
+XIfEvent(DspPtr,XEventPtr,p,string)                          [procedure]
+XCheckIfEvent(DspPtr,XEventPtr,p,string) -> int              [procedure]
+XPeekIfEvent(DspPtr,XEventPtr)                               [procedure]
+XAllowEvents(DspPtr,int,ulong)                               [procedure]
+XGetMotionEvents(DspPtr,xid,ulong1,ulong2,intvec)            [procedure]
+            -> xtimecoordptr
+XEventsQueued(DspPtr,int1) -> int2                           [procedure]
+XSynchronize(DspPtr,int) -> intvec                           [procedure]
+        These  procedures  shadow  the   equivalent  C  functions.   The
+        procedure p, passed as  an argument to XIfEvent,  XCheckIfEvent,
+        and XPeekIfEvent should return a Boolean int (1 or 0).
+
+
+
+
+--- C.x/x/pop/ref/XEvents
+--- Copyright University of Sussex 1991. All rights reserved.

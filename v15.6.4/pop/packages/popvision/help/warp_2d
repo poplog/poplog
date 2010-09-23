@@ -1,0 +1,533 @@
+HELP WARP_2D                                    David Young
+                                                July 1993
+
+LIB *WARP_2D provides procedures to apply an affine transformation to an
+array of numbers, which might represent an image. An affine
+transformation is one in which straight lines stay straight and parallel
+lines stay parallel; also if a line is divided in a given ratio than the
+transformed line is divided in the same ratio. An image subjected to an
+affine transformation may undergo translation, expansion or contraction,
+rotation and shearing.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- The main procedure
+ -- Specifying the transformation
+ -- ... Using matrix elements
+ -- ... Using corresponding points
+ -- ... Using expansion, rotation and aspect ratio
+ -- ... Using first-order optic flow parameters
+ -- ... Warning
+ -- Note on aliasing
+ -- Ancillary procedures
+ -- Examples
+ -- ... An optic flow example
+ -- ... An image distortion example
+
+-- The main procedure -------------------------------------------------
+
+warp_2d(ARRIN, REGIONIN, T, ARROUT, REGIONOUT, OPTIONS) -> ARROUT
+        ARRIN is the input array, which must only contain numbers. The
+        procedure is most efficient if this is a packed array of
+        single-precision floats, e.g. an array created with
+        *newsfloatarray or array_of_real (see *EXTERNAL).
+
+        REGIONIN is for future use. Give false for this argument for
+        now.
+
+        T is a list or vector specifying the affine transformation. See
+        the section below for what this may contain.
+
+        ARROUT is the output array. If this is an array on entry to the
+        procedure, efficiency is highest if it is a packed array of
+        floats. In this case, the results are put into this array and it
+        is returned (so no garbage is created). If it is an array of
+        another type, then its contents are copied to a new array made
+        with newsfloatarray and the new array is returned.
+            If ARROUT is false, a new array with boundslist
+        (REF * ARRAYS) given by REGIONOUT is created and returned with
+        the results in it.
+            Finally, ARROUT can be a 5-element list. In this case a new
+        array is created with a boundslist given by the last 4 elements
+        of the list, and initialised to the value given by the head of
+        the list.
+
+        REGIONOUT is a 4-element list giving a boundslist-type
+        specification of the region of ARROUT in which to place the
+        results. If REGIONOUT is false, then the whole of ARROUT is
+        filled. (One of ARROUT and REGIONOUT must be non-false.)
+
+        OPTIONS is a list of words or a single word. It can be the empty
+        list to take all the defaults or a single word to specify only
+        one option and accept defaults for others. The list can contain
+        (or the word can be):
+
+            Either interpolate or nearest (default is interpolate).
+
+                interpolate causes values to be obtained by bilinear
+                interpolation between the 4 nearest neighbours to the
+                "true" (non-integer) sample position in the input array.
+
+                nearest means that the value of the nearest element to
+                the "true" sample position is taken.
+
+                The nearest option is a little faster, but interpolation
+                usually provides better results on real images.
+
+            Either mishap or ignore (default is mishap).
+
+                mishap means that if data from outwith the input array
+                would be needed in order to fill the output region, a
+                mishap will occur.
+
+                ignore means that only those parts of the output region
+                that can be filled from the input array are changed; any
+                point that needs data from outwith the input array is
+                left alone.
+
+                mishap is faster because only the corners of the input
+                region need be checked, and this is done once before
+                looping. ignore is implemented by applying a test on
+                every output point.
+
+
+warp_2d(ARRIN, REGIONIN, Tx, Ty, Txx, Txy, Tyx, Tyy, ARROUT, REGIONOUT,
+        OPTIONS) -> ARROUT
+        In this form, all the arguments are as before except that the
+        transformation is specified by 6 separate parameters in order to
+        avoid the need to build a list or vector. See below for what the
+        parameters mean.
+
+
+-- Specifying the transformation --------------------------------------
+
+Position in the input array is given by x and y. These denote both array
+indices and position in the image plane - that is, ARRIN(x,y) holds the
+grey level at (x,y) in the image plane. ARRIN(x,y) is only defined if x
+and y are integers, but non-integer values of x and y can be thought of
+as referring to positions in the image plane between the pixel centres.
+
+Similarly, x' and y' refer to array elements in ARROUT and positions in
+the output image plane.
+
+The affine transformation is a rule that maps each point P = (x,y) in
+the input image to some point P' = (x',y') in the output image. It is
+specified by 6 parameters, but there are various ways to state them. The
+procedure provides a choice of ways to set up the transformation using
+the T argument.
+
+There are some references to rotations and angles below - the parameters
+phi, theta and R specify angular quantities. If in the image plane the
+(x,y) coordinates run the conventional way for graphs, thus:
+
+               y ^
+                 |
+                 |
+                 +------->
+                         x
+
+then anticlockwise angles and rotations are positive. If the coordinates
+run the conventional way for image display, thus:
+
+                 +------->
+                 |       x
+                 |
+               y V
+
+then clockwise angles and rotations are positive.
+
+-- ... Using matrix elements ------------------------------------------
+
+The basic equation for an affine transformation is
+
+          -    -            -    -         -           -  -   -
+          | x' |            | Tx |         | Txx   Txy |  | x |
+          |    |     =      |    |    +    |           |  |   |
+          | y' |            | Ty |         | Tyx   Tyy |  | y |
+          -    -            -    -         -           -  -   -
+
+The six parameters can be specified to the procedure as a list or
+vector, in which the name of each is followed by its value, for example:
+
+    {Tx 3   Ty 2   Txx 1.3   Txy 0.25   Tyx -0.4   Tyy 0.9}
+
+If some of the pairs are omitted, the values default to 0 except for Txx
+and Tyy which default to 1.  The pairs can be given in any order as long
+as each value follows its name.
+
+Alternatively, a vector (but not a list) containing just the six values
+can be given, e.g.
+
+    {3   2   1.3   0.25   -0.4   0.9}
+
+In this case, all the values must be present and in the order Tx Ty Txx
+Txy Tyx Tyy.
+
+Finally, the parameters can be given as individual arguments in the
+second form of the routine call.
+
+-- ... Using corresponding points -------------------------------------
+
+The transformation is uniquely determined by stating the effect on 3
+non-collinear points in the image. This is specified by a list or vector
+of the form
+
+   { P 2  3      ->      7 6
+     P 3 10      ->     -4 8
+     P 1 -9      ->      2 2 }
+
+In each line, the first pair of numbers is the coordinates of a point P
+in the input image, and the second pair is the coordinates of a point P'
+in the output image. The transform is set up so that each P gets moved
+to the corresponding P'. (The words "P" and "->" must occur in the
+vector or list in the positions shown.)
+
+It is sufficient to give two correspondences. In this case the procedure
+assumes that the origin is fixed - i.e. "P 0 0 -> 0 0" is used as the
+third point.
+
+The points used to specify the mapping do not have to lie inside the
+input or output regions, or even inside the arrays.
+
+-- ... Using expansion, rotation and aspect ratio ---------------------
+
+Possibly a more understandable way to specify the mapping is to use
+quantities with simple geometrical interpretations.
+
+The expansion, E, gives the change in size of the image - e.g. E = 2
+doubles the size. If E < 1 then a contraction results.
+
+The angle phi specifies a rotation of the image. See the note above
+about the sense of rotations. This angle must be given in degrees or
+radians depending on the value of *popradians.
+
+The aspect ratio change A specifies a change in shape, with expansion in
+one direction and shrinkage in the orthogonal direction. A gives the
+relative amounts of expansion and contraction - if a circle is
+transformed, then it will end up as an ellipse with one axis A times as
+long as the other. The angle theta, measured from the x axis, gives the
+direction of expansion if A > 1 or of contraction if A < 1. This part of
+the transform is applied, in effect, before any rotations, so theta
+refers to a direction in the input image. Theta must be in degrees or
+radians as appropriate to popradians.
+
+The aspect ratio change operates on top of any overall expansion or
+contraction given by E.
+
+In addition to these quantities, it is necessary to fix the translation
+of the image by giving one point correspondence. An example of a
+specification using these quantities is therefore:
+
+    {P 1 1 -> 2 2    E 1.5    phi 45    A 2    theta -30}
+
+If parts are omitted, the defaults used are: (0,0) -> (0,0), E = 1, phi
+= 0, A = 1, theta = 0.
+
+The single correspondence can also be given by setting a fixed point
+with the P0 parameter, e.g.
+
+    {P0 1 2    E 1.5    phi 45    A 2    theta -30}
+
+This is equivalent to P 1 2 -> 1 2. The point at P0 in the input image
+is mapped to the point with the same coordinates in the output image.
+
+The relationship between these parameters and the matrix parameters is
+given by
+
+   -           -     -         -  -         -  -       -  -         -
+   | Txx   Txy |     | cp  -sp |  | ct  -st |  | Ex  0 |  | ct   st |
+   |           |  =  |         |  |         |  |       |  |         |
+   | Tyx   Tyy |     | sp   cp |  | st   ct |  | 0  Ey |  | -st  ct |
+   -           -     -         -  -         -  -       -  -         -
+
+where cp = cos phi, sp = sin phi, ct = cos theta, st = sin theta,
+Ex = E * sqrt(abs(A)), Ey = sign(A) * E / sqrt(abs(A)). The translation
+is given by
+
+   -    -     -    -         -          -  -   -
+   | Tx |     | x' |         | Txx  Txy |  | x |
+   |    |  =  |    |    -    |          |  |   |
+   | Ty |     | y' |         | Tyx  Tyy |  | y |
+   -    -     -    -         -          -  -   -
+
+where P x y -> x' y' has been specified.
+
+-- ... Using first-order optic flow parameters ------------------------
+
+The change between two images of a surface patch viewed by a moving
+camera can be approximated by an affine transformation. The
+transformation can be specified in terms of "first-order flow
+parameters".
+
+The dilation, D, specifies an expansion or contraction. Positive D means
+an expansion and negative D means a contraction. (For |D| << 1, E is
+approximately 1 + D.)
+
+R specifies the amount of rotation. See the note above about the sense
+of the rotation. The effect of R is only close to a pure rotation for
+|R| << 1, when R specifies a rotation in radians. The way the procedure
+uses R is not affected by popradians. This is because the proper
+definition of R is not as an angle but as part of the transformation
+matrix shown below.
+
+S specifies the amount of shear. (For |S| << 1, A is approximately
+1 + 2S.) The axis of shear is given by theta. Theta must be in degrees
+or radians as appropriate to popradians.
+
+Finally, the translation of a single point must also be specified. The
+coordinates of the point are given by P0 and its translation from the
+input to the output image by Vx and Vy. Thus the overall specification
+might look like:
+
+    {P0 223 127  Vx 13  Vy -8  D 0.05  R -0.02  S 0.025 theta 50}
+
+If any of these parameters is omitted it defaults to 0.
+
+Instead of S and theta, the shear can be specified by S1 and S2, where
+S1 = S cos(2*theta) and S2 = S sin(2*theta).
+
+It is also possible to give, instead, the optic flow differential
+parameters Vxx, Vxy, Vyx, Vyy. These are related to dilation etc. by
+
+   -           -     -            -
+   | Vxx   Vxy |     | D+S1  S2-R |
+   |           |  =  |            |
+   | Vyx   Vyy |     | S2+R  D-S1 |
+   -           -     -            -
+
+Thus one can give an argument like
+
+    {P0 50 88  Vx 7  Vy 2  Vxx -0.03  Vxy 0.015  Vyx 0  Vyy -0.02}
+
+The flow parameters are related to the matrix parameters by
+
+   -           -     -                -
+   | Txx   Txy |     | 1+D+S1   S2-R  |
+   |           |  =  |                |
+   | Tyx   Tyy |     |  S2+R   1+D-S1 |
+   -           -     -                -
+
+and
+
+   -    -     -        -         -          -  -   -
+   | Tx |     | x + Vx |         | Txx  Txy |  | x |
+   |    |  =  |        |    -    |          |  |   |
+   | Ty |     | y + Vy |         | Tyx  Tyy |  | y |
+   -    -     -        -         -          -  -   -
+
+where x and y are the coordinates following P0.
+
+Since the flow parameters are suited to describing instantaneous image
+velocities rather than a finite transformation, the representation
+really only makes sense if the absolute values of D, R and S (or Vxx,
+Vxy, Vyx and Vyy) are all much less than one.
+
+-- ... Warning --------------------------------------------------------
+
+Do not mix up different kinds of specifications. You must select one set
+of parameters to work with:
+
+            Tx, Ty, Txx, Txy, Tyx, Tyy
+    or      3 correspondences of the form P x y -> x' y'
+    or      P or P0, E, phi, A, theta
+    or      P0, Vx, Vy, D, R, (S, theta) or (S1, S2)
+    or      P0, Vx, Vy, Vxx, Vxy, Vyx, Vyy
+
+If you do mix up parameters from different sets (e.g. you have E and R
+together) then the procedure will quietly ignore some of them.
+
+If you let enough parameters default that it is not apparent which set
+you are using, you will get a result that is consistent with every
+possible set (because all the defaults select the no-effect case).
+
+
+-- Note on aliasing ---------------------------------------------------
+
+Because the procedure never averages over more than four points,
+aliasing will occur if drastic shrinkage is applied. If this is a
+problem, a solution in some cases is to smooth the array first using
+*CONVOLVE_GAUSS_2D or something similar. You may need to generate your
+own anisotropic smoothing mask and use *CONVOLVE_2D if the transform has
+a lot of shear (A very different from 1, or equivalent). Alternatively
+it may help to carry out the shrinkage in several steps, each shrinking
+by a factor of 2 or less, making sure that the sample points occur
+between pixel centres, and using interpolation sampling. In some
+applications aliasing won't matter anyway.
+
+
+-- Ancillary procedures -----------------------------------------------
+
+warp_trans(T) -> (TRANSF, TRANSB)
+warp_trans(Tx, Ty, Txx, Txy, Tyx, Tyy) -> (TRANSF, TRANSB)
+        This takes a transform specification in any of the forms
+        described above, and returns two procedures:
+
+            TRANSF(X, Y) -> (XP, YP)
+                Transforms from coordinates in the input image to
+                coordinates in the output image.
+
+            TRANSB(XP, YP) -> (X, Y)
+                Transforms from coordinates in the output image to
+                coordinates in the input image.
+
+
+warp_params(T) -> (Tx, Ty, Txx, Txy, Tyx, Tyy)
+warp_params(Tx, Ty, Txx, Txy, Tyx, Tyy) -> (Tx, Ty, Txx, Txy, Tyx, Tyy)
+        Takes a transform specification in any of the forms described
+        above, and returns the separate matrix elements. The second form
+        of the procedure call is for completeness and does nothing. If
+        warp_2d is to be called many times to carry out the same
+        transform, there will be a small efficiency gain if warp_params
+        is used to get the matrix elements once to start with, and these
+        are then passed separately or in a 6-element vector to warp_2d.
+            warp_params has to be called explicitly to use the
+        procedures that follow.
+
+
+warp_xy(X, Y, TVEC) -> (XP, YP)
+warp_xy(X, Y, Tx, Ty, Txx, Txy, Tyx, Tyy) -> (XP, YP)
+        In the first form, TVEC is a 6-element vector containing the
+        values of the parameters Tx..Tyy in order. The procedure
+        applies the transform specified by the parameters to X and Y. It
+        may often be more convenient to use warp_trans, which returns
+        closures of warp_xy.
+
+
+warp_invert(TVEC) -> (Ux, Uy, Uxx, Uxy, Uyx, Uyy)
+warp_invert(Tx, Ty, Txx, Txy, Tyx, Tyy) -> (Ux, Uy, Uxx, Uxy, Uyx, Uyy)
+        Returns the parameters of the inverse transform. TVEC is a
+        6-element vector containing Tx..Tyy. Ux..Uyy specify the mapping
+        from the output image to the input image.  Unless the parameters
+        are needed explicitly, it may be more convenient to use the
+        backward procedure produced by warp_trans.
+
+
+-- Examples -----------------------------------------------------------
+
+The best way to understand this program, and affine transformations in
+general, is to run the examples, and then to play with the transform
+parameters.
+
+-- ... An optic flow example ------------------------------------------
+
+Load some libraries:
+
+    uses warp_2d
+    uses rci_show       ;;; for display
+    uses float_arrayprocs       ;;; for image adding and differencing
+
+Create a test array with a sparse set of random dots (1 pixel in 50 is
+set to 1, the rest to 0):
+
+    vars bounds = [50 250 -125 125];
+    vars image = newsfloatarray(bounds,
+        erase <> erase <> random(%50%) <> nonop div(%50%));
+
+Note that the bounds do not start at 0 or 1 - warp_2d does not mind.
+Assuming you are using a suitable terminal, look at it with
+
+    rci_show(image) -> ;
+
+Fix a point in the image, and apply some dilation, using the "nearest"
+option because we want to look at individual dots:
+
+    vars imout;
+    warp_2d(image, false, [P0 125 0   D 0.02], false, bounds,
+        [nearest mishap]) -> imout;
+
+If you just display the output image you will not be able to see what
+has happened. But if you overlay the input and output images by adding
+them you can see the flow pattern:
+
+    2 -> rci_show_scale;
+    rci_show(float_arraysum(image, imout, false)) -> ;
+
+The bright dots in the middle are where the movement is less than a
+pixel so the input and output points coincide.
+
+Now try a more general flow, with contraction, rotation and shearing,
+and a different fixed point:
+
+    false -> popradians;            ;;; give theta in degrees
+    warp_2d(image, false, [P0 150 30 D -0.03 R 0.03 S 0.02 theta 45],
+        1.0 :: bounds, bounds, [nearest ignore]) -> imout;
+
+    rci_show(float_arraysum(image, imout, false)) -> ;
+
+The "ignore" option had to be used because a region larger than the
+input array gets mapped onto the output array. The "mishap" option would
+indeed have mishapped. You can see the transformed outline of the input
+array as a grey border - this was produced by initialising the output
+array elements to 1.0 in the ARROUT argument. Inspecting the border
+confirms that the rotation was clockwise (y is downwards when images are
+displayed with rci_show) and that stretch axis for shear is about 45o
+clockwise from the x axis.
+
+-- ... An image distortion example ------------------------------------
+
+Load the libraries used above if you have not already done so. Also get
+an image to play with:
+
+    uses arrayfile
+    vars image;
+    arrayfile(popvision_data dir_>< 'stereo1.pic') -> image;
+    2 -> rci_show_scale;
+    rci_show(image) -> ;
+
+This image has a boundslist of
+
+    boundslist(image) =>
+    ** [80 176 64 191]
+
+For the sake of illustration, we will use a standard output size of 200
+x 200 pixels.
+
+    vars bounds = [1 200 1 200];
+
+First, map the original image onto the new square image, with no
+distortion. The easiest way to do this is with point correspondences.
+
+    vars imout;
+    warp_2d(image, false,
+        [P  80  64       ->      1   1     ;;; top left corner
+         P  80 191       ->      1 200     ;;; bottom left
+         P 176  64       ->    200   1 ],  ;;; top right
+        false, bounds, [interpolate mishap]) -> imout;
+    rci_show(imout) -> ;
+
+The "mishap" option was OK because this was set up to only use data from
+the input array - though it does use all of it.  Repeat this with
+"nearest" instead of "interpolate" to see graphically the difference
+between these two options. Note that *arraysample provides an
+alternative way of doing transformations as simple as this. What it
+won't do is something like
+
+    warp_2d(image, false,
+        [P  80  64       ->     50  50     ;;; top left corner
+         P  80 191       ->      1 200     ;;; bottom left
+         P 176  64       ->    200   1 ],  ;;; top right
+        false, bounds, [interpolate ignore]) -> imout;
+    rci_show(imout) -> ;
+
+Here is an example of using the finite deformation parameters to do the
+same sort of thing. We put the centre of the image at the centre of the
+output array and change its aspect ratio, stretching along the diagonal:
+
+    false -> popradians;            ;;; theta in degrees
+    warp_2d(image, false,
+        [P  128 128      ->     100 100     ;;; centre (approx)
+         A 2  theta -45],
+        false, bounds, [interpolate ignore]) -> imout;
+    rci_show(imout) -> ;
+
+and rotated and shrunk a bit as well:
+
+    warp_2d(image, false,
+        [P  128 128      ->     100 100     ;;; centre (approx)
+         A 2  theta -45     phi -90      E 0.75],
+        false, bounds, [interpolate ignore]) -> imout;
+    rci_show(imout) -> ;
+
+
+--- $popvision/help/warp_2d
+--- Copyright University of Sussex 1993. All rights reserved.

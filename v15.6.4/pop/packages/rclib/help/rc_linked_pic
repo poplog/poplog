@@ -1,0 +1,342 @@
+HELP RC_LINKED_PIC                               Aaron Sloman, June 1997
+Last changed: 25 Jun 1997
+
+uses rclib
+uses rc_linked_pic
+
+LIB * RC_LINKED_PIC
+
+Provides two mixins, rc_linked_pic, and rc_linked_static, providing
+facilities for drawing the same movable or static picture in different
+windows. If it is movable the different pictures linked so that if the
+picture moves in one window it moves in all.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- The mixins
+ -- Examples of use
+ -- Removing a picture from a window
+ -- Reinstating a point in a window
+ -- rc_redraw_pic_in
+ -- POINTS TO NOTE
+ -- The methods provided
+
+-- The mixins --------------------------------------------------------
+
+The mixins are basically very simple.
+
+define :mixin rc_linked_static;
+    ;;; for unmovable linked picture objects
+    is rc_keysensitive rc_selectable rc_linepic;
+
+    ;;; initially known to no pictures
+    slot rc_pic_containers == [];
+    ;;; by default these are not draggable
+    slot rc_drag_handlers =
+        { ^false ^false ^false};
+enddefine;
+
+define :mixin rc_linked_pic;
+    is rc_keysensitive rc_selectable rc_linepic_movable;
+
+    ;;; initially known to no pictures
+    slot rc_pic_containers == [];
+enddefine;
+
+In addition several methods are provided for use with instances of the
+mixins, as illustrated below.
+
+-- Examples of use ----------------------------------------------------
+
+;;; Make the library available
+uses rclib
+uses rc_linepic
+uses rc_window_object
+uses rc_mousepic
+uses rc_linked_pic
+
+;;; Define a class based on the mixin. Each instance consists
+;;; of a 20 by 20 square, with a string in the middle, generated
+;;; by the procedure newpic below
+
+define :class testpic;
+    ;;; for movable linked pictures
+    is rc_linked_pic;
+
+    ;;; use RSQUARE to make it work upside down also
+    slot rc_pic_lines = [WIDTH 2 RSQUARE {-10 10 20}];
+    slot rc_mouse_limit = 10;
+enddefine;
+
+define :class statpic;
+    ;;; for static linked pictures
+    is rc_linked_static;
+    slot rc_pic_lines = [WIDTH 4 RSQUARE {-10 10 20}];
+    slot rc_mouse_limit = 10;
+enddefine;
+
+;;; Define a procedure to create a new instance of testpic, at
+;;; a given location, in a list of windows
+define newpic(x, y, label, windows) -> pic;
+
+    instance testpic;
+        rc_picx = x;
+        rc_picy = y;
+        ;;; create a string to left of centre
+        rc_pic_strings = [{-4 0 ^(label)}];
+    endinstance -> pic;
+
+    ;;; Add the new picture to each of the windows
+    ;;; Draw the picture. It will appear in all the windows,
+    ;;; appropriately scaled, etc.
+    rc_add_containers(pic, windows);
+
+enddefine;
+
+;;; Now the same for instances of statpic
+define newstatic(x, y, label, windows) -> pic;
+
+    instance statpic;
+        rc_picx = x;
+        rc_picy = y;
+        rc_pic_strings = [{-4 0 ^label}];
+    endinstance -> pic;
+
+    rc_add_containers(pic, windows);
+
+enddefine;
+
+;;; Create three test windows using different scales. The default
+;;; "true" for the fifth argument gives an origin in the middle, with
+;;; x increasing to right, y upwards.
+vars
+    win1 =
+        rc_new_window_object(20, 5, 250, 250, true, 'win1'),
+    win2 =
+        rc_new_window_object(300, 5, 250, 250, {125 125 1 1}, 'win2'),
+    win3 =
+        rc_new_window_object(580, 5, 500, 500, {250 250 2.0 -2.0} , 'win3'),
+
+    windows = [^win1 ^win2 ^win3],
+;
+
+vars
+    p1 = newpic(0, 0, 'p1', windows),
+    p2 = newpic(100, 100, 'p2', windows),
+    p3 = newpic(-100, -100, 'p3', windows),
+
+    pics = [^p1 ^p2 ^p3],
+;
+
+vars
+    s1 = newstatic(0, 100, 'a', [^win1 ^win3]),
+    s2 = newstatic(0, -100, 'b', [[^win2 COLOUR 'orange']]),
+;
+
+;;; Print out the pictures (using the default print_instance method
+;;; defined in LIB * RC_LINKED_PIC
+
+pics ==>
+s1, s2 =>
+
+win2 =>
+rc_window_contents(win2) =>
+
+;;; Try using the mouse (button 1) to move the pictures p1, p2, p3
+;;; around,  in each of the windows. Whichever window you use, all three
+;;; depictions of the selected object should move.
+;;; Look at their coordinates after each move:
+
+pics ==>
+
+You can also move a picture object under program control, and it will
+move in all three windows. E.g.
+
+rc_move_to(p1, -75, -75, true);
+repeat 30 times rc_move_by(p1, 5, 5, true); syssleep(1); endrepeat;
+
+rc_move_to(p2, -75, 75, true);
+repeat 30 times rc_move_by(p2, 5, -5, true); syssleep(1); endrepeat;
+
+-- Removing a picture from a window -----------------------------------
+
+;;; remove p2 from window win3
+rc_remove_container(p2, win3);
+p2.rc_pic_containers =>
+win3.rc_window_contents =>
+
+;;; The object p2 should still be movable in the remaining windows
+;;; you can remove it from all windows
+
+rc_remove_container(p2, win2);
+rc_remove_container(p2, win1);
+
+p2.rc_pic_containers =>
+
+;;; The windows know how many objects they contain
+windows ==>
+
+win3.rc_window_contents ==>
+
+;;; A window can redraw itself
+win3 -> rc_current_window_object;
+;;; clear the window
+rc_start();
+;;; Redraw it
+rc_redraw_window_object(win3);
+
+-- Reinstating a point in a window ------------------------------------
+
+;;; try these as appropriate. Adding has no effect if the picture is
+;;; already in the container
+
+;;; We can add p2 to win3 with the specification that it be
+;;; stretched horizontally,
+rc_add_container(p2, [^win3  XSCALE 4]);
+win3.rc_window_contents ==>
+p2 =>
+
+;;; add it normally to win1
+rc_add_container(p2, win1);
+
+;;; Let it be coloured red and stretched vertically in win2
+;;; (remember rc_yscale is positive in win2). We can also get p2
+;;; to ignore the coordinate frame of win2 and use it's own frame,
+;;; by giving a four element vector {xorigin yorigin xscale yscale}
+
+rc_add_container(p2, [^win2 {100 100 1 -1} COLOUR 'red' YSCALE 4]);
+
+;;; Move them around, and see how their different shapes are preserved
+
+;;; Note that specfiying a different frame means that the object
+;;; will not necessarily be found easily by the mouse. Also, it may be
+;;; picked up accidentally by the mouse if the window thinks the picture
+;;; is in a location different from where the picture thinks it is.
+;;; (This will need to be fixed later, by changin the event handler).
+
+
+;;; Warning: the mouse sensitive area of p2 is the same in win1 and
+;;; win3, though scaled in win3. I.e. the different shapes can be
+;;; misleading. You can increase the mouse sensitive area thus,
+;;; to make p2 easier to select and drag:
+
+rc_mouse_limit(p2)=>
+{-15 -20 15 20} -> rc_mouse_limit(p2);
+
+;;; You cannot remove a static object from a window
+rc_remove_container(s1, win1);
+;;; Should produce:
+;;; MISHAP - Method "rc_remove_container" failed
+
+;;; But you can add it (irretrievably) to a new window
+rc_add_container(s1, win2);
+
+;;; likewise we can add s2 to win3 with a different scale
+;;; and colour
+rc_add_container(s2, [^win3 COLOUR 'blue' XSCALE 4 YSCALE -4]);
+
+-- rc_redraw_pic_in ---------------------------------------------------
+
+Sometimes the background of a window is cleared or redrawn and it is
+desirable to redraw some objects ONLY in that window.
+
+E.g. change the background of win3
+
+'pink' -> rc_background(rc_widget(win3));
+
+It is possible to redraw the window afterwards, though note that colours
+of objects may change because mobile objects are drawn using XOR.
+
+rc_redraw_window_object(win3);
+
+Sometimes redrawing will cause the objects to be redrawn in other
+windows in an undesirable way. So it is possible to have an object
+redrawn only in one window, and this can be done to all the contents of
+that window.
+
+'yellow' -> rc_background(rc_widget(win3));
+
+lvars pic;
+for pic in rc_window_contents(win3) do
+    rc_redraw_pic_in(pic, win3)
+endfor;
+
+rc_window_contents(win3)==>
+p1 =>
+p2=>
+rc_undraw_linepic(p1);
+rc_draw_linepic(p1);
+
+
+
+;;; When finished kill the windows
+applist(windows, rc_kill_window_object);
+
+-- POINTS TO NOTE -----------------------------------------------------
+
+1. The pictures in win2 move down when the versions in win1 and win3
+move up, and vice versa, because the values of rc_yscale differ.
+
+2. Because the scales in win3 are decimal numbers the coordinates
+derived from those read in from the mouse, which are divided by the
+scales, are also decimal numbers, and stored as such in the picture
+object's coordinates. If the scales chosen for win3 had been integers,
+the division would have created ratios, which would increase the
+frequency of garbage collection, and may be harder to recognize when
+printed out.
+
+3. When drawing or moving an instance of rc_linked_pic, it is not
+necessary to make the required window object the value of
+rc_current_window_object, since the picture will be drawn ONLY in the
+windows that are in the rc_pic_containers list for that picture.
+
+4. If SQUARE is used rather than RSQUARE in specifying the pictures to
+be drawn, then when the scale is reversed in the second window, the
+square appears below the picture label, rather than surrounding it. By
+using RSQUARE, we can overcome this, because it uses vector drawing
+commands that respect the rc_graphic coordinate frame, whereas SQUARE
+makes a single call to an X graphical procedure which always draws the
+square to the bottom right of the starting point. (For more on this see
+TEACH * RC_LINEPIC/ROTATABLE
+
+-- The methods provided -----------------------------------------------
+
+define :method rc_move_to(pic:rc_linked_static, x, y, draw);
+    ;;; dummy method. Does nothing
+
+define :method print_instance(pic:rc_linked_static);
+define :method print_instance(pic:rc_linked_pic);
+    This prints the picture showing its coordinates and its
+    containers. it uses '<lpic' to indentify instances.
+
+define :method rc_draw_linepic(pic:rc_linked_static);
+define :method rc_draw_linepic(pic:rc_linked_pic);
+define :method rc_draw_oldpic(pic:rc_linked_pic);
+    These two methods invoke the standard drawing procedures on
+    each of the windows containing pic. After that all the
+    standard moving procedures will work for rc_linked_pics
+
+NOTE: if rotateable objects are to be included, an extension will be
+needed.
+
+define :method rc_undraw_linepic(pic:rc_linked_static);
+    Dummy method, does nothing.
+define :method rc_undraw_linepic(pic:rc_linked_pic);
+
+define rc_redraw_pic_in(pic, win_obj);
+    Redraw the picture only that window
+
+define :method rc_add_containers(pic:rc_linked_static, windows);
+define :method rc_add_containers(pic:rc_linked_pic, windows);
+    This enables a picture to be added to a list of window objects
+
+define :method rc_remove_container(pic:rc_linked_pic, win_obj);
+    This removes the picture from the window object
+
+define :method rc_add_container(pic:rc_linked_static, win_obj);
+define :method rc_add_container(pic:rc_linked_pic, win_obj);
+    This enables a picture to be added to a new window object
+
+
+--- $poplocal/local/rclib/help/rc_linked_pic
+--- Copyright University of Birmingham 1997. All rights reserved. ------

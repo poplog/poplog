@@ -1,0 +1,773 @@
+REF XpwCore                    Jonathan Meyer, Andreas Schoter  Aug 1990
+
+        COPYRIGHT University of Sussex 1991. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<            XPWCORE          >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+Xpw is the Poplog Widget Set.  It contains a variety of object  oriented
+user interface components (called widgets) which are controlled  through
+the X Windows Toolkit (Xt). For an introduction to Xpw, see HELP * Xpw.
+    This REF file describes the XpwCore widget, and the Pop-11 interface
+to XpwCore. See the  section on associated documentation  for a list  of
+other documents describing Xpw.
+    Xpw is  currently  written  in  C. See  the  section  C  Programming
+Information for more details on using the XpwCore widget in C.
+    This REF  file assumes  a  basic understanding  of the  Xt  toolkit.
+Concepts  such  as  resources,  actions,  translations,  etc.  are   all
+introduced in the X Toolkit Intrinsics - C Language Interface manual.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   XpwCore widget
+      1.1   Synopsis
+
+  2   Methods
+
+  3   Utility Procedures
+
+  4   Resources
+      4.1   Core Resources
+      4.2   XpwCore Resources
+
+  5   The Users Graphics Context
+
+  6   Actions & Translations
+      6.1   Actions
+      6.2   Translations
+
+  7   C Programming Information
+
+  8   Related Documentation
+
+
+
+-----------------
+1  XpwCore widget
+-----------------
+
+   Superclass:   Core
+
+XpwCore is the "root" of all of the widgets in Xpw. It contains  several
+basic resources, methods, and procedures which are common to all of  the
+widgets in Xpw.  It contains a  callback list, which  is used to  notify
+clients of events that  they may be interested  in. You can specify  the
+events that the  callback is  activated on using  the translation  table
+mechanism.
+
+    The XpwCore widget  has a Graphics  Context, which is  used to  hold
+resources like line width, line style, foreground and background colours
+etc. This graphics context is used by subclasses of XpwCore in  graphics
+and text operations.
+
+    The XpwCore widget  class is intended  as a base  for building  more
+sophisticated widget classes. As such, it is probably of limited use  to
+applications, which will probably use subclasses of XpwCore, such as the
+XpwGraphic widget class.
+
+
+1.1  Synopsis
+-------------
+In C:
+
+       #include <Intrinsic.h>
+       #include <StringDefs.h>
+       #include <X11/Xpw/XpwCore.h>
+       widget = XtCreateWidget(name, xpwCoreWidgetClass, ...);
+
+
+in Pop-11:
+
+
+xpwCoreWidget -> widgetclass                                  [constant]
+        A member of the Poplog Widget Set.
+
+        To  make  available   both  the  Xpw   library  directory,   and
+        xpwCoreWidget from it, requires either
+
+            uses Xpw, XpwCore;
+
+        or
+
+            uses Xpw, xpwCoreWidget;
+
+        The first loads all the method  procedures in this file as  well
+        as the widget itself, whereas  the second just loads the  widget
+        and * XpwCallMethod.
+
+        Then call either of
+
+            XtCreateWidget(name, xpwCoreWidget, ...) -> w;
+            fast_XtCreateWidget(name, xpwCoreWidget, ...) -> w;
+
+        to create an instance of the XpwCore widget.
+
+
+
+
+----------
+2  Methods
+----------
+
+For more information about Poplog Widget Methods, see REF * XpwMethods.
+
+XpwCore widgets have the following methods:
+
+ Method Name             Arguments          Notes
+ -----------             ---------          -----
+ XpwMSetColor            string             Either name or #rgb format
+ XpwMFreeColor           string
+ XpwMSetFont             string             Font name
+ XpwMFreeFont            string
+ XpwMSetCursor           shape              Shape in cursorfont.h
+ XpwMFreeCursor          shape
+ XpwMLoadPixmap          name,fg,bg,depth   Reads standard X11 bitmaps
+ XpwMChangeUsersGC       valuemask,vals
+
+Most of  these  methods  employ  caches  so  that  the  application  can
+repeatedly change colors, fonts and  cursors without expensive calls  to
+the X Server.  The methods are  convenience procedures -  in many  cases
+they simply call the relevant resource converter, and use XtSetValues to
+update the correct resource of the widget.
+
+    NB. These caches are currently not keyed on a per-screen basis. This
+means that if you are writing an application which connects to  multiple
+displays/screens care should be taken when using any of these methods.
+
+
+XpwSetColor(widget, string) -> pixel                         [procedure]
+        Calls the XpwMSetColor method for widget.
+
+        In short, this method sets  the foreground colour of the  widget
+        to the color string, returning the pixel value for that  colour.
+        string must be a valid colour found in the colour database  (for
+        example,  'red'   -  see   HELP * XCOLOURS)   ,  or   a   colour
+        specification of the format '#RRGGBB' (See MAN * X).
+
+        The method works as follows: if the color cache has not yet been
+        initialized,  a  new  cache  is  created,  with  two   entries -
+        XtDefaultForeground and XtDefaultBackground. The first entry  is
+        used if the  string is  NULL. If the  string isn't  null, it  is
+        converted into a lowercase quark, and the cache is searched  for
+        an entry whose key  is that quark. If  an entry does not  exist,
+        and  a  call  to  XParseColor/XAllocColor  is  successful,   the
+        returned color is added to the cache. If both attempts to locate
+        the color fail, the  method returns with a  result of zero,  and
+        XpwSetColor  returns   false.   Otherwise,   the   method   uses
+        XtSetValues to set  the foreground  of the  widget, and  returns
+        with the new color's pixel value.
+
+
+XpwFreeColor(widget, string)                                 [procedure]
+        Calls the XpwMFreeColor method for widget.
+
+        FreeColor will search the color cache for the named color. If an
+        entry in the cache exists, the related XColor is released  using
+        XFreeColor, and the cache entry is removed. You cannot free  the
+        XtDefault  cache   entries;  they   are  always   available   to
+        XpwSetColor calls.  If you  free a  color which  is the  current
+        foreground of the  widget, the method  calls XpwSetColor to  set
+        the XtNforeground of the widget to the default foreground.
+
+
+XpwSetFont(widget, string) -> font                           [procedure]
+        Calls the XpwMSetFont method for widget.
+
+        In short,  this method  sets the  font of  a widget  to the  one
+        called  string,  which   must  be   a  valid   font  name   (see
+        xlsfonts(1)). It returns  the fonts  FID, or false  if the  font
+        cannot be found.
+
+        This method works as follows: if the font cache has not yet been
+        initialized,  a  new   cache  is  created,   with  one   entry -
+        XtDefaultFont. This  entry is  used if  the fontname  string  is
+        NULL. If the fontname string isn't null, it is converted  into a
+        lowercase quark, and the  cache is searched  for an entry  whose
+        key is that quark.  If an entry  does not exist,  and a call  to
+        XLoadQueryFont is successful, the returned font is added to  the
+        cache. If  both attempts  to locate  the font  fail, the  method
+        returns with a  result of  zero, and  XpwSetFont returns  false.
+        Otherwise, the method uses XtSetValues to set the XtNfont of the
+        widget, and the method returns with the font's ID.
+
+
+XpwFreeFont(widget, string)                                  [procedure]
+        Calls the XpwMFreeFont method for widget.
+
+        FreeFont will search  the font cache  for a font  whose name  is
+        string. If an entry in the cache exists, the related XFontStruct
+        is released using XFreeFont, and the cache entry is removed. You
+        cannot free the XtDefaultFont cache entry - this font is  always
+        available to XpwSetFont calls. If you  free a font which is  the
+        current font for the widget, the method calls XpwSetFont to  set
+        the font of the widget to the default font.
+
+
+XpwSetCursor(widget, int) -> cursor                          [procedure]
+        Calls the XpwMSetCursor method for widget.
+
+        XpwSetCursor sets the cursor shape for the mouse cursor when  it
+        enters the widget.  int is  the number of  a cursor  shape -  it
+        refers to one of the characters (glyphs) in the cursor font (see
+        the C header <X11/cursorfont.h>).
+
+        XpwSetCursor first checks to see if the cursor cache exists.  If
+        it does not  exist, a  new cache  is created,  with no  entries.
+        Otherwise the cache is searched  for the requested cursor  shape
+        (XC_crosshair, XC_arrow etc). If an entry in the cache does  not
+        exist, the method calls XCreateFontCursor to load the  requested
+        cursor shape, which is then added to the cache. Then the  method
+        uses XtSetValues  to set  the  XtNpointerShape resource  of  the
+        widget. The cursor returned from XCreateFontCursor is returned.
+
+
+XpwFreeCursor(widget, int)                                   [procedure]
+        Calls the XpwMFreeCursor method for widget.
+
+        This  method  first  checks  the  cursor  cache  for  an   entry
+        corresponding to int (a number  referring to a character in  the
+        cursor  font).  If   that  entry   exists,  XpwFreeCursor   uses
+        XFreeCursor to release the memory associated with the cursor. If
+        the current  cursor  for  the  widget  is  the  same  as  shape,
+        XtSetValues is used to set the cursor to the server default (ie.
+        using XUndefineCursor).
+
+
+XpwChangeUsersGC(widget, valuemask, xgcvaluesptr)            [procedure]
+        Calls the XpwMChangeUsersGC method for widget.
+
+        This method allows  you to  change more  than one  field of  the
+        users graphics context  at once.  It provides  a more  efficient
+        interface to the GC than through resources. See  MAN * XChangeGC
+        for details of valid values  for valuemask and VALUES. The  file
+        INCLUDE * XPT_XGCVALUES  provides  constants  and  datastructure
+        support for the XGCValues structure.
+
+
+XpwLoadPixmap(widget, name, fg_pixel, bg_pixel, depth)       [procedure]
+                -> pixmap_or_false
+        Calls the XpwMLoadPixmap method for widget.
+
+        Reads the X11 bitmap file called  name and creates an X  Pixmap,
+        which is returned. The  procedure returns false  if there is  an
+        error  reading  the  bitmap  file.  The  pixmap  will  have  the
+        specified  foreground   and  background   pixels  fg_pixel   and
+        bg_pixel, and have a depth of depth (XpwLoadPixmap will  recolor
+        the loaded bitmap  to use  the new  pixel values).  If depth  is
+        zero, the  depth  of  widget is  used  instead.  This  procedure
+        performs no caching  - repeated  calls with  the same  arguments
+        will generate new pixmaps each  time. If a fg_pixel or  bg_pixel
+        of -1 is specified, the current foreground/background colours of
+        the widget are used instead.
+
+        The following search strategy is used to locate the file for the
+        bitmap called name:
+
+        1) If name starts with a './' or a '/' then name itself is used.
+
+        2) Next, the X  application resource "bitmapFilePath", of  class
+        "BitmapFilePath", is used. It should  be a colon separated  list
+        of directories, and  each directory is  searched for the  bitmap
+        called DIRECTORY/name.
+
+        3) The  directory  /usr/include/X11/bitmaps  is  searched  for a
+        bitmap called name.
+
+        4) If name does not start with a './' or a '/' then name  itself
+        is used.
+
+
+XpwGetPixmap(widget, name, fg_pixel, bg_pixel, depth)        [procedure]
+                -> pixmap_or_false
+        Identical in calling  parameters to XpwLoadPixmap.  XpwGetPixmap
+        performs pixmap caching in a  Pop-11 property, so that  repeated
+        calls to  XpwGetPixmap with  the same  name, colour,  depth  and
+        display will return the same pixmap. Note that pixmaps  returned
+        by XpwGetPixmap  should  be  treated as  read-only  since  other
+        applications may have loaded  the pixmap. Also  note that it  is
+        unwise to free the pixmaps returned by XpwGetPixmap for the same
+        reasons.
+
+
+XpwFreePixmap(widget, pixmap)                                [procedure]
+        Calls XFreePixmap to free the X Pixmap pixmap.
+
+
+
+
+---------------------
+3  Utility Procedures
+---------------------
+
+The following procedures may be useful:
+
+
+XpwFontAscent(widget) -> int                                 [procedure]
+XpwFontDescent(widget) -> int                                [procedure]
+XpwFontHeight(widget) -> int                                 [procedure]
+        These utility procedures take a  subclass of the XpwCore  widget
+        and return the font.ascent and font.descent fields for the  font
+        structure held  in  the  XtN font  resource.  These  values  are
+        integers specifying the logical ascent and descent of the font's
+        characters above  and below  the fonts  "baseline", measured  in
+        pixels. They are  used to  calculate line  spacing when  drawing
+        text with the font.
+
+        The XpwFontHeight procedure returns font.ascent + font.descent.
+
+
+XpwTextWidth(widget, string) -> int                          [procedure]
+        Calls XTextWidth.
+
+        widget should be an instance of XpwCore or a subclass.
+
+        This procedure  returns the  width in  pixels of  the  specified
+        string, when draw using the font  held in the XtN font  resource
+        for widget.
+
+
+
+
+------------
+4  Resources
+------------
+
+XpwCore inherits  all of  the  Core widget  resources,  and adds  a  few
+additional resources that are used by other Xpw widgets.
+
+    The following resources are retrieved from the argument list or  the
+resource database when XpwCore widgets are created.
+
+
+
+4.1  Core Resources
+-------------------
+
+ Name                    Class                   Type            Access
+ ----                    -----                   ----            ------
+ XtNancestorSensitive    XtCSensitive            Boolean         G*
+ XtNbackground           XtCBackground           Pixel           SGI
+ XtNbackgroundPixmap     XtCPixmap               Pixmap          SGI
+ XtNborderColor          XtCBorderColor          Pixel           SGI
+ XtNborderPixmap         XtCPixmap               Pixmap          SGI
+ XtNborderWidth          XtCBorderWidth          short           SGI
+ XtNdepth                XtCdepth                short           SGI
+ XtNdestroyCallback      XtCCallback             XtCallbackList  SI
+ XtNheight               XtCHeight               short           SGI
+ XtNmappedWhenManaged    XtCMappedWhenManaged    Boolean         SGI
+ XtNsensitive            XtCSensitive            Boolean         GI*
+ XtNtranslations         XtCTranslations         XtTranslations  GI
+ XtNwidth                XtCWidth                short           SGI
+ XtNx                    XtCPosition             short           SGI
+ XtNy                    XtCPosition             short           SGI
+
+The Access Column is interpreted as follows:
+
+     S   Value can be set by XtSetValues
+     G   Value can be read by XtGetValues
+     I   Value can be set at initialization
+     *   Value set in other ways
+
+
+XtNancestorSensitive                                          [resource]
+        BOOL: true or false (default: true)
+
+        Specifies whether the immediate parent of a widget will  receive
+        input events. This resource can only be read, using XtGetValues.
+        XtSetSensitive is used to set a widgets sensitivity state;
+
+
+XtNbackground                                                 [resource]
+        PIXEL, Default value: XtDefaultBackground
+
+        Specifies the background colour of a widget. This can be set  in
+        the users X Resource Database (.Xdefaults) to a colour in  the X
+        colour database (see HELP * XCOLOURS),  or by using  XtSetValues
+        and providing a valid pixel for the display.
+
+
+XtNbackgroundPixmap                                           [resource]
+        PIXMAP, Default value: None
+
+        Specifies the  pixmap  to use  for  tiling the  background  of a
+        widget. Takes precedence over XtNbackground.
+
+
+XtNborderColor                                                [resource]
+        PIXEL, Default value: XtNDefaultBackground
+
+        Specifies the colour for the border around a widget. This can be
+        set in the users X Resource Database (.Xdefaults) to a colour in
+        the  X  colour  database  (see  HELP * XCOLOURS),  or  by  using
+        XtSetValues and providing a valid pixel for the display.
+
+
+XtNborderPixmap                                               [resource]
+        PIXMAP, Default value: None
+
+        Specifies the pixmap to  use for tiling  the border. This  takes
+        precedence over XtNborderColor.
+
+        Xpw provides a resource converter which converts between  bitmap
+        files and pixmaps. This allows  the borderPixmap resource to  be
+        set using a named bitmap file  in the users X Resource  Database
+        (.Xdefaults). Alternatively, XtSetValues can be used to set this
+        resource to a valid X Pixmap.
+
+
+XtNborderWidth                                                [resource]
+        INT, 0 <= borderWidth <= min(width, height) div 2 (default 1)
+
+        Specifies the width of the border surrounding a widget. If  this
+        width is 0,  no border  will be  shown. Borders  are either  the
+        colour XtNborderColor, or the tile XtNborderPixmap.
+
+
+XtNdepth                                                      [resource]
+        INT, 0 <= depth <= depth of RootWindow (default 0).
+
+        Specifies the depth of a widget's window when it is created. The
+        Xt Intrinsics  use  the value  of  this resource  during  window
+        creation. Users  can set  this  resource at  initialization,  or
+        using XtSetValues before a  widget's Realize procedure has  been
+        called. However,  once  the  widgets  window  has  been  created
+        (during XtRealizeWidget  or equivalent),  it's depth  cannot  be
+        changed. A depth of 0 indicates  that the widget should use  the
+        same depth as the RootWindow of the screen the widget is on.
+
+
+XtNdestroyCallback                                            [resource]
+        CALLBACKLIST, default: empty (NULL)
+
+        Specifies a callback list containing routines to be called  when
+        a widget is destroyed.
+
+        Poplog uses the XtNdestroyCallback to invoke the  destroy-action
+        of the widget,  which usually releases  the storage occupied  by
+        the widget.
+
+
+XtNheight                                                     [resource]
+        HEIGHT: short integer, default value: widget specific.
+
+        Specifies the height  of a  widget's window,  not including  the
+        border of the widget.
+
+        Users   can   specify   widget   geometry   as   arguments    to
+        XtCreateWidget,  or   in   their  X   Resource   Database   file
+        (.Xdefaults), or  using  XtSetValues. Calling  XtSetValues  on a
+        widget to  modify its  height will  (usually) cause  a  XtResize
+        request to resize  the window  of the widget.  Notice than  this
+        resource is of type "short" and not of type "int".
+
+
+XtNmappedWhenManaged                                          [resource]
+        BOOL: true of false (default value: true)
+
+        Specifies whether a widget should be mapped (made visible)  when
+        it is managed and realized. If  set to True, the widget will  be
+        mapped  as   soon   as   it  is   managed   and   realized.   If
+        XtNmappedWhenManaged is  False, the  application is  responsible
+        for mapping  and unmapping  the  widget (using  XtMapWidget  and
+        XtUnmapWidget).
+
+        If XtNmappedWhenManaged is  changed from True  to False  after a
+        widget has been mapped, the widget is unmapped.
+
+
+XtNsensitive                                                  [resource]
+        BOOL: true of false (default value: true)
+
+        This resource  specifies whether  a  widget will  receive  input
+        events. Setting  this  resource is  done  using  XtSetSensitive,
+        which ensures that any child  widgets which are affected by  the
+        change are modified to reflect the new sensitivity status.
+
+
+XtNtranslations                                               [resource]
+        TRANSTABLE, default value: widget dependent.
+
+        Specifies a translation table which is used to map X Events into
+        widget actions.  This is  an event-to-procedure  mapping.  After
+        widget creation,  the  translations  of  the  widget  cannot  be
+        modified. Modifications to translation  tables can be  specified
+        in the users  X Resource  Database file (.Xdefaults),  or as  an
+        XtTranslationTable argument to XtCreateWidget.
+
+        Translation tables  can be  constructed  using the  Xt  function
+        XtParseTranslationTable.
+
+
+XtNwidth                                                      [resource]
+        WIDTH: short integer, default value: widget specific.
+
+        Specifies the  width of  a widget's  window, not  including  the
+        border of the widget.
+
+        Users   can   specify   widget   geometry   as   arguments    to
+        XtCreateWidget,  or   in   their  X   Resource   Database   file
+        (.Xdefaults), or  using  XtSetValues. Calling  XtSetValues  on a
+        widget to  modify  its width  will  (usually) cause  a  XtResize
+        request to resize  the window  of the widget.  Notice that  this
+        resource is of type "short" and not of type "int".
+
+
+XtNx                                                          [resource]
+        X: short integer, default value: widget specific.
+
+        Specifies the X coordinate of a widget's upper-left hand corner,
+        excluding the border, relative to the widget's parent.
+
+        Users   can   specify   widget   geometry   as   arguments    to
+        XtCreateWidget,  or   in   their  X   Resource   Database   file
+        (.Xdefaults), or  using  XtSetValues. Calling  XtSetValues  on a
+        widget  to  modify  its  x  coordinate  will  (usually)  cause a
+        XtMoveWidget request to  move the window  of the widget.  Notice
+        that this resource is of type "short" and not of type "int".
+
+
+XtNy                                                          [resource]
+        Y: short integer, default value: widget specific.
+
+        Specifies the Y coordinate of a widget's upper-left hand corner,
+        excluding the border, relative to the widget's parent.
+
+        Users   can   specify   widget   geometry   as   arguments    to
+        XtCreateWidget,  or   in   their  X   Resource   Database   file
+        (.Xdefaults), or  using  XtSetValues. Calling  XtSetValues  on a
+        widget  to  modify  its  y  coordinate  will  (usually)  cause a
+        XtMoveWidget request to  move the window  of the widget.  Notice
+        that this resource is of type "short" and not of type "int".
+
+
+
+4.2  XpwCore Resources
+----------------------
+
+ Name                    Class                   Type            Access
+ ----                    -----                   ----            ------
+ XtNautoFlush            XtCBoolean              Boolean         SGI
+ XtNfont                 XtCFont                 XFontStruct     SGI
+ XtNforeground           XtCForeground           Pixel           SGI
+ XtNmodifiers            XtCModifiers            int             G
+ XtNpointerShape         XtCCursor               Cursor          SGI
+ XtNpointerForeground    XtCForeground           Pixel           SGI
+ XtNpointerBackground    XtCBackground           Pixel           SGI
+ XtNusersGC              XTCUsersGC              GC              SG
+ XtNxpwCallback          XtCCallback             XtCallbackList  SI
+
+The Access Column is interpreted as follows:
+
+    S   Value can be set by XtSetValues
+    G   Value can be read by XtGetValues
+    I   Value can be set at initialization
+    *   Value set in other ways
+
+
+XtNautoFlush                                                  [resource]
+        BOOL: true or false, default value: true
+
+        This resource is  inspected after  calling an  Xpw Method.  (See
+        REF * XpwCallMethod, REF * XpwMethods for more). If its value is
+        TRUE, an  XFlush  is issued.  By  setting it  FALSE,  users  can
+        perform several method calls at  once. When the resource is  set
+        to TRUE, XFlush is called. The following code fragment shows how
+        autoFlush can be used:
+
+         XtSetValue(widget, XtNautoFlush, FALSE);
+
+         /* put multiple method calls inside "autoFlush" brackets */
+         repeat 100 times;
+          XpwCallMethod(widget, XpwMDrawPoint, random(100),random(100));
+         endrepeat;
+
+         XtSetValue(widget, XtNautoFlush, TRUE);
+
+        Setting this  resource  TRUE  increments  an  internal  counter.
+        Setting it  FALSE  decrements the  counter.  An XFlush  is  only
+        performed if the counter has reached 0.
+
+
+XtNfont                                                       [resource]
+        FONTSTRUCT, default value: XtDefaultFont
+
+        Specifies the font used in graphics operations by an Xpw widget.
+        Applications can  load fonts  using XLoadQueryFont  and  specify
+        them  either   at  widget   creation,  or   using   XtSetValues.
+        Alternatively, the XpwSetFont method (see above) can be used  to
+        load and set a  font for an Xpw  widget. Users may also  specify
+        fonts in their X Resource Database file (.Xdefaults).
+
+        This  resource  contains  a   pointer  to  an  XFontStruct,   so
+        applications may  use  the  information  in  the  fontstruct  to
+        determine the dimensions of characters in the font. Setting this
+        resource modifies the Graphics Context pointed to be the usersGC
+        resource.
+
+
+XtNforeground                                                 [resource]
+        PIXEL, default value: XtDefaultForeground
+
+        Specifies the forground colour  used during graphics  operations
+        in an Xpw widget. The foreground can be specified as an argument
+        to XtCreateWidget,  or in  the users  X Resource  Database  file
+        (.Xdefaults).  XtNforeground   can   also  be   modified   using
+        XtSetValues, and providing a valid pixel value for the  display.
+        Alternatively, XpwSetColor (see  above) can be  used to set  the
+        foreground colour to  a colour  named in the  X Colour  Database
+        (see HELP * XCOLOURS).
+
+
+XtNmodifiers                                                  [resource]
+        INT, default value: unspecified
+
+        This resource indicates which modifiers (control, shift and meta
+        keys) are pressed when an X Event occurs in an Xpw Widget. It is
+        identical to  the  event's event->state  field.  Event  handlers
+        often require this information.
+
+
+XtNpointerShape                                               [resource]
+        INT, default value: 0 (ie. default shape)
+
+        This resource defines the cursor  that should be displayed  when
+        the pointer is in the window of an Xpw widget. Applications  can
+        create a cursor (using XCreateFontCursor for example), and  then
+        set this resource. Alternatively, they can use the  XpwSetCursor
+        method (see above).  Users can also  specify XtNpointerShape  in
+        their X Resource Database file (.Xdefaults).
+
+        Setting this resource causes  an XDefineCursor call, unless  the
+        new  cursor  that   is  specified   is  NULL,   in  which   case
+        XUndefineCursor is used instead.
+
+
+XtNpointerForeground                                          [resource]
+XtNpointerBackground                                          [resource]
+        PIXEL, default: XtDefaultForeground and XtDefaultBackground.
+
+        Specify the  foreground and  background  pixel colours  for  the
+        mouse cursor when it is within the widget.
+
+
+XtNusersGC                                                    [resource]
+        GC, default value: widget specific
+
+        This resource  holds  a  pointer to  an  Xpw  widget's  Graphics
+        Context (GC). Subclasses  of XpwCore all  use the XtNusersGC  to
+        perform their graphics and  text operations. Subclasses  provide
+        resources for altering  relevant parts  of the  GC. The  XpwCore
+        widget provides  foreground, background  and font  resource  for
+        this purpose. See  Xlib Programming  Manual, vol. 1,  Ch. 6  for
+        more on GC's. Changing 'usersGC'  will cause the previous GC  to
+        be released.
+
+
+XtNxpwCallback                                                [resource]
+        CALLBACKLIST, default value: empty (NULL)
+
+        A general-purpose callback used by Xpw widgets to notify clients
+        of events,  such as  exposure or  resize events.  Subclasses  of
+        XpwCore  use  this  resource   for  different  purposes  -   see
+        REF * XpwComposite.
+
+
+
+
+-----------------------------
+5  The Users Graphics Context
+-----------------------------
+
+The usersGC resource has  many other derived  resources relating to  it,
+including foreground, background, font, and others.
+
+    The XpwCore widget tries to minimise the number of XChangeGC  calls.
+Using XtSetValues to set more  than one graphics context field  resource
+at once is much more efficient than changing one resource at a time.
+
+    The XpwCore widget also  tries to share the  usersGC. If you  create
+many widgets which all have the same graphics context values, they  will
+all share the same GC. Using  XtSetValues to change fields in a  usersGC
+for a  widget will  cause that  widget to  release its  shared  graphics
+context and use a unique one. For this reason, you should not modify the
+usersGC directly unless you are sure that  it is no longer a shared  GC.
+You can  ensure this  by changing  one of  the fields  of the  GC  using
+XtSetValues before using Xlib routines to change other fields in the GC.
+
+For more resources derived from the usersGC, see REF * XpwPixmap.
+
+
+
+
+-------------------------
+6  Actions & Translations
+-------------------------
+
+6.1  Actions
+------------
+The XpwCore widget has one action, called "notify-event":
+
+
+notify-event                                                    [action]
+        ACTION, calls XtNxpwCallback list, passing X event structure.
+
+        The notify-event  action is  used in  Xpw to  notify clients  of
+        (undetermined) events. It is  very basic -  it simply calls  the
+        XtNxpwCallback list, with a pointer  to the XEvent structure  as
+        data.
+
+
+
+6.2  Translations
+-----------------
+The XpwCore  widget  does  not  perform  any  event  processing  in  its
+translation table.  This  is left  to  the programmer  -  widgets  below
+XpwCore in the Poplog Widget Set differentiate events, and call callback
+lists based on event type. The application could create a XpwCore widget
+with the following translations:
+
+        "<ResReq>: notify-event() \n\
+        <Expose>: notify-event() "
+
+
+
+
+----------------------------
+7  C Programming Information
+----------------------------
+
+Xpw follows all of the Xt conventions, and so should be  straightforward
+to use  in C,  and in  other languages.  Widget creation,  and  resource
+setting etc, all follow the Xt norms. The one addition to Xt is the  use
+of methods instead  of a collection  of global C  procedures to  perform
+widget-class specific operations  on a  widget. See  REF * XpwCallMethod
+for a  description of  the calling  syntax for  methods, and  a  C-style
+synopsis of all of the methods available in Xpw.
+
+
+
+
+------------------------
+8  Related Documentation
+------------------------
+
+    HELP * Xpw
+        An overview of the Poplog Widget Set
+
+    REF * XpwCallMethod
+        Information on method access in Xpw
+
+    REF * XpwMethods
+        A summary of methods
+
+    REF * XpwResources
+        An index of resources
+
+
+
+
+--- C.x/x/pop/ref/XpwCore
+--- Copyright University of Sussex 1991. All rights reserved.

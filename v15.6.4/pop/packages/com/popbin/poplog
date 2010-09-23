@@ -1,0 +1,211 @@
+#!/bin/csh
+# $usepop/bin/poplog
+# Aaron Sloman
+# The files $usepop/INSTALL/poplog1 and $usepop/INSTALL/poplog2 are used
+# by the installation script to create $usepop/bin/poplog
+
+## Poplog startup script for csh and tcsh users (sourced or run as a script)
+## Created automatically by installation script
+
+# Purpose:
+# Script which sets up poplog environment variables, and then runs
+# The command given as argument (e.g. pop11, xved, clisp, etc.)
+# When used like this it sets the environment variables only in the
+# process that runs the script.
+
+# Can be "sourced" instead, to set environment variables for a whole
+# login session, or in an xterm, e.g. in the user's startup file
+
+
+## In the first mode, it can be invoked with commands such as
+##
+##    poplog pop11
+##    poplog ved
+##    poplog xved <file>
+##    poplog prolog
+##    poplog clisp
+##    poplog pml
+##    poplog pop11 +eliza
+
+## In the second mode, invoke this as something like this:
+##    source $usepop/bin/poplog
+##    rehash
+
+# setup local directory tree for poplog root
+# may be a symbolic link to something else
+setenv poplogroot `pwd`
+source $poplogroot/v15.63/pop/packages/com/poplogout
+##
+# The rest of this file is derived from $usepop/INSTALL/poplog2
+## THIS MAY NEED TO BE EDITED
+## Last changed: 2 Dec 2008
+##      use of setarch no longer necessary
+## Last changed 11 Sep 2007
+setenv usepop $poplogroot/current-poplog
+
+# Set the poplocal variables
+
+## THIS MAY ALSO NEED TO BE EDITED
+setenv poplocal $poplogroot
+setenv local    $poplocal/local
+
+# Run the initialisation files to set up additional environment
+# variables, extend $PATH, etc.
+# THIS IS THE "STANDARD" poplog "login" file. It sources several others
+source $usepop/pop/com/poplog
+
+# (Optional)
+# Set $EDITOR and $VISUAL, unless set by users. Users can undo this.
+
+## UNCOMMENT THESE IF YOU WISH
+## Make ved the default visual editor
+## if (! $?EDITOR) setenv EDITOR ved
+## if (! $?VISUAL) setenv VISUAL ved
+
+if ($?DISPLAY) then
+    # DISPLAY set. Using X, so set resources
+
+    # Extend X resources for Ved in xterm, Xved etc.
+    # Read user's file if it exists, otherwise system version
+    if ( -f $HOME/.Xdefaults.poplog ) then
+
+        # Get user's version
+        xrdb -merge $HOME/.Xdefaults.poplog
+
+    else
+        # Defaults may not be ideal.
+        # E.g. check font size for XVed
+        xrdb -merge $usepop/Poplib/Xdefaults.poplog
+
+    endif
+
+endif
+
+## Check if user has a location for init.p, vedinit.p etc. and if not
+## use a default location (MUST EXIST)
+
+echo setting "poplib"
+
+if ( $?poplib ) then
+
+    if ( -d $poplib ) then
+
+        # Then $poplib already set and is a directory: use it
+
+        echo "use existing poplib set to $poplib"
+
+        goto poplibset
+
+    endif
+
+endif
+
+# $poplib not set
+
+if (-d $HOME/Poplib) then
+
+    ## echo set poplib to $HOME/Poplib
+
+    setenv poplib $HOME/Poplib
+
+else if ( -d $HOME/poplib ) then
+
+    ## echo set poplib to $HOME/poplib
+
+    setenv poplib $HOME/poplib
+
+else if ( -f $HOME/vedinit.p ||  -f $HOME/init.p ) then
+
+    ## echo set poplib to $HOME
+
+    setenv poplib $HOME
+
+else
+    ## A place where local versions of init.p, vedinit.p init.lsp etc.
+    ## can be located (Changed: A.Sloman 17 Jan 2005 )
+
+    echo set poplib to the default: $usepop/Poplib
+
+    setenv poplib $usepop/Poplib
+
+endif
+
+poplibset:
+
+echo "poplib set to" $poplib
+
+## Check whether to use setarch to invoke poplog programs
+
+## No longer needed: 2 Dec 2008
+
+## if ( -x /sbin/sysctl ) then
+##
+##     ## default -- use it Altered: A.S. 5 Nov 2008
+##     ## Set this true here. It may be set false below
+##     set usesetarch = true
+##
+##     ## Added '-e' to suppress errors. A.S. 11 Oct 2007
+##     set vaspace = `/sbin/sysctl -n -e kernel.randomize_va_space`
+##
+##     ## this no longer seems to matter A.S. 5 Nov 2008
+##     # set execshield = `/sbin/sysctl -n -e kernel.exec-shield`
+##
+##     # echo $vaspace
+##
+##     # echo $execshield
+##
+## ##    if ( "$vaspace" == "1"  || "$execshield" == "1" ) then
+##
+##     if ( "$vaspace" == "0" ) then
+##
+##         ##echo "making usesetarch false"
+##
+##         set usesetarch = "false"
+##
+##     else
+##
+##         echo "usesetarch is true"
+##
+##     endif
+##
+## else
+##     ## sysctl not available -- don't use it
+##     echo "usesetarch is false"
+##     set usesetarch = false
+## endif
+
+## New default
+set usesetarch = false
+#echo usesetarch  $usesetarch
+
+
+# If sourced (with no arguments) do nothing, but leave environment
+# variables set.
+# If run with arguments, run the command given. Use exec to save a proces.
+
+if ( "$*" != "") then
+
+##     if ( $usesetarch == "true" ) then
+##
+##         setarch i386 -R $*
+##
+##     else
+
+        exec $*
+
+##    endif
+
+## else
+##
+##     if ( $usesetarch == "true" ) then
+##
+##      alias pop11   setarch i386 -R pop11
+##      alias xved    setarch i386 -R xved
+##      alias ved     setarch i386 -R ved
+##      alias prolog  setarch i386 -R prolog
+##      alias clisp   setarch i386 -R clisp
+##      alias pml     setarch i386 -R pml
+##
+##     endif
+
+endif

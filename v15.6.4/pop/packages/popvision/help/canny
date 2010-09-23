@@ -1,0 +1,187 @@
+HELP CANNY                                  David Young
+                                            Nov 1992, revised Jan 1995
+
+LIB *CANNY implements an edge detector based on some of the ideas of
+Canny (Canny, J. F. 'A computational approach to edge detection', IEEE
+PAMI 8(6), 679-698, November 1986). The main thing omitted is the
+integration of multiple scales.
+
+There is a short example in TEACH *CANNY.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Algorithm
+ -- ... Gradient estimation
+ -- ... Non-maximum suppression
+ -- ... Hysteresis thresholding
+ -- The canny procedure
+ -- Gradients as features
+ -- Size of output arrays
+ -- Other procedures
+ -- Garbage
+
+-- Algorithm ----------------------------------------------------------
+
+The algorithm is in three parts.
+
+-- ... Gradient estimation --------------------------------------------
+
+The first derivatives of the image in the X and Y directions are
+estimated at each pixel.
+
+In effect, the image is smoothed with a circular Gaussian mask, and then
+differentiated along X and Y.  In actuality, the image is convolved with
+a 1-D Gaussian mask oriented along Y, and the result of this convolved
+with 1-D first-derivative-of-Gaussian mask oriented along X, to get the
+X derivative estimates. Similarly for Y derivatives.
+
+The square root of the sum of the squares of the X and Y derivatives is
+found for each pixel, to estimate the gradient magnitude (called just
+the gradient in what follows).
+
+-- ... Non-maximum suppression ----------------------------------------
+
+Each pixel in the gradient image is set to zero unless it is a local
+maximum along a line oriented along the gradient direction. The pixels
+that are left therefore lie on the peaks of ridges in the gradient.
+
+The gradient direction at each pixel is estimated from the X and Y
+derivatives (i.e. tan(angle from X-axis to direction) = (Y derivative) /
+(X derivative), though we never calculate this explicitly). Estimates of
+neighbouring gradients are then made as follows:
+
+
+                          A      /      B
+            *             *     P       *
+                               /
+                              /
+                             /
+                            /
+                           /
+            *             O             *
+                         /
+                        /
+                       /
+                      /
+            C        /    D
+            *       Q     *             *
+                   /
+                  /<- direction of grey-level gradient
+                 /
+
+O is at the centre of the pixel we're interested in, and each * is at
+the centre of one of its nearest 8 neighbours. We identify the pixels A,
+B, C and D which are closest to gradient line (so there are 4 cases),
+and get the gradient at each of these four pixels. The gradient at P is
+then estimated by linear interpolation between A and B and that at Q by
+linear interpolation between C and D. O is a maximal pixel if the
+gradient there is greater than the estimates for P and Q.
+
+-- ... Hysteresis thresholding ----------------------------------------
+
+The gradient array (now rather sparse) is further reduced by
+thresholding. Hysteresis is used so that lines that include strong and
+weak gradients are not split up. This requires two thresholds; call them
+T1 and T2, with T1 < T2.
+
+Roughly, edges start from pixels with gradients of T2 or more; they then
+extend over any connected pixels with gradients of T1 or more. If you
+think of following an edge, you need a gradient of T2 to start but you
+don't stop till you hit a gradient below T1.
+
+In other words, for a given pixel, if the gradient magnitude is below T1
+it is unconditionally set to zero. If the gradient is at least T2 the
+pixel is left alone. If the gradient is between these two, then it is
+set to zero unless there is a path from this pixel to a pixel with a
+gradient above T2; the path must be entirely through pixels with
+gradients of at least T1. The path can include diagonal moves - i.e. we
+use 8-connectivity.
+
+This algorithm does not use the gradient direction estimates to follow
+edges - it simply treats an edge as a connected set of pixels (see
+*APPBLOBS). This seems to make very little difference to the final
+results.
+
+-- The canny procedure ------------------------------------------------
+
+canny(IMAGE, SIGMA, T1, T2, XDIFF, YDIFF, GRADIENTS)
+        -> (XDIFF, YDIFF, GRADIENTS)
+    IMAGE is an array containing the data. The procedure is fastest if
+    this is a packed array of single precision floats as created by
+    *NEWSFLOATARRAY. The bounds of the array do not have to start at 1,
+    or at any other specific value.
+
+    SIGMA is a positive real number giving the SIGMA parameter (see
+    *GAUSSMASK) for smoothing in the first stage.
+
+    T1 and T2 are the thresholds for the third stage, and they should
+    both be positive real numbers, unless T1 is <false>, in which case
+    no thresholding is carried out and T2 is ignored.
+
+    XDIFF and YDIFF are arrays, preferably created using
+    *NEWSFLOATARRAY, which are filled with the separate X and Y
+    derivative estimates, in case they are wanted. XDIFF, YDIFF or both
+    may be given as <false>, in which cases one or two new arrays are
+    created and returned.  If they are arrays, XDIFF and YDIFF have to
+    be the correct size to receive the gradients. The easiest way to get
+    this right is to give these arguments on the first call to canny,
+    and then re-use the arrays returned for subsequent calls with the
+    same size image.
+
+    GRADIENTS is the main result. It is the array of gradient estimates,
+    after decimation by non-maximum suppression and hysteresis
+    thresholding. Many of its elements will therefore be zero. Again,
+    this may be an array to fill or <false> to make a new array.
+
+    The XDIFF, YDIFF and GRADIENTS arguments may be omitted. This is
+    equivalent to giving them all as <false>.
+
+-- Gradients as features ----------------------------------------------
+
+The output array will contain many values of zero and some values
+greater than or equal to T1, which are gradient estimates. If you
+actually want a binary array in which edges are marked by a single value
+(say 1.0), then you can use -float_threshold- (see
+*FLOAT_ARRAYPROCS/float_threshold), like this:
+
+    float_threshold(0, T1/2, 1, GRADIENTS, GRADIENTS) -> GRADIENTS
+
+Using T1/2 as the threshold guards against rounding errors. This form
+will overwrite the GRADIENTS array; give the last argument as <false> if
+you want to create a new array.
+
+-- Size of output arrays ----------------------------------------------
+
+The output arrays will be smaller than the input array by an amount
+depending on SIGMA, because you cannot apply the convolution operators
+right up to the boundaries of an array. However, GRADIENTS(X, Y) will
+always correspond to IMAGE(X, Y) - i.e. you do not have to worry about
+this reduction in size when you look at positions in the arrays.
+
+If you really want GRADIENTS to be as big as the original array, then
+you must copy the data into a larger array with a margin big enough for
+the convolution masks to reach into when processing pixels near the
+boundaries. Use -diffgaussmask_limit(SIGMA)- from *GAUSSMASK to find out
+how big the margin should be and -region_expand- from *BOUNDSLIST_UTILS
+to get the boundslist for the new array. You then have to put something
+sensible in the margin: zeroes, or a reflection of the data in the array
+might make sense, and *ARRAYSAMPLE or *ARRAY_REFLECT can be used to
+create the large array and do the copying and reflections very simply.
+
+However, it is probably much better to accept that gradients near the
+boundaries of the data cannot be properly defined, and to work with the
+smaller output array. If your programs are properly written to use the
+boundslists of the arrays they process, this should present no problem.
+For example, you can pass GRADIENTS into *STRAIGHT_HOUGH and the lines
+found will be correctly positioned in the coordinates of the original
+image.
+
+-- Other procedures ---------------------------------------------------
+
+The separate stages are implemented by -canny1-, -canny2- and -canny3-,
+which can be called separately if necessary. See LIB *CANNY for their
+arguments and results.
+
+
+--- $popvision/help/canny
+--- Copyright University of Sussex 1995. All rights reserved. ----------

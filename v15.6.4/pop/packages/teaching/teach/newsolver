@@ -1,0 +1,953 @@
+TEACH NEWSOLVER                                    Aaron Sloman Nov 1995
+              Revised version of TEACH SOLVER by Steven Hardy, June 1982
+
+Introduction to classical STRIPS-like planning and problem-solving.
+
+Note:
+The old TEACH SOLVER was based on LIB SOLVER. This new version is based
+on LIB * NEWSOLVER
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- Using the library
+ -- What is an operator?
+ -- What the planner does
+ -- The default blocksworld
+ -- -- Default database
+ -- -- Default operators
+ -- Backward chaining from a goal
+ -- Forward chaining from the database
+ -- Search strategies
+ -- Think about how you would solve some problems
+ -- -- Example 1 [b2 on b5]
+ -- -- Example 2 [b5 on b1] [b1 on b2]
+ -- -- Example 3 [b5 on b1] [b1 on b5]
+ -- -- Example 4 [b1 on b2] [b4 on b5] [b5 on b1] [b3 on b4] [b2 on b3]
+ -- Using the problem solver to solve those problems
+ -- -- Examples of the use of the program
+ -- Changing the trace file
+ -- -- Structure of the graphical trace
+ -- -- achieve, reduce, and perform
+ -- -- A simpler example
+ -- -- A more complex example.
+ -- Means-Ends Analysis
+ -- Additional ways to invoke runstrips
+ -- Improving the performance using the variable "clever"
+ -- The ASTAR planner
+ -- Use of the variable lookahead
+ -- Making plans for other domains
+ -- Possible exercises
+ -- READING
+
+-- Introduction -------------------------------------------------------
+
+This file describes a demonstration program to illustrate means-end
+analysis and the A* (A-STAR) heuristic search algorithm, in the
+framework employed by STRIPS, the Stanford Research Institute Problem
+Solver, described in many text books on AI as an example of a
+"classical" AI planner.
+
+The program is LIB * NEWSOLVER. In that library, several procedures and
+macros are made available to create plans in a hypothetical world. When
+the program runs, the intermediate states in construction of a plan are
+shown in the editor VED (unless
+
+The original design of the program was due to Steve Hardy, some time
+between about 1978 and 1982. It was reorganised and made consistent with
+current Pop-11 syntax in 1995.
+
+-- Using the library --------------------------------------------------
+
+To compile the program, first do:
+
+    uses newsolver
+
+This makes available a number of procedures for creating plans to solve
+problems. There will be a pause when you load the program, as it is
+quite a big program.
+
+The planner is set up to achieve a goal state, starting from a database
+describing the initial state of the world, and a set of operators for
+changing the world.
+
+It tries to achieve the new state by finding a sequence of operators
+that will transform the initial database to a state in which the goal
+state is true.
+
+There are two versions of the planner, one of which does a depth first
+search until it finds a plan. (See TEACH * TOWER, TEACH * SEARCHING).
+This often produces a wasteful plan which includes redundant actions.
+
+The other version uses the A* (ASTAR) algorithm to search for a more
+efficient plan.
+
+
+-- What is an operator? -----------------------------------------------
+
+Plans a created by assembling operators into linear chains. Executing
+the plan involves applying the operators in sequence. (This is clearly
+inadequate as a GENERAL planning formalism. Why?)
+
+Each operator has four components:
+
+    1. The 'name' (or invoking pattern) of the action, e.g.
+
+            [put ?X on ?Y]
+
+        This is something that is not used internally in testing
+        the operator, but is used to describe to the user which
+        action is chosen. The variables X and Y will have their
+        values bound as a result of the matching of some of the
+        other patterns in the operator. A list of instances of these
+        patterns will be used to formulate a plan.
+
+    2. A list of the preconditions of the action.
+        These have to be made true if they are not already true, before
+        the action can be performed. For example the above action might
+        have a list of two preconditions:
+
+             [[holding ?X] [cleartop ?Y]]
+
+        If these are not already true when you wish to put X on Y, then
+        they could define new sub-goals to be achieved in order to make
+        the action possible.
+
+    3. A list the things made false by performing the action,
+        This is the "delete list" for the operator. For example the
+        action of putting X on Y could have the following delete list:
+
+             [[holding ?X] [cleartop ?Y]]
+
+        since both of those would become false when X is put on Y.
+
+    4. The things made true by the action. This is the "add list" for
+        the operator). In the case of putting X on Y, the following
+        might have to be added to the database after the action is
+        performed.
+
+             [[emptyhand] [?X on ?Y]]
+
+For more on such operators read about STRIPS in AI text books.
+
+-- What the planner does ----------------------------------------------
+
+When you give the system a goal, a database, and a list of operators the
+planner looks to see if the goal description is already true in the
+database. If not, for each statement in the goal description which is
+not yet true, it looks to see if there is an operator whose add list
+includes something matching that statement. Then applying that operator
+could achieve the goal. However, if the operator has preconditions, it
+is necessary to check whether those preconditions are satisfied. If not,
+they determine new sub-goals. So the planner has to find a way of
+achieving the unsatisfied preconditions.
+
+In general there will be alternative ways of making a particular goal or
+subgoal true, and not all of them will be consistent with possible
+ways of solving other goals.
+
+So the problem solver will have to search for a sequence of operators
+which can be applied to solve the complete set of goals. This then
+becomes a standard state-space searching problem.
+
+From this description it should be clear that the general sorts of
+mechanisms described in TEACH * TOWER and TEACH * SEARCHING could be
+used to find plans to achieve a list of goals. LIB * NEWSOLVER provides
+mechanisms tailored specifically to problems posed in the format
+described here, i.e. using operators with precondition lists, delete
+lists, and add lists.
+
+-- The default blocksworld --------------------------------------------
+
+The procedure blocksworld is defined to provide a default initial world.
+
+In this world there are five blocks on a table top. The blocks are named
+B1, B2, B3, B4 and B5. Blocks B1, B4 and B5 are on the table. Block B2
+is on B1 and block B3 is being held in a robot hand. This world is
+described within a DATABASE.
+
+There are also operators for manipulating the world. Each operator
+corresponds to a type of action, e.g. picking something up, putting
+something down, moving something, etc.
+
+The planning task consists of finding a sequence of applications of
+these operators to achieve some goal, given the initial state.
+
+Four operators are known initially to the problem solver, though you can
+define others, they are:
+
+    take ?X off table
+    place ?X on table
+    pick up ?X from ?Y
+    put ?X on ?Y
+
+Each of these actions has various preconditions and effects. For example,
+the action TAKE ?X OFF TABLE can only be done if the robot has an empty
+hand, if the block X has a clear top (ie nothing is on it) and if the
+block X is on the table. After the action is performed, certain things
+will no longer be true (X will no longer be on the table and the robot
+will no longer have an empty hand) and certain things will have become
+true (the robot will be holding X).
+
+You can set up an initial sample database, and a list of operators, by
+means of the command.
+
+    blocksworld();
+
+This assigns values to the two variables, database, and operators.
+
+-- -- Default database
+You can examine the initial state of the world thus:
+
+    database ==>
+    ** [[ontable b1]
+        [b2 on b1]
+        [cleartop b2]
+        [holding b3]
+        [cleartop b3]
+        [ontable b4]
+        [cleartop b4]
+        [ontable b5]
+        [cleartop b5]]
+
+This state is used as the default initial state for all the examples
+which follow. It can be depicted roughly as follows:
+
+                   ||
+                 /[B3]\
+
+              [B2]
+              [B1]  [B4]  [B5]
+       ===========================
+
+You can change the state by assigning a different list in the
+appropriate format to database.
+
+
+-- -- Default operators
+
+The four default operators, their preconditions, delete lists, and add
+lists, can also be printed out:
+
+    operators ==>
+    ** [[[take ?X off table]
+             [[emptyhand] [cleartop ?X] [ontable ?X]]
+             [[emptyhand] [ontable ?X]]
+             [[holding ?X]]]
+        [[place ?X on table]
+             [[holding ?X]]
+             [[holding ?X]]
+             [[ontable ?X] [emptyhand]]]
+        [[pick up ?X from ?Y]
+             [[emptyhand] [?X on ?Y] [cleartop ?X]]
+             [[emptyhand] [?X on ?Y]]
+             [[holding ?X] [cleartop ?Y]]]
+        [[put ?X on ?Y]
+             [[holding ?X] [cleartop ?Y]]
+             [[holding ?X] [cleartop ?Y]]
+             [[emptyhand] [?X on ?Y]]]]
+
+
+For example the fourth operator has
+1. Invoking pattern (or name)
+    [[put ?X on ?Y]
+
+2. Precondition list
+    [[holding ?X] [cleartop ?Y]]
+
+3. Delete list
+    [[holding ?X] [cleartop ?Y]]
+
+4. Add list
+    [[emptyhand] [?X on ?Y]]
+
+
+-- Backward chaining from a goal --------------------------------------
+
+Thus if one has a goal that is something like [b4 on b2] then that
+operator is potentially relevant because an item in its addlist matches
+that goal.  Selecting that operator for that purpose would then create
+two new sub-goals by instantiating the precondition list:
+
+    [holding b4] [cleartop b2]
+
+These two could then be used to find relevant operators with matching
+items in their add lists. Thus one could search backward from the goal
+to find a succession of operators until one finds operators whose
+preconditions are already true in the database.
+
+This is a backward chaining procedure and it can involve a lot of
+searching.
+
+-- Forward chaining from the database ---------------------------------
+
+A forward chaining search will start from the items that are already
+true (i.e. already in the database), and compare them with the
+preconditions of the operators. This will provide a set of applicable
+operators. E.g. by matching that last precondition list
+
+    [[holding ?X] [cleartop ?Y]]
+
+with the database, we find that we could have X = b3 and Y = b5.
+(There are other options for Y).
+
+So if we applied the operator, the delete list would be instantiated to
+
+    [[holding b3] [cleartop b5]]
+
+and the add list would be instantiated to
+
+    [[emptyhand] [b3 on b5] ]
+
+Applying these would change the database to something like this
+
+   [[emptyhand]     ;;; new
+    [b3 on b5]      ;;; new
+    [ontable b1]
+    [b2 on b1]
+    [cleartop b2]
+    [cleartop b3]
+    [ontable b4]
+    [cleartop b4]
+    [ontable b5]]
+
+So you could then find which operators now have their preconditions
+satisfied, and see what would happen if you applied them.
+
+This procedure involves chaining forward from the initial state until
+you find a sequence of operators that makes the complete list of goal
+lists true.
+
+-- Search strategies --------------------------------------------------
+
+There are various ways you could do backward chaining or forward
+chaining to find a sequence of operators that solves a problem. If you
+consider all branches at each stage then that can amount to a breadth
+first search. It allows you to find the shortest route to a solution,
+but can be very costly in space required to store all the branches.
+
+If you select one branch at each stage and explore it as far as possible
+before returning to try other options (if the first branch fails to lead
+to the goal) then that constitutes depth first search. There are many
+different types of "heuristic" search in addition to breadth first and
+and depth first search. (See TEACH * TOWER, TEACH * SEARCHING).
+
+[Note computer scientists should be able to think about the space
+complexity and the time complexity of the different strategies.]
+
+One of the strategies that combines breadth first search with a
+heuristic for pruning the number of branches considered is called the A*
+or A-STAR heuristic. It is described in most AI text books (e.g.
+P.H. Winston 3rd Edition, Russell and Norvig).
+
+The newsolver library program includes both a depth first backward
+chaining procedure called runstrips, and a forward chaining procedure
+based on the A* algorithm, called runastar. A later section shows you
+how to try them out.
+
+
+-- Think about how you would solve some problems ----------------------
+
+Before proceding look closely at the initial database and the list of
+operators and consider how you would achieve the following:
+
+-- -- Example 1 [b2 on b5]
+
+Write down the sequence of operators that would have to be applied, and
+in each case specify the values of the variables involved.
+
+The answer might be something like:
+
+Step 1
+    [place b3 on table]  use operator 2, with X = "b3"
+                         preconditions: [holding b3]
+                         delete: [holding b3]
+                         add: [ontable b3][emptyhand]
+Step 2
+    [pick up b2 from b1] use operator 3 with X = "b2", Y = "b1"
+                         preconditions: [emptyhand] [b2 on b1]
+                                [cleartop b2]
+                         delete: [emptyhand][b2 on b1]
+                         add: [holding b2][cleartop b1]
+
+Step 3
+    [put b2 on b5]       use operator 4 with X = "b2" Y = "b5"
+                         preconditions: [holding b2][cleartop b5]
+                         delete: [holding b2][cleartop b5]
+                         add: [emptyhand][b2 on b5]
+
+Check that in each step all the preconditions are true, either because
+they were true initially and have not been made false, or because they
+have been made true by an earlier step, and not made false subsequently.
+
+
+-- -- Example 2 [b5 on b1] [b1 on b2]
+
+Here the goal description includes TWO subgoals, both of which are to be
+made true after the execution of the complete plan. I.e. a state of the
+database must be achieved in which both are true. It will not suffice to
+make the first one true and then perform some actions that make the
+second one true, in the process undoing the first one.
+
+This example is much more complicated than the previous one. Try to
+devise a sequence of operators that will achieve this combination of
+goals, also starting from the initial database.
+
+Make sure in each case that the preconditions of the operator are true.
+
+Try to keep a note of how you search for a solution to this problem. If
+you find yourself going down blind alleys, or going round in circles,
+consider how you detect this situation and how you remedy it.
+
+Think about the benefits or disadvantages of forward chaining vs
+backward chaining for solving these problems.
+
+
+-- -- Example 3 [b5 on b1] [b1 on b5]
+
+What should a problem solver do about this?
+
+Compare the following:
+
+
+-- -- Example 4 [b1 on b2] [b4 on b5] [b5 on b1] [b3 on b4] [b2 on b3]
+
+
+-- Using the problem solver to solve those problems -------------------
+
+Make sure the library is loaded:
+
+    uses newsolver;
+
+There are two problem-solvers, one called runstrips, which performs a
+basic depth-first search, and one called runastar, which performs a more
+elaborate search based on the A* algorithm.
+
+Each can be invoked via a procedure called runsolver, which takes four
+arguments:
+
+    1. a problem-solver procedure (runstrips or runastar),
+
+    2. a list of of goals, each goal represented as a list
+
+    3. an initial database,
+
+    4. a list of operators.
+
+runsolver returns the plan, if it is able to find one, otherwise false.
+
+It runs the problem-solver procedure in such a way as to use the editor,
+VED to display the intermediate stages of construction of a plan.
+
+-- -- Examples of the use of the program
+
+For example, in order to see how the runstrips procedure achieves the
+goal of Example 1, i.e.  [b2 on b5] do the following either by compiling
+the commands in this teach file, or preferably by first copying them to
+your output.p file
+
+    ;;; set up the lists database and operators
+    blocksworld();
+
+    runsolver(runstrips, [[b2 on b5]], database, operators) ==>
+
+This will display the process of creating a plan. At the end the
+plan is returned as a result, and is printed out, namely
+
+    ** [[place b3 on table] [pick up b2 from b1] [put b2 on b5]]
+
+The trace of the planning process will go into a file called 'tree.p'.
+If the file has been obscured by the output file, you can used VED to
+make it visible, e.g. by doing
+    ENTER ved tree.p
+
+or using one of the means of switching between VED buffers (e.g. ESC e).
+
+
+-- Changing the trace file --------------------------------------------
+
+If you wish you can use a different trace file by assigning a different
+filename (which must be a string) to the variable picture_file. E.g.
+
+    'stripstree.p' -> picture_file;
+
+As the trace is produced the program repeatedly pauses waiting for you
+press the RETURN key. (If you wish it to continue without pausing any
+more, press "c" instead.)
+
+The trace file will be saved on disk, like any other VED file. If you
+wish to prevent that do the following before you run the program.
+
+    false -> save_picture_file;
+
+To make it save the files, do the following before running the program.
+
+    true -> save_picture_file;
+
+The picture file is an ordinary VED file, except that it contains
+special `graphic' characters which make it look nice in an Xterm window
+or Xved window. You can turn it into a printable file by doing
+
+    ENTER printify
+
+You will need to do this before you try printing the file or
+incorporating it in a printable file, as the graphic characters cannot
+be printed. The next section of this file was produced using the
+printify command.
+
+
+-- -- Structure of the graphical trace
+
+The trace is a tree showing the structure of the current search for a
+plan. It grows and changes as the plan is being created and eventually
+looks something like this (except that VED's line graphics characters
+are used to make it look nicer).
+
+     achieve [b2 on b5]
+       \- reduce [b2 on b5]
+          |- achieve [holding b2] [cleartop b5]
+          |  \- reduce [holding b2]
+          |     |- achieve [emptyhand] [b2 on b1] [cleartop b2]
+          |     |  \- reduce [emptyhand]
+          |     |     \- perform [place b3 on table]
+          |     \- perform [pick up b2 from b1]
+          \- perform [put b2 on b5]
+
+Notice the use of the labels "achieve" "reduce" and "perform" in the
+planning tree.
+
+-- -- achieve, reduce, and perform
+
+In the depiction of a planning tree:
+
+"achieve"
+    indicates one or more goals or subgoals that had to be achieved.
+
+"reduce"
+    indicates a goal from an achieve list that could not be achieved
+    directly, but had to be reduced to a list of sub-goals. These
+    sub-goals are determined by the preconditions of an operator capable
+    of making the goal true: the operator can be run only if its
+    preconditions are made true, so that they become new sub-goals to be
+    achieved. There may be different ways of reducing a particular goal.
+
+"perform"
+    indicates that an action can be performed directly because its
+    preconditions are already true when it is performed. This may be
+    because previous actions have made them true. Thus perform actions
+    have no subgoals shown in the diagram. Also performing an action
+    always has the effect of making true a reduce sub-goal.
+
+When all the reduce subgoals of an achieve list have been made true,
+then the list of goals has been achieved.
+
+Summary:
+A goal is achieved by "reduce"ing it. This means linking it to other
+subgoals via an operator which achieves the goal, and whose
+preconditions are those other subgoals. "Perform" labels actions that
+are performed directly.
+
+While the program is running the graphical display uses upper case to
+show goals that have not yet been achieved.
+
+-- -- A simpler example
+
+Here is a simpler example to try. See if you can construct its planning
+tree before the program does, then check yours against the program's.
+
+    runsolver(runstrips, [[holding b2]], database, operators) ==>
+    ** [[place b3 on table] [pick up b2 from b1]]
+
+
+-- -- A more complex example.
+
+    runsolver(runstrips, [[b1 on b2][b2 on b3]], database, operators) ==>
+
+    ** [[place b3 on table]
+        [pick up b2 from b1]
+        [place b2 on table]
+        [take b1 off table]
+        [put b1 on b2]
+        [pick up b1 from b2]
+        [place b1 on table]
+        [take b2 off table]
+        [put b2 on b3]
+        [take b1 off table]
+        [put b1 on b2]]
+
+Remember, you can look back at the VED picture file using ESC e
+(fileselect).
+
+This one produces a plan that works, but is seriously redundant, because
+it includes steps that undo previous steps that were wasteful.
+
+How could you fix the planner to avoid producing such plans?
+
+The library provides another problem solving procedure that does better,
+using the A*, or ASTAR algorithm, described in many textbooks of AI, and
+described below.
+
+-- Using the program without the graphical tracing. -------------------
+If you wish to run the procedure runstrips or runastar without the
+graphical interaction and without any pausing, do the following:
+
+    false -> draw_solving;  ;;; no picture to be drawn
+    true -> no_show_plan;   ;;; don't print out plan at end
+    vars plan;
+    runstrips([[b1 on b2][b2 on b3]], database, operators) -> plan;
+
+Then you can print out the plan (or make some other use of it):
+    plan ==>
+
+Similarly with runastar:
+    vars plan2;
+    runastar([[b1 on b2][b2 on b3]], database, operators) -> plan2;
+    plan2 ==>
+
+To make it interactive again, do this before running the command.
+
+    true -> draw_solving;
+
+
+-- Means-Ends Analysis ------------------------------------------------
+
+The STRIPS problem solver uses means-end analysis. This means that when it
+is given a number of goals to ACHIEVE it first determines which of the
+goals that is not already true is (in its opinion) the hardest and then
+decides to REDUCE the task by achieving that one goal. When that has been
+done it reconsiders the goals and if they are not yet all achieved it
+selects a new one to REDUCE.
+
+To REDUCE a goal it decides which action would achieve that one goal and
+decides to PERFORM it. Before it can PERFORM that action, it must,
+however, ACHIEVES its preconditions.
+
+This recursive call of ACHIEVE might involve its own calls of REDUCE and
+PERFORM.
+
+The picture that is shown shows 'goal hierarchy' being considered by he
+problem solver. The parts of the tree actively being considered by the
+problem solver are shown in capital letters.
+
+-- Outline of the runstrips procedure ---------------------------------
+
+You can think of the algorithm used by the runstrips procedure as being
+approximately like this, though there are complications in the library
+version, to allow the nice graphical tracing in the editor, and other
+details, like building up a plan description.
+
+define runstrips(goals, database, operators);
+    lvars goals, operators, plan;
+
+    lvars current, plan_tree, treenumber, states_to_explore;
+
+    dlocal database;
+
+    ;;; Set up a list of possible states, the initial one being
+    ;;; a state in which the given goals are to be achieved
+    [[achieve ^goals]] -> states_to_explore;
+
+    repeat
+        if states_to_explore == [] then
+            report('COULD NOT ACHIEVE GOALS');
+            return();
+        endif;
+
+        ;;; Get the first possble plan tree to try to expand,
+        ;;; saving the others in case this one fails
+        destpair(states_to_explore) -> (plan_tree, states_to_explore);
+
+        ;;; check if there are unachieved sub-goals that need to be
+        ;;; achieved, by expanding the plan_tree
+        expand_state(plan_tree, plan) -> plan_tree;
+
+        if no_more_goals then
+            report('GOALS ACHIEVED');
+            showplan(plan_tree);
+            return();
+        endunless;
+
+        ;;; Find alternative possible ways of expanding the plan tree
+        ;;; and add them to the list of possible trees to expand
+        [%strips_expand(plan_tree)%] <> states_to_explore
+            -> states_to_explore;
+    endrepeat;
+    ;;; report failure
+enddefine;
+
+The runastar procedure uses a different structure because it basically
+chains forward from the database instead of chaining backward from the
+goals.
+
+
+-- Additional ways to invoke runstrips --------------------------------
+
+Trying other examples:
+
+You can try additional examples. In VED, instead of
+
+    runsolver(runstrips, [<goal1> <goal2>...], database, operators) ==>
+
+you can type on VED's command line.
+
+    ENTER strips <goal1> <goal2> ....
+
+where the individual goals are enclosed in square brackets. E.g.
+
+    ENTER strips [b1 on b2] [b2 on b1]
+
+
+Note: if you try those two goals, you will find that the program gets
+stuck in an endless loop. A possible part of a project would be to fix
+this.
+
+Compare
+
+    ENTER strips [ontable b2] [b3 on b2]
+
+When you invoke strips in this mode, the final plan is printed in the
+picture file, but is not displayed separately or returned as a result.
+
+You can also run "strips" as a Pop-11 macro procedure in the VED buffer.
+E.g. copy this line to your output.p file, and the mark and load it (or
+use ESC d to load one line):
+
+    strips [b2 on b5]
+    ** [[place b3 on table] [pick up b2 from b1] [put b2 on b5]]
+
+This creates the planning window, and also prints out the successful
+plan.
+
+Try some more examples. Don't worry that you don't understand everything
+that happens - just watch and when the problem solver has finished,
+return to this file by giving an ENTER-TEACH command.
+
+Run the problem solver again, this time on a different problem, by
+giving the commnd:
+
+    strips [b1 on b2]
+
+or
+    ENTER strips [b1 on b2]
+
+This asks the problem solver how it would get block B1 onto block B2. The
+problem solver doesn't actually do anything (it merely makes plans) so the
+plan produced will be from the intial state as described earlier.
+
+Try the problem solver on all the following problems:
+
+    strips [b1 on b4]
+    strips [emptyhand]
+    strips [cleartop b1]
+    strips [ontable b2]
+    strips [b1 on b2] [b3 on b4] [holding b5]
+    strips [b1 on b4] [holding b2]
+    strips [cleartop b1]
+    strips [ontable b2]
+    strips [b1 on b2] [b2 on b3]
+
+You will notice that the problem solver is not very smart about the last
+problem.
+
+Try the problem solver on a really hard problem:
+
+    strips [b1 on b2] [b2 on b3] [b3 on b4] [b4 on b5]
+
+If you get bored with all the pausing, type "c" to continue.
+
+
+-- Improving the performance using the variable "clever" --------------
+
+The problem solver can be made a bit cleverer by assigning TRUE to the
+variable CLEVER, ie:
+
+    true -> clever_solve;
+
+Try the following problem again:
+
+    strips [b1 on b2] [b2 on b3]
+
+It will take longer this time, but it will produce a better plan.
+
+What happens with clever_solve set true, is that when STRIPS realises
+that is it doing something stupid (like producing a plan with a loop in
+it) then it backtracks to its most recent decision. This will have been
+either to select a particular action to PERFORM to REDUCE a goal or else
+it will have been to select a particular goal to REDUCE first out of a
+list of goals it is trying to ACHIEVE.
+
+
+-- The ASTAR planner --------------------------------------------------
+
+The problem solver can perform a forward chaining heuristic search
+instead of the depth first search, if the procedure runastar is used
+instead of runstrips.
+
+Try the preceding examples again, with the runastar procedure, e.g.:
+
+    false -> clever_solve;
+    runsolver(runastar, [[b1 on b2][b2 on b3]], database, operators) ==>
+
+As before, the currently 'active' branch of the search tree is shown in
+capitals, except possibly for the final step.
+
+Even with clever_solve set false, this finds the sensible plan, and much
+faster than runstrips.
+
+Here are some more examples to try:
+
+    runsolver(runastar, [[holding b2]], database, operators) ==>
+    runsolver(runastar, [[b1 on b2]], database, operators) ==>
+    runsolver(runastar, [[b1 on b2][b3 on b1]], database, operators) ==>
+
+The ENTER astar format can also be used
+
+    ENTER astar [b3 on b1]
+
+Or the macro "astar" can used with vedloadline (ESC d):
+
+    astar    [b5 on b3] [ontable b3]
+    astar    [ontable b3] [b5 on b3]
+    astar    [ontable b2] [b5 on b2]
+
+But why does this one take so long (in the same initial state)?
+
+    astar   [b1 on b3] [ b2 on b1]
+
+And this:
+
+    astar  [ b2 on b3] [b3 on b1]
+
+If you get fed up with all the pauses, you can press "c" instead of
+RETURN, after which it will stop pausing, and continue to the end.
+
+-- Use of the variable lookahead --------------------------------------
+
+The performance of ASTAR (and STRIPS to a lesser extent) is partially
+determined by the value of the variable LOOKAHEAD. This is initially 2;
+if set higher then ASTAR performs better; if set lower (but not less
+than zero) then ASTAR becomes more breadth-first.
+
+-- Making plans for other domains -------------------------------------
+
+The package can be made to work on any problem domain by merely altering
+the values of DATABASE and OPERATORS. When providing your own OPERATORS
+the following rules must be obeyed:
+
+(1) Any variable in a schema must occur in the name
+
+(2) No two schema names must 'match' one another.
+
+The system checks the domain specification.
+
+-- Possible exercises -------------------------------------------------
+
+1. Explore ways of applying the library to solve some planning problems
+in some domains other than the blocks world, e.g. the river crossing
+problem (TEACH RIVER) or the tower building problem (TEACH TOWER) or a
+route-finding problem. Analyse any weaknesses of the program in solving
+your problem and see if you can come up with some ideas as to possible
+remedies (perhaps on the basis of some reading about planning systems.)
+
+HARDER:
+
+2. Some of the plans produced by runstrips include redundant actions.
+Try to define a procedure which takes such a plan, analyses it, and
+produces an improved plan.
+
+3. Try implementing your own version of either runstrips or runastar
+or some variant that does some other kind of heuristic search. You may
+find useful the techniques described in TEACH * SEARCHING
+
+4. Try extending the operator format, either in your own version, or by
+modifying the code in LIB NEWSOLVER, so that in addition to the four
+components listed above (action pattern, preconditions, delete list, add
+list) each operator has a fifth (possibly empty) component a list of
+presuppositions. These are conditions which must be true for the
+operator to be applicable, but the system never tries to make them true
+if they are false. So they are treated differently from the precondition
+list.
+
+5. Try to make the program more intelligent at dealing with blocks world
+problems, by tackling harder problems before easier ones. E.g. it's
+easier to achieve [emptyhand] goals than [?X on ?Y] goals. (Suggested by
+Manfred Kerber.)
+Why is it better to tackle harder problems first?
+
+One way to do the ordering is to associate weights with operators
+representing their difficulty and then have the planner use those
+weights in selecting goals to work on.
+
+Another way is for the database to have explicit information about which
+sorts of tasks are easier than which others, which may depend on the
+conditions. This would be more flexible, but harder to implement.
+
+6. Can you make the program try to recognize towers and plan to build
+them from the bottom up, no matter in which order the goals are
+presented. E.g. this would prevent the redundant plan produced by this
+example:
+
+    strips [b2 on b3] [b3 on b4] [b5 on b2]
+
+Is it possible to express in some general way what kind of knowledge we
+use in building things from the bottom up? Is it peculiar to stacking
+blocks, or is this an instance of some more general strategy that you
+could implement? (E.g. seeing which goals require actions which could
+interfere with other goals, and then doing them first. See G.J.Sussman's
+HACKER program, described in several AI text books and in his book.)
+
+7. Can you make the system learn, so that having solved a problem it
+adds a new operator to the list of operators which can in future be used
+directly (by running the plan) without having to repeat the planning.
+You'd have to give the new operator an add list including the problem
+previously solved, and preconditions analogous to the initial situation
+in which it was solved. This requires finding an appropriate
+generalisation of the task. (Read about ABSTRIPS and NOAH ....)
+
+8. Try to modify the system to cope with incomplete plans, where
+only partial information is available. E.g. the plan could solve part of
+the problem, leaving further details to be completed after the partial
+plan has been executed. (We often do that in real life.)
+
+VERY DIFFICULT:
+
+9. What about planning in situations where actions don't have definitely
+predictable results, but only a probability of success (e.g. what are
+the probabilities of a train not reaching its destination on time, a car
+being held up on the motorway, a ship not sailing because of strikes, a
+bullet not hitting its target etc.)
+
+
+-- READING ------------------------------------------------------------
+
+To be added
+
+See the sections on planning, searching, and the A* algorithm in
+standard text books on AI, including
+
+Winston, P.H. (1984 - 3rd edition 1992).
+    Artificial Intelligence
+    Reading, Mass: Addison-Wesley.
+
+Stuart Russell & Peter Norvig (1995)
+    Artificial Intelligence, A Modern Approach.
+    Prentice Hall.
+
+Charniak, E & McDermott D, (1985)
+    Introduction to Artificial Intelligence
+    Addison Wesley
+
+and others.
+
+Also:
+Sussman, G.J. (MIT Phd Thesis)
+    A Computational Model of Skill Acquisition
+    American Elsevier, 1975.
+
+For people familiar with Prolog:
+This is a complex, sophisticated program. To see how you might
+write your own problem solver in PROLOG, see TEACH * PSTRIPS
+
+
+--- $poplocal/local/teach/newsolver
+--- Copyright University of Birmingham 1995. All rights reserved. ------

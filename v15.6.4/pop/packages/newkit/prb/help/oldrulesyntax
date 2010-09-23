@@ -1,0 +1,169 @@
+HELP OLDRULESYNTAX                              Aaron Sloman, June 1996
+
+When the Poprulebase library was extended in April 1996 to provide new
+syntax for defining rulesets, rulefamilies and rulesystems, the
+necessity to define individual rules outside the context of a rulest was
+removed. So the information on how to do this has been moved out of the
+main documentation on Poprulebase.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Defining a condition-action rule (define :rule ....)
+ -- . Specifying a ruleset for use with "in <ruleset>"
+ -- . An example rule definition
+ -- Extending ved_mcp to cope with this syntax
+
+-- Defining a condition-action rule (define :rule ....) ---------------
+
+Although it is possible to create a rule using the primitive constructor
+-consprbrule- (see LIB * POPRULEBASE), or the procedure -prb_new_rule-,
+described below, a convenient syntax is provided for defining a rule,
+giving it a name, giving it a weight (used for determining priority, as
+described below) and automatically adding it to a specified list of
+rules. A rule definition using this syntax looks like this:
+
+    define :rule <name> weight <weight> in <ruleset>
+        <conditions>
+            ;
+        <actions>
+    enddefine;
+
+the weight (a number) and <ruleset> specifications are optional, and may
+be excluded.
+
+
+E.g. the following is legal.
+
+    define :rule <name>
+        <conditions>
+            ;
+        <actions>
+    enddefine;
+
+If no weight is given then it defaults to a very large negative number.
+
+If no ruleset is given it defaults to prb_rules.
+
+In the definition of a rule,
+    <conditions> is a sequence of lists,
+and
+    <actions> is a sequence of lists,
+as described below.
+
+-- . Specifying a ruleset for use with "in <ruleset>"
+
+This has been made redundant by the introduction of the
+
+    define :ruleset
+
+construct. Nevertheless, information about how a ruleset can be
+specified in the "define :rule" format is now given.
+
+<ruleset> should be an identifier whose value is a list of rules,
+possibly starting with an integer specifying a cycle limit for
+prb_run, or a two element vector specifying an environment for the
+matcher.
+If "in <ruleset>" is missing, the <ruleset> defaults to prb_rules.
+
+Before defining any rules in a particular ruleset it is necessary to
+initialise the ruleset. The simplest way to do that is to declare a
+global variable to hold the ruleset as its value and initialise it to an
+empty list:
+
+    global vars
+        prb_rules = [],
+        planning_rules = []
+        ... etc.
+        ;
+
+However, it is possible to start a ruleset with an integer, specifying
+the cycle limit in prb_run to be used with that ruleset (which will then
+override the third agument of prb_run) or a two element vector,
+specifying a list of matcher variables for use with the ruleset and a
+procedure to be applied to the list of variables to set up the values.
+
+Both the integer and the vector can be provided. In that case the
+integer should occur first. Thus a ruleset can be a list whose elements
+take any of the following forms, where r1, r2, r3 are rules:
+
+    r1, r2, r3 ....
+    <integer> r1, r2, r3 ....
+    <vector> r1, r2, r3 ....
+    <integer> <vector> r1, r2, r3 ....
+
+Thus the initialisation of a ruleset could take the form
+
+    global vars planning_rules = [<integer> <vector>];
+
+Then rules for that ruleset defined using define :rule will be added at
+the end, in the order in which they are defined.
+
+For more information on rulesets, rulefamilies and rulesystems see
+    HELP * RULESYSTEMS
+
+
+-- . An example rule definition
+
+define :rule rule3 in diagnose
+        [patient ?x] [temperature high]
+        ;
+    [say ?x is very ill]
+    [?x needs aspirin]
+enddefine;
+
+This will create a rule and add it to the list of rules -diagnose-, or
+replace a rule called "rule3" if there is one already in that list.
+
+If "in diagnose" left out, the list -prb_rules- is used instead.
+
+When a rule definition in this form is first compiled the rule is added
+to the end of the list (prb_rules or some other list). So rules are
+stored in the list in the order of their definition. However, if a rule
+definition is edited and re-compiled, the new version replaces the old
+in the same place in the list.
+
+
+-- Extending ved_mcp to cope with this syntax --------------------------
+
+If you use the "define :ruleset" syntax, you can compile or recompile a
+whole ruleset after editing, by using the VED command ENTER lcp, or
+ESC c. (See HELP * MARK, HELP * VEDKEYS)
+
+If you use the old syntax with something other than ";" to separate
+conditions from actions, the built in VED utilities for operating on the
+current definition will not work. This can be fixed as follows.
+
+If all occurrences of "define" and "enddefine" defining rules and
+top-level procedures start at the beginning of a line, then the
+following will re-define the procedures for finding and marking the
+beginnings and ends of definitions:
+
+define ved_mbp;
+    ;;; mark beginning of definition
+    vedcharright();         ;;; take cursor past the beginning of line
+    veddo('\\@adefine ');   ;;; search back for beginning
+    vedmarklo();            ;;; mark it
+enddefine;
+
+define ved_mep;
+    ;;; Mark end of definition
+    if vedcolumn == 1 then vedcharleft() endif;
+    veddo('/@aenddefine');
+    vedmarkhi();
+enddefine;
+
+After that, rule definitions like the following can be compiled using
+ved_lcp, or <ESC>-c in VED, as long as "==>" is in the list
+prb_condition_terminators and the initial and final lines are
+not indented.
+
+define :rule test_rule
+    [condition 1] [condition 2]
+    ==>
+    [action 1] [action 2]
+enddefine;
+
+
+
+--- $poplocal/local/prb/help/oldrulesyntax
+--- Copyright University of Birmingham 1996. All rights reserved. ------

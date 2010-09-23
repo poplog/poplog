@@ -1,0 +1,390 @@
+TEACH REGIONS                                 Aaron Sloman December 1979
+                      Modified to improve format and content 14 Aug 2009
+                                         Minor bugs in LIB REGIONS fixed
+
+FINDING REGIONS IN TURTLE PICTURES
+
+CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- How to use LIB REGIONS
+ -- CYCLES
+ -- CYCLEFROM
+ -- Outer boundary and Inner boundary of a region
+ -- Dealing with free ends
+ -- The Format of a cycle description
+ -- Using the REGIONS program
+ -- Examples of cycle-finding
+ -- Exercises
+
+-- How to use LIB REGIONS -------------------------------------------
+
+The SEEPICTURE library program analyses turtle pictures to find lines
+and junctions, which it then classifies, storing the junction
+descriptions in the DATABASE. The lines are found by the procedure
+FINDLINES, and the junctions by FINDJUNCS.
+
+In order to interpret such pictures it is often necessary to find larger
+structures than junctions where lines meet. In particular, you may need
+to find regions, as Guzman did (see the reference at end), and then
+decide which regions go together to represent a single body.
+
+The REGIONS program uses the junction information produced by FINDJUNCS
+to follow circuits around the picture.
+
+More precisely, it follows circuits around the database of junction
+descriptions. In doing this, it builds up objects called CYCLES, which
+represent a tour round a picture regions, without crossing any lines.
+
+-- CYCLES
+
+A circuit, or CYCLE, is defined as follows:
+
+1. Given a junction J1 and a neighbouring junction J2, find a new
+junction J3 by going from J1 to J2, and then taking the rightmost path.
+
+2. Now let J2 become J1, J3 become J2, and start again, to find a
+new J3.
+
+3. Continue until the J3 you find is the initial J1.
+
+The CYCLE is a list of all the points found.
+
+Which part of this definition ensures that a cycle never crosses over
+itself?
+
+Draw some pictures of straight lines, with no free ends, and see if you
+can find all the cycles using this definition. How many cycles are there
+in a square containing a single diagonal?
+
+-- cyclefrom(thispoint, nextpoint)
+
+This procedure is defined in LIB REGIONS, and follows the procedure
+defined above.
+
+cyclefrom takes two neighbouring junctions (J1 and J2 in the above
+rule), and produces a list containing the complete cycle of points. (For
+convenience the initial point is repeated at the end.)
+
+By taking every junction in turn, and following every ray from that
+junction, unless it has already been found as part of a cycle by moving
+along the same line, we get all the cycles in the picture.
+
+For instance, in the square below, we can use A as J1 and B as J2, or D
+as J2. We can ignore a new cycle if it is obtainable from an old one by
+moving junctions from the back of the list to the front.
+
+It follows that with a simple closed curve like a square there are two
+cycles, one defined by the circuit ABCD and one by the circuit ADCB, for
+example.
+
+        A****B
+        *    *
+        *    *
+        *    *
+        *    *
+        D****C
+
+The above procedure finds both cycles, e.g. one by starting from A
+towards B and one by starting from A towards D. No more are found. For
+instance, the cycle starting from B towards A is the same as the one
+starting from A towards D.
+
+-- Outer boundary and Inner boundary of a region
+
+You can think of the clockwise cycle as defining the outer boundary of
+the SQUARE region, and the counter-clockwise cycle as defining the inner
+boundary of the BACKGROUND region, which has a "hole" where the square
+is.
+
+The region bounded is always on the right as you go round the cycle,
+whether it is an inner boundary or an outer boundary.
+
+-- Using angle information
+
+Thinking of the region as on the right leads to the idea that you get
+different angles for the corners of the regions, so that in the above
+example, the angles for the cycle ABCD are [90 90 90 90], and for the
+other cycle [270 270 270 270].
+
+We can use these angles to find whether the cycle is an inner boundary
+or an outer boundary. As you go round a corner, e.g. from A to D to C,
+you can distinguish the TURN angle from the CORNER angle. The TURN angle
+is the change of heading, the CORNER angle is the angle between the two
+lines.
+
+An outer boundary has the following property: as you go round it, if you
+add up all your changes of heading (positive turns to the left, negative
+to the right), then the total will always be 360 degrees. Why?
+
+In the case of the square, the turn-angles are, for the inner bounding
+cycle,
+    ADCB, [90 90 90 90], and for the cycle ABCD, [-90 -90 -90 -90].
+
+We can treat [-90 -90 -90 -90] as equivalent to [270 270 270 270]. WHY?
+
+What would the lists of corner angles and turn angles be for the inner
+and outer cycles of an equilateral triangle?
+
+
+-- Dealing with free ends
+
+When the picture contains no regions, only a single connected set
+of lines, there is only one cycle, for instance the picture:
+
+           A
+           *
+           *
+           *
+        B**C**D
+
+
+has the cycle ACBCDC, or, equivalently, BCDCAC. Can you see why you end
+up with essentially the same cycle whether you start with A and C, or C
+and A as the initial pair of junctions? In other words, why must every
+cycle traverse each line segment in both directions?
+
+We adopt the convention that if there is a free end, the cycle should
+start from one of them. If we allowed turning right as well as turning
+left, we'd get two cycles, the above one and also ACDCBC for instance.
+
+-- The Format of a cycle description
+
+How should a program describe the cycles it has found?
+The convention adopted in the REGIONS package is as follows.
+
+Each cycle found is represented by a seven-element database item of the
+form:
+
+    [cycle <number of sides> <inner or outer>
+        <simple or complex> <number of ends in cycle>
+        <list of angles at corners>
+        [<point1> <point2> <point3> ...<point1>]]
+
+Where a cycle is 'complex' if it contains repeated points, apart from
+the beginning and end otherwise 'simple'.
+
+The cycle corresponding to the upside-down "T" above is complex, since
+the point c is repeated.
+
+If the cycle contains a free end, then the set of points in the seventh
+item will start from one of them. Note that the list of points always
+starts and ends with the same point.
+
+This simplifies the task of writing programs which traverse the regions.
+
+Examples of such cycle descriptions are given below.
+
+-- Using the REGIONS program
+
+To make the REGIONS program available, type:
+
+    uses regions;
+
+You can then use the turtle to draw a picture, and the SEEPICTURE
+library program (or your own version) to produce a database of
+information about the junctions in the picture.
+
+The information about lines is not needed for finding cycles, so can be
+removed, by
+    flush([line ==]);
+
+The regions program makes use of the fact that the FINDJUNCS program
+represents each junction by a pattern of the form
+
+    [junc <type> <juncpoint> <point1> <point2> <point3> ...]
+
+where the points after the third element correspond to the points you'd
+see if you turned around the junction point in a counter-clockwise
+rotation.
+
+Assuming the database contains such information, you can then type
+      regions();
+
+to produce a description of the cycles in the picture.
+You may find it useful to trace some or all of the following procedures:
+
+    cyclefrom cycletype nextright
+
+-- Examples of cycle-finding ------------------------------------------------
+
+uses turtle
+newpicture(7, 10);
+draw(5); turn(90); draw(5); drawto(1,1);
+
+display();
+
+0
+9
+8
+7
+6     *
+5    **
+4   * *
+3  *  *
+2 *   *
+1T*****
+ 1234567
+ Position = ( 1.0,  1.0 ), Heading = 90 (N)
+
+seepicture();
+
+database ==>
+** [[junc ell [6 6] [1 1] [6 1]]
+    [junc ell [6 1] [6 6] [1 1]]
+    [junc ell [1 1] [6 1] [6 6]]
+    [line rht [1 1] [6 6]]
+    [line vrt [6 1] [6 6]]
+    [line hrz [1 1] [6 1]]]
+
+flush([line ==]);   ;;; not needed by cycle finder.
+
+regions();
+database ==>
+
+
+
+
+Both the cycles have 3 points and both are simple.
+Both have 0 ends. They have different angles, though the same
+points in a different order.
+Notice that the angles given are CORNER angles not TURN angles.
+
+Now a more complex figure:
+
+          repeat 4 times draw(4); turn(90) close;
+          drawto(5,5);
+          display();
+
+        5*****
+        4*  **
+        3* * *
+        2**  *
+        1*****
+         1234567890
+
+          seepicture();
+          flush([line ==]);
+
+          regions();
+
+          database ==>
+        ** [[cycle 4 inner simple 0
+                [270 270 270 270]
+                [[5 1] [5 5] [1 5] [1 1] [5 1]]]
+         [cycle 3 outer simple 0 [90 45 45] [[1 5] [5 5] [1 1] [1 5]]]
+         [cycle 3 outer simple 0 [90 45 45] [[5 1] [1 1] [5 5] [5 1]]]
+         [junc ell [5 1] [5 5] [1 1]]
+         [junc ell [1 5] [1 1] [5 5]]
+         [junc arw [1 1] [5 1] [5 5] [1 5]]
+         [junc arw [5 5] [1 5] [1 1] [5 1]]]
+        :
+
+This shows more clearly that outer boundaries of inner regions are traversed
+clockwise.
+
+Now try something with free ends.
+
+          drawto(6,6); drawto(11,1);
+          jumpto(3,3); drawto(9,3); display();
+
+        6     *
+        5    * *
+        4   *   *
+        3  *******
+        2 *       *
+        1*         *
+         12345678901
+
+          seepicture();
+          flush([line ==]);
+        :
+          regions();
+          database ==>
+        ** [[cycle 7 inner complex 2
+                [360 135 135 360 180 270 180]
+                [[1 1] [3 3] [9 3] [11 1] [9 3] [6 6] [3 3] [1 1]]]
+         [cycle 3 outer simple 0 [90 45 45] [[6 6] [9 3] [3 3] [6 6]]]
+         [junc end [1 1] [3 3]]
+         [junc end [11 1] [9 3]]
+         [junc ell [6 6] [3 3] [9 3]]
+         [junc tee [3 3] [1 1] [9 3] [6 6]]
+         [junc tee [9 3] [6 6] [3 3] [11 1]]]
+
+-- Exercises ----------------------------------------------------------------
+
+1.  Compare the output of the procedure SEEPICTURE and the procedure
+REGIONS, and discuss their relative merits as a basis for recognising
+shapes like letters, squares, triangles, etc.
+
+2.  What additional problems arise if there are several items in the picture,
+or if items overlap?
+
+3.  Do you think finding junctions or finding cycles or regions has any
+connection with the strategies you use (unconsciously) for recognising
+structures? What kind of evidence could help to support an answer to
+this question?
+
+4.  Is there any connection between this work and (a) template matching,
+(b) Winston's work on learning structural descriptions from examples,
+(c) Minsky's 'frames' theory, (d) statistical pattern recognition?
+
+5.  You could try designing your own programs similar to those described above.
+One useful tip is to use MATCH to decide if a pair of points occur in
+sequence in a cycle (e.g. when you need to decide if a ray from some
+junction already occurs in one of the cycles. You can also use MATCH
+to find the next point in a cycle after a given point.
+
+What could the information about cycles in the picture be used for?
+Is it more useful for recognition of shapes than the output of FINDJUNCS?
+Would it be useful for a program which tries to interpret a picture as
+representing a blocks world?
+      LIB FINDREGIONS;
+
+is available for dealing with pictures made of disconnected parts some of which
+may be contained in others, e.g. a triangle inside a square.
+This package renames the REGIONS procedure, calling it FINDCYCLES.
+It defines a new procedure FINDREGIONS which operates on the output
+of FINDCYCLES. The procedure REGIONS is then defined to call first
+FINDCYCLES then FINDREGIONS.
+Try something like the following sequence:
+
+    <draw your picture with some regions inside others>
+
+      seepicture();
+      database ==>
+      flush([line ==]);
+      lib findregions;
+      trace findcycles findregions ptinside;
+      regions();
+      database ==>
+
+
+-- REFERENCES
+
+The following paper is of historical interest as it describes work on
+computer image interpretation around 1970 based on ideas similar to
+those presented here. More recent vision work addresses photographic
+images rather than line drawings, using techniques of the kind presented
+in the Pop-11 Popvision library.
+
+However, much recent work in vision ignores the problem of understanding
+scene structure, which was a goal of this earlier work. The approaches
+need to be combined and generalised.
+
+    Extending Guzman's SEE Program
+    Martin Rattner, 1970
+    MIT AI Memo AIM-204
+    http://hdl.handle.net/1721.1/5846 (available as PDF)
+    Abstract:   Adolfo Guzman's SEE program groups the regions of a
+    two-dimensional scene into bodies, using, using local evidence in the
+    scene to link regions together. This paper discusses an extended version
+    of the SEE procedure that makes extensive use of evidence in the scene
+    which indicated that two regions should be split into separate bodies.
+    The new procedure is better in several ways: 1) it correctly analyzes
+    many scenes for which SEE makes mistakes; 2) it can interact with a
+    higher-level object-recognizing program; 3) it can provide alternative
+    solutions on demand.
+
+
+--- $usepop/pop/teach/regions
+--- Copyright University of Sussex 2009. All rights reserved.

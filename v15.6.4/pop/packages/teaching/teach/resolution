@@ -1,0 +1,378 @@
+TEACH RESOLUTION                           Jon Cunningham and Steve Hardy
+
+INTRODUCTION TO RESOLUTION THEOREM PROVING
+
+These notes assume some familiarity with PROLOG.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Mechanical inference
+ -- Prolog as a Theorem Prover
+ -- A complete Theorem Prover
+ -- Clausal Form
+ -- Resolution
+ -- Controlling what Inferences are made.
+ -- References
+
+-- Mechanical inference -----------------------------------------------
+
+You should have already met the notion that computers can be  programmed
+to make simple inferences (see TEACH *  PSYS, * SCHEMA, * PROLOG and the
+references cited  below). In  some  sense, getting  the computer  to  do
+anything requires it to make inferences. This file is about getting  the
+machine to  make inferences  explicitly.  By an  inference, I  mean  the
+process of deriving a new fact using some rule (from given or previously
+derived facts). As an example of an inference:
+
+    Given the facts:
+        If Socrates is a Greek then Socrates is a mortal.
+        Socrates is a Greek.
+    we can infer
+        Socrates is mortal.
+
+The above  is an  example of  a VALID  inference. It  is a  particularly
+straightforward kind of inference, and the rule I used has a name: it is
+called "modus ponens". Here is another example of using modus ponens  to
+make an inference:
+
+    Given:
+        If Rose is a pig then Rose can fly.
+        Rose is a pig.
+    we can infer
+        Rose can fly.
+
+This is also a valid inference, even though the conclusion  is  probably
+not true. Programmers call this GIGO (garbage in - garbage out), i.e. if
+the data is wrong you can't expect sensible results. It  doesn't  matter
+how  carefully  inferences  are made if the initial facts (the premises)
+are false.
+
+Here is an example of an INVALID inference.
+
+    Given:
+        If Jon is a Greek then Jon is mortal.
+        Jon is not a Greek.
+    therefore we can infer
+        Jon is not mortal.
+
+Both the premises are true, yet the conclusion isn't. I'm afraid I don't
+know  a  name for this inference rule - probably because I don't find it
+very useful. I prefer to  make  valid  inferences.  However,  there  are
+undoubtedly occasions when I do make invalid inferences: most people do.
+It is particularly hard to avoid accidentally  using  invalid  inference
+rules  when  thinking about a complex, abstract problem. (A good example
+of this is in writing programs.)
+
+Supposing Shakey robot wants to plan how to stack up a few boxes.   This
+is a complex, abstract problem as far as robots are concerned. It starts
+with  some facts about where things are, facts about where things get to
+if it performs certain actions,  and  it  wants  to  infer  that  if  it
+performs   a   sequence  of  actions,  the  boxes  will  be  stacked  up
+appropriately. If we could invent a  general  purpose  inference  making
+machine, then all we need to do to find a plan for Shakey, is to give it
+a general purpose inference machine and ask it to  make  an  appropriate
+inference.
+
+Although, in theory, this method should work okay, in general the number
+of  possible  inferences  from  a few facts is so great that for any but
+trivial problems an uncontrolled general purpose inference machine would
+sit  thinking  while the stars grew old before it came up with the right
+plan. For this reason, STRIPS, the planning part  of  Stanford's  Shakey
+robot, was not a resolution theorem prover - even though the problems it
+solved were represented  in  predicate  calculus.  This  is  why  you've
+probably  met Shakey before under a discussion of Searching. (Shakey did
+include a resolution theorem prover as a question-answering component  -
+see refs on QA3)
+
+-- Prolog as a Theorem Prover -----------------------------------------
+
+Prolog can be regarded as  an  inference  machine.  It  has  solved  the
+problem  of  uncontrolled  inference  by specifying very exactly in what
+order inferences are made and by writing down facts in a  very  specific
+format.  However, as a consequence of this strict control, prolog is not
+a COMPLETE theorem prover. (A logical system is  SOUND so  long as  it
+doesn't make any invalid inferences, and it is COMPLETE if it is able to
+infer anything which can  be  validly  inferred  from  the  facts.)  For
+example, suppose we have the following prolog program:
+
+        male(mars).
+        boy(X) :- male(X),not(adult(X)).
+
+This is intended to represent the fact that the deity Mars is male,  and
+that  if  an entity is male but not adult, then it is a boy. Now suppose
+we know that Mars is not a boy. We can validly infer from the above that
+Mars is an adult. (Because otherwise we could infer that Mars is a boy.)
+However, prolog is unable to make the inference. The simple  explanation
+is  that prolog lacks the appropriate inference rule. There are two ways
+to answer that:
+
+1) The prolog program consists of a fact and an  inference  rule,  which
+embodies  information  about a specific inference to do with boyhood. It
+can be extended by adding extra inference rules:
+
+        adult(X) :- male(X),not(boy(X)).
+
+In this case, you are regarding the system as a special purpose  logical
+inference machine built on top of the prolog interpreter.
+
+2) The alternative to the above is to regard prolog as a general purpose
+logical  inference  machine.  In  this  case,  what we have been calling
+prolog rules are not to be regarded as inference rules, but instead  are
+to be regarded as a special kind of fact. In this interpretation, prolog
+only has one inference rule  (of  a  more  general  nature).  This  more
+general inference rule can be stated as:
+
+    Given the facts:
+        A.
+        B.
+        C.
+        ...
+        Y.
+    and the special fact
+        Z :- A,B,C ... Y.
+    then you can infer the fact
+        Z.
+
+Actually, it has to be slightly more complex than that to allow for  ';'
+and bracketing, and variable bindings.
+
+This single general rule is very much like  a  generalisation  of  modus
+ponens,  but  on  its  own, we have seen that this is not sufficient for
+prolog to be complete.  Since  prolog  is  intended  to  be  used  as  a
+programming  language this doesn't matter, but we are considering how to
+construct a  complete,  sound  logical  inference  machine  (or  theorem
+prover). What other inference rules need to be added?
+
+-- A complete Theorem Prover ------------------------------------------
+
+-- Clausal Form -------------------------------------------------------
+
+There are large numbers  of  logical  systems,  each  with  a  different
+collection of valid inference rules required to make the system complete
+(see any introduction to formal logic, e.g. [Lemmon]). The  system  that
+has  become  most popular for use on computers needs only a single rule,
+called "resolution".  Resolution theorem provers were invented by J.  A.
+Robinson (see references).
+
+In order to manage with only one inference rule, facts have to be stored
+in  the  database  in a highly standardised, or NORMAL, form. The normal
+form required for  required  for  resolution  is  called  CLAUSAL form.
+Usually  it  will  be  possible  to  add  axioms to the theorem prover's
+database in more general forms,  using  various  logical  symbols  (e.g.
+symbols  for  logical  implication,  logical  conjunction (and), logical
+disjunction (or), logical equivalence, non-equivalence)  but  any  facts
+will  be  converted  to,  and  used  internally in, the clausal form. So
+before explaining resolution, I must explain how to represent things  in
+the clausal form.
+
+The database will consist of a collection of facts (often called  axioms
+or propositions), and all the facts in the database are to be considered
+as being true. Each fact will be a list of alternatives,  such  that  at
+least  one  of  the alternatives is true. For example, "It is raining or
+snowing" would be represented (in some suitable notation) as:
+
+        FACT: "It is raining" OR "It is snowing"
+
+I would probably represent that in prolog as:
+
+        fact([raining,snowing]).
+
+Notice that a fact is one thing: it is a list of an arbitrary number  of
+alternatives.  As  always in prolog, the items of the list are separated
+by commas, but this is purely to do with the prolog way of  representing
+lists,  and  has  nothing  to  do with the use of ',' to mean 'and'. The
+items in the list are alternatives. Incidentally, the fact  allows  that
+it  is  both raining and snowing, as long as it is doing at least one of
+those things.
+
+How to represent "It is raining and snowing" in clausal form? Each  fact
+is  a list of ALTERNATIVES, to represent a fact that is a conjunction of
+two simpler facts we must represent the two simpler facts, e.g.:
+
+        FACT: "It is raining"
+        FACT: "It is snowing"
+
+I would represent this in prolog as:
+
+        fact([raining]).
+        fact([snowing]).
+
+Notice that in this case we have facts which are lists of  one  element,
+but they are still lists.
+
+How do we represent "All men are mortal"? As  an  ordinary  prolog  rule
+(rather than a fact for a prolog theorem prover), we would write this as
+
+        mortal(X) :- man(X).
+
+Actually, there is a simple way to translate prolog rules  into  clausal
+form,  so rather than doing it via English, I'll go straight to a prolog
+theorem prover representation:
+
+        fact([mortal(X),not(man(X))]).
+
+Basically, as long as there are no ';'s in the body of the rule, all you
+do is make a list out of the head and body of the rule, and put 'not' on
+each item from the body. Another example:
+
+        aunt(X,Y) :- sister(X,Z),parent(Z,Y).
+    becomes
+        fact([aunt(X,Y),not(sister(X,Z)),not(parent(Z,Y))]).
+
+One way of translating this back into English is:
+
+    "For any three people, X,Y and Z, either X is Y's aunt, or
+     else X isn't Z's sister, or else Z isn't Y's parent."
+
+It probably requires some thinking about to see that this is  equivalent
+to  the  usual  English  reading  of  the  prolog  clause! That is why I
+recommend you translate rules into prolog, and then into 'facts'.
+
+Prolog rules are very easy to translate into clausal form because, in  a
+sense, they are already in clausal form! Prolog rules are often referred
+to as 'Horn clauses', and are an adaptation by Horn from the form  where
+there is no distinction between alternatives in the list. [Incidentally,
+how would you represent in prolog the fact that Mr. Platypus is known to
+be either a bird or a mammal? It is easy in clausal form:
+
+        fact([bird(platypus),mammal(platypus)]).
+
+but it is not obvious to me how to do this in prolog. One possibility:
+
+        bird(platypus) :- not(mammal(platypus)).
+
+In this case, there is a default of assuming Platypus to be  a  bird  in
+the  absence  of  any information to the contrary: the representation is
+not symmetrical between the two possibilities. This could lead in  to  a
+discussion  of  the  whole  problem of default reasoning and then to the
+frame problem etc.]
+
+I don't like all the brackets that are beginning to  accumulate  in  the
+facts,   so  I'm  going  to  assume  there  have  been  prolog  operator
+declarations that enable facts  to  be  written  omitting  some  of  the
+brackets. In addition, I am going to use '#' instead of 'not' because it
+is more visible. (There is no reason why a  theorem  prover  written  in
+prolog  should  use  the  same  symbol as the prolog interpreter to mean
+'not': they are conceptually distinct.) Thus I've changed  the  notation
+so that the last fact is now written:
+
+        fact[aunt(X,Y),#sister(X,Z),#parent(Z,Y)].
+
+I feel that that is an improvement, but remember that you would need two
+operator  declarations to be able to type such an expression directly to
+prolog.
+
+Incidentally, since a double negative is equivalent to  no  negative  in
+most logics (an exception is 'intuitionistic logic'), the prolog:
+
+        male(mars).
+        boy(X) :- male(X),not(adult(X)).
+
+would be translated to:
+
+        fact[male(mars)].
+        fact[boy(X),#male(X),adult(X)].
+
+
+-- Resolution ---------------------------------------------------------
+
+I will assume you are able to translate all the  facts  and  prolog-like
+rules  into  a  clausal  form.  (Although  this  assumption  is probably
+unreasonable, I do expect that anyone familiar with prolog will be  able
+to translate some rules into clausal form.)
+
+The only inference rule we need with  clausal  form  is  the  resolution
+rule.   This  rule says that if we have two facts, and one fact includes
+an alternative which occurs in the other fact negated, then we can  make
+a  new  fact  from  all the other alternatives from both of the original
+facts.  A symbolic example:
+
+    From the facts:
+
+        fact[a,#b,c,d,#e,f].
+        fact[c,#d,g,h,#i].
+
+    it can be inferred that:
+
+        fact[a,#b,c,#e,f,g,h,#i].
+
+In the above example, 'd' occurred positively in one of the given facts,
+and  negated in the other, so the inference rule says to make a new list
+of everything else from both given facts. Notice  that  'c'  occurs  the
+same  in  both given facts, but it only needs to be included once in the
+conclusion.  Strictly speaking, this elimination of  repetitions  should
+be  included  in the statement of the inference rule.  (There is no need
+to say "It is raining or else it is snowing or  else  it  is  raining".)
+Actually,  to state the rule precisely, would require mention of what to
+do if the facts contain variables: strictly speaking the two 'd's in the
+above  example  have  to  be  UNIFIED (which  may cause variables to be
+replaced by values).  Prolog matching  is  a  kind  of  unification,  so
+simply  testing to see whether the two 'd's match (using 'member' or '='
+etc.) should be okay.
+
+
+-- Controlling what Inferences are made. ------------------------------
+
+As you can see from the example, it would be quite easy  for  a  theorem
+prover using the above inference rule to derive longer and longer facts.
+However, a real theorem prover shouldn't be allowed  to  run  away  like
+that.  The  vital  principle  that brings it under control is the way in
+which the inference rule is used. This is the subject  of  another  demo
+(to  be written), alternatively, read the section in Raphael's book (see
+refs).
+
+For information about some Prolog programs that translate from Predicate
+Calculus into  clausal form  and embody  various simple  strategies  for
+resolution theorem proving,  as well  as a  programming assignment,  see
+TEACH * RESOLVEEXERCISE.
+
+-- References ---------------------------------------------------------
+
+This list is not comprehensive, nor is it as 'tidy'  as it should be.
+
+"The Logic Machine" in
+    Computers and Thought" eds  Feigenbaum  and Feldman.
+This is a description of a VERY early program to solve simple logical
+problems. It indicates an initial approach to theorem proving.
+
+Bertram Raphael
+    The Thinking Computer
+This  general  introduction  to  Artificial Intelligence has a section
+on theorem proving by machine.
+
+D. Michie et al, (eds)
+    Machine Intelligence, Vols III and IV
+In these two volumes  of  collected  papers  there  are  two  papers  by
+Robinson on the 'resolution' principle and its use in building 'question
+answering' programs.
+
+Nils Nillson
+    Problem Solving Methods in Artificial Intelligence
+This has  a  very  thorough coverage  of  various problem solving
+methods.  (The title says it all). There is a section on theorem
+proving.
+
+E. J. Lemmon.
+    Beginnning Logic
+An introductory logic textbook.
+
+"Some Philosophical Problems from the Standpoint of AI"
+Pat Hayes and John McCarthy.  This isn't directly about theorem proving,
+but concerns some of the problems of representing real-world knowledge
+in logic.
+
+W. Clocksin and C.S Mellish.
+    "Programming in Prolog
+    Springer-Verlag
+Chapter 10 gives a brief discussion of resolution theorem-proving and
+the relation of Prolog to logic.
+
+A. Ramsay and R. Barrett
+    AI In Practice: Examples in POP-11
+    Ellis-Horwood 1987
+Includes a description of a theorem prover written in POP-11.
+
+The STRIPS problem solver (by Fikes and Nilsson) made extensive  use  of
+ the  QA3.5 theorem  prover. See TEACH * STRIPS, TEACH * SOLVER
+
+-----<Copyright University of Sussex 1987.  All rights reserved.>-------

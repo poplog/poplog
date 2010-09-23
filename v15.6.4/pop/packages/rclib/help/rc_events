@@ -1,0 +1,1848 @@
+HELP RC_EVENTS                                   Aaron Sloman, Sept 2000
+
+Major revision: 15 Sep 2002
+With thanks to Jonathan Cunningham
+for criticism and suggestions.
+
+Note: it is possible that the event handling in RCLIB will change in
+future to allow more flexibility, e.g. permeable objects that allow
+some events to be transmitted through them. These changes will
+be documented in the online version of this file and the file
+HELP RCLIB_NEWS here:
+    http://www.cs.bham.ac.uk/research/poplog/rclib/help/rc_events
+    http://www.cs.bham.ac.uk/research/poplog/rclib/help/rclib_news
+
+
+                   EVENT HANDLING MECHANISMS IN RCLIB
+                   ==================================
+
+A tutorial overview of the basic mechanisms with some detailed examples
+is given in TEACH * RC_LINEPIC
+
+Further information on some method types is in HELP * RC_LINEPIC
+
+This file describes the overall architecture of the RCLIB events
+handler. A more general overview of the package is in
+    HELP * RCLIB
+
+CONTENTS
+
+ -- Introduction: the X window system and Poplog/Pop-11
+ -- What is RCLIB?
+ -- -- Object oriented implementation, with multiple inheritance
+ -- Event handling in RCLIB
+ -- High level RCLIB facilities
+ -- RCLIB event handling: an overview
+ -- -- Event handlers associated with classes and instances
+ -- -- Making windows mouse/keyboard sensitive
+ -- -- Preventing event clashing
+ -- Types of events handled by RCLIB, and default handlers
+ -- -- Mouse events (button events and mouse motion events)
+ -- -- Keyboard events
+ -- -- Resize events
+ -- -- Method invocation
+ -- Event types in RCLIB
+ -- -- Mouse related events associated with mixin rc_selectable
+ -- -- . BUTTON events:
+ -- -- . (a) Button DOWN events
+ -- -- . (b) Button UP events
+ -- -- . MOTION events:
+ -- -- . (a) MOVING the mouse pointer over the window
+ -- -- . (b) DRAGGING with button 1, or 2, or 3 down
+ -- -- . Mouse events:
+ -- -- . (a) Mouse ENTERING a window
+ -- -- . (b) Mouse LEAVING a window
+ -- -- Keyboard events associated with mixin rc_keysensitive
+ -- -- . KEYBOARD events (key UP or key DOWN)
+ -- -- RESIZE events associated with mixin rc_resizeable
+ -- How handlers are associated with instances
+ -- -- Lists of handlers for an event type
+ -- -- False as a handler
+ -- More on event processing
+ -- -- Main stages in RCLIB event processing (A to F)
+ -- -- . Events_list
+ -- -- . Drawing_defer_list
+ -- -- . Deferred_events_list
+ -- -- Event handling and XVed
+ -- -- Further details on event handling
+ -- -- The Events_list queue
+ -- -- RC_GRAPHIC globals
+ -- -- How the stages A to F work
+ -- rc_mousepic: Making a window mouse- or keyboard-sensitive
+ -- -- Low level handlers installed by rc_mousepic
+ -- -- The actions of rc_handle_event
+ -- Overriding handling defaults for particular classes or instances
+ -- An event handler value may be false or a list
+ -- . rc_add_handler
+ -- . rc_current_handlers
+ -- . rc_delete_handler
+ -- Finding the picture object to handle an event
+ -- Global variables set by event handlers
+ -- -- Using deferred events
+ -- -- Global variables set by main event handler
+ -- . rc_active_window_object (set globally)
+ -- . rc_current_window_object (set locally)
+ -- . rc_active_picture_object (set globally)
+ -- . rc_current_picture_object
+ -- . rc_window (set in event handler)
+ -- . rc_active_widget (set in event handler)
+ -- Other global variables used by event handlers
+ -- . rc_in_event_handler
+ -- . Events_list
+ -- . Deferred_events_list
+ -- . Drawing_defer_list
+ -- . rc_sole_active_widget
+ -- . rc_no_more_handlers
+ -- . rc_window_frame
+ -- . rc_transparent_objects
+ -- Event handlers for blank spaces and picture objects
+ -- -- Finding the appropriate methods
+ -- rc_add_pic_to_window: inform a window of a picture object
+ -- -- rc_remove_pic_from_window
+ -- Information held in window objects
+ -- Information held in picture objets
+ -- Utilities from LIB RC_MOUSEPIC
+ -- -- rc_defer_apply
+ -- -- rc_pictures_selected
+ -- -- Event handlers associated with mouse sensitive objects
+ -- -- Formats for event handlers
+ -- RCLIB and XVed
+ -- Where to find tutorial examples and further details
+ -- SOME DEBATABLE DESIGN DECISIONS
+ -- Acknowledgement
+
+-- Introduction: the X window system and Poplog/Pop-11 -----------------
+
+An overview of the RCLIB package can be found in HELP RCLIB, with
+introductory tutorial examples in many teach files, including:
+
+    TEACH RCLIB_DEMO.P
+        Introductory overview tutorial
+
+    TEACH RC_LINEPIC
+        Some of the basics in detail
+
+    TEACH RC_ASYNC_DEMO
+        Demonstrates how control panels can asynchronously alter a
+        running program.
+
+    TEACH RC_CONSTRAINED_PANEL
+
+and others listed in HELP RCLIB and (if you have the SimAgent toolkit)
+HELP SIM_PICAGENT
+
+RCLIB uses the X window system, described in REF X, and on the internet
+at many sites, including http://www.x.org/resources.htm
+
+The X window system is a very large collection of tools, conventions,
+and applications. One of its most useful features is that the X window
+system can be used to run applications on a remote machine via a
+graphical interface on your own machine. Thus you can log in to a remote
+machine and run a word processor or a spread-sheet or a game package on
+the remote machine as if you were sitting at that machine (though
+usually not audio applications). The X system arranges for program
+instructions on the remote machine to produce effects on your screen,
+and for actions performed using your mouse or keyboard to invoke
+procedures (generally called event handling methods) on the remote
+machine. Programs using the X window system, therefore, can usually be
+run either locally on the machine you are using or remotely, perhaps on
+a much more powerful machine shared with other users.
+
+Poplog's graphical tools are built on top of the X window system tools
+and consist mainly of Pop-11 programs which invoke C programs provided
+as part of the X window system, though there are some additional
+programs forming the poplog widget set, described in REF * Xpw.
+The event handling is described in various files including
+    REF * XT_EVENT
+    REF * XTOOLKIT
+    REF * XT_LIBS
+    REF * XT_CALLBACK
+
+Those files give a huge amount of information about a wide range of
+features of the X window system and Poplog's interaction with it, often
+via externally defined C programs in the X window libraries and in
+Poplog's widget libraries. The design of RCLIB has been motivated by the
+attempt to use as little of that apparatus as possible, and to make it
+understandable to the pop-11 programmer who is not a C programmer and
+does not wish to learn about poplog's external interface. This file
+describes event handling in RCLIB at a level that requires no knowledge
+of the X window system or poplog's interface to it.
+
+Buried in those REF files are some complications that arise from the
+existence of an X-based editor in Poplog. For example, when XVed is
+waiting for input and no other poplog program is running, Poplog
+hibernates and needs to be woken up. If a poplog program is running,
+mouse and keyboard events are handled by an adpative timed polling
+mechanism, which can cause delays. Experts who want to know more about
+all this can look at REF * XTOOLKIT/'Event Handling' the section on in
+for more on this.
+
+However, RCLIB is designed so as to remove the need for most programmers
+to know anything about those mechanisms. (In principle this should make
+RCLIB portable to other graphical environments, by redefining a set of
+low level mechanisms for those environments.)
+
+
+-- What is RCLIB? -----------------------------------------------------
+
+RCLIB is a collection low level, medium level and high level tools for
+building graphical user interfaces based on the X window system.
+All the RCLIB libraries are written in Pop-11 although they use the
+general X facilities in Poplog, some of which employ external libraries.
+
+RCLIB is built on top of the RC_GRAPHIC package, and re-defines some of
+its mechanisms in order to support a more general collection of
+applications, including event handling mechanisms. In particular
+RC_GRAPHIC was originally designed to support only one graphical window
+(held in the global variable rc_graphic), and provided only very
+primitive facilities for mouse based interaction. RCLIB supports
+multiple windows even though only one is current at a time, and allows
+various types of mouse and keyboard events to be handled in the windows.
+
+Some of the complexities of RCLIB's event handling arise from the fact
+that poplog can be in various sorts of states when an event occurs. It
+may be running either the multi-window editor XVed or the dubm-terminal
+editor Ved, or neither, e.g. if a user is communicating with the pop-11
+system through a pipe or socket, or merely typing commands directly to
+it. If Ved or XVed is being used the editor may be in a state in which
+it is waiting for input from the terminal, or it may be running a
+program launched in the editor. In either case the behaviour of XVed is
+different from that of Ved, and RCLIB has to take account of this. The
+basic mechanisms for doing that, described below, are in the file
+    LIB * RC_MOUSEPIC.
+
+-- -- Object oriented implementation, with multiple inheritance
+
+In addition to the mechanisms of the Pop-11 language, RCLIB uses an
+object-oriented design philosophy based on multiple-inheritance
+facilities in OBJECTCLASS, so it is very easy to change or extend.
+    See TEACH OOP, HELP OBJECTCLASS
+
+The next two sections give an overview of some of the facilities
+provided by RCLIB with pointers to other documentation files that may be
+useful for programmers. After that more detailed and messy details are
+provided, for the subset of programmers who want to know how the low
+level event handling mechanisms work.
+
+-- Event handling in RCLIB --------------------------------------------
+
+One of the more complex and obscure parts of RCLIB is the handling of
+events which occur when the user interacts with the terminal using mouse
+or keyboard. The full details are complicated, but RCLIB is designed to
+hide most of the low level complications and support development of
+programs at a level of abstraction close to how a user would think of
+the behaviour of an interface. For instance, it enables you to specify
+that you want an action button to go in a window which when you click on
+it destroys the window, or that you want a slider to go on a window such
+that when you move the blob on the slider a program variable is changed
+automatically. You can also specify that when one interface object is
+changed e.g. by mouse or keyboard actions, another one automatically
+changes also. Making all this happen, especially while a program
+associated with the interface is running, requires many complex low
+level mechanisms to operate including detecting that a mouse event has
+occurred, in which window it has occurred, where exactly in that window,
+which objects in the window are affected, what sort of event it was,
+whether the associated action should happen immediately or not, etc.
+RCLIB tries to hide most of the details when you don't want to think
+about them.
+
+Some of the details are described below. However many users have found
+it possible to write programs based on RCLIB without knowing about the
+gory details of the X window system, or the mechanisms for invoking C
+utilities from Pop-11.
+
+-- High level RCLIB facilities
+
+The low level details are described in the next section. Most users of
+RCLIB should be able to avoide learning about them.
+
+For instance, a wide range of graphical interfaces can be implemented
+easily using rc_control_panel and its derivatives, described in some
+detail in
+    HELP RC_CONTROL_PANEL
+
+with pointers to example teach files, etc.
+
+Where the libary facilities such as rc_control_panel and other things
+described in HELP RCLIB do not cover the interface requirements, it may
+be useful to learn how to define event handling methods of the following
+sorts, to override the default versions defined in LIB RC_MOUSEPIC:
+
+ define :method rc_button_1_down(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_1_down(pic:rc_window_object, x, y, modifiers);
+ define :method rc_button_2_down(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_3_down(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_3_down(pic:rc_window_object, x, y, modifiers);
+ define :method rc_button_1_up(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_2_up(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_3_up(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_1_drag(pic:rc_window_object, x, y, modifiers);
+ define :method rc_button_1_drag(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_2_drag(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_2_drag(pic:rc_window_object, x, y, modifiers);
+ define :method rc_button_3_drag(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_3_drag(pic:rc_window_object, x, y, modifiers);
+ define :method rc_move_mouse(pic:rc_selectable, x, y, modifiers);
+ define :method rc_mouse_enter(pic:rc_selectable, x, y, modifiers);
+ define :method rc_mouse_exit(pic:rc_selectable, x, y, modifiers);
+ define :method rc_handle_keypress(pic:rc_selectable, x, y, modifiers, key);
+ define :method rc_resize_object(pic:rc_selectable, x, y, width, height);
+
+Examples of the use such such methods can be found in
+    TEACH RC_LINEPIC
+
+There are many more examples in the Pop-11 libraries that define special
+types of picture objects, such as buttons, sliders, text-input
+panels, etc.
+
+
+However for some purposes it is essential to understand how things work,
+and the rest of this file provides information that may be useful to
+more experienced programmers.
+
+
+-- RCLIB event handling: an overview ----------------------------------
+
+Interaction events can involve either window objects (instances of the
+class rc_window_object), or picture objects (instances of the mixin
+rc_linepic) which may be included in a window object. E.g. buttons,
+sliders, movable dials, text input panels, movable pictures, are
+all treated as picture objects.
+
+There are different types of events, which are handled by different
+methods associated with different classes of window objects and picture
+objects. The next section lists the different types of events and
+indicates which can be handled by window objects or picture objects and
+which only by window objects.
+
+The core mechanisms for event handling are defined in two files:
+    LIB * RC_WINDOW_OBJECT
+    LIB * RC_MOUSEPIC
+
+Additional event handlers built on top of those are created for specific
+types of RCLIB interface objects, such as buttons, sliders, text input
+panels, dials, etc. in other files, e.g.
+    LIB * RC_BUTTONS
+    LIB * RC_SLIDER
+    LIB * RC_TEXT_INPUT
+    LIB * RC_SCROLLTEXT
+
+Most of the library files include commented out test examples near the
+top.
+
+-- -- Event handlers associated with classes and instances
+
+A design feature of RCLIB is that when a system mechanism for a type of
+event has identified the window object or picture object that should
+handle the event, instead of simply applying a method to that object, it
+extracts a method from the object to handle the event. So if a mouse
+button 1 down event occurs and the mouse is in the sensitive area of
+picture object O, and no other picture object occludes O, then the
+system event handling mechanism for mouse sensitive classes of objects
+will look inside a slot in O to find a method M to handle the event,
+instead of simply applying a general method for a class to which O
+belongs.
+
+Typically the method M, found in O, will then be applied to O, along
+with some auxiliary information, for instance the location of the mouse
+when the event occurred, and information about which of the Control,
+Meta and Shift keys were depressed at the time. In some cases instead of
+a single method a list of methods will be associated with the object, in
+which case they all get a chance to respond to the event.
+
+This design philosophy allows the method-handling capabilities of
+individual objects to be varied dynamically, and allows different
+instances of the same class to have different methods associated with
+them.
+
+-- -- Making windows mouse/keyboard sensitive
+
+By default instances of the rc_window_object created by
+rc_new_window_object are not sensitive to mouse or keyboard events.
+
+They can be made sensitive to particular classes of events by using the
+procedure rc_mousepic described below. To make a window resizable, it is
+necessary to use the method rc_set_resize_handler described below.
+
+Some window creation procedures, e.g. rc_control_panel automatically
+make windows mouse or keyboard sensitive.
+
+-- -- Preventing event clashing
+
+Although the different sorts of interaction events are handled by
+different procedures (and objectclass methods) they are all treated as
+part of a common stream of events. So if any event is being handled when
+another one occurs, the second will not be handled by RCLIB facilities
+until the first has been completed. This prevents different events
+interfering with one another.
+
+However, these events can interfere with a running Pop-11 program, e.g.
+by re-drawing something it has drawn. Moreover a running Pop-11 program
+may attempt to change something that is being manipulated by an event
+handler. E.g. while the mouse is being used to drag an object in one
+direction a program may be attempting to move it in another direction.
+Worse still, while a program is attempting to draw in a window an event
+handler may cause the window to be killed (or vice versa).
+
+It is up to users to guard against this sort of thing by careful design,
+ensuring that different modules which may interact badly have some form
+of communication to detect when they should not perform some action.
+This may be done by examining slot values of objects they are operating
+on or by using certain global variables that made dynamically local to
+procedures that need to warn others when they are active, or by
+using some shared database facilities.
+
+
+Summary so far: there are different kinds of events, and different sorts
+of objects may handle them, window objects or picture objects. RCLIB
+events form a single stream. Typically each object stores its own
+methods for handling events, though methods defined for a class can be
+shared between the instances.
+
+We now fill in more detail regarding the types of events, which sorts of
+objects can handle them, and and where their handler methods are to be
+found.
+
+
+
+-- Types of events handled by RCLIB, and default handlers -------------
+
+-- -- Mouse events (button events and mouse motion events)
+
+There are several mouse-related types of events, including button down
+events, button up events, mouse move events, mouse drag events,
+entering/leaving events for windows and resize events for windows
+(described below).
+
+These event types are associated with the mixins called rc_selectable,
+and rc_resizeable defined in LIB * RC_WINDOW_OBJECT.
+
+Instances of the rc_selectable mixin may either be window objects, or
+picture objects. Window objects are defined in LIB * RC_WINDOW_OBJECT.
+
+The basic picture object mixin is defined in LIB * RC_LINEPIC, which
+is concerned with visual appearance and motion. When rc_linepic_movable
+or rc_rotatable is combined with rc_selectable, it is possible to make
+an object that can be moved, or rotated, by dragging it with the mouse.
+
+Event handling is initially associated with window objects, but may be
+passed on to picture objects that exist within that window, and are
+known to the window.
+
+The core event handling mechanisms, and the methods that they invoke
+are defined in LIB * RC_MOUSEPIC, including the following
+
+ define :method rc_button_1_down(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_1_down(pic:rc_window_object, x, y, modifiers);
+ define :method rc_button_2_down(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_2_up(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_3_up(pic:rc_selectable, x, y, modifiers);
+ define :method rc_button_1_drag(pic:rc_window_object, x, y, modifiers);
+ define :method rc_button_1_drag(pic:rc_selectable, x, y, modifiers);
+
+and many more. More specific versions of these are associated with
+subclasses defined in other files.
+
+
+-- -- Keyboard events
+There are also keyboard related events, associated with the mixin
+rc_keysensitive, also defined in LIB RC_WINDOW_OBJECT.
+
+-- -- Resize events
+
+are associated with the rc_resizeable mixin in LIB RC_WINDOW_OBJECT,
+The core method for this is defined in LIB * RC_MOUSEPIC
+
+    define :method rc_resize_object(win_obj:rc_resizeable);
+
+At present rc_resizeable methods are associated only with whole windows,
+not with picture objects (though users can define drag methods for
+re-sizing picture objects and later a library may support this).
+
+Windows are not resizable unless made resizable using the method
+ define :method rc_set_resize_handler(win_obj: rc_window_object);
+defined in LIB * RC_MOUSEPIC
+
+
+-- -- Method invocation
+
+Each of these mixins defines a set of slots in which instances can hold
+event handlers. The mixins are also associated with default methods for
+handling the events which can be changed either for subclasses or for
+individual instances. Those methods are invoked via a fairly complex
+chain of events initiated by an interaction event involving the mouse or
+keyboard.
+
+An overview of the chains is given below followed by more detailed
+descriptions. Some parts of the chain are common to all event times,
+whereas others involve specific event handlers.
+
+Mouse or keyboard sensitive picture objects are instances of classes
+which inherit from either or both of the rc_selectable and
+rc_keysensitive mixins. These picture objects include buttons, dials,
+sliders, mouse-movable picture objects, text or number input buttons,
+scrolling text panels, etc. Each such picture object has to be
+associated with a window object (or possibly more than one window object
+in some cases).
+
+The window objects are instances of the class rc_window_object, which
+inherits some of its properties from the rc_selectable, rc_keysensitive
+and rc_resizeable mixins.
+
+-- Event types in RCLIB -----------------------------------------------
+The types of events so far supported in RCLIB fall into major sub-types
+mentioned above and explained in more detail in the following sections:
+mouse related events keyboard related events and resize events.
+
+-- -- Mouse related events associated with mixin rc_selectable
+
+-- -- . BUTTON events:
+
+RCLIB divides these into two categories:
+
+-- -- . (a) Button DOWN events
+    Button 1 to 3 going down.
+    Handled by: window objects and picture objects
+
+    This sort of event invokes one of the following user-definable
+    methods (by default):
+
+        rc_button_1_down rc_button_2_down rc_button_3_down
+
+    By default, the button down methods (or their names) are held
+    in a three element vector in the slot rc_button_down_handlers
+    of the picture object or window object.
+
+-- -- . (b) Button UP events
+
+    Button 1 to 3 going up.
+    Handled by: window objects and picture objects
+
+    This sort of event invokes one of the following user-definable
+    methods (by default):
+
+        rc_button_1_up   rc_button_2_up   rc_button_3_up
+
+    By default, the button up methods (or their names) are held
+    in a three element vector in the slot rc_button_up_handlers
+    of the picture object or window object.
+
+-- -- . MOTION events:
+
+RCLIB divides these into two categories
+
+-- -- . (a) MOVING the mouse pointer over the window
+
+    Handled by: window objects and picture objects
+
+    If no button is depressed this invokes the following method
+    by default:
+
+        rc_move_mouse
+
+    The method or its name is held in the slot rc_move_handler
+    of the window object or picture object.
+
+-- -- . (b) DRAGGING with button 1, or 2, or 3 down
+
+    Handled by: window objects and picture objects
+
+    If a mouse button is held down at the same time as the mouse is
+    moved, this is a drag event invoking one of these methods
+    by default, depending on which button is down:
+
+        rc_button_1_drag rc_button_2_drag rc_button_3_drag
+
+    By default the drag methods (or their names) are held in a three
+    element vector in the slot rc_drag_handlers of the picture object
+    or window object.
+
+    NOTE:
+    The "dragonly" event type can be given in a specification to
+    rc_mousepic or rc_control_panel (or its derivatives) to restrict
+    a window to handling drag events but not motion events.
+
+
+-- -- . Mouse events:
+
+Again there are two categories.
+
+-- -- . (a) Mouse ENTERING a window
+    Handled by: window objects but not yet picture objects
+
+    The mouse entering a window invokes this method by default:
+
+        rc_mouse_enter
+
+    By default the method (or its name) is held in the slot
+    rc_entry_handler of the window object.
+
+-- -- . (b) Mouse LEAVING a window
+    Handled by: window objects but not yet picture objects
+
+    The mouse leaving invokes this method by default:
+        rc_mouse_exit
+
+    By default the method (or its name) is held in the slot
+    rc_exit_handler of the window object.
+
+
+-- -- Keyboard events associated with mixin rc_keysensitive
+
+-- -- . KEYBOARD events (key UP or key DOWN)
+
+    A keyboard key is pressed or released.
+    Handled by: window objects and picture objects
+
+    Pressing or releasing a keyboard key, while the mouse cursor is
+    in the window or within the picture object may invoke the handler.
+
+    By default these events are handled by the method
+
+        rc_handle_keypress
+
+    By default this method (or its name) is held held in the
+    slot rc_keypress_handler of the picture object or window object.
+
+
+-- -- RESIZE events associated with mixin rc_resizeable
+
+These occur when the window manager detects that a mouse button has been
+pressed on an appropriate part of the window frame and then dragged.
+
+They are associated with the rc_resizeable mixin in defined in
+    LIB * RC_WINDOW_OBJECT,
+
+The core method for this is defined in LIB * RC_MOUSEPIC
+
+    define :method rc_resize_object(win_obj:rc_resizeable);
+
+By default this method is added to the slot rc_resize_handler
+when the window is made resizable by the method
+    rc_set_resize_handler(win_obj: rc_window_object);
+
+
+
+-- How handlers are associated with instances -------------------------
+
+All window objects and picture objects have slots that can contain event
+handlers, as explained above.
+
+This makes it possible for individual instances to use different
+handlers without having to define new sub-classes. It also makes it
+possible for an instance to change its handlers easily according to
+context.
+
+A mouse-sensitive window object or picture object (an instance of the
+rc_selectable mixin) will have:
+
+    a vector containing three handlers for button down events
+        (one for each button)
+
+    a vector containing three handlers for button up events
+
+    a move handler, for mouse motion events not covered
+        by other categories of motion
+
+    a vector containing three handlers for drag events
+
+    an entry handler
+
+    an exit handler
+
+(The last two are not yet used by picture objects, though they may be
+later. Instead a global variable)
+
+Window object and picture object instances of the rc_keysensitive mixin
+have a slot for a keypress handler. (Perhaps it should have had separate
+keypress and keyrelease handlers, but instead the handler now has to
+determine which case it is according to whether the key code is positive
+or negative. It would be easy to define a sub-mixin with separate
+slots for key-up and key-down handlers, extracted and invoked by
+a modified version of the rc_handle_keypress method.
+
+-- -- Lists of handlers for an event type
+
+Wherever a handler is stored it is possible to have a list of handlers
+instead. They will all then be run with the same arguments, as explained
+below.
+
+-- -- False as a handler
+
+Wherever a handler can be stored it is possible instead to have the
+boolean value false. That will prevent the event having any effect.
+I.e. the picture object or window object concerned will handle the event
+by doing nothing.
+
+-- More on event processing -------------------------------------------
+
+-- -- Main stages in RCLIB event processing (A to F)
+
+The details of event handling are in the file LIB RC_MOUSEPIC
+Anyone attempting to understand it will need to know the following:
+
+Before RCLIB events can be handled by a window the low level handers
+must have been installed in the window. These low level handlers are
+at present (Sept 2002):
+
+ define RC_DO_BUTTON_ACTIONS(widget, item, data );
+ define RC_DO_MOVE_ACTIONS(widget, item, data );
+ define RC_DO_MOUSE_ACTIONS(widget, item, data );
+ define RC_DO_KEYBOARD_ACTIONS(widget, item, data );
+ define RC_DO_RESIZE_ACTIONS(widget);
+
+Each of these procedures includes this:
+    dlocal rc_inside_callback = true;
+
+so that user programs can detect whether the lowest level "callback"
+procedure is currently active.
+
+Each of these invokes a handling procedure that can be redefined
+to facilitate development and testing or to add functionality:
+
+ define rc_do_button_actions(widget, item, data);
+ define rc_do_move_actions(widget, item, data);
+ define rc_do_mouse_actions(widget, item, data);
+ define rc_do_keyboard_actions(widget, item, data);
+ define rc_do_resize_actions(widget_or_shell);
+
+These procedures collect information relevant to the event, e.g. the
+mouse location, whether a button whent down or up, which of the keys
+Control, Shift, Meta (=Alt) happens to be done, and then packages
+up the information and passes it with a handling procedure for the event
+type to the procedure
+    rc_handle_event(widget, item, data, proc);
+
+This decides whether Xved is running or not, and accordingly invokes the
+procedure
+
+    rc_really_handle_event(widget, item, data, proc);
+
+in an appropriate mode, making sure that it is not run while the low
+level X window callback mechanism is still active. It does this by
+creating a closure of that procedure and invoking it in a "deferred"
+mode, using either
+
+if XVed is active and waiting for input then this:
+
+        vedinput(rc_really_handle_event(%w, item, data, proc%));
+        external_defer_apply(vedprocess_try_input);
+
+otherwise this:
+
+        external_defer_apply(rc_really_handle_event(%w, item, data, proc%));
+
+Thereafter the global variable rc_inside_callback should become false,
+unless another event is detected and handled.
+
+When an RCLIB event occurs there are several stages as follows:
+
+    A   Generic low level handler installed by XptAddCallback
+        (See REF XptAddCallback).
+        (Each handler is one of the types button, mouse, move, keyboard
+        or resize.
+        This RC_DO_<type> procedure calls the rc_do_<type> procedure.)
+
+    |
+    V
+
+    B   The basic handler invokes a user re-definable handler of the
+        same type, which collects extra information from widget required
+        for handling the event, and passes all the information to stage
+        C along with the appropriate Pop-11 handler to use that
+        information.
+
+    |
+    V
+
+    C   The procedure rc_handle_event uses the information from stage B
+        and passes it to rc_really_handle_event to create an event
+        record.
+        If the event queue (in the Pop-11 list Events_list) is empty it
+        asks rc_process_event to handle the new event immediately.
+        Otherwise it adds the event record to the queue and makes sure
+        that the queue manager is running in case it isn't already.
+        Stage C is shared by all event types, whereas specific
+        procedures for different major types of events are involved in
+        stages A and B and subsequent stages.
+
+    |
+    V
+
+    D   The procedure rc_process_event_queue (or rc_process_event in
+        some cases) handles the event. This will use information in
+        the event record, which specifies a pop-11 event dispatcher
+        (e.g. button down, button up, movement, drag, entry, exit,
+        keyboard handler) along with the relevant window object or
+        picture object, and appropriate additional information.
+
+    |
+    V
+
+    E   Process remaining items on event queue Events_list
+        (e.g. events that occurred while previous one was being handled)
+
+    |
+    V
+
+    F   Process "deferred" events, if any, in the list
+            Deferred_events_list
+        These event records are processed without setting global
+        variables to correspond to the window object in which the event
+        occurred.
+
+There are several events queues.
+
+-- -- . Events_list
+
+This is the basic events queue used by rc_handle_events and the
+procedures it invokes.
+
+
+-- -- . Drawing_defer_list
+A further complication is this: if an event invokes this method
+
+    define :method rc_move_to(pic:rc_selectable, x, y, mode);
+
+i.e. attempts to move (and therefore redraw) a selectable picture
+object, that object checks whether it is already the value of
+rc_moving_picture_object, If it is, the move is abandoned. Otherwise
+the picture object is assigned to that variable and the drawing is done.
+
+
+The move handling mechanisms use is_current_picture_object(obj) to check
+if the object is already being moved (and redrawn), in which case the
+move is postponed until after the object has been moved or redrawn. This
+uses the list
+
+        Drawing_defer_list
+
+When the drawing is completed events in that queue are processed.
+(Maybe those should simply be added to the Events_list queue?)
+
+The processing in steps D and E uses the window in which the event
+occurred to provide the current RC_GRAPHIC drawing environment.
+afterwards it resets rc_current_window_object to its previous value.
+So events handled in that way cannot make a global change to
+rc_current_window_object.
+
+-- -- . Deferred_events_list
+
+Events put on the Deferred_events_list, either explicitly using
+rc_defer_apply, or using the "DEFER" keyword for button descriptions,
+are less restricted in what they can do, as they are run after the
+rc_graphic environment has been restored to whatever it was before the
+event occurred. This mechanism is suitable for events that alter
+rc_current_window_object, kill the current panel, or start new
+processes that do not need to be related to the window in which the
+event occurred.
+
+Some events may cause drawing or moving objects on other windows, and
+that will require great care in restoring globals. It may be best in
+some cases to use the deferred events lists.
+
+The different sorts of contexts described above for event handlers are
+typically most important where action buttons are concerned.
+
+See HELP RC_BUTTONS for an overview of the syntax of button
+specifications for dealing with this.
+
+-- -- Event handling and XVed
+
+The file REF vedprocs explains some differences between Ved and XVed,
+the main one being that XVed uses a separate process for handling X
+events. The process may be suspended when there is no input for it and
+it is not busy processing the previous Ved command (including Load
+Marked Range, which can run arbitrarily complex procedures).
+
+This means that event handlers in RCLIB have to deal with three cases
+when handling a mouse or keyboard event in a window:
+
+    1. XVed is not running:
+        Action: handle the event now.
+
+    2. XVed is running but is not doing anything (i.e. it is waiting
+       for input).
+        Action: use vedinput to get ved to handle the event.
+
+    3. XVed is waiting for a process started in the Ved buffer to
+       finish.
+        Action: handle the event now, but make sure that any output
+        is redirected to a Ved buffer (rc_charout_buffer).
+
+In order to deal with this the procedure
+    rc_handle_event(w, item, data, proc);
+defined in LIB rc_mousepic tests for the three cases and uses
+the procedure rc_really_handle_event to handle the event immediately in
+cases 1 and 3, but in case 2 deals with a new event by giving vedinput a
+closure of rc_really_handle_event
+
+The test for whether XVed is running is
+    vedusewindows == "x"
+
+The test for case 3 is vedinvedprocess == true.
+
+This mechanism was introduced 6 Sep 2002, and may make the keyword
+INED, descrined in HELP RC_BUTTONS no longer necessary.
+
+
+-- -- Further details on event handling
+
+The first stage mentioned above, stage A, is handled by one of these
+procedures, depending on the type of event:
+
+        RC_DO_BUTTON_ACTIONS
+        RC_DO_MOVE_ACTIONS
+        RC_DO_MOUSE_ACTIONS
+        RC_DO_KEYBOARD_ACTIONS
+
+These procedures are installed (as required) in widgets (X windows)
+by RCLIB window creation utilities, or by the rc_mousepic procedure
+described below.
+
+Each of these procedures invokes a corresponding user-definable Pop-11
+procedure with a lower case version of the name, which implements stage
+B above. This obtains additional information about the event and creates
+an event record with all the relevant information, including a still
+more specific handler procedure for that type of event. E.g. the button
+event may require either a button-down handler or a button-up handler.
+The selection is made at this stage.
+
+The re-definable Pop-11 procedures that differentiate between event
+sub-types, and create the event records (Stage B) are:
+
+        rc_do_button_actions
+        rc_do_move_actions
+        rc_do_mouse_actions
+        rc_do_keyboard_actions
+
+These are made redefinable to aid debugging and testing. It is not
+recommended that major changes be made to them, though they can be
+copied from LIB RC_MOUSEPIC and edited to include extra print
+instructions for debugging programs using RCLIB event handlers. Some
+example print instructions are commented out in the code. (Of course the
+hope is that all such debugging can be done at the level of user defined
+methods for handling events, since in theory all the rclib mechanisms
+are already debugged!!)
+
+-- -- The Events_list queue
+If an event is already being handled, the new event is put on the
+Events_list queue, to be dealt with later. Otherwise it is processed
+immediately and then the queue examined to find out if there are any
+more events waiting to be processed.
+
+-- -- RC_GRAPHIC globals
+
+By default, events are processed with the rc_graphic global variables
+(described in HELP RC_GRAPHIC), e.g. rc_widget, rc_xorigin, rc_yorigin,
+etc. set to correspond to the window within which the event occurred.
+
+This is done by temporarily assigning the window object to the active
+variable rc_current_window object. The previous value of that variable
+is always restored after the event is handled.
+
+Events which should not be handled in this context, e.g. because they
+make global changes to rc_current_window_object, or start up some
+process which are neutral regarding windows, are delayed as described
+later.
+
+The mechanisms are described in still more detail below.
+
+-- -- How the stages A to F work
+
+This section gives slightly more detailed information on the main
+stages A to F listed above.
+
+    A. Determine the type of event, and invoke a generic system handler
+    for that type. This is done by low level facilities in the X window
+    system, which invoke low level Pop-11 procedures added to the window
+    by XptAddCallback, automatically invoked by some RCLIB library
+    procedures for creating windows, control panels, etc.
+
+    These low-level handlers are the procedures, run as call-backs
+    by the X event handlers. (Not all will be installed in every
+    window.)
+
+        RC_DO_BUTTON_ACTIONS
+        RC_DO_MOVE_ACTIONS
+        RC_DO_MOUSE_ACTIONS
+        RC_DO_KEYBOARD_ACTIONS
+
+    B. Get auxiliary information required for that type, e.g. where the
+    mouse is, which button has been pressed or released, which key has
+    been pressed or released. The information required is different
+    for different event types. The required auxiliary information is
+    obtained by a user-definable procedure invoked by the above, namely
+    one of these procedures, with lower case names:
+
+        rc_do_button_actions
+        rc_do_move_actions
+        rc_do_mouse_actions
+        rc_do_keyboard_actions
+
+    However, if the window has the slot rc_drag_only filled with
+    true, then if it is a motion event, but not of type drag, the
+    event will not be handled. This can be used to prevent mouse
+    movements from interfering with other processes.
+
+    C. Having obtained all relevant auxiliary information, those
+    procedures invoke rc_handle_event, which is given the auxiliary
+    data along with a more specific type of handler, e.g. one for
+    handling button down or button up events, or one for handling move
+    or drag, or one for entry or exit events. These are the specific
+    handlers:
+        rc_system_button_down_callback
+        rc_system_button_up_callback
+        rc_system_move_callback
+        rc_system_drag_callback
+        rc_system_entry_callback
+        rc_system_exit_callback
+        rc_system_keypress_callback
+
+    The procedure rc_handle_event creates an event record, including
+    the event specific data and also the callback procedure.
+
+    D. The event is then run using rc_process_event, or else, if an
+    event is already being handled or there is something in the queue,
+    puts the event record on the list Events_list, to be handled later,
+    by rc_process_event_queue which works through events in Events_list
+
+
+    E  Process remaining items on event queue Events_list
+       (e.g. events that occurred while previous one was being handled)
+        Done by rc_process_event_queue
+
+
+    F  Process "deferred" events, if any, in the list
+            Deferred_events_list
+       These are processed without setting global variables to
+       correspond to the window object in which the event occurred.
+
+
+-- rc_mousepic: Making a window mouse- or keyboard-sensitive -----------
+
+The procedure rc_mousepic is used to make a window object sensitive to
+events of certain types.
+
+This is how it is invoked.
+
+    rc_mousepic(<window_object>);
+    rc_mousepic(<window_object>, <event types>);
+    rc_mousepic(<window_object>, []);
+
+If the optional list of event types is missing, then all event types are
+installed. If it is the empty list, then all event handlers are removed
+from the window (and therefore also the picture objects in that window).
+
+For each event category, there is a low level handler, as
+described above, which is given to XptAddCallback
+
+-- -- Low level handlers installed by rc_mousepic
+
+The low level handlers have upper case names, and are defined as
+lconstant procedures. Each invokes a pop-11 procedure which has a lower
+case version of the name, then runs the rc_do_deferred_list procedure,
+which handles all deferred events, by getting external_defer_apply to
+run the procedure process_defer_list.
+
+E.g. RC_DO_BUTTON_ACTIONS, runs rc_do_button_actions followed by
+rc_do_deferred_list. These are the main event handlers directly attached
+to widgets:
+
+    define RC_DO_BUTTON_ACTIONS(widget, item, data);
+        Used for button up/down events. Does
+            rc_do_button_actions( widget, item, data );
+            rc_do_deferred_list();
+
+    define RC_DO_MOVE_ACTIONS( widget, item, data );
+        Used for move/drag events. Does
+            rc_do_move_actions( widget, item, data );
+            rc_do_deferred_list();
+
+    define RC_DO_MOUSE_ACTIONS( widget, item, data );
+        Used for mouse entry/exit events. Does
+            rc_do_mouse_actions( widget, item, data );
+            rc_do_deferred_list();
+
+    define RC_DO_KEYBOARD_ACTIONS( widget, item, data );
+        Used for keyboard events. Does
+            rc_do_keyboard_actions( widget, item, data );
+            rc_do_deferred_list();
+
+(These could have used closures of a single procedure).
+
+Each of these procedures
+
+    rc_do_button_actions
+    rc_do_move_actions
+    rc_do_mouse_actions
+    rc_do_keyboard_actions
+
+does nothing if it is inside the procedure rc_mousepic (i.e. if
+in_rc_mousepic is true), e.g., while event handlers are being set up
+in a window (which could be done by an event in another window, and it
+is not desirable that accidental mouse movements in the original window
+should interfere with the creation of a new one).
+
+If in_rc_mousepic is false (i.e. the procedure rc_mousepic is not
+running), then information about the current mouse position, and which
+mouse-button, if any, was involved, whether it was an up or down action,
+whether any of the keyboard modifiers was down (e.g. Shift, Control,
+Meta) and which type of event handler is to be invoked is given to the
+procedure rc_handle_event:
+
+    rc_handle_event(w, item, data, proc);
+
+where w is the widget, item and data give information about the event
+and proc is the basic pop-11 handler for that type of event, i.e.
+one of
+
+    rc_system_button_up_callback
+    rc_system_button_down_callback
+    rc_system_move_callback
+    rc_system_drag_callback
+    rc_system_entry_callback
+    rc_system_exit_callback
+
+-- -- The actions of rc_handle_event
+
+rc_handle_event then builds a record of the event and puts it onto the
+end of Events_list to be handled properly later. The event record
+is a list containing seven items.
+    w, item, data, proc, the mouse x and y locations, and
+        a string indicating the keyboard modifiers (any of c,s,m).
+
+The event handler proc is one of the following,
+(though more types of event handlers could be added):
+
+1. rc_do_button_actions determines whether it is a button
+down or button up event and invokes rc_handle_event with either
+rc_system_button_down_callback or rc_system_button_up_callback.
+
+2. rc_do_move_actions invokes rc_handle_event with either
+rc_system_move_callback, or rc_system_drag_callback. The former
+is averted for a window w such that rc_drag_only(w) is true.
+
+3. rc_do_mouse_actions invokes rc_handle_event with either
+rc_system_entry_callback or rc_system_exit_callback
+
+4. rc_do_keyboard_actions invokes rc_handle_event with
+rc_system_keypress_callback
+
+The rc_system_XXX_callback procedures all use the procedure
+apply_or_unpack to invoke the object-specific handler methods.
+
+
+-- Overriding handling defaults for particular classes or instances
+
+There are two ways to alter default event handling. One is to define a
+new subclass and redefine the event handling methods for that subclass.
+
+An alternative approach is offered in RCLIB since all the classes and
+mixins define slots which hold the event handlers for the instances (or
+vectors in the case of button and drag handlers).
+
+That means that a particular object which is an instance of
+rc_selectable, for instance, may change its own methods without
+requiring a new subclass.
+
+
+-- An event handler value may be false or a list
+
+If the contents of a slot or handler vector (or the value of the word
+found there) is false, then the event is ignored. It is not passed on to
+another entity which might handle it.
+
+If a list is found rather than a method or a procedure, the list should
+contain handlers or their names, and the event will be handled by each
+of them in turn, until they have all had a chance to handle it or the
+variable rc_no_more_handlers is set true, which can be used by one
+handler to disable those after it in the list.
+
+The use of lists makes it easy to add "before" and "after" handlers for
+a type of event to a particular instance, or a class.
+
+Procedures for manipulating lists of handlers associated with an
+instance are provided: namely the following, described in more detail in
+HELP RCLIB:
+
+-- . rc_add_handler
+
+rc_add_handler(obj, handler, slot);
+rc_add_handler(obj, handler, slot, atend);
+rc_add_handler(obj, handler, slot, num);
+rc_add_handler(obj, handler, slot, num, atend);
+
+    The "num" argument is required for vectors of handlers, in
+    which case num should be a button number: 1, 2, or 3
+
+    The optional boolean argument "atend" determines whether a new
+    handler should be added to the front of the list or the end of the
+    list.
+
+-- . rc_current_handlers
+
+rc_current_handlers(obj, slot) -> handlers;
+handlers -> updaterof rc_current_handlers(obj, slot);
+
+rc_current_handlers(obj, slot, num) -> handlers;
+handlers -> updaterof rc_current_handlers(obj, slot, num);
+
+    This procedure and its updater are used by rc_add_handler and
+    rc_delete_handler.
+
+    The num argument is required for accessing or modifying vectors
+    of handlers.
+
+-- . rc_delete_handler
+
+rc_delete_handler(obj, handler, slot);
+rc_delete_handler(obj, handler, slot, num);
+
+
+-- Finding the picture object to handle an event
+
+In some cases a window will hand an event to a picture object instead of
+dealing with it at the window level.
+
+In order to do that it has to know where the mouse is, and, using the
+procedure find_selected_object, find the "topmost" picture object whose
+sensitive area includes the mouse location.
+
+A picture object's sensitive area is defined by the contents of its slot
+rc_mouse_limit, described in HELP RC_LINEPIC/rc_mouse_limit
+
+Typically the picture objects will be ordered in the window, and the
+"top" one among those whose sensitive area includes the mouse will
+handle the event. If there isn't one, the window object associated with
+the widget will handle the event.
+
+This means that some methods have to be able to move a picture object to
+the front of the list, using the Pop-11 procedure setfrontlist.
+
+-- Global variables set by event handlers -----------------------------
+
+When the events are handled, various global variables are set up to
+correspond to the current window object and current picture object.
+For instance the variables specifying scale and origin will be set.
+
+-- -- Using deferred events
+
+Event handlers which require a different context to be used (e.g.
+drawing in some other window object instances) can either run procedures
+or methods in which rc_current_window_object is changed using dlocal, or
+can use the procedure rc_defer_apply, which takes a procedure (or
+closure) as argument and puts it in a list which is processed only after
+the main events have been handled. This is used by action buttons using
+the DEFER keyword, as explained in HELP RC_BUTTONS/'Keyword "DEFER"'
+
+There is another "defer" mechanism which deals with picture objects that
+cannot be processed immediately because they are currently being drawn
+or moved. Those go onto the list Drawing_defer_list.
+
+The events are then handled later, by the procedure
+
+    handle_drawing_deferred();
+
+after the drawing or moving has been completed. This is invoked
+after drawing, by the default move method for rc_selectable instances.
+
+    define :method rc_move_to(pic:rc_selectable, x, y, mode);
+
+If this method is re-defined for a sub-class of rc_selectable, without
+using call_next_method, then it may be useful to include a call of
+    handle_drawing_deferred();
+at the end of the method.
+
+For more on this see LIB rc_mousepic
+
+
+-- -- Global variables set by main event handler
+
+When non-deferred events are being processed, the following global
+variables are set, non-locally in the event handler:
+
+-- . rc_active_window_object (set globally)
+        I.e. that variable holds the instance of rc_window_object in
+        which an event has last occurred.
+
+-- . rc_current_window_object (set locally)
+        rc_current_window_object is set only locally by the event
+        handler.
+        This is an active variable and setting it changes the context
+        for rc_graphic procedures.
+        It is not altered globally because a mouse event, e.g. moving
+        over a sensitive picture should not necessarily permanently
+        change the current window object, used by drawing procedures,
+        etc.
+
+        So the value of rc_current_window_object  is restored after the
+        event has been processed.
+
+-- . rc_active_picture_object (set globally)
+
+        This is the objectlass instance of rc_linepic last concerned
+        with an event in the event handler. It determines the selected
+        picture object in the current window, if there is one. It should
+        normally be an instance of rc_selectable. This will be false if
+        only the window background has been selected.
+
+-- . rc_current_picture_object
+        rc_current_picture_object is set by the drawing procedures
+        in LIB rc_linepic
+        The procedure is_current_picture_object(pic) tests if pic is
+        the value of that variable.
+        The procedure set_current_picture_object(pic) makes pic the
+        value. Both are defined and used in LIB rc_linepic
+
+-- . rc_window (set in event handler)
+        This is the standard current rc_graphic widget (type Xgraphic)
+        as defined in HELP RC_GRAPHIC
+
+-- . rc_active_widget (set in event handler)
+        This is the last value of rc_widget for which an event was
+        handled.
+
+-- Other global variables used by event handlers ----------------------
+
+-- . rc_in_event_handler
+    Boolean: default value is false.
+
+This is set true locally while the event handler is running. This can be
+used to suppress or defer actions while events are being processed.
+
+-- . Events_list
+
+This is a list of events queued for action. It is required in case a new
+event is invoked while an old one is still being processed. If both do
+drawing the result can be a mess. So the new one is deferred and added
+to the list.
+
+    The procedures
+
+        rc_handle_event(w, item, data, proc);
+        rc_process_event(event)
+
+    put the new event on Events_list if in_rc_process_event is true.
+    I.e. new events are queued if an event is already being processed.
+
+    Events in the queue can be processed using
+            rc_do_deferred_list();
+
+-- . Deferred_events_list
+
+Events are put on this list by the procedure rc_defer_apply(proc).
+That is a user procedure for postponing an event to be handled after all
+window events have settled down. It is described below.
+
+-- . Drawing_defer_list
+
+    Pictures that are being drawn cannot be processed by an event
+    handler until after the drawing is finished. The events are then
+    handled later, by the following procedure, described above:
+
+        handle_drawing_deferred()
+
+-- . rc_sole_active_widget
+    (default value is false)
+
+This can have a widget assigned to it. The result is that no events will
+be handled in any other widget. This is done by rc_message_wait and
+rc_popup_query. It can be used to disable all event processing until a
+particular query or notice has been dealt with.
+
+
+-- . rc_no_more_handlers
+
+Set false before allowing a list of handlers to handle an event. If any
+of them make it true, subsequent handlers in the list will not be run.
+
+-- . rc_window_frame
+
+The value of this slot in the rc_window_object class is a vector of the
+following form:
+
+    { ^rc_xorigin ^rc_yorigin ^rc_xscale ^rc_yscale
+            ^rc_xposition ^rc_yposition ^rc_heading
+            ^rc_clipping ^rc_xmin ^rc_ymin ^rc_xmax ^rc_ymax }
+
+Changing the contents of the vector will affect how pictures are drawn
+when the object is made "current".
+
+If for any reason they have to be changed, then the rc_window_frame of
+the corresponding rc_window_object instance will have to be updated,
+e.g. something like this
+
+    fill(xorigin, yorigin, xscale, yscale,
+            rc_xposition, rc_yposition, rc_heading,
+            rc_clipping, rc_xmin, rc_ymin, rc_xmax, rc_ymax,
+                rc_window_frame(rc_window_object_of(rc_window)))
+
+    (See LIB RC_WINDOW_OBJECT/rc_window_frame)
+
+-- . rc_transparent_objects
+
+As explained above, if this is set false, the default, then an event
+will be handled by the first picture object whose sensitive region
+includes the mouse. If that object is not of a type for which the
+relevant method is defined an error will occur. If it is set true
+the object will be ignored and the event will fall through to the next
+picture object, or the window object.
+
+At present the system distinguishes only two major categories of picture
+objects, namely those that are sensitive to dragging, motion, or button
+events, i.e. instances of rc_selectable, and those that are sensitive to
+keypress events, i.e. instances of rc_keysensitive. May objects may of
+course fall into both categories, e.g. text-input panels.
+
+
+-- Event handlers for blank spaces and picture objects ----------------
+
+Mouse event handlers can be defined for either the category
+rc_window_object or the category rc_selectable and its subclasses (which
+illustrated in the dragpic" class in TEACH RC_LINEPIC/':class dragpic'
+
+The former handlers will be invoked when the event occurs with the mouse
+cursor not on top of any mouse-sensitive object in the window.
+
+The latter will (normally) be invoked when the event occurs with the
+mouse in the "sensitive" area of a mouse-sensitive picture object, such
+as a button (See HELP RC_BUTTONS) or a point (See HELP RC_POINT).
+
+The "system" mouse event handler is defined so that when a mouse event
+occurs at location (x,y) it uses the method rc_pictures_selected
+described above to see if there is a selectable picture object "known"
+to the window -- i.e. in the list:
+
+    rc_window_contents(rc_window_object_of(rc_window)).
+
+If so the first such object whose mouse-sensitive region (explained
+below) contains the location (x,y) is then examined to extract the
+appropriate mouse event handler. This will normally be a method for
+objects of type rc_selectable, or possibly of type rc_keysensitive,
+depending on the type of event.
+
+
+-- -- Finding the appropriate methods
+
+By default the method to be used to handle an event associated with a
+picture object is stored in a slot in the picture object.
+The method is usually a word which is the name of a method, making it
+easy to redefine methods associated with objects after creating
+instances. However, it is possible instead to replace the method name in
+a particular instance with a specialised version of the method, so that
+a particular instance has a different handler from other instances of
+the same class.
+
+If the method found is false, then the event is ignored. Thus some
+instances or sub-classes can disable certain events without redefining
+methods.
+
+If instead of a method a list of methods is found, then they are all
+run.
+
+If the location (x,y) is not in the sensitive area of a known object,
+then the handler for the window itself (i.e. the rc_window_object method)
+is invoked.
+
+The rc_mousepic library provides a number of pre-defined generally
+useful methods for handling specific sorts of events for rc_window_object
+instances and rc_selectable instances.
+
+In particular the methods shown in TEACH RC_LINEPIC and RC_MOUSEPIC
+have been given default prior definitions which can be inspected in
+    LIB RC_MOUSEPIC.
+
+-- rc_add_pic_to_window: inform a window of a picture object ----------
+
+rc_add_pic_to_window(pic, win_obj, atfront)
+
+After a window has been made sensitive to events by rc_mousepic, it
+needs to be told about the objects in the window that are also to be
+sensitive. This is done using the procedure
+
+     rc_add_pic_to_window(pic, win_obj, atfront)
+
+where pic is a picture object, win_obj is an instance of
+rc_window_object and atfront is true or false, determining whether the
+picture should be added to the front or the back of the current list of
+pictures associated with the window object held in the
+rc_window_contents field of the object.
+
+The order determines whether a method associated with the picture object
+will be given the chance to handle an event that occurs when the mouse
+is within the sensitive region of the picture object (determined by its
+rc_mouse_limit slot.)
+
+If atfront is true pic will be the first object found if an event occurs
+with the mouse in the object's sensitive area. However, the order can be
+changed later (e.g. making a particular picture object the "current" one
+in a window, e.g. when dragging.)
+
+
+For examples of the use of rc_add_pic_to_window see
+
+    TEACH RC_LINEPIC/'rc_add_pic_to_window('
+    HELP RC_POINT
+
+The PAINTING_DEMO makes use of these mechanisms.
+    See ENTER rcdemo painting_demo
+
+Some more sophisticated packages (e.g. in the Sim_agent toolkit) may
+allow the same (possibly movable) picture object to be included in more
+than one window object.
+
+-- -- rc_remove_pic_from_window
+
+rc_remove_pic_from_window(pic:rc_selectable, win_obj:rc_window_object);
+    Remove the mouse sensitive object from the window specified
+
+-- Information held in window objects ---------------------------------
+
+A window object will contain one or more graphic windows, and possibly
+also a list of picture objects which are sensitive to events in that
+window. Different picture objects may be sensitive to different types of
+events. (See notes on design flaws, in the section on design issues,
+below).
+
+Each window object also includes a vector recording the current
+rc_graphic coordinate frame for that window, held in its
+rc_window_origin. That information and additional rc_graphic information
+is in the (virtual) rc_window_frame slot. The information is important
+because it is used whenever that window is made the current window
+object, which can happen during event processing. These vectors specify
+the origin, scales, and in some cases rotation, of the coordinate frame
+used by the window. Event handling mechanisms use those to transform the
+"physical" coordinates of the mouse in a window object to the "relative"
+coordinates used by RC_GRAPHIC and RCLIB mechanisms.
+
+These vectors specifying coordinate frames are probably best left
+untouched by user programs, though they are made accessible for experts
+who know exactly what they are doing!
+
+Some picture objects have their own additional coordinate frames, e.g.
+with an origin somewhere in the picture, which moves when the picture
+moves.
+
+These coordinate frame transformations can mostly be ignored by users of
+RCLIB though they are sometimes important for sophisticated
+applications.
+
+The window will also have a list of picture objects contained in it, and
+several slots specifying event handlers for that window.
+
+-- Information held in picture objets ---------------------------------
+
+Picture objects are drawn within screen objects. Each picture object has
+information about how it is to be drawn, labels to be associated with it
+on the picture, a region of sensitivity to mouse events and a collection
+of different sorts of event handlers. By default a picture object gets
+the envent handler for its class, but that default can be overridden in
+particular cases. So not all instances of a class will necesarrily
+handle events in the same way.
+
+-- Utilities from LIB RC_MOUSEPIC
+-- -- rc_defer_apply
+
+rc_defer_apply(procedure);
+
+    If this occurs in a mouse action, the procedure is added to the
+    list named:
+        Deferred_events_list
+
+    Events on at list are executed when there are no more active events,
+    e.g. mouse motion events.
+
+    Moreover, when they are executed the value of the active variable
+    rc_current_window_object is no longer set to be the window in
+    which the event occurred. This can be used, for example, to change
+    the value of rc_current_window_object globally, or to start a new
+    process.
+
+    For further informatino see the description above of
+        Deferred_events_list
+
+    The procedure process_defer_list can be invoked to process events on
+    that list if necessary, though it will normally happen
+    automatically at an appropriate time. See also
+            rc_do_deferred_list
+
+-- -- rc_pictures_selected
+
+rc_pictures_selected (window:rc_window_object x, y, findone) -> num;
+
+This method defined in LIB RC_MOUSEPIC can be used to find out whether
+one or more objects associated with the window has the point x, y within
+their sensitive region.
+
+If no such objects exist, the result is the integer 0.
+
+If such objects exist, then
+    if the findone argument is true, then only the first such item
+    in the list of objects known to the window is returned, and the
+    integer 1.
+
+    if the findone argument is false, then all such objects are
+    returned, and an integer specifying how many there were.
+
+-- -- Event handlers associated with mouse sensitive objects
+
+
+TEACH RC_LINEPIC lists all the various methods provided. Some of them
+are given default values for selecting and dragging objects. Others
+have defaults which do nothing. Each selectable object has access to
+these methods in the slots
+
+    slot rc_button_up_handlers
+        Default value:
+        { rc_button_1_up rc_button_2_up rc_button_3_up };
+
+    slot rc_button_down_handlers
+        Default value:
+        { rc_button_1_down rc_button_2_down rc_button_3_down };
+
+    slot rc_drag_handlers
+        Default value:
+        { rc_button_1_drag rc_button_2_drag rc_button_3_drag };
+
+    slot rc_move_handler
+        Default value: "rc_move_mouse";
+
+    slot rc_entry_handler
+        Default value: "rc_mouse_enter";
+
+    slot rc_exit_handler
+        Default value: "rc_mouse_exit";
+
+The "up", "down" and "drag" slots have associated three element vectors,
+with one handler for each of the three mouse buttons. By default the
+vector contains names of the methods, and valof is used at run time to
+get the methods. This makes it easy to redefine the methods after
+objects have been created, and also to make individual objects have
+special methods held in their slots, without having to define a special
+subclass for each such case.
+
+E.g., for particular objects the contents of the vectors can be replaced
+with special purpose callback handlers, e.g. so that for a particular
+object the callback handler might create a control panel or a popup
+menu, while for others of the same class it does other things. This may
+be useful for putting active buttons on the screen.
+
+Putting actual procedures there rather than their names will be slightly
+more efficient.
+
+The rc_move_handler slot, by default has a word as value, namely
+"rc_move_mouse", which is also the name of a method, which can be
+invoked if, the mouse is moved over the object. Again, the word can be
+replaced by a particular callback handler for a particular object.
+
+For a list of relevant methods see above and
+    HELP RC_LINEPIC/'User definable event handlers'
+
+-- -- Formats for event handlers
+
+In some categories there are different subcategories with different
+methods, e.g. three cases for the mouse button handler methods,
+depending on which button is involved.
+
+These methods are redefinable by the user. Most of them have a default
+definition that does nothing. A few have default definitions that users
+may find useful.
+
+Each event handler is invoked with an object and additional information.
+The object may be the window object or a selectable picture object on
+it.
+
+The general format for the button and drag event handlers is illustrated
+by this case, for button 1 down events.
+
+    rc_button_1_down(obj, x, y, modifiers);
+    rc_button_1_up(obj, x, y, modifiers);
+
+There are six such methods, two for each button. There are three further
+methods for dragging, i.e.
+
+    rc_button_1_drag(obj, x, y, modifiers);
+    rc_button_2_drag(obj, x, y, modifiers);
+    rc_button_3_drag(obj, x, y, modifiers);
+
+    obj:
+        The object may be a window object or a picture object
+        within a window. It should be an instance of rc_selectable
+    x:
+    y:
+        These are coordinates of the mouse cursor position at the time
+        the event is noted, relative to the rc_graphic coordinate frame
+        in the window.
+
+    modifiers:
+        This is a string, which may be empty. If not it will contain
+        some combination of the characters
+            c m s
+        specifying whether a "modifier" key was held down at the same
+        time as the event occurred. "c" stands for the "Control" key,
+        "s" for the shift key, and "m" for the "Meta" key (often
+        immediately to right and left of space bar). User methods can
+        use the strmember function to check whether a particular
+        character is in the modifier string, e.g.
+            if strmember(`m`, modifiers) then
+                <action for meta key>
+
+Similarly the mouse motion handlers (for which no button is specified)
+
+    rc_move_mouse(obj, x, y, modifiers);
+
+However, the keyboard event handlers have an extra argument, specifying
+which key was pressed, as illustrated in
+
+    TEACH RC_LINEPIC/rc_handle_keypress
+
+    rc_handle_keypress(obj, x, y, modifiers, key);
+
+(See also HELP RC_KEYCODES)
+
+-- RCLIB and XVed -----------------------------------------------------
+
+The XVed editor, which is described in
+    TEACH xved
+    HELP xved
+    REF xved
+
+is an example of a powerful package implemented in Pop-11 on top of the
+X facilities. But the need to coexist with it has added several
+complications to event handling in RCLIB (in LIB * rc_mousepic).
+
+One of the aims of RCLIB was to make it possible to define menus and
+other graphical interface devices to invoke editor facilities. This
+includes acting on editor buffers while some program launched from the
+editor is running.
+
+The RCMENU package is an optional add-on to RCLIB, providing such
+extensions, though its use is not restricted to menus for driving XVed
+or Ved. See HELP * RCLIB/RCMENU
+
+Some of the complications in the event handling mechanisms of RCLIB
+arose from the need to support such applications which interact with
+Xved.
+
+
+-- Where to find tutorial examples and further details ----------------
+
+The mixin rc_selectable is defined in:
+    LIB RC_WINDOW_OBJECT/rc_selectable
+
+For examples of its use see
+    TEACH RC_LINEPIC/rc_selectable
+
+The mixin rc_keysensitive is defined in:
+    LIB RC_WINDOW_OBJECT/rc_handle_keypress
+
+For examples of its use see:
+    TEACH RC_LINEPIC/rc_handle_keypress
+
+For information on how to interpret keyboard events see
+    HELP RC_KEYCODES
+
+For information on the underlying Pop-11 mechanisms and how they
+relate to events in the X window system, see:
+    See REF XT_EVENT, REF XPT_XEVENT
+
+Further details of RCLIB's event handling can be found in the library
+file LIB RC_MOUSEPIC and to a lesser extent LIB RC_WINDOW_OBJECT
+
+Special cases are illustrated in
+
+    TEACH RC_LINEPIC, RC_MOUSEPIC, RC_DIAL
+    TEACH RC_ASYNC_EVENTS, RC_CONSTRAINED_PANEL
+
+    HELP RC_LINKED_PIC, RC_POINT, RC_BUTTONS
+    LIB RC_SLIDER, RC_POLYPANEL
+
+-- SOME DEBATABLE DESIGN DECISIONS ------------------------------------
+
+Beginners may skip this section. Experts on GUI design may find it
+interesting.
+
+As a result of writing this file in order to document the RCLIB event
+handling in detail, I discovered two (minor?) design flaws, which have
+now been fixed, and a third one that may not be worth fixing.
+
+1. Separating drag and move sensitivity
+The first flaw was that it was impossible to make a window sensitive
+to drag events without making it sensitive to move events also. That
+is because the same callback type is used for both types of events by
+the X window system, and RCLIB just followed that originally.
+
+Unfortunately, unwanted motion sensitivity can sometimes cause spurious
+interactions produced when a window object or picture object reacts to
+mouse movements intended ONLY to change the mouse location, or even to
+very small unintended mouse movements when clicking on a picture object.
+
+The fix introduced in September 2000 was to allow a "dragonly"
+specification for event types in the rc_mousepic procedure described
+below, which sets a slot called rc_drag_only in window objects to have
+the value true. This means that any motion event in that window is
+aborted before the methods are invoked, whereas drag events are handled
+normally. The rc_control_panel description language now also allows
+"dragonly" in the {events ...} property in a panel specification.
+
+2. Allow "transparent" picture objects
+A more important flaw (which may be a feature in disguise?) is that
+the procedure to select the picture object to handle an event in a
+window finds the "topmost" picture object whose sensitive area includes
+the mouse location. The search is not restricted to picture objects able
+to handle the type of event. So the top level picture object found might
+be one not able to handle a keyboard event. This can generate a Pop-11
+method invocation mishap. It is not obvious to me whether this is a
+flaw or a feature. Perhaps allowing a picture object that cannot handle
+a certain event to "shadow" an object that can do so is normally a
+programmer error that should be signalled, rather than allowing the
+event simply to be passed on to the first thing that can handle it.
+
+Anyhow, a change has been made allowing that behaviour to be specified
+if required. A new global variable rc_transparent_objects, has been
+introduced in LIB rc_mousepic. It is false by default, giving the same
+behaviour as previously. If made true, a draggable non-keysensitive
+object covering a keysensitive will not produce a mishap if a key is
+pressed while the mouse pointer is over the draggable object. It will
+ignore the event and the keysensitive object will handle it.
+
+If rc_transparent_objects is made false, the rc_keypress_handler will
+be applied to the draggable object, and by default it returns false
+indicating that nothing should happen. It could be made to produce an
+error by redefining rc_keypress_handler thus:
+
+    define :method rc_keypress_handler(obj:rc_linepic);
+        mishap('Not keypress sensitive', [^obj])
+    enddefine;
+
+This method will not be invoked if rc_transparent_objects is true.
+Instead the event will fall back to the next object, or the window
+object to handle. By default windows do nothing when keypresses occur.
+This can be changed by redefining the following method:
+
+    :method rc_handle_keypress(w:rc_window_object, x, y, modifier, key);
+
+
+3. Unbundle the rc_selectable mixin into separate mixins?
+
+Another possible design flaw is grouping all the mouse-related
+events (button up or down, move, drag, enter, exit) under one
+mixin rc_selectable. Perhaps there should have several mixins which
+could have been combined in different ways, though so far no users
+have reported this as a problem. This has been left unchanged.
+Comments welcome.
+
+
+
+
+-- Acknowledgement
+
+Matthias Scheutz commented helpfully on an earlier draft.
+
+Jonathan Cunningham suggested additional changes, both to mechanisms and
+documentation (Summer 2002).
+
+
+--- $poplocal/local/rclib/help/rc_events
+--- Copyright University of Birmingham 2002. All rights reserved.

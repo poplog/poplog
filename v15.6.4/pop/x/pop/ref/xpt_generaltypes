@@ -1,0 +1,1326 @@
+REF XPT_GENERALTYPES                              Jason Handby, Aug 1991
+                                        Revised: Adrian Howard, Jul 1993
+
+        COPYRIGHT University of Sussex 1993. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<   SOME GENERAL XLIB AND X   >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<     TOOLKIT STRUCTURES      >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This   file   details    the   shadowclass    declarations   given    in
+LIB * XPT_GENERAL. The typespecs used in these declarations can be found
+in INCLUDE * XPT_GENERALTYPES. The library LIB * XPT_GENERALTYPES  loads
+both the typespecs and shadowclasses as global identifiers.
+
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Argument Lists
+      1.1   The XptArg Type
+      1.2   The XptArgPtr Shadowclass
+      1.3   The XptArgList Shadowclass
+
+  2   Command Line Option Descriptions
+      2.1   The XptOptionDescRec Type
+      2.2   The XptOptionDescPtr Shadowclass
+      2.3   The XptOptionDescList Shadowclass
+
+  3   Resource Values
+      3.1   The XptXrmValue Type
+      3.2   The XptXrmValuePtr Shadowclass
+      3.3   The XptXrmValueList Shadowclass
+
+  4   Miscellaneous Types
+      4.1   The XptActionsRec Type
+      4.2   The XptCallbackRec Type
+      4.3   The XptConvertArgRec Type
+      4.4   The XptResource Type
+      4.5   The XptSubstututionRec Type
+      4.6   The XptCacheRef Type
+      4.7   The XptTranslations and XptAccelerators Types
+      4.8   The XptModifiers Type
+
+  5   Miscellaneous Shadowclasses
+      5.1   The XptStringList Shadowclass
+      5.2   The XptWidgetList Shadowclass
+      5.3   The XptCardinalPtr Shadowclass
+      5.4   The XptTimePtr Shadowclass
+      5.5   The XptIntPtr Shadowclass
+
+  6   Constants
+
+
+
+-----------------
+1  Argument Lists
+-----------------
+
+Argument lists are used  to pass resource  information about widgets  in
+Argument lists are used  to pass resource  information about widgets  in
+procedures like  * XtCreateManagedWidget.  Most procedures  also  accept
+Pop-11 lists which  are automatically converted  with * XptArgList  (see
+REF * XT_LIBS.) Argument  lists are  implemented with  the  * XptArgList
+shadowclass. For more information on resources see REF * XT_RESOURCE and
+REF * XPT_RESOURCE. Also see * XptSetArg.
+
+Compare with variable length argument lists as taken by procedures  like
+* XtVaCreateManagedWidget (see * XptVaArgList.)
+
+
+
+1.1  The XptArg Type
+--------------------
+INCLUDE * XPT_GENERALTYPES provides the XptArg typespec.
+
+
+XptArg                                                [include typespec]
+        The XptArg typespec defines the basic component of  * XptArgList
+        argument lists. It consists of two fields defined as follows:
+
+                i_typespec XptArg {
+                    XptAName    :XptString,
+                    XptAValue   :XptPointer,
+                }
+
+        XptAName is a pointer to the name of the resource. XptAValue  is
+        the value of the resource. If  the value is simple then it  will
+        be stored directly in  XptAValue, otherwise XptAValue will  be a
+        pointer to the resource value.
+
+        XptArg is used to build * XptArgPtr and * XptArgList structures.
+
+
+
+1.2  The XptArgPtr Shadowclass
+------------------------------
+LIB * XPT_GENERAL provides the XptArgPtr shadowclass.
+
+
+XptArgPtr                                                  [shadowclass]
+        XptArgPtr shadowclass  records  represent pointers  to  * XptArg
+        structures defined as:
+
+                 shadowclass XptArgPtr {:XptArg};
+
+        XptArgPtr is  used  with  * XptArgList structures  (it  is  also
+        accepted by the * XptArgList procedure, see REF * XT_LIBS.)
+
+
+initXptArgPtr() -> argptr                                    [procedure]
+        Creates a  new instance  of  an * XptArgPtr  shadowclass  record
+        pointing to  an  * XptArg  structure initialised  with  a  false
+        * XptAName field, and a null * XptAValue field.
+
+
+fillXptArgPtr(xptstring, xptpointer, argptr) -> argptr       [procedure]
+        Takes an instance of  an * XptArgPtr shadowclass record  argptr,
+        updates the fields of the  * XptArg structure it points to  with
+        the given name (xptstring)  and value (xptpointer). The  updated
+        argptr is then returned.
+
+
+consXptArgPtr(xptstring, xptpointer) -> argptr               [procedure]
+        Constructs an instance of an * XptArgPtr shadowclass record that
+        points to an  * XptArg with  an * XptAName of  xptstring and  an
+        * XptAValue of xptpointer. xptstring can be false to  indicate a
+        null-pointer.
+
+
+destXptArgPtr(argptr) -> (xptstring, xptpointer)             [procedure]
+        Given an  * XptArgPtr  shadowclass record  argptr,  returns  its
+        * XptAName (xptstring) and * XptAValue (xptpointer) fields.
+
+
+XptAName(argptr) -> xptstring                                [procedure]
+xptstring ->  XptAName(argptr)
+        Returns or updates the  name of the * XptArg  pointed to by  the
+        * XptArgPtr  argptr.  xptstring  can  be  false  to   indicate a
+        null-pointer.
+
+
+XptAValue(argptr) -> xptpointer                              [procedure]
+xptpointer -> XptAValue(argptr)
+        Returns or updates the value field of the * XptArg pointed to by
+        the * XptArgPtr argptr.
+
+
+isXptArgPtr(item) -> bool                                    [procedure]
+        Returns true if item is an * XptArgPtr shadowclass record, false
+        otherwise.
+
+
+refreshXptArgPtr(argptr) -> argptr                           [procedure]
+        Refreshes the  * XptArgPtr shadowclass  record argptr  from  its
+        external representation,  returning  the refreshed  record.  See
+        REF * SHADOWCLASS for details of refreshing shadowclass records.
+
+        IMPORTANT NOTE:  Refreshing argptr  will cause  it to  lose  any
+        reference to a Pop-11 object in it's * XptAValue field. Separate
+        references will need  to be kept  if the Pop-11  objects not  to
+        become garbage.
+
+
+importXptArgPtr(exptrclass) -> argptr                        [procedure]
+        Takes an  external  pointer  class  record  that  points  to  an
+        * XptArg  structure,  and   returns  the  shadowclass   instance
+        referring to that structure (creating it if necessary).
+
+
+XptArgPtr_shadowkey -> shkey                                  [constant]
+        The shadowkey  for  * XptArgPtr shadowclass  records.  For  more
+        details of shadowkeys, see REF * SHADOWCLASS.
+
+
+
+1.3  The XptArgList Shadowclass
+-------------------------------
+LIB * XPT_GENERAL provides the XptArgList shadowclass:
+
+
+XptArgList                                                 [shadowclass]
+        XptArgList shadowclass records correspond to arrays of  pointers
+        to * XptArg structures. XptArgList is defined as:
+
+                 shadowclass XptArgList [nc, prefix nc_] :XptArg[];
+
+        Corresponds to the X ArgList datatype. XptArgList structures are
+        common Xt data-structures, used during widget creation, as  well
+        as throughout a widgets lifetime. * XptArgList, and  * XptSetArg
+        provide more information on building and using these  structures
+        in Poplog.
+
+        XptArgList shadowclass records  have their  * external_ptr_props
+        set  to  * XDT_ARGLIST   for  "weak"   type-checking  by   the X
+        procedures (see * XptDataType.)
+
+
+initXptArgList(N) -> arglist                                 [procedure]
+        Construct an * XptArgList shadowclass structure consisting  of N
+        * XptArg structures, all initialised  with false * XptAName  and
+        null * XptAValue fields.
+
+
+fillXptArgList(argptr_1, ..., argptr_n, arglist) -> arglist  [procedure]
+        Copies the contents  of the * XptArg  structures, pointed to  by
+        the N * XptArgPtr records, into arglist.
+
+        arglist, with its new contents, is returned as the result.
+
+        arglist must be an N element * XptArgList shadowclass structure.
+
+
+nc_fillXptArgList(name_1, val_1, ..., name_n, val_n, arglist)[procedure]
+                -> arglist
+        Non-constructive  version   of  * fillXptArgList.   Instead   of
+        constructing N * XptArgPtr structures you pass N * XptAName  and
+        * XptAValue fields (name_1 to name_n, and val_1 to val_n.) These
+        are used to fill the * XptArg structures referred to by arglist.
+
+        arglist, with its new contents, is returned as the result.
+
+
+consXptArgList(argptr_1, ..., argptr_n, N) -> arglist        [procedure]
+        Construct an  N element  * XptArgList shadowclass  structure  by
+        copying the contents  of the * XptArg  structures pointed to  by
+        the top N elements of the  stack (which all must be  * XptArgPtr
+        shadowclass records).
+
+
+nc_consXptArgList(name_1, val_1, ..., name_n, val_n, N)      [procedure]
+                -> arglist
+        Non-constructive  version   of  * consXptArgList.   Instead   of
+        constructing N * XptArgPtr structures you pass N * XptAName  and
+        * XptAValue fields (name_1 to name_n, and val_1 to val_n.) These
+        are then  used to  create an  N element  * XptArgList  structure
+        arglist.
+
+
+destXptArgList(arglist) -> (argptr_1, ..., argptr_n, N)      [procedure]
+        This procedure returns an * XptArgPtr record for every  * XptArg
+        structure in  arglist,  plus  the  number  of  structures  N  in
+        arglist.
+
+        NOTE: The * XptArgPtr structures returned refer to COPIES of the
+        items in arglist,  not the items  themselves. Changing  argptr_n
+        will  NOT  alter  arglist.  See  REF * SHADOWCLASS  for  a  more
+        detailed explanation.
+
+
+nc_destXptArgList(arglist)                                   [procedure]
+                -> (name_1, val_1, ..., name_n, val_n, N)
+        Non-constructive  version  of  * nc_destXptArgList.  Instead  of
+        constructing  N  * XptArgPtr   structures  the  * XptAName   and
+        * XptAValue fields of every * XptArg in the * XptArgList arglist
+        are returned, along with the length N of arglist.
+
+
+subscrXptArgList(N, arglist) -> argptr                       [procedure]
+argptr -> subscrXptArgList(N, arglist)
+        Returns an * XptArgPtr  record argptr containing  a copy of  the
+        Nth * XptArg structure in the XptArgList arglist.
+
+        NOTE: argptr refers to a COPY of the XptArg in arglist. Changing
+        argptr will NOT alter arglist. See REF * SHADOWCLASS for a  more
+        detailed explanation.
+
+
+nc_subscrXptArgList(N, arglist) -> (name, value)             [procedure]
+(name, value) -> nc_subscrXptArgList(N, arglist)
+        Non-constructive  version  of  * subscrXptArgList.  Returns  the
+        * XptAName and  * XptAValue fields  of the  Nth element  of  the
+        * XptArgList structure arglist.
+
+
+isXptArgList(item) -> bool                                   [procedure]
+        Returns true if item  is an * XptArgList shadowclass  structure,
+        false otherwise.
+
+
+importXptArgList(exptrclass) -> arglist                      [procedure]
+        Takes an external pointer class record pointing to a series of N
+        * XptArg structures, and returns  the * XptArgList referring  to
+        those same structures (creating it if necessary).
+
+
+refreshXptArgList(arglist) -> arglist                        [procedure]
+        Refreshes the  * XptArgList shadowclass  structure arglist  from
+        its external representation, returning the refreshed  structure.
+        See  REF * SHADOWCLASS   for   details  of   refreshing   Pop-11
+        representations from external representations.
+
+        IMPORTANT  NOTE:  Refreshing  arglist  will  cause  it  to  lose
+        reference to any Pop-11 objects  it contains in the  * XptAValue
+        fields of it's  elements. Separate  references will  need to  be
+        kept if the objects are not to become garbage.
+
+
+XptArgList_shadowkey -> shkey                                 [constant]
+        The shadowkey for * XptArgList shadowclass structures. For  more
+        details of shadowkeys see REF * SHADOWCLASS.
+
+
+
+
+-----------------------------------
+2  Command Line Option Descriptions
+-----------------------------------
+
+X application have  a standard  way of parsing  command line  arguments.
+When  a  display   connection  is   initialized  you   pass  an   option
+* XptOptionDescList which specifies how you want any extra command  line
+arguments to  be processed.  For details  see * XtDisplayInitialize  and
+* XtOpenDisplay.
+
+
+
+2.1  The XptOptionDescRec Type
+------------------------------
+The XptOptionDescRec type is defined in INCLUDE * XPT_GENERALTYPES.
+
+
+XptOptionDescRec                                      [include typespec]
+        The XptOptionDescRec  typespec defines  the basic  component  of
+        * XptOptionDescList structures. Each XptOptionDescRec  defines a
+        single command line option. It is defined as follows:
+
+                i_typespec XptOptionDescRec {
+                    XptODROption        :XptString,
+                    XptODRSpecifier     :XptString,
+                    XptODROptionKind    :XptEnum,
+                    XptODRValue         :XptPointer,
+                }
+
+        XptODROption
+            This  string  specifies   the  command   line  option   (eg.
+            '-background'.)
+
+        XptODRSpecifier
+            Specifies  the  binding   and  resource   name  (minus   the
+            application name) that the command line option should  alter
+            (for example '*background'.) This can be false (for example,
+            when the resource  is specified  on the  command line  (when
+            * XptODROptionKind is set to * XrmoptionResArg.)
+
+        XptODROptionKind
+            Which style of option  it is. This is  one of the  following
+            constants:
+
+                # * XrmoptionNoArg
+                # * XrmoptionIsArg
+                # * XrmoptionStickyArg
+                # * XrmoptionSepArg
+                # * XrmoptionResArg
+                # * XrmoptionSkipArg
+                # * XrmoptionSkipLine
+                # * XrmoptionSkipNArgs
+
+            See REF * XT_CONSTANTS for details.
+
+        XptODRValue
+            The value used (if * XrmoptionNoArg or  * XrmoptionSkipNArgs
+            used.
+
+        XptOptionDescRec  is  used   to  build  * XptOptionDescPtr   and
+        * XptOptionDescList shadowclass structures.
+
+
+
+2.2  The XptOptionDescPtr Shadowclass
+-------------------------------------
+LIB * XPT_GENERAL provides the XptOptionDescPtr shadowclass.
+
+
+XptOptionDescPtr                                           [shadowclass]
+        XptOptionDescPtr  shadowclass  records  represent  pointers   to
+        * XptOptionDescRec structures defined as:
+
+                 shadowclass XptOptionDescPtr {:XptOptionDescRec};
+
+        XptOptionDescPtr is used with * XptOptionDescList structures.
+
+
+initXptOptionDescPtr() -> optiondescptr                      [procedure]
+        Creates a  new  instance of  an  * XptOptionDescPtr  shadowclass
+        record pointing to  an * XptOptionDescRec structure  initialised
+        with  false  * XptODROption  and  * XptODRSpecifier  fields,  an
+        * XptODROptionKind   of    * XrmoptionNoArg,    and    a    null
+        * XptODRValue.
+
+
+fillXptOptionDescPtr(option, spec, kind, val, optiondescptr) [procedure]
+                -> optiondescptr
+        Takes an instance  of an  * XptOptionDescPtr shadowclass  record
+        optiondescptr and updates the  fields of the  * XptOptionDescRec
+        structure it points to  with the given * XptODROption  (option),
+        * XptODRSpecifier   (spec),   * XptODROptionKind   (kind),   and
+        * XptODRValue (val). The  updated optiondescptr  is returned  as
+        the result.
+
+
+consXptOptionDescPtr(option, spec, kind, val)                [procedure]
+                -> optiondescptr
+        Constructs an  instance  of  an  * XptOptionDescPtr  shadowclass
+        record that points to  an * XptOptionDescRec with the  specified
+        * XptODROption     (option),      * XptODRSpecifier      (spec),
+        * XptODROptionKind (kind), and * XptODRValue (val).
+
+
+destXptOptionDescPtr(optiondescptr)                          [procedure]
+                -> (option, spec, kind, val)
+        Given an  * XptOptionDescPtr shadowclass  record  optiondescptr,
+        returns its * XptODROption  (option), * XptODRSpecifier  (spec),
+        * XptODROptionKind (kind), and * XptODRValue (val) fields.
+
+
+XptODROption(optiondescptr) -> option                        [procedure]
+option -> XptODROption(optiondescptr)
+        Returns   or   updates   the    XptODROption   field   of    the
+        * XptOptionDescRec  pointed   to   by   the   * XptOptionDescPtr
+        optiondescptr. option can be false to indicate a null-pointer.
+
+
+XptODRSpecifier(optiondescptr) -> spec                       [procedure]
+spec -> XptODRSpecifier(optiondescptr)
+        Returns  or   updates   the   XptODRSpecifier   field   of   the
+        * XptOptionDescRec  pointed   to   by   the   * XptOptionDescPtr
+        optiondescptr. spec can be false to indicate a null-pointer.
+
+
+XptODROptionKind(optiondescptr) -> kind                      [procedure]
+kind -> XptODROptionKind(optiondescptr)
+        Returns  or   updates   the  XptODROptionKind   field   of   the
+        * XptOptionDescRec  pointed   to   by   the   * XptOptionDescPtr
+        optiondescptr.
+
+
+XptODRValue(optiondescptr) -> value                          [procedure]
+value -> XptODRValue(optiondescptr)
+        Returns   or   updates    the   XptODRValue    field   of    the
+        * XptOptionDescRec  pointed   to   by   the   * XptOptionDescPtr
+        optiondescptr.
+
+
+isXptOptionDescPtr(item) -> bool                             [procedure]
+        Returns  true  if  item  is  an  * XptOptionDescPtr  shadowclass
+        record, false otherwise.
+
+
+refreshXptOptionDescPtr(optiondescptr) -> optiondescptr      [procedure]
+        Refreshes    the    * XptOptionDescPtr    shadowclass     record
+        optiondescptr from  its external  representation, returning  the
+        refreshed  record.   See   REF * SHADOWCLASS  for   details   of
+        refreshing shadowclass records.
+
+        IMPORTANT NOTE: Refreshing optiondescptr  will cause it to  lose
+        any reference to  a Pop-11 object  in it's * XptODRValue  field.
+        Separate references will need to  be kept if the Pop-11  objects
+        not to become garbage.
+
+
+importXptOptionDescPtr(exptrclass) -> optiondescptr          [procedure]
+        Takes an  external  pointer  class  record  that  points  to  an
+        * XptOptionDescRec  structure,  and   returns  the   shadowclass
+        instance referring to that structure (creating it if necessary).
+
+
+XptOptionDescPtr_shadowkey -> shkey                           [constant]
+        The shadowkey  for * XptOptionDescPtr  shadowclass records.  For
+        more details of shadowkeys, see REF * SHADOWCLASS.
+
+
+
+2.3  The XptOptionDescList Shadowclass
+--------------------------------------
+LIB * XPT_GENERAL supplies the XptOptionDescList shadowclass.
+
+
+XptOptionDescList                                          [shadowclass]
+        XptOptionDescList shadowclass  records correspond  to arrays  of
+        pointers to * XptOptionDescRec structures. XptOptionDescList  is
+        defined as:
+
+                 shadowclass XptOptionDescList :XptOptionDescRec[];
+
+        Corresponds    to    the     X    XrmOptionDescList     typedef.
+        XptOptionDescList structures are passed to * XtDisplayInitialize
+        and related procedures (see * XptOptionDescRec.)
+
+        XptOptionDescList     shadowclass     records     have     their
+        * external_ptr_props  set  to  * XDT_OPTIONDESCLIST  for  "weak"
+        type-checking by the X procedures (see * XptDataType.)
+
+
+initXptOptionDescList(N) -> optiondesclist                   [procedure]
+        Construct   an    * XptOptionDescList   shadowclass    structure
+        consisting of N  * XptOptionDescRec structures,  all with  false
+        * XptODROption and * XptODRSpecifier fields,  * XptODROptionKind
+        fields of * XrmoptionNoArg, and a null * XptODRValue fields.
+
+
+fillXptOptionDescList(odptr_1, ..., odptr_n, optiondesclist) [procedure]
+                -> optiondesclist
+        Copies  the  contents  of  the  * XptOptionDescRec   structures,
+        pointed to  by  the  N  * XptOptionDescPtr  records  odptr_1  to
+        odptr_n records, into optiondesclist.
+
+        optiondesclist, with  its  new  contents,  is  returned  as  the
+        result.
+
+
+consXptOptionDescList(odptr_1, ..., odptr_n, N)              [procedure]
+                -> optiondesclist
+        Construct an N element * XptOptionDescList shadowclass structure
+        by copying the contents  of the N * XptOptionDescPtr  structures
+        (odptr_1 to odptr_n.)
+
+
+destXptOptionDescList(optiondesclist)                        [procedure]
+                -> (odptr_1, ..., odptr_n, N)      [procedure]
+        This procedure returns  an * XptOptionDescPtr  record for  every
+        * XptOptionDescRec structure in optiondesclist, plus the  number
+        of structures N  in that  list. optiondesclist is  an N  element
+        XptOptionDescList structure.
+
+        NOTE: The XptOptionDescPtr structures  returned refer to  COPIES
+        of the  items  in  optiondesclist,  not  the  items  themselves.
+        Changing   odptr_n   will   NOT   alter   optiondesclist.    See
+        REF * SHADOWCLASS for a more detailed explanation.
+
+
+subscrXptOptionDescList(N, optiondesclist) -> optiondescptr  [procedure]
+optiondescptr -> subscrXptOptionDescList(N, optiondesclist)
+        Returns an * XptOptionDescPtr record optiondescptr  containing a
+        copy  of   the   Nth   * XptOptionDescRec   structure   in   the
+        XptOptionDescList optiondesclist.
+
+        NOTE: optiondescptr refers to a COPY of the XptOptionDescRec  in
+        optiondesclist.   Changing   optiondescptr   will   NOT    alter
+        optiondesclist.  See  REF * SHADOWCLASS  for  a  more   detailed
+        explanation.
+
+
+isXptOptionDescList(item) -> bool                            [procedure]
+        Returns true  if  item  is  an  * XptOptionDescList  shadowclass
+        structure, false otherwise.
+
+
+importXptOptionDescList(exptrclass) -> optiondesclist        [procedure]
+        Takes an external pointer class record pointing to a series of N
+        * XptOptionDescRec     structures,      and     returns      the
+        * XptOptionDescList referring to those same structures (creating
+        it if necessary).
+
+
+refreshXptOptionDescList(optiondesclist) -> optiondesclist   [procedure]
+        Refreshes   the   * XptOptionDescList   shadowclass    structure
+        optiondesclist from its  external representation, returning  the
+        refreshed  structure.  See  REF * SHADOWCLASS  for  details   of
+        refreshing Pop-11 representations from external representations.
+
+        IMPORTANT NOTE: Refreshing optiondesclist will cause it to  lose
+        reference to any Pop-11 objects it contains in the * XptODRValue
+        fields of it's  elements. Separate  references will  need to  be
+        kept if the objects are not to become garbage.
+
+
+XptOptionDescList_shadowkey -> shkey                          [constant]
+        The shadowkey  for * XptOptionDescList  shadowclass  structures.
+        For more details of shadowkeys see REF * SHADOWCLASS.
+
+
+
+
+------------------
+3  Resource Values
+------------------
+
+Many procedures  need  information  on how  resources  are  stored  (for
+example, when doing  resource conversion,  see REF * XT_CONVERTER.)  The
+following structures are used for this purpose.
+
+
+
+3.1  The XptXrmValue Type
+-------------------------
+INCLUDE * XPT_GENERALTYPES  provides   support   for   the   XptXrmValue
+typespec.
+
+
+XptXrmValue                                           [include typespec]
+        XptXrmValue structures are used to represent resource values. It
+        is defined as:
+
+                i_typespec XptXrmValue {
+                    XptXVSize   :uint,
+                    XptXVAddr   :XptPointer,
+                }
+
+        XptXrmValue is  used in  * XptXrmValuePtr and  * XptXrmValueList
+        shadowclass structures.
+
+            XptXVSize
+                This contains the size of the resource in bytes.
+
+            XptXVAddr
+                This contains a pointer to the resource value.
+
+        NOTE ON  STRINGS: Strings  are  handled differently  from  other
+        vector structures. Instead of  XptXVAddr containing the  address
+        of a  pointer to  the string,  it contains  the pointer  to  the
+        string itself. XptXVSize,  instead of containing  the length  of
+        the pointer, contains  the length of  the string (including  the
+        null-termination character).
+
+
+
+3.2  The XptXrmValuePtr Shadowclass
+-----------------------------------
+LIB * XPT_GENERAL provides support for the XptXrmValuePtr shadowclass.
+
+
+XptXrmValuePtr                                             [shadowclass]
+        XptXrmValuePtr  shadowclass  records   are  used  to   represent
+        pointers to * XptXrmValue structures. XptXrmValuePtr is  defined
+        as:
+
+                shadowclass XptXrmValuePtr {:XptXrmValue};
+
+        It corresponds to the X XrmValuePtr typedef.
+
+        XptXrmValuePtr     shadowclass      records      have      their
+        * external_ptr_props   set   to   * XDT_VALUEPTR   for    "weak"
+        type-checking by the X procedures (see * XptDataType.)
+
+
+initXptXrmValuePtr() -> valueptr                             [procedure]
+        Creates a new instance of an * XptXrmValuePtr shadowclass record
+        pointing to an  * XptXrmValue structure with  a zero size  field
+        and a null address field.
+
+
+fillXptXrmValuePtr(int, xptpointer, valueptr) -> valueptr    [procedure]
+        Takes an  instance  of an  * XptXrmValuePtr  shadowclass  record
+        valueptr and updates the  fields of the * XptXrmValue  structure
+        it points to with the given size (int) and address (xptpointer).
+        The updated valueptr is then returned.
+
+
+consXptXrmValuePtr(int, xptpointer) -> valueptr              [procedure]
+        Constructs an instance of an * XptXrmValuePtr shadowclass record
+        that points to an * XptXrmValue with  a size int and an  address
+        xptpointer.
+
+
+destXptXrmValuePtr(valueptr) -> (int, xptpointer)            [procedure]
+        Given an * XptXrmValuePtr  shadowclass record valueptr,  returns
+        the size and address fields of the * XptXrmValue it points to.
+
+
+XptXVSize(valueptr) -> int                                   [procedure]
+int ->  XptXVSize(valueptr)
+        Returns or updates the size  field of the * XptXrmValue  pointed
+        to by the * XptXrmValuePtr valueptr.
+
+
+XptXVAddr(valueptr) -> xptpointer                            [procedure]
+xptpointer -> XptXVAddr(valueptr)
+        Returns or  updates  the  address  field  of  the  * XptXrmValue
+        pointed to by the * XptXrmValuePtr valueptr.
+
+
+isXptXrmValuePtr(item) -> bool                               [procedure]
+        Returns true if item is an * XptXrmValuePtr shadowclass  record,
+        false otherwise.
+
+
+refreshXptXrmValuePtr(valueptr) -> valueptr                  [procedure]
+        Refreshes the * XptXrmValuePtr shadowclass record valueptr  from
+        its external representation, returning the refreshed record. See
+        REF * SHADOWCLASS for details of refreshing shadowclass records.
+
+        IMPORTANT NOTE: Refreshing  valueptr will cause  it to lose  any
+        reference to  Pop-11  objects  it contains  in  its  * XptXVAddr
+        field. Separate references will  need to be  kept if the  Pop-11
+        objects not to become garbage.
+
+
+importXptXrmValuePtr(exptrclass) -> valueptr                 [procedure]
+        Takes an  external  pointer  class  record  that  points  to  an
+        * XptXrmValue structure,  and returns  the shadowclass  instance
+        referring to that structure (creating it if necessary).
+
+
+XptXrmValuePtr_shadowkey -> shkey                             [constant]
+        The shadowkey for * XptXrmValuePtr shadowclass records. For more
+        details of shadowkeys, see REF * SHADOWCLASS.
+
+
+
+3.3  The XptXrmValueList Shadowclass
+------------------------------------
+LIB * XPT_GENERAL supplies the XptXrmValueList shadowclass.
+
+
+XptXrmValueList                                            [shadowclass]
+        XptXrmValueList shadowclass  records  correspond  to  arrays  of
+        pointers to  * XptOptionDescRec structures.  XptXrmValueList  is
+        defined as:
+
+                 shadowclass XptXrmValueList :XptXrmValue[];
+
+        XptXrmValueList     shadowclass      records     have      their
+        * external_ptr_props   set   to   * XDT_VALUELIST   for   "weak"
+        type-checking by the X procedures (see * XptDataType.)
+
+
+initXptXrmValueList(N) -> valuelist                          [procedure]
+        Construct an * XptXrmValueList shadowclass structure  consisting
+        of N * XptXrmValue structures,  all containing zero size  fields
+        and null address fields.
+
+
+fillXptXrmValueList(valueptr_1, ..., valueptr_n,             [procedure]
+            valuelist) -> valuelist
+        Copies the contents of the * XptXrmValue structures, pointed  to
+        by the N * XptXrmValuePtr records, into valuelist.
+
+        valuelist, with its  new contents,  is returned  as the  result.
+        valuelist must  be an  N element  * XptXrmValueList  shadowclass
+        structure.
+
+
+consXptXrmValueList(valueptr_1, ..., valueptr_n, N)          [procedure]
+            -> valuelist
+        Construct an N  element * XptXrmValueList shadowclass  structure
+        by copying the contents of the * XptXrmValue structures  pointed
+        to by  the  top N  elements  of the  stack  (which all  must  be
+        * XptXrmValuePtr shadowclass records).
+
+
+destXptXrmValueList(valuelist)                               [procedure]
+            -> (valueptr_1, ..., valueptr_n, N)
+        This procedure  returns  an * XptXrmValuePtr  record  for  every
+        * XptXrmValue  structure  in  valuelist,  plus  the  number   of
+        structures  N  in   that  list.  valuelist   is  an  N   element
+        * XptXrmValueList structure.
+
+        NOTE: The XptXrmValuePtr structures returned refer to COPIES  of
+        the items  in  valuelist,  not the  items  themselves.  Changing
+        valueptr_n will NOT alter valuelist. See REF * SHADOWCLASS for a
+        more detailed explanation.
+
+
+subscrXptXrmValueList(N, valuelist) -> valueptr              [procedure]
+valueptr -> subscrXptXrmValueList(N, valuelist)
+        Returns  an  * XptXrmValuePtr  record   valueptr  for  the   Nth
+        * XptXrmValue structure in the * XptXrmValueList valuelist.
+
+        NOTE: valueptr refers to a COPY of the XptXrmValue in valuelist.
+        Changing   valueptr    will    NOT    alter    valuelist.    See
+        REF * SHADOWCLASS for a more detailed explanation.
+
+
+isXptXrmValueList(item) -> bool                              [procedure]
+        Returns  true  if  item  is  an  * XptXrmValueList   shadowclass
+        structure, false otherwise.
+
+
+importXptXrmValueList(exptrclass) -> valuelist               [procedure]
+        Takes an external pointer class record pointing to a series of N
+        * XptXrmValue  structures,  and  returns  the  * XptXrmValueList
+        referring to those same structures (creating it if necessary).
+
+
+refreshXptXrmValueList(valuelist) -> valuelist               [procedure]
+        Refreshes the * XptXrmValueList shadowclass structure  valuelist
+        from  its  external  representation,  returning  the   refreshed
+        structure.  See  REF * SHADOWCLASS  for  details  of  refreshing
+        Pop-11 representations from external representations.
+
+        IMPORTANT NOTE:  Refreshing  valuelist  will cause  it  to  lose
+        reference to any Pop-11 objects  referred to in the  * XptXVAddr
+        fields of the records it contains. Separate references will need
+        to be kept if the objects are not to become garbage.
+
+
+XptXrmValueList_shadowkey -> shkey                            [constant]
+        The shadowkey for * XptXrmValueList shadowclass structures.  For
+        more details of shadowkeys see REF * SHADOWCLASS.
+
+
+
+
+----------------------
+4  Miscellaneous Types
+----------------------
+
+The following types are also provided by INCLUDE * XPT_GENERALTYPES.
+
+
+
+4.1  The XptActionsRec Type
+---------------------------
+XptActionsRec                                         [include typespec]
+        XptActionsRec  structures   are  used   to  represent   actions.
+        XptActionsRec is defined as follows:
+
+                i_typespec XptActionsRec {
+                    XptARString :XptString,
+                    XptARProc   :XptProcedure
+                }
+
+            XptARString   is the name  of the  action.
+            XptARProc     is the actual action procedure.
+
+        See * XptActionsPtr, * XptActionsList,  and REF * XT_ACTION  for
+        details.
+
+
+
+4.2  The XptCallbackRec Type
+----------------------------
+XptCallbackRec                                        [include typespec]
+        XptCallbackRec  structures  are   used  to  represent   callback
+        procedures. XptCallbackRec is defined as follows:
+
+                i_typespec XptCallbackRec {
+                    XptCRCallback :XptProcedure,
+                    XptCRClosure :XptPointer
+                }
+
+            XptCRCallback   is the callback procedure
+            XptCRClosure    is the client data of the callback.
+
+        See * XptCallbackPtr,  * XptCallbackList, and  REF * XT_CALLBACK
+        for details.
+
+
+
+4.3  The XptConvertArgRec Type
+------------------------------
+XptConvertArgRec                                      [include typespec]
+        XptConvertArgRec structures are used in resource conversion  and
+        is defined as follows:
+
+            i_typespec XptConvertArgRec {
+                XptCVRAddressMode :XptEnum,
+                XptCVRAddressId :XptPointer,
+                XptCVRSize :XptCardinal,
+            }
+
+            XptCVRAddressMode
+                This  specifies   how  data   is  represented   in   the
+                XptCVRAddressId field.
+
+            XptCVRAddressID
+                Specifies the data.
+
+            XotCVRSize
+                Specifies the size of the data in bytes.
+
+        See      * XptConvertArgPtr,      * XptConvertArgList,       and
+        REF * XT_CONVERTER for more details.
+
+
+
+4.4  The XptResource Type
+-------------------------
+XptResource                                           [include typespec]
+        XptResource  structures   are  used   to  specify   widget   and
+        application resources. XptResource is defined as:
+
+                i_typespec XptResource {
+                    XptRName    :XptString,
+                    XptRClass   :XptString,
+                    XptRType    :XptString,
+                    XptRsize    :uint,
+                    XptRoffset  :uint,
+                    XptRDefType :XptString,
+                    XptRDefAddr :XptPointer,
+                }
+
+            XptRName
+                is the name of the resource.
+
+            XptRClass
+                is the class name of the resource.
+
+            XptRType
+                is the type name of the resource.
+
+            XptRsize
+                is the size of the resource in bytes.
+
+            XptRoffset
+                is an offset  from a base  address indicating where  the
+                resource should be stored.
+
+            XptRDefType
+                is the type name of the default value for this resource.
+
+            XptRDefAddr
+                is the address of the default value of this resource.
+
+        See * XptResourcePtr, * XptResourceList, REF * XT_RESOURCE,  and
+        REF * XPT_RESOURCE for details.
+
+
+
+4.5  The XptSubstututionRec Type
+--------------------------------
+XptSubstitutionRec                                    [include typespec]
+        XptSubstitutionRec structures are  used in  searching for  files
+        with   standard    substitutions.    (see    * XtFindFile    and
+        * XtResolvePathname.) XptSubstitutionRec is defined as follows:
+
+                i_typespec XptSubstitutionRec {
+                    XptSRChar :byte,
+                    XptSRSubst :XptString,
+                }
+
+            XptSRChar  is the character that indicates a substitution.
+            XptSESubst  is the string to be substituted.
+
+        Also see * XptSubstitutionPtr.
+
+
+
+4.6  The XptCacheRef Type
+-------------------------
+XptCacheRef                                           [include typespec]
+        XptCacheRef structures are  used to  keep a  reference count  on
+        cached resource conversions. It is defined as follows:
+
+                i_typespec XptCacheRef :exptr#XptImportCacheRef;
+
+        For details see REF * XT_CONVERTER.
+
+
+
+4.7  The XptTranslations and XptAccelerators Types
+--------------------------------------------------
+XptTranslations                                       [include typespec]
+XptAccelerators                                       [include typespec]
+        The XptTranslations and  XptAccelerators typespecs  are used  in
+        manipulating translations and accelerators. See REF * XT_TRANS.
+
+
+
+4.8  The XptModifiers Type
+--------------------------
+XptModifiers                                          [include typespec]
+        This typespec  is  used to  represent  which modifier  keys  are
+        pressed.  See   * XptModifiersPtr  and   REF * XT_KEYBOARD   for
+        details.
+
+
+
+
+------------------------------
+5  Miscellaneous Shadowclasses
+------------------------------
+
+The   following   general   shadowclasses    are   also   provided    by
+LIB * XPT_GENERAL.
+
+
+
+5.1  The XptStringList Shadowclass
+----------------------------------
+XptStringList                                              [shadowclass]
+        XptStringList  shadowclass  records  correspond  to  arrays   of
+        * XptString structures. XptStringList is defined as:
+
+                 shadowclass XptStringList :XptString[];
+
+        XptStringList      shadowclass      records      have      their
+        * external_ptr_props  set   to   * XDT_STRINGLIST   for   "weak"
+        type-checking by the X procedures (see * XptDataType.)
+
+
+initXptStringList(N) -> stringlist                           [procedure]
+        Construct an * XptStringList shadowclass structure consisting of
+        N false (null) strings.
+
+
+fillXptStringList(string_1, ..., string_n, stringlist)       [procedure]
+                -> stringlist
+        Copies the contents  of the N  strings into the  * XptStringList
+        stringlist, returning stringlist. false can be supplied  instead
+        of a string to indicate a null pointer.
+
+
+consXptStringList(string_1, ..., string_n) -> stringlist     [procedure]
+        Creates  a  new  * XptStringList  record  from  the  N  supplied
+        strings. false can be supplied instead of a string to indicate a
+        null pointer.
+
+
+destXptStringList(stringlist) -> (string_1, ..., string_n, N)[procedure]
+        Returns the  strings in  the * XptStringList  stringlist,  along
+        with the number of strings N. false can be returned instead of a
+        string to indicate a null pointer.
+
+        NOTE:  The  strings  returned  refer  to  COPIES  of  those   in
+        stringlist, not the strings  themselves. Changing string_n  will
+        NOT alter stringlist. See REF * SHADOWCLASS for a more  detailed
+        explanation.
+
+
+subscrXptStringList(N, stringlist) -> string                 [procedure]
+string -> subscrXptStringList(N, stringlist)
+        Returns  or  updates  the  Nth  string  in  the  * XptStringList
+        stringlist. false can be  returned/supplied instead of a  string
+        to indicate a null pointer.
+
+        NOTE: string  refers to  a COPY  of those  stringlist.  Changing
+        string will NOT  alter stringlist.  See REF * SHADOWCLASS  for a
+        more detailed explanation.
+
+
+isXptStringList(item) -> bool                                [procedure]
+        Returns  true  if   item  is   an  * XptStringList   shadowclass
+        structure, false otherwise.
+
+
+importXptStringList(exptrclass) -> stringlist                [procedure]
+        Takes an external pointer class record pointing to a series of N
+        * XptString  structures,   and   returns   the   * XptStringList
+        referring to those same structures (creating it if necessary).
+
+
+refreshXptStringList(stringlist) -> stringlist               [procedure]
+        Refreshes the * XptStringList  shadowclass structure  stringlist
+        from  its  external  representation,  returning  the   refreshed
+        structure.  See  REF * SHADOWCLASS  for  details  of  refreshing
+        Pop-11 representations from external representations.
+
+
+XptStringList_shadowkey -> shkey                              [constant]
+        The shadowkey  for * XptStringList  shadowclass structures.  For
+        more details of shadowkeys see REF * SHADOWCLASS.
+
+
+
+5.2  The XptWidgetList Shadowclass
+----------------------------------
+XptWidgetList                                              [shadowclass]
+        XptWidgetList  shadowclass  records  correspond  to  arrays   of
+        * XptWidget   structures   as   passed   to   procedures    like
+        * XtManageChildren. XptWidgetList is defined as:
+
+                 shadowclass XptWidgetList :XptWidget[];
+
+        XptWidgetList      shadowclass      records      have      their
+        * external_ptr_props  set   to   * XDT_WIDGETLIST   for   "weak"
+        type-checking by the X procedures (see * XptDataType.)
+
+
+initXptWidgetList(N) -> widgetlist                           [procedure]
+        Construct an * XptWidgetList shadowclass structure consisting of
+        N false (null) widgets.
+
+
+fillXptWidgetList(widget_1, ..., widget_n, widgetlist)       [procedure]
+                -> widgetlist
+        Copies the contents  of the N  widgets into the  * XptWidgetList
+        widgetlist, returning widgetlist. false can be supplied  instead
+        of a widget to indicate a null pointer.
+
+
+consXptWidgetList(widget_1, ..., widget_n) -> widgetlist     [procedure]
+        Creates  a  new  * XptWidgetList  record  from  the  N  supplied
+        widgets. false can be supplied instead of a widget to indicate a
+        null pointer.
+
+
+destXptWidgetList(widgetlist) -> (widget_1, ..., widget_n, N)[procedure]
+        Returns the  widgets in  the * XptWidgetList  widgetlist,  along
+        with the number of widgets N. false can be returned instead of a
+        widget to indicate a null pointer.
+
+        NOTE:  The  widgets  returned  refer  to  COPIES  of  those   in
+        widgetlist, not the widgets  themselves. Changing widget_n  will
+        NOT alter widgetlist. See REF * SHADOWCLASS for a more  detailed
+        explanation.
+
+
+subscrXptWidgetList(N, widgetlist) -> widget                 [procedure]
+widget -> subscrXptWidgetList(N, widgetlist)
+        Returns  or  updates  the  Nth  widget  in  the  * XptWidgetList
+        widgetlist. false can be  returned/supplied instead of a  widget
+        to indicate a null pointer.
+
+
+isXptWidgetList(item) -> bool                                [procedure]
+        Returns  true  if   item  is   an  * XptWidgetList   shadowclass
+        structure, false otherwise.
+
+
+importXptWidgetList(exptrclass) -> widgetlist                [procedure]
+        Takes an external pointer class record pointing to a series of N
+        * XptWidget  structures,   and   returns   the   * XptWidgetList
+        referring to those same structures (creating it if necessary).
+
+
+refreshXptWidgetList(widgetlist) -> widgetlist               [procedure]
+        Refreshes the * XptWidgetList  shadowclass structure  widgetlist
+        from  its  external  representation,  returning  the   refreshed
+        structure.  See  REF * SHADOWCLASS  for  details  of  refreshing
+        Pop-11 representations from external representations.
+
+
+XptWidgetList_shadowkey -> shkey                              [constant]
+        The shadowkey  for * XptWidgetList  shadowclass structures.  For
+        more details of shadowkeys see REF * SHADOWCLASS.
+
+
+
+5.3  The XptCardinalPtr Shadowclass
+-----------------------------------
+XptCardinalPtr                                             [shadowclass]
+        The XptCardinalPtr shadowclass is used to represent pointers  to
+        unsigned integers. It is defined as:
+
+                shadowclass XptCardinalPtr {XptCPValue :uint}
+
+        XptCardinalPtr     shadowclass      records      have      their
+        * external_ptr_props  set   to  * XDT_CARDINALPTR   for   "weak"
+        type-checking by the X procedures (see * XptDataType.)
+
+
+initXptCardinalPtr() -> cardinalptr                          [procedure]
+        Creates a new instance of an * XptCardinalPtr shadowclass record
+        pointing to zero.
+
+
+fillXptCardinalPtr(uint, cardinalptr) -> cardinalptr         [procedure]
+        Sets the value of the integer pointed to by the * XptCardinalPtr
+        cardinalptr to uint, returning the updated cardinalptr.
+
+
+consXptCardinalPtr(uint) -> cardinalptr                      [procedure]
+        Constructs an instance of an * XptCardinalPtr shadowclass record
+        that points to an integer of value uint.
+
+
+destXptCardinalPtr(cardinalptr) -> uint                      [procedure]
+XptCPValue(cardinalptr) -> uint                              [procedure]
+uint -> XptCPValue(cardinalptr)
+        Given  an  * XptCardinalPtr   shadowclass  record   cardinalptr,
+        returns the value of  the integer it points  to. The updater  of
+        XptCPValue is used to change the value of the integer pointed to
+        by cardinalptr.
+
+
+isXptCardinalPtr(item) -> bool                               [procedure]
+        Returns true if item is an * XptCardinalPtr shadowclass  record,
+        false otherwise.
+
+
+refreshXptCardinalPtr(cardinalptr) -> cardinalptr            [procedure]
+        "Refreshes" the * XptCardinalPtr shadowclass record  cardinalptr
+        from  its  external  representation,  returning  the   refreshed
+        record.  See   REF * SHADOWCLASS  for   details  of   refreshing
+        shadowclass records.
+
+
+importXptCardinalPtr(exptrclass) -> cardinalptr              [procedure]
+        Takes an  external  pointer  class  record  that  points  to  an
+        integer, and returns the shadowclass instance referring to  that
+        integer (creating it if necessary).
+
+
+XptCardinalPtr_shadowkey -> shkey                             [constant]
+        The shadowkey for * XptCardinalPtr shadowclass records. For more
+        details of shadowkeys, see REF * SHADOWCLASS.
+
+
+
+5.4  The XptTimePtr Shadowclass
+-------------------------------
+XptTimePtr                                                 [shadowclass]
+        The XptTimePtr shadowclass is used in X toolkit procedures  such
+        as * XtGrabKeyboard. It is defined as:
+
+                shadowclass XptTimePtr {XptTPValue :uint}
+
+        XptTimePtr shadowclass records  have their  * external_ptr_props
+        set  to  * XDT_TIMEPTR   for  "weak"   type-checking  by   the X
+        procedures (see * XptDataType.)
+
+
+initXptTimePtr() -> timeptr                                  [procedure]
+        Creates a  new instance  of an  * XptTimePtr shadowclass  record
+        pointing to zero.
+
+
+fillXptTimePtr(uint, timeptr) -> timeptr                     [procedure]
+        Sets the value  of the  integer pointed to  by the  * XptTimePtr
+        timeptr to uint, returning the updated timeptr.
+
+
+consXptTimePtr(uint) -> timeptr                              [procedure]
+        Constructs an  instance of  an * XptTimePtr  shadowclass  record
+        that points to an integer of value uint.
+
+
+destXptTimePtr(timeptr) -> uint                              [procedure]
+XptTPValue(timeptr) -> uint                                  [procedure]
+uint -> XptTPValue(timeptr)
+        Given an * XptTimePtr  shadowclass record  timeptr, returns  the
+        value of the integer it  points to. The updater of  * XptTPValue
+        is used  to  change the  value  of  the integer  pointed  to  by
+        timeptr.
+
+
+isXptTimePtr(item) -> bool                                   [procedure]
+        Returns true  if item  is  an * XptTimePtr  shadowclass  record,
+        false otherwise.
+
+
+refreshXptTimePtr(timeptr) -> timeptr                        [procedure]
+        "Refreshes" the * XptTimePtr shadowclass record timeptr from its
+        external representation,  returning  the refreshed  record.  See
+        REF * SHADOWCLASS for details of refreshing shadowclass records.
+
+
+importXptTimePtr(exptrclass) -> timeptr                      [procedure]
+        Takes an  external  pointer  class  record  that  points  to  an
+        integer, and returns the shadowclass instance referring to  that
+        integer (creating it if necessary).
+
+
+XptTimePtr_shadowkey -> shkey                                 [constant]
+        The shadowkey  for * XptTimePtr  shadowclass records.  For  more
+        details of shadowkeys, see REF * SHADOWCLASS.
+
+
+
+5.5  The XptIntPtr Shadowclass
+------------------------------
+XptIntPtr                                                  [shadowclass]
+        The XptIntPtr  shadowclass  is  used to  represent  pointers  to
+        integers and is defined as:
+
+                shadowclass XptIntPtr {XptIPValue :int}
+
+        XptIntPtr shadowclass  records have  their  * external_ptr_props
+        set to * XDT_INTPTR for "weak" type-checking by the X procedures
+        (see * XptDataType.)
+
+
+initXptIntPtr() -> intptr                                    [procedure]
+        Creates a  new instance  of  an * XptIntPtr  shadowclass  record
+        pointing to zero.
+
+
+fillXptIntPtr(int, intptr) -> intptr                         [procedure]
+        Sets the  value of  the integer  pointed to  by the  * XptIntPtr
+        intptr to int, returning the updated intptr.
+
+
+consXptIntPtr(int) -> intptr                                 [procedure]
+        Constructs an instance of an * XptIntPtr shadowclass record that
+        points to an integer of value int.
+
+
+destXptIntPtr(intptr) -> int                                 [procedure]
+XptIPValue(intptr) -> int                                    [procedure]
+int -> XptIPValue(intptr)
+        Given an  * XptIntPtr  shadowclass record  intptr,  returns  the
+        value of the integer it  points to. The updater of  * XptIPValue
+        is used to change the value of the integer pointed to by intptr.
+
+
+isXptIntPtr(item) -> bool                                    [procedure]
+        Returns true if item is an * XptIntPtr shadowclass record, false
+        otherwise.
+
+
+refreshXptIntPtr(intptr) -> intptr                           [procedure]
+        "Refreshes" the * XptIntPtr shadowclass  record intptr from  its
+        external representation,  returning  the refreshed  record.  See
+        REF * SHADOWCLASS for details of refreshing shadowclass records.
+
+
+importXptIntPtr(exptrclass) -> intptr                        [procedure]
+        Takes an  external  pointer  class  record  that  points  to  an
+        integer, and returns the shadowclass instance referring to  that
+        integer (creating it if necessary).
+
+
+XptIntPtr_shadowkey -> shkey                                  [constant]
+        The shadowkey  for  * XptIntPtr shadowclass  records.  For  more
+        details of shadowkeys, see REF * SHADOWCLASS.
+
+
+
+
+------------
+6  Constants
+------------
+
+XPT_GENERALTYPES_INCLUDED -> true                     [include constant]
+        Defined by  INCLUDE * XPT_GENERALTYPES.  The include  file  will
+        ignore any  attempts at  recompilation  while this  constant  is
+        defined.
+
+
+xpt_general -> true                                           [constant]
+        Defined by  LIB * XPT_GENERAL. * uses  will ignore  attempts  to
+        recompile the library while this constant is defined.
+
+
+xpt_generaltypes -> true                                      [constant]
+        Define by LIB * XPT_GENERALTYPES. * uses will ignore attempts to
+        recompile the library while this constant is defined.
+
+
+
+
+--- C.x/x/pop/ref/xpt_generaltypes
+--- Copyright University of Sussex 1993. All rights reserved.

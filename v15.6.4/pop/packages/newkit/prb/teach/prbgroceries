@@ -1,0 +1,505 @@
+
+/*
+TEACH PRBGROCERIES                                 Aaron Sloman Nov 1995
+                                 Based on LIB GROCERIES, by Louise Pryor
+                                                                Oct 1993
+
+CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- Running the program
+ -- Exercises
+ -- Further reading
+ -- The representation of information about objects
+ -- New forms of pattern matching in conditions
+ -- Checking for the absence of an object
+
+-- Introduction -------------------------------------------------------
+
+This teach file can be read after TEACH * PRBZOO, and TEACH * PRBWINE
+
+It is concerned with defining a set of rules to determine the order in
+which items should be packed into bags when you are at the checkout
+point at a supermarket or grocery shop.
+
+The rules are kept in ruleset (a list) called "bagger_rules".
+
+To compile them you need to mark the program from
+
+    define :ruleset ....
+
+to
+
+    enddefine;
+
+
+-- Running the program ------------------------------------------------
+
+Below a collection of rules is defined, for selecting which things
+should go in which bag.
+
+Then some initial databases are defined, along with a procedure called
+run_bagger, that can be given an initial database and will then run the
+rules, using the poprulebase interpreter, prb_run.
+
+The initial databases are held in these variables:
+
+vars bagger_test_1, bagger_test_2;
+
+Try printing them out, e.g.
+
+    bagger_test_2 ==>
+
+To run the program you can give one of these databases to the procedure
+run_bagger, defined at the end of the file, after specifying the
+desired level of tracing and pausing. E.g.
+
+    true -> prb_chatty;
+    false -> prb_walk;
+    run_bagger(bagger_test_1);
+
+Try the above again after doing
+    true -> prb_walk;
+The program repeatedly pauses with the prompt "Walking>". Just press
+RETURN to make it continue.
+
+
+Now try:
+    13 * 17 -> prb_chatty;
+    false -> prb_walk;
+    run_bagger(bagger_test_2);
+
+-- Exercises ----------------------------------------------------------
+
+1. Try some other initial databases and check that the program works for
+those. E.g. add a bag of sauses of size small, a cake of size medium,
+and some frozen spinach of size medium.
+
+2. See if you can modify the rules so that at the end it tells you
+how many things are in the freezer bag.
+
+3. Try modifying it so that the freezer bag can hold only 5 items, and
+if it has more than five frozen items to deal with the program aborts
+and complains that it needs more than one freezer bag.
+
+-- Further reading ----------------------------------------------------
+
+TEACH * RULEBASE gives more information about Poprulebase, and includes
+pointers to other relevant files.
+
+*/
+
+;;; Compile the poprulebase library. Mark and load this line.
+;;; (Or copy it to the top of a file containing the "bagger" rules.)
+uses poprulebase;
+
+
+/*
+-- The representation of information about objects --------------------
+
+Instead of using separate assertions for all the facts about the items
+to be bagged, we use just one assertion for each item. This single
+assertion contains all the information that would go in separate
+assertions.
+
+The single assertion consists of a list of five elements.
+
+The first element is the actual item - e.g. smoky_bacon
+The second element is the type - e.g. potato_crisps.
+The third element is the container - e.g. plastic_bag
+the fourth element is the size - e.g. medium
+The fifth element is whether or not it is frozen - e.g. no.
+
+So if there is a bag of smoky bacon crisps waiting to be bagged, the
+assertion
+
+    [smoky_bacon potato_crisps plastic_bag medium no]
+
+will be present in working memory.
+
+-- New forms of pattern matching in conditions ------------------------
+
+We can now use more sophisticated pattern matching than we did in
+TEACH * PRBZOO
+
+We can use variables as before, but we can also use the equals sign as a
+simple placeholder. If we put = in a pattern to be matched, it will
+match a single element.
+
+We can use this to see, for example, whether there is a bag of potato
+crisps waiting to be bagged. There is a bag of potato crisps waiting to
+be bagged if there is an assertion in working memory that is five
+elements long and whose second element is potato_crisps. In other words,
+we can have
+
+    [= potato_crisps = = =]
+
+as a condition on the left hand side of a rule.
+
+-- Checking for the absence of an object ------------------------------
+
+We also need to ba able to check for the absence of assertions in
+working memory. This is done by putting NOT before the assertion to
+be checked. For example,
+
+    [NOT = fizzy_drink = = =]
+
+is true if there is no assertion in working memory that matches
+
+    [= fizzy_drink = = =]
+
+With all this in mind, we can now code up rule B1. We use a slight variant,
+in that the system automatically adds a bottle of coke instead of asking
+whether the customer would like one.
+
+*/
+
+
+;;; To run the program mark and load from here to "enddefine:.
+;;; You can put the VED cursor after the next line at type: ESC c
+
+define :ruleset bagger_rules;
+
+  RULE B1  ;;; in bagger_rules
+
+    [stage is check]
+    [= potato_crisps = = =]     ;;; looking for crisps
+    [NOT = fizzy_drink = = =]   ;;; checking that no fizzy_drink
+    ==>
+    [coke_1 fizzy_drink bottle large no]    ;;; add a coke
+
+/*
+Rule B2 requires the removal of an assertion from working memory. This
+is done by adding NOT to the beginning of the assertion ot be removed.
+
+You can use the = placeholder when removing assertions, too. For example,
+the action
+
+    [NOT = fizzy_drink = = =]
+
+would remove all assertions matching
+
+    [= fizzy_drink = = =]
+
+*/
+
+  RULE B2  ;;; in bagger_rules
+
+    [stage is check]
+    ==>
+    [NOT stage is check]
+    [stage is bag_large_items]
+
+/*
+In rule B3 we have to check the number of items in the current bag.
+The rule is applicable only if there are fewer than 6 items.
+
+In this version of BAGGER we do this by keeping an assertion in working
+memory that records the the number of items in each bag, for example,
+
+    [bag_1 holds 2 items]
+
+We use the matching mechanism to bind a variable to the number of items,
+by matching the pattern
+
+    [bag_1 holds ?count items]
+
+and then use the special WHERE condition to check whether ?count is less
+than 6.
+
+This means that every time the system puts an item in a bag, it must
+increase the count of the number of items in that bag.
+
+We do this by using a special type of action, a POP11 action. This can
+be used to change the value of one of the rule variables (set in a
+condition of the rule) and then use the new value in a item to be added
+to the database.
+
+So, for example, if we have in the database something matching the
+following condition.
+
+    [bag_1 holds ?count items]
+
+Then a POP11 action might be
+
+    [POP11 count + 1 -> count]
+
+Then after removing the previous assertion from the database we
+can assert:
+
+    [bag_1 holds ?count items]
+
+Note that we also keep track of the sizes of the items that are actually
+in the bag. So, for example, if the item that is bagged is
+
+    [coke_1 fizzy_drink bottle large no]
+
+and it is put into bag_1, we add the assertion
+
+    [bag_1 contains coke_1 large]
+
+This is so that later on we can avoid mixing sizes in the same bag.
+
+*/
+
+vars bag, count, large_item;    ;;; pattern variables for B3
+
+  RULE B3  ;;; in bagger_rules
+
+    [stage is bag_large_items]
+    [?large_item = bottle large =]  ;;; is there a large bottle?
+    [current_bag is ?bag]
+    [?bag holds ?count items]       ;;; how many in the current bag?
+    [WHERE ?count < 6]              ;;; fewer than 6?
+    ==>
+    [NOT ?large_item =  bottle large =] ;;; it has now been bagged
+    [?bag contains ?large_item large]   ;;; it is now in the current bag
+    [NOT ?bag holds ?count items]       ;;; remove the old count
+    [POP11 count + 1 -> count]          ;;; increment it
+    [?bag holds ?count items]         ;;; keep the count up to date
+
+/*
+
+rule B4 is the same as rule B3 except for the bit about the bottle
+
+*/
+
+  RULE B4  ;;; in bagger_rules
+
+    [stage is bag_large_items]
+    [?large_item = = large =]
+    [current_bag is ?bag]
+    [?bag holds ?count items]
+    [WHERE ?count < 6]
+    ==>
+    [NOT ?large_item = = large =]
+    [?bag contains ?large_item large]
+    [NOT ?bag holds ?count items]
+    [POP11 count + 1 -> count]
+    [?bag holds ?count items]
+
+/*
+
+Rule B5 changes the current bag by selecting an empty one and
+initialising the number of its contents to 0.
+
+*/
+vars old_bag;   ;;; a new pattern variable
+
+  RULE B5  ;;; in bagger_rules
+
+    [stage is bag_large_items]
+    [?large_item = = large =]   ;;; there is still a large one waiting
+    [?bag is empty]             ;;; there is an empty bag
+    [current_bag is ?old_bag]   ;;; which bag is the current one?
+    ==>
+    [NOT current_bag is ?old_bag]   ;;; it is no longer the current bag
+    [NOT ?bag is empty]             ;;; the new one is no longer empty
+    [current_bag is ?bag]           ;;; the new one is current
+    [?bag holds 0 items]            ;;; initialise the count
+
+/*
+Rule B6 changes to the next stage: coping with medium items.
+*/
+
+  RULE B6  ;;; in bagger_rules
+
+    [stage is bag_large_items]
+    ==>
+    [NOT stage is bag_large_items]
+    [stage is bag_medium_items]
+
+
+/*
+
+Rule B7 deals with frozen things - remember they must be put in
+freezer bags.
+
+This means that any item that is frozen (the fifth element) and is not
+in a freezer bag (the third element) must be put in a freezer bag.
+
+*/
+
+vars frozen_item, type, container;
+
+  RULE B7  ;;; in bagger_rules
+
+    [stage is bag_medium_items]
+    [?frozen_item ?type ?container medium yes]
+    [WHERE ?container /= freezer_bag]
+    ==>
+    [NOT freezer_bag is empty]
+    [NOT ?frozen_item ?type ?container medium yes]
+    [freezer_bag contains ?frozen_item medium]
+
+/*
+
+The rest of the rules are pretty straightforward.
+
+B8 puts non-frozen things that are of size medium into bags that don't
+contain large items, as long as the bag has fewer than 12 items in it.
+*/
+
+vars medium_item;
+
+  RULE B8  ;;; in bagger_rules
+
+    [stage is bag_medium_items]
+    [?medium_item = = medium no]
+    [current_bag is ?bag]
+    [NOT ?bag contains = large]
+    [?bag holds ?count items]
+    [WHERE ?count < 12]
+    ==>
+    [NOT ?medium_item = = medium =]
+    [?bag contains ?medium_item medium]
+    [NOT ?bag holds ?count items]
+    [POP11 count + 1 -> count]
+    [?bag holds ?count items]
+
+/*
+If B8 cannot cope with remaining medium items, start with a new bag,
+using rule B9.
+*/
+
+  RULE B9  ;;; in bagger_rules
+
+    [stage is bag_medium_items]
+    [?medium_item = = medium =]
+    [?bag is empty]
+    [current_bag is ?old_bag]
+    ==>
+    [NOT current_bag is ?old_bag]
+    [NOT ?bag is empty]
+    [current_bag is ?bag]
+    [?bag holds 0 items]
+
+/*
+Rule B10 switches from coping with medium items to small ones,
+and rule B11 packs them in, with up to 18 articles in each bag.
+*/
+
+  RULE B10  ;;; in bagger_rules
+
+    [stage is bag_medium_items]
+    ==>
+    [NOT stage is bag_medium_items]
+    [stage is bag_small_items]
+
+vars small_item;
+
+  RULE B11  ;;; in bagger_rules
+
+    [stage is bag_small_items]
+    [?small_item = = small =]
+    [current_bag is ?bag]
+    [NOT ?bag contains = large]
+    [NOT ?bag contains = medium]
+    [?bag holds ?count items]
+    [WHERE ?count < 18]
+    ==>
+    [NOT ?small_item = = small =]
+    [?bag contains ?small_item small]
+    [NOT ?bag holds ?count items]
+    [POP11 count + 1 -> count]
+    [?bag holds ?count items]
+
+/*
+B12 switches to a new bag for small items
+*/
+
+  RULE B12  ;;; in bagger_rules
+
+    [stage is bag_small_items]
+    [?small_item = = small =]
+    [?bag is empty]
+    [current_bag is ?old_bag]
+    ==>
+    [NOT current_bag is ?old_bag]
+    [NOT ?bag is empty]
+    [current_bag is ?bag]
+    [?bag holds 0 items]
+
+
+/*
+
+Finally, the last rule stops the system and prints out a message if
+no other rules are applicable.
+
+*/
+
+  RULE B13  ;;; in bagger_rules
+
+    [stage is bag_small_items]
+    ==>
+    [NOT stage is bag_small_items]
+    [SAY 'The final database is as follows:']
+    [POP11 prb_print_database()]
+    [STOP 'WELL DONE!  All the groceries have been bagged.']
+enddefine;
+
+/*
+
+Set up some initial working memories
+
+*/
+
+global vars
+    bagger_test_1, bagger_test_2;
+
+[[brown_bread_1 bread plastic_bag medium no]
+ [raspberry_jam_1 jam jar small no]
+ [cornflakes_1 cereal cardboard_box large no]
+ [choc_bar_1 ice_cream cardboard_carton medium yes]
+ [smoky_bacon_1 potato_crisps plastic_bag medium no]
+ [pepsi_1 fizzy_drink bottle large no]
+ [pizza_1 pizza cardboard_carton medium yes]
+ [stage is check]
+ [freezer_bag is empty]
+ [current_bag is bag_1]
+ [bag_1 holds 0 items]
+ [bag_2 is empty]
+ [bag_3 is empty]
+ [bag_4 is empty]] -> bagger_test_1;
+
+[[smoky_bacon_1 potato_crisps plastic_bag medium no]
+ [chicken_1 meat plastic_bag large no]
+ [ready_salted_1 potato_crisps plastic_bag medium no]
+ [cornflakes_1 cereal cardboard_box large no]
+ [peas_1 vegetable plastic_bag medium yes]
+ [chablis_1 wine bottle large yes]
+ [weetabix_1 cereal cardboard_box large no]
+ [marmalade_1 jam jar small no]
+ [potatoes_1 vegetable plastic_bag large no]
+ [cornflakes_2 cereal cardboard_box large no]
+ [stage is check]
+ [freezer_bag is empty]
+ [current_bag is bag_1]
+ [bag_1 holds 0 items]
+ [bag_2 is empty]
+ [bag_3 is empty]
+ [bag_4 is empty]
+ [bag_5 is empty]] -> bagger_test_2;
+
+
+/*
+
+You can run bagger by using the procedure run_bagger - its argument is the
+initial working memory.
+e.g. run_bagger(bagger_test_2)
+
+*/
+
+define global procedure run_bagger(bagger_database);
+    lvars bagger_database;
+    ;;; don't run all rules on each cycle, just the first.
+    false -> prb_allrules;
+    'Initial database:' =>
+    bagger_database ==>
+    prb_run(bagger_rules, bagger_database)
+enddefine;
+
+/*
+--- $poplocal/local/prb/teach/prbgroceries
+--- The University of Birmingham 1995.  --------------------------------
+*/

@@ -1,0 +1,431 @@
+REF XptWidgetSet                           Tom Khabaza, 29th August 1990
+                                              Updated J. Meyer, Oct 1990
+
+        COPYRIGHT University of Sussex 1990. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<         XPTWIDGETSET        >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+This file documents the XptWidgetSet  library, which provides access  to
+external widget-sets in Poplog.
+
+   ------------------------------ NOTE -------------------------------
+   |                                                                 |
+   |  From Version 14.22 of  Poplog, XptWidgetSet is redundant  (at  |
+   |  least, for all the standard widget sets supported by Poplog).  |
+   |  See                                                            |
+   |                                                                 |
+   |          Widget Set Interfaces in REF * XT_LIBS                 |
+   |                                                                 |
+   |  for details of the new setup. The procedures XptLoadClass and  |
+   |  XptLoadClassProc  are  replaced  by  the  syntax   constructs  |
+   |  * XptLoadWidgetClass and * XptPopLoadProcedures respectively.  |
+   |                                                                 |
+   |  (XptWidgetSet and its  associated procedures  will of  course  |
+   |  continue to operate as before.)                                |
+   |                                                                 |
+   |  If you wish to run the REFORMAT program, for making Poplog     |
+   |  Manuals automatically, on this file you should remove this     |
+   |  note first.                                                    |
+   |                                                                 |
+   -------------------------------------------------------------------
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Overview
+
+  2   Using XptWidgetSet
+
+  3   Supported Widget Sets
+
+  4   Writing New XptWidgetSet Interfaces
+
+
+-----------
+1  Overview
+-----------
+LIB * XptWidgetSet is the recommended way of loading and managing widget
+sets and widget  classes from Poplog.  In general LIB * XptWidgetSet  is
+expected to have two kinds of users:
+
+    #   Users who wish to make use of widgets in their applications will
+        use the common, simple  interface provided by LIB * XptWidgetSet
+        for loading those widgets and their related procedures and data.
+
+    #   Programmers who wish  to provide  interfaces to  new widgets  in
+        Poplog will use LIB * XptWidgetSet and the support procedures  it
+        provides to  create  the  standard  Poplog  interface  to  those
+        widgets.
+
+
+
+---------------------
+2  Using XptWidgetSet
+---------------------
+The procedure XptWidgetSet is all that applications need to load widgets
+from a variety of widget sets. For example, to load the X Toolkit "Core"
+widget, use:
+
+        XptWidgetSet("Toolkit")("CoreWidget") =>
+        ** <WidgetClass CoreWidget>
+
+This command will take several seconds  to execute the first time it  is
+used, since it performs an external load to get the widgetclass from  an
+object file  library. Successive  executions of  the command  will  take
+virtually no time, since the widgetclass is stored in a Pop-11 property.
+
+XptWidgetSet is responsible for mapping the widgetclass name you provide
+into the external name  for the widget. This  mapping can vary from  one
+widget set to another, but within Poplog the naming scheme is always the
+same. For widgets  use the word  <Name>Widget, and for  gadgets use  the
+word <Name>Gadget, where  <Name> is  the base  name of  the widget.  The
+following are examples of widget names in Poplog:
+
+    # ButtonWidget
+    # ButtonGadget
+    # ControlAreaWidget
+    # CoreWidget
+    # GraphicWidget
+
+Each widgetset returned XptWidgetSet is actually represented as a Pop-11
+property. So:
+
+        XptWidgetSet("Toolkit") =>
+        ** <property>
+
+The property  has  several entries  which  store information  about  the
+widgetset, such as the procedure to use for mapping Pop-11 widget  names
+into external  widget  names,  the  list of  object  libraries  used  in
+external loads, and a list of the names of all the members of the widget
+set. For example:
+
+        XptWidgetSet("Toolkit")("WidgetSetMembers") =>
+        ** [CompositeWidget ConstraintWidget CoreWidget Widget Object
+           RectObj ShellWidget OverrideShellWidget WmShellWidget
+           TransientShellWidget TopLevelShellWidget
+           ApplicationShellWidget VendorShellWidget]
+
+XptWidgetSet can be  used in conjunction  with the exload_batch  command
+(see REF * EXTERNAL) to load several widgets in a single external  load.
+For example,  the following  loads the  Toolkit "Composite"  Widget  and
+"Constraint" Widget together, using one external load to get the widgets
+from the toolkit object file library:
+
+        exload_batch;
+        lconstant toolkit = XptWidgetSet("Toolkit");
+        toolkit("CompositeWidget") ->;
+        toolkit("ConstraintWidget") ->;
+        endexload_batch;
+
+Loading  a  widget  using  XptWidgetSet  causes  all  of  the  data  and
+procedures needed  to use  that widget  to be  loaded as  well. In  many
+cases, the widget does not require additional procedures or identifiers.
+When they are required,  they are usually loaded  by compiling a  Pop-11
+library whose name is derived from the widget name.
+
+
+XptLoadWidgetSet                                             [procedure]
+        The convenience procedure XptLoadWidgetSet  can be used to  load
+        all of  the members  of a  widget  set for  use in  Poplog.  For
+        example, to load all of the X toolkit widgets, use:
+
+            XptLoadWidgetSet("Toolkit");
+
+        XptLoadWidgetSet will  minimise  the number  of  external  loads
+        used. It  will also  ensure that  popmemlim is  large enough  to
+        allow the widgetset to be loaded.
+
+
+
+------------------------
+3  Supported Widget Sets
+------------------------
+Poplog  provides  Pop-11  XptWidgetSet   interfaces  to  the   following
+widgetsets:
+
+    "Toolkit"    The basic toolkit widgets
+
+    "Poplog"     The Poplog widgetset (see HELP * Xpw)
+
+    "OpenLook"   The Open Look widgetset (see HELP * OPENLOOK)
+
+    "Motif"      The Motif widgetset (see HELP * MOTIF)
+
+    "Athena"     The Athena widgetset (see HELP * ATHENA)
+
+
+
+--------------------------------------
+4  Writing New XptWidgetSet Interfaces
+--------------------------------------
+The rest of  this document  describes how XptWidgetSet  and its  support
+procedures work, and is intended to  be read by programmers who wish  to
+implement XptWidgetSet interfaces to new widgetsets.
+
+
+XptGetWidgetDependencies(word1,word2,list,word3)             [procedure]
+        This procedure is  used internally to  manage widget loading  by
+        the libraries LIB * AthenaWidgetSet, LIB * OpenLookWidgetSet and
+        LIB * MotifWidgetSet to ensure that, when any given  WidgetClass
+        is loaded, any other WidgetClasses on which it depends are  also
+        loaded. For instance the  Athena widget AsciiTextWidget  depends
+        on the Athena TextWidget and the Athena AsciiSrcObject, each  of
+        which  also  have  dependencies.   This  mechanism  allows   the
+        programmer   to   specify   that   she   requires,   say,    the
+        AsciiTextWidget without having to worry about what other widgets
+        and objects are  required. word1  is the  WidgetSet prefix:  for
+        example the  Athena  WidgetSet prefix  is  "Xaw". word2  is  the
+        WidgetClass name  being loaded,  for example  "AsciiTextWidget".
+        list is the WidgetSet dependency tree as described below.  word3
+        is the WidgetSet name, for example "Athena".
+
+        A WidgetSet dependency tree is  a property specifying, for  each
+        widget in the set, what other  widgets it depends on and a  list
+        of procedures that it  imports. For example,  the entry for  the
+        Athena DialogWidget is:
+
+            [Dialog [[Form 'XawDialog.p']
+                            {XawDialogAddButton 4}
+                            {XawDialogGetString 1 exptr ^exacc_ntstring}
+                        ]
+            ]
+
+        The first word refers to the WidgetClass whose dependencies  are
+        being specified, in this case "Dialog", this is the keyword  for
+        property lookup. This is followed by  a list. The first item  in
+        this list is a list  containing those other widgets and  objects
+        that are dependencies: if an item  is a word then it is  assumed
+        to refer to  some other entry  in the tree  (i.e. "Form" in  the
+        above entry), and if it is a string then it is assumed to  refer
+        directly to a library file  to be loaded (i.e. 'XawDialog.p'  in
+        the above entry).  The second  part of a  dependency tree  entry
+        consists of vectors specifying which external procedures are  to
+        be loaded.  REF * XptLoadClassProc  gives  the  details  of  the
+        format for these vectors.
+
+        The  entry  shown  above  is  a  'full'  entry  in  that   every
+        specification is present. Suppose that a particular  WidgetClass
+        did not import any procedures. An example of such a  WidgetClass
+        is the Athena CommandWidget - its entry looks like this:
+
+            [Command [[Label 'XawCommand.p']
+                            ^false
+                        ]
+            ]
+
+        Here the item false instead  of the appearance of vectors  tells
+        XptGetWidgetDependencies that there are no external functions to
+        import. Note also that  when there is  only a single  dependency
+        for  a  WidgetClass  (the  two  examples  above  each  have  two
+        dependencies) it is not  necessary to provide  a list -  instead
+        the single dependency  may be stated  directly. For example  the
+        entry for the Athena FormWidget is as follows:
+
+            [Form ['XawForm.p'
+                            {XawFormDoLayout 2}
+                        ]
+            ]
+
+        Combining  these  conventions  allows  entries  with  a   single
+        dependency, with no imported procedures:
+
+            [Logo ['XawLogo.p' ^false]]
+
+        And, in  unusual  circumstances,  it is  possible  to  provide a
+        'dummy' dependency entry as used  in, for example, the  OpenLook
+        MarginWidget:
+
+            [Margin [^false ^false]]
+
+        Finally,  it  should   be  noted  that   the  standard  use   of
+        XptGetWidgetDependecnies  is  as  a  closure  assigned  to   the
+        WidgetSetFileMapping of  the given  WidgetSet. Please  refer  to
+        REF * XptNewWidgetSet for details. The  reader is also  referred
+        to      LIB * AthenaWidgetSet,      * OpenLookWidgetSet      and
+        * MotifWidgetSet  for   detailed   examples  of   the   use   of
+        XptGetWidgetDependencies and the format for the dependency tree.
+
+
+XptWidgetSet(wsname) -> widgetset                             [property]
+        wsname is the name of a widgetset, and widgetset is a  widgetset
+        property. If the widgetset wsname does not already exist, a  new
+        one is created. First the system attempt to "demand load" it  by
+        loading a library named:
+
+            <wsname>'WidgetSet.p'.
+
+        If this  is  successful, and  results  in the  creation  of  the
+        appropriate widgetset, this is  returned. If the attempt  fails,
+        or does not result in the creation of the appropriate widgetset,
+        a   new   default   widgetset   property   is   created    using
+        XptNewWidgetSet.
+
+
+XptNewWidgetSet(wsname) -> widgetset                         [procedure]
+        Given a widgetset name wsname (a WORD), this procedure returns a
+        new widgetset property widgetset, which is also installed in the
+        global widgetset property XptWidgetSet.
+
+        The new  widgetset  property  is initialised  with  six  special
+        entries that are  used by XptWidgetSet  procedures when  loading
+        new widgetclasses  into the  widgetset.  Each special  entry  is
+        keyed on a  word starting  with "WidgetSet", and  has a  default
+        value as shown below:
+
+        WidgetSetName - WORD
+            This holds the name of the widgetset, ie. wsname, which is
+            the word that this widget-set is found under in the global
+            XptWidgetSet property.
+
+        WidgetSetPrefix - WORD or STRING
+            By default, this is set to wsname. This word or string is
+            passed to the procedure "WidgetSetFileMapping" below, and is
+            usually used to contain the short name of a widgetset, or
+            the pathname for the directory containing Pop-11 libraries
+            for the widget.
+
+        WidgetSetLibList - LIST
+            This is the list of object files which is passed to
+            external_do_load as the "input file list" when external
+            widget classes and procedures are loaded (see
+            REF * EXTERNAL). Its default value is XLINK_EXLIBS (see
+            REF * X).
+
+        WidgetSetNameMapping - PROCEDURE
+            The procedure for mapping from the Poplog names for a
+            widgetclass onto its external name. The default mapping
+            procedure converts from a word FooBazWidget to the word
+            fooBazWidgetClass (ie. it makes the first letter lower case,
+            and appends the word "Class" to the end of the name. The
+            generated name is then passed to external_do_load as the
+            external symbol name for a widgetclass. The procedure takes
+            the form:
+
+                WS("WidgetSetNameMapping")(POPNAME) -> EXTNAME
+
+        WidgetSetFileMapping - PROCEDURE
+            This is a procedure for mapping from a widgetclass name onto
+            a list of Pop-11 files that should be loaded when the
+            widgetclass is loaded. The Pop-11 files are expected to load
+            other widgetclasses, declare global constants, and load
+            widgetclass procedures. The procedure takes the form
+
+                WS("WidgetSetFileMapping")(PREFIX, WCNAME) -> FILES
+
+            PREFIX is the word or string stored under "WidgetSetPrefix"
+            in the widgetset property (see above). WCNAME is the Poplog
+            name of the widgetclass that is being loaded. This procedure
+            should return a single item, FILES, which is either a string
+            representing a single file to load, a list of strings
+            representing multiple files, or false if no Pop-11 file need
+            to be loaded. Each file can either be a full pathname or the
+            name of a library file from one of the directories in
+            popuseslist. The default procedure produces the string
+            PREFIX <> WCNAME <> 'Class.p'.
+
+        WidgetSetMembers - LIST
+            If this is a non-empty list, then it should contain the
+            Poplog names for all the classes in the widgetset.
+            XptWidgetSet will check this list and will produce a
+            mishap if the user is trying to load a widgetclass which is
+            not a member of the list. To disable this checking, set this
+            field to be the empty list [], which is the default value.
+
+        The resulting widgetset property has a demand-loading  procedure
+        that  is  the  default  dynamic  value  of  the  property.  This
+        procedure is  called  whenever  the user  attempts  to  access a
+        member of the widgetset  property that is  not yet defined.  The
+        demand-loading procedure  first  checks  the name  it  is  given
+        against the WidgetSetMembers list (see above). If it is a  valid
+        widgetclass name,  then  any  class libraries  returned  by  the
+        WidgetSetFileMapping procedure (see above) are loaded.  Finally,
+        if no libraries are  found or the widgetclass  is not loaded  by
+        the libraries, XptLoadClass is called to load the widgetclass.
+
+
+XptLoadClass(wsname, wcname)                                 [procedure]
+        This procedure is intended  for use by  libraries which want  to
+        load widgetclasses into an  XptWidgetSet property. It takes  two
+        arguments - the name of the widgetset (a WORD), and the name  of
+        a widgetclass(es) to load (a WORD, or a LIST of words). It loads
+        all of the specified classes  into the widgetset property.  This
+        procedure loads classes using the exload batching mechanism,  so
+        several libraries which each load widgetclasses can load them in
+        one external  load. To  enable  batching, use  the  exload_batch
+        command:
+
+            exload_batch;
+
+            XptLoadClass("Toolkit",[CoreWidget CompositWidget]);
+            uses library_1;
+            uses library_2;
+
+            endexload_batch; /* perform external load */
+
+        XptLoadClass will  insert a  blank widgetclass  record into  the
+        relevant widgetset  property. When  the widgetclass  is  loaded,
+        this record is then filled in with the correct external pointer.
+        Until this point, although you can retrieve the widgetclass from
+        the property,  it is  not  a valid  widgetclass and  so  toolkit
+        functions will not operate  correctly on it. Such  widgetclasses
+        are indicated (when printed) with the notation:
+
+            <(NULL)WidgetClass FooBazWidget>
+
+        and can  be tested  for  using is_valid_external_ptr.  To  force
+        exload  to   load   the  widget   class,   you  can   call   the
+        exload_do_batch_load procedure.
+
+
+XptLoadClassProc(wsname, procspecs)                          [procedure]
+        This is a  convenience function for  widgetclass libraries  that
+        need to  load external  procedures. It  takes a  widgetset  name
+        wsname (a WORD),  and a  list of procspecs  vectors, where  each
+        PROCSPEC is a vector can have up to four elements, of which only
+        the first element is mandatory.
+
+            1.  Procedure name (WORD). This word is the name of the
+                procedure to be loaded. It is also used as the name of
+                the identifier to hold the procedure once it has been
+                loaded.
+
+            2.  Number of arguments (INTEGER or FALSE, default 0). This
+                optional field specifies the number of arguments the
+                external procedure takes, or FALSE if it is a variadic
+                function. Calls to variadic functions must be made with
+                the number of arguments as the top item on the stack.
+
+            3.  Return type of external procedure (default FALSE). This
+                optional field may be any normal Poplog field
+                specifier (see REF * KEYS). For example "int", "uint",
+                "short", "byte" etc. are all legal values and lead to
+                the appropriate conversions being performed. Notably,
+                "exptr" is the correct result type for external
+                procedures which return pointers. To indicate no result,
+                use <false>.
+
+            4.  Result coercion procedure (default no coercion). This
+                procedure, if supplied, is applied to the result of the
+                external procedure call before it is returned. Typically
+                this is used where a pointer is returned - for example
+                the Xpt procedure XptImportWidget is appropriate where
+                the procedure returns a pointer to a widget.
+
+        XptLoadClassProc  will  load  the  procedure  using  the  exload
+        batching mechanism. It will then create an apply procedure which
+        calls the  external  procedure  taking  the  correct  number  of
+        arguments off the stack, and returning the specified return type
+        (calling  the  coercion  procedure  if  necessary).  This  apply
+        procedure is  assigned  to the  global  variable whose  name  is
+        determined by the first field of the PROCSPEC  (XptLoadClassProc
+        will declare  the  variable as  global  vars in  the  top  level
+        section if necessary).  If the  variable already  has a  defined
+        value, XptLoadClassProc will not reload it.
+
+
+
+--- C.x/x/pop/ref/XptWidgetSet
+--- Copyright University of Sussex 1990. All rights reserved.

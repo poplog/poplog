@@ -1,0 +1,223 @@
+TEACH RC_DEMO                                     Aaron Sloman, Dec 1994
+Revised July 2009
+
+A short demonstration of some of the RC_GRAPHIC facilties.
+
+If rc_graphic is not already loaded this command will produce an error
+
+    rc_start():
+
+At Birmingham it should not produce an error.
+
+If it's not loaded, there may be a saved image with rc_graphic
+precompiled. This will start up very much faster if run Pop-11 with the
+rc_graphic saved image, giving this command to unix:
+
+pop11 +rc_graphic
+
+If that does not work, run pop-11 then do
+
+uses rc_graphic;        ;;; will take a long time if you have not
+                        ;;; run the saved image
+
+You can then run VED as usual and do
+
+teach rc_demo
+
+Try the following commands.
+
+;;; start up a graphics window (if necessary move the window)
+rc_start();
+
+;;; draw some lines, using format
+;;; rc_drawline(x1, y1, x2, y2);
+;;; to draw from point <x1, y1> to <x2, y2>
+
+rc_drawline(-100, -100, 100, 100);
+
+rc_drawline(-100, 100, 100, 100);
+
+;;; NB by default the origin is in the middle of the 500 by 500
+;;; window, with X going from left to right and Y going Up.
+
+;;; Try some lines of your own, e.g. from point 0, 0 to
+;;; point 0, 100
+
+
+;;; Print a message in the centre
+
+rc_print_at(0, 0, 'Hello everybody');
+
+;;; rc_print_at takes a pair of image coordinates and a string
+;;; The teach file tells you how to change the font.
+
+;;; Clear the graphics window
+
+rc_start();
+
+;;; Make pop11 work in degrees instead of radians
+
+false -> popradians;
+
+;;; Try some "turtle" graphics, based on the notion of a movable
+;;; "turtle" with a position and a heading, leaving a trail when it
+;;; moves.
+0 -> rc_heading;    ;;; draw to the right
+rc_draw(100);
+
+rc_turn(90);        ;;; turn left 90 degrees to face up the screen
+rc_draw(100);
+rc_turn(90);        ;;; now facing to left
+rc_jump(100);       ;;; "jump" to new location to start drawing from
+rc_turn(90);        ;;; now facing down
+rc_draw(50);
+
+;;; the above commands depend on there being a "state" of a
+;;; drawing "turtle" (once upon a time this was done with a
+;;; mechanical turtle, using the language LOGO).
+;;; Try some more turtle graphics commands using
+;;; rc_draw( integer), rc_turn(integer), rc_jump(integer)
+;;; e.g. try
+
+rc_start();
+-90 -> rc_heading;
+rc_draw(150);
+
+;;; You can also jump to a specified point:
+rc_jumpto(-50, -50);
+-180 -> rc_heading;
+rc_draw(150);
+
+;;; you can draw pretty pictures
+rc_start();
+rc_jumpto(0,0);
+repeat 3 times rc_draw(100); rc_turn(120) endrepeat;
+
+rc_start();
+rc_jumpto(0,0);
+repeat 180 times rc_draw(200); rc_turn(121) endrepeat;
+
+
+;;; Use turtle graphics commands to define a procedure to draw a polygon
+
+define polygon(side,num);
+    ;;; draw a polygon of side length side, with num sides.
+    lvars side, num, angle;
+
+    dlocal popradians = true;   ;;; make sure it works in degrees
+
+    ;;; A polygon with num sides requires turn angles of 360/num
+    360.0 / num -> angle;
+
+    ;;; now repeatedly draw and turn
+    repeat num times
+        rc_draw(side); rc_turn(angle)
+    endrepeat;
+enddefine;
+
+;;; test it
+rc_start();
+polygon(50, 6);
+
+rc_jumpto(-200,-200);
+polygon(100, 3);
+
+;;; A procedure to draw lots of polygons
+
+define cartwheel(side, sides, num);
+    ;;; A program to make a pretty picture, composed of num polygons
+    lvars side, sides, num, angle;
+
+    ;;; clear the window
+    rc_start();
+
+    dlocal popradians = false;
+
+    360.0 / num -> angle;
+
+    repeat num times
+        ;;; draw a polygon
+        polygon(side, sides);
+        ;;; rotate through angle degrees
+        rc_turn(angle);
+    endrepeat;
+enddefine;
+
+;;; test it
+ rc_start();
+
+rc_jumpto(0,0);
+
+ cartwheel(60, 12, 30);
+
+ cartwheel(100, 6, 121);
+
+;;; If the picture is too big to fit into the window it will be
+;;; "clipped" automatically
+ cartwheel(100, 30, 121);
+
+;;; you can ask a program to interact via the mouse
+rc_start();
+
+uses rc_mouse;      ;;; load the mouse library
+
+;;; If you run the next command Pop-11 waits for you to draw a picture
+;;; by clicking in various places on the graphics window.
+rc_mouse_draw(false, 3);        ;;; NB terminate picture with button 3
+                                ;;; the right hand button.
+
+;;; You can do the same but ask for the locations clicked on to be
+;;; recorded. Draw some lines ending with button 3, or just click in
+;;; one place with button 3
+rc_mouse_draw(true, 3) =>
+
+;;; DRAWING GRAPHS
+
+uses rc_graphplot;       ;;; load the graph drawing library
+
+;;; Plot a graph of the value of LOG(x) in 1/10th steps from
+;;; x = 1, to x = 10, and return numbers representing the ranges
+;;; for x and for y
+
+    rc_graphplot( 1, 1/10, 10, 'X', log, 'log(X)')=>
+    ** [1 10 0 3]
+
+;;; I.e. X went from 1 to 10, and Y from 0 to 3.
+
+;;; Plot a set of points in a list. First get values for y.
+
+vars mydata = [13 12 7 3 1 1 19 29 25 20 10 15 10 3 -3 2 1];
+
+;;; then plot the list mydata:
+    rc_graphplot( 20, 5, 100, 'time (s)', mydata, 'Data')=>
+    ** [20 100 -10 35]
+
+;;; Notice how the axes and scales are automatically adjusted.
+
+;;; For more on plotting graphs see TEACH RC_GRAPHPLOT
+
+Please email any queries or comments to A.Sloman
+
+For full details see
+
+TEACH * RC_GRAPHIC
+    Lots of introductory demonstrations
+HELP * RC_GRAPHIC
+    Summary of available facilities
+TEACH * RC_GRAPHPLOT
+    Graph-drawing facilities explained in detail
+HELP * RC_GRAPHPLOT
+    For a summary
+
+
+See HELP * RCLIB
+    For an overview of additional extensions to the rc_graphic library
+
+If you are familiar with objectclass these two may be useful
+    TEACH * RC_LINEPIC
+    TEACH * FACES
+    TEACH * RCLIB_DEMO.P
+    HELP * RC_LINEPIC
+
+--- $poplocal/local/rclib/teach/rc_demo
+--- Copyright University of Birmingham 2009. All rights reserved. ------

@@ -1,0 +1,892 @@
+REF XpwCallMethod                              Jonathan Meyer, Jan 1990
+
+        COPYRIGHT University of Sussex 1990. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<         XPWCALLMETHOD       >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+The one Xpw addition to Xt is the use of methods instead of a collection
+of global C procedures to perform widget-class specific operations  on a
+widget. This REF file synopsises these methods.
+    For more information on the methods available to Poplog Widgets, see
+REF * XpwMethods. HELP * Xpw gives an overview of the Poplog Widget Set.
+(Poplog Widget Set, revision 4.)
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+  1   Overview
+
+  2   XpwCore Methods
+
+  3   XpwPixmap Methods
+
+  4   XpwGraphic Methods
+
+  5   XpwScrollText Methods
+
+
+
+-----------
+1  Overview
+-----------
+
+The one Xpw addition to Xt is the use of methods instead of a collection
+of global C procedures to perform widget-class specific operations  on a
+widget. All widgetclass specific procedures in Xpw are accessed  through
+a method-calling  process  using  the C  procedure  XpwCallMethod.  This
+procedure takes a widget, a method  ID (integer), and a variable  number
+of arguments according to the method. For all methods, there is a Pop-11
+procedure which checks its arguments and then uses XpwCallMethod to call
+the C  method.  The  method  name is  directly  related  to  the  Pop-11
+procedure name, so the Pop-11 procedure XpwSetColor calls  XpwCallMethod
+using the method ID XpwMSetColor:
+
+       define XpwSetColor(widget, string) -> color;
+
+         XpwCallMethod(widget, XpwMSetColor, string, 3, true) -> color;
+         /* C procedure, taking 3 arguments and returning a result */
+
+       enddefine;
+
+If the widget is a subclass  of the XpwCore widget class,  XpwCallMethod
+looks for the specified method ID in  a table held in the widgets  class
+structure, and in the class structure of its superclasses.
+
+If the method ID is found in the table, the associated method  procedure
+is extracted and called.
+
+The XpwCallMethod procedure is externally loaded into Pop-11. Because it
+takes a variable number of arguments,  which can be of different  types,
+LIB * EXTERNAL is  NOT used.  This means  that to  use XpwCallMethod  in
+Pop-11 you must specify two  extra arguments, telling XpwCallMethod  how
+many arguments you  are passing to  C and whether  the method  returns a
+value or not. For example, the call:
+
+        XpwCallMethod(w, XpwMDrawPoint, 10,10,      4, false)
+
+Calls the  C XpwCallMethod  procedure  with 4  arguments, and  does  not
+return a value.
+
+In C, this  process is much  simpler. To call  the XpwMSetColor  method,
+simply do:
+
+        #include <X11/Xpw/XpwCore.h>
+        /* using the XpwCore widget class */
+
+        widget = XtCreateWidget('name', XpwCore, toplevel, ...);
+        /* construct a widget */
+
+        XpwCallMethod(widget, XpwMSetColor, "blue");
+        /* call the method */
+
+
+
+
+------------------
+2  XpwCore Methods
+------------------
+
+See REF * XpwCore  for  details on  the  XpwCore widget,  and  also  for
+descriptions of the following methods:
+
+
+XpwMSetColor                                                 [XpwMethod]
+        See REF * XpwCore/XpwSetColor for a  description of this  method
+        and the Pop-11 convenience procedure  that is used to call  this
+        method.
+
+            #include <X11/Xpw/XpwCore.h>
+            XpwCallMethod(widget, XpwMSetColor, name);
+            Widget widget;
+            String name;
+
+
+XpwMFreeColor                                                [XpwMethod]
+        See REF * XpwCore/XpwFreeColor for a description of this  method
+        and the Pop-11 convenience procedure  that is used to call  this
+        method.
+
+            #include <X11/Xpw/XpwCore.h>
+            XpwCallMethod(widget, XpwMFreeColor, name);
+            Widget widget;
+            String name;
+
+
+XpwMSetFont                                                  [XpwMethod]
+        See REF * XpwCore/XpwSetFont for  a description  of this  method
+        and the Pop-11 convenience procedure  that is used to call  this
+        method.
+
+            #include <X11/Xpw/XpwCore.h>
+            XpwCallMethod(widget, XpwMSetFont, fontname);
+            Widget widget;
+            String fontname;
+
+
+XpwMFreeFont                                                 [XpwMethod]
+        See REF * XpwCore/XpwFreeFont for a  description of this  method
+        and the Pop-11 convenience procedure  that is used to call  this
+        method.
+
+            #include <X11/Xpw/XpwCore.h>
+            XpwCallMethod(widget, XpwMFreeFont, fontname);
+            Widget widget;
+            String fontname;
+
+
+XpwMSetCursor                                                [XpwMethod]
+        See REF * XpwCore/XpwSetCursor for a description of this  method
+        and the Pop-11 convenience procedure  that is used to call  this
+        method.
+
+            #include <X11/Xpw/XpwCore.h>
+            XpwCallMethod(widget, XpwMSetCursor, shape);
+            Widget widget;
+            Cardinal shape;
+
+
+XpwMFreeCursor                                               [XpwMethod]
+        See REF * XpwCore/XpwFreeCursor for a description of this method
+        and the Pop-11 convenience procedure  that is used to call  this
+        method.
+
+            #include <X11/Xpw/XpwCore.h>
+            XpwCallMethod(widget, XpwMFreeCursor, shape);
+            Widget widget;
+            Cardinal shape;
+
+
+XpwMSetTile                                                  [XpwMethod]
+        See REF * XpwCore/XpwSetTile for  a description  of this  method
+        and the Pop-11 convenience procedure  that is used to call  this
+        method.
+
+            #include <X11/Xpw/XpwCore.h>
+            XpwCallMethod(widget, XpwMSetTile, name);
+            Widget widget;
+            String name;
+
+
+
+
+--------------------
+3  XpwPixmap Methods
+--------------------
+
+See REF * XpwPixmap for details  on the XpwPixmap  widget, and also  for
+descriptions of the following methods:
+
+
+XpwMDrawArc                                                  [XpwMethod]
+        See REF * XpwPixmap/XpwDrawArc for a description of this  method
+        and the Pop-11 convenience procedure  that is used to call  this
+        method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMDrawArc, x1, y1, dx, dy, a1, a2);
+            Widget widget;
+            Int x1  y1 dx dy a1 a2;
+
+
+XpwMDrawArcs                                                 [XpwMethod]
+        See REF * XpwPixmap/XpwDrawArcs for a description of this method
+        and the Pop-11 convenience procedure  that is used to call  this
+        method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMDrawArcs, newarcs, narcs);
+            Widget widget;
+            Vec newarcs;
+            Int narcs;
+
+
+XpwMDrawLine                                                 [XpwMethod]
+        See REF * XpwPixmap/XpwDrawLine for a description of this method
+        and the Pop-11 convenience procedure  that is used to call  this
+        method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMDrawLine, x1, y1, x2, y2);
+            Widget widget;
+            Int x1, y1, x2, y2;
+
+
+XpwMDrawLines                                                [XpwMethod]
+        See  REF * XpwPixmap/XpwDrawLines  for  a  description  of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMDrawLines, newpoints, npoints,
+                        mode);
+            Widget widget;
+            Vec newpoints;
+            Int npoints, mode;
+
+
+XpwMDrawPoint                                                [XpwMethod]
+        See  REF * XpwPixmap/XpwDrawPoint  for  a  description  of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMDrawPoint, x, y);
+            Widget widget;
+            Int x, y;
+
+
+XpwMDrawPoints                                               [XpwMethod]
+        See REF * XpwPixmap/XpwDrawPoints  for  a  description  of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMDrawPoints, points, npoints,mode);
+            Widget widget;
+            Vec points
+            Int npoints, mode;
+
+
+XpwMDrawRectangle                                            [XpwMethod]
+        See REF * XpwPixmap/XpwDrawRectangle for  a description of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMDrawRectangle, x1, y1, w, h);
+            Widget widget;
+            Int x1, y1, w, h;
+
+
+XpwMDrawRectangles                                           [XpwMethod]
+        See REF * XpwPixmap/XpwDrawRectangles for a description of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMDrawRectangles, rects, nrects);
+            Widget widget;
+            Vec rects;
+            Int nrects;
+
+
+XpwMDrawSegments                                             [XpwMethod]
+        See REF * XpwPixmap/XpwDrawSegments  for a  description of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMDrawSegments, segments,nsegments);
+            Widget widget;
+            Vec segments;
+            Int nsegments;
+
+
+XpwMFillArc                                                  [XpwMethod]
+        See REF * XpwPixmap/XpwFillArc for a description of this  method
+        and the Pop-11 convenience procedure  that is used to call  this
+        method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMFillArc, x1, y1, w, h, a1, a2);
+            Widget widget;
+            Int x1, y1, w, h, a1, a2;
+
+
+XpwMFillArcs                                                 [XpwMethod]
+        See REF * XpwPixmap/XpwFillArcs for a description of this method
+        and the Pop-11 convenience procedure  that is used to call  this
+        method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, arcs, narcs);
+            Widget widget;
+            Vec arcs;
+            Int narcs;
+
+
+XpwMFillPolygon                                              [XpwMethod]
+        See REF * XpwPixmap/XpwFillPolygon  for  a description  of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMFillPolygon, points, npoints);
+            Widget widget;
+            Vec points;
+            Int npoints;
+
+
+XpwMFillRectangle                                            [XpwMethod]
+        See REF * XpwPixmap/XpwFillRectangle for  a description of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMFillRectangle, x1, y1, w, h);
+            Widget widget;
+            Int x1, y1, w, h;
+
+
+XpwMFillRectangles                                           [XpwMethod]
+        See REF * XpwPixmap/XpwFillRectangles for a description of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMFillRectangles, rects, nrects;
+            Widget widget;
+            Vec rects;
+            Int nrects;
+
+
+XpwMDrawString                                               [XpwMethod]
+        See REF * XpwPixmap/XpwDrawString  for  a  description  of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMDrawString, x, y, string);
+            Widget widget;
+            Int x, y;
+            String string;
+
+
+XpwMDrawImageString                                          [XpwMethod]
+        See REF * XpwPixmap/XpwDrawImageString for a description of this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMDrawImageString, x, y, string);
+            Widget widget;
+            Int x, y;
+            String string;
+
+
+XpwMPutImage                                                 [XpwMethod]
+        See REF * XpwPixmap/XpwPutImage for a description of this method
+        and the Pop-11 convenience procedure  that is used to call  this
+        method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMPutImage, x, y, ex, ey, dx, dy);
+            Widget widget;
+            Int x, y, ex, ey, dx, dy;
+
+
+XpwMGetImage                                                 [XpwMethod]
+        See REF * XpwPixmap/XpwGetImage for a description of this method
+        and the Pop-11 convenience procedure  that is used to call  this
+        method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMGetImage, x, y, dx, dy, msk,
+                  format);
+            Widget widget;
+            Int x, y, dx, dy, msk, format;
+
+
+XpwMDrawImage                                                [XpwMethod]
+        See  REF * XpwPixmap/XpwDrawImage  for  a  description  of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMDrawImage, dx, dy, x, y, image);
+            Widget widget;
+            Int dx, dy, x, y;
+            Vec image;
+
+
+XpwMClearArea                                                [XpwMethod]
+        See  REF * XpwPixmap/XpwClearArea  for  a  description  of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMClearArea, x, y, dx, dy);
+            Widget widget;
+            Int x, y, dx, dy;
+
+
+XpwMClearWindow                                              [XpwMethod]
+        See REF * XpwPixmap/XpwClearWindow  for  a description  of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMClearWindow);
+            Widget widget;
+
+
+XpwMCopyFrom                                                 [XpwMethod]
+        See REF * XpwPixmap/XpwCopyFrom for a description of this method
+        and the Pop-11 convenience procedure  that is used to call  this
+        method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMCopyFrom, src, x, y, dx, dy,
+                  ex, ey);
+            Widget widget, src;
+            Int x, y, dx, dy, ex, ey;
+
+
+XpwMCopyTo                                                   [XpwMethod]
+        See REF * XpwPixmap/XpwCopyTo for a  description of this  method
+        and the Pop-11 convenience procedure  that is used to call  this
+        method.
+
+            #include <X11/Xpw/XpwPixmap.h>
+            XpwCallMethod(widget, XpwMCopyTo, dst, x, y, dx, dy,
+                 ex, ey);
+            Widget widget, dst;
+            Int x, y, dx, dy, ex, ey;
+
+
+
+
+---------------------
+4  XpwGraphic Methods
+---------------------
+
+See REF * XpwGraphic for details on the XpwGraphic widget, and also  for
+descriptions of the following methods:
+
+
+XpwMCreateColormap                                           [XpwMethod]
+        See REF * XpwGraphic/XpwCreateColormap for a description of this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwGraphic.h>
+            XpwCallMethod(widget, XpwMCreateColormap);
+            Widget widget;
+
+
+XpwMFreeColormap                                             [XpwMethod]
+        See REF * XpwGraphic/XpwFreeColormap for  a description of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwGraphic.h>
+            XpwCallMethod(widget, XpwMFreeColormap);
+            Widget widget;
+
+
+XpwMAllocColorRange                                          [XpwMethod]
+        See REF * XpwGraphic/XpwAllocColorRange  for  a  description  of
+        this method and the Pop-11 convenience procedure that is used to
+        call this method.
+
+            #include <X11/Xpw/XpwGraphic.h>
+            XpwCallMethod(widget, XpwMAllocColorRange, r1,g1,b1,
+                    r2,g2,b2);
+            Widget widget;
+            Int r1, g1, b1, r2, g2, b2;
+
+
+XpwMFreeColorRange                                           [XpwMethod]
+        See REF * XpwGraphic/XpwFreeColorRange for a description of this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwGraphic.h>
+            XpwCallMethod(widget, XpwMFreeColorRange, range);
+            Widget widget;
+            Int range;
+
+
+XpwMAllocStoreColor                                          [XpwMethod]
+        See REF * XpwGraphic/XpwAllocStoreColor  for  a  description  of
+        this method and the Pop-11 convenience procedure that is used to
+        call this method.
+
+            #include <X11/Xpw/XpwGraphic.h>
+            XpwCallMethod(widget, XpwMAllocStoreColor, r, g, b);
+            Widget widget;
+            Int r, g, b;
+
+
+XpwMSetPixelColor                                            [XpwMethod]
+        See REF * XpwGraphic/XpwSetPixelColor for a description of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwGraphic.h>
+            XpwCallMethod(widget, XpwMSetPixelColor, p, r, g, b);
+            Widget widget;
+            Int p, r, g, b;
+
+
+
+
+------------------------
+5  XpwScrollText Methods
+------------------------
+
+See REF * XpwScrollText  for details  on the  XpwScrollText widget,  and
+also for descriptions of the following methods:
+
+
+XpwMScroll                                                   [XpwMethod]
+        See REF * XpwScrollText/XpwScroll  for  a  description  of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget, XpwMScroll, col, row, cols, rows,
+                        x_dist, y_dist);
+            Widget widget;
+            Int col, row, cols, rows, x_dist, y_dist;
+
+
+XpwMScrollScreenUp                                           [XpwMethod]
+XpwMScrollScreenDown                                         [XpwMethod]
+XpwMScrollScreenLeft                                         [XpwMethod]
+XpwMScrollScreenRight                                        [XpwMethod]
+        See
+
+            # REF * XpwScrollText/XpwScrollScreenUp
+            # REF * XpwScrollText/XpwScrollScreenDown
+            # REF * XpwScrollText/XpwScrollScreenLeft
+            # REF * XpwScrollText/XpwScrollScreenRight
+
+        for a  description of  this method  and the  Pop-11  convenience
+        procedure that is used to call this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMScrollScreenUp);
+            XpwCallMethod(widget,XpwMScrollScreenDown);
+            XpwCallMethod(widget,XpwMScrollScreenLeft);
+            XpwCallMethod(widget,XpwMScrollScreenRight);
+            Widget widget;
+
+
+XpwMScrollLines                                              [XpwMethod]
+        See REF * XpwScrollText/XpwScrollLines for a description of this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMScrollLines, row, rows, dist);
+            Widget widget;
+            Int row, rows, dist;
+
+
+XpwMScrollTail                                               [XpwMethod]
+XpwMScrollTails                                              [XpwMethod]
+        See       REF * XpwScrollText/XpwScrollTail       and       also
+        * XpwScrollText/XpwScrollTails for a description of this  method
+        and the Pop-11 convenience procedure  that is used to call  this
+        method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMScrollTail, col, row, dist);
+            XpwCallMethod(widget,XpwMScrollTails, col, row, rows, dist);
+            Widget widget;
+            Int col, row, rows, dist;
+
+
+XpwMScrollTailLeft                                           [XpwMethod]
+XpwMScrollTailRight                                          [XpwMethod]
+        See     REF * XpwScrollText/XpwScrollTailLeft      and      also
+        * XpwScrollText/XpwScrollTailRight for  a  description  of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMScrollTailLeft, col, row);
+            XpwCallMethod(widget,XpwMScrollTailRight, col, row);
+            Widget widget;
+            Int col, row;
+
+
+XpwMInsertLineAtCursor                                       [XpwMethod]
+        See REF * XpwScrollText/XpwInsertLineAtCursor for a  description
+        of this method and the Pop-11 convenience procedure that is used
+        to call this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMInsertLineAtCursor);
+            Widget widget;
+
+
+XpwMInsertCharAtCursor                                       [XpwMethod]
+        See REF * XpwScrollText/XpwInsertCharAtCursor for a  description
+        of this method and the Pop-11 convenience procedure that is used
+        to call this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMInsertCharAtCursor);
+            Widget widget;
+
+
+XpwMDeleteLineAtCursor                                       [XpwMethod]
+        See REF * XpwScrollText/XpwDeleteLineAtCursor for a  description
+        of this method and the Pop-11 convenience procedure that is used
+        to call this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMDeleteLineAtCursor);
+            Widget widget;
+
+
+XpwMDeleteCharAtCursor                                       [XpwMethod]
+        See REF * XpwScrollText/XpwDeleteCharAtCursor for a  description
+        of this method and the Pop-11 convenience procedure that is used
+        to call this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMDeleteCharAtCursor);
+            Widget widget;
+
+
+XpwMClear                                                    [XpwMethod]
+        See  REF * XpwScrollText/XpwClear  for  a  description  of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMClear, col, row, cols, rows);
+            Widget widget;
+            Int col, row, cols, rows;
+
+
+XpwMClearScreen                                              [XpwMethod]
+        See REF * XpwScrollText/XpwClearScreen for a description of this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMClearScreen);
+            Widget widget;
+
+
+XpwMClearLine                                                [XpwMethod]
+        See REF * XpwScrollText/XpwClearLine for  a description of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMClearLine, row);
+            Widget widget;
+            Int row;
+
+
+XpwMClearLines                                               [XpwMethod]
+        See REF * XpwScrollText/XpwClearLines for a description of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMClearLines, row, rows);
+            Widget widget;
+            Int row, rows;
+
+
+XpwMClearTail                                                [XpwMethod]
+        See REF * XpwScrollText/XpwClearTail for  a description of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMClearTail, col, row);
+            Widget widget;
+            Int col, row;
+
+
+XpwMClearTails                                               [XpwMethod]
+        See REF * XpwScrollText/XpwClearTails for a description of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMClearTails, col, row, rows);
+            Widget widget;
+            Int col, row, rows;
+
+
+XpwMClearChar                                                [XpwMethod]
+        See REF * XpwScrollText/XpwClearChar for  a description of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMClearChar, col, row);
+            Widget widget;
+            Int col,row;
+
+
+XpwMClearLineAtCursor                                        [XpwMethod]
+        See REF * XpwScrollText/XpwClearLineAtCursor  for a  description
+        of this method and the Pop-11 convenience procedure that is used
+        to call this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMClearLineAtCursor);
+            Widget widget;
+
+
+XpwMClearTailAtCursor                                        [XpwMethod]
+        See REF * XpwScrollText/XpwClearTailAtCursor  for a  description
+        of this method and the Pop-11 convenience procedure that is used
+        to call this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMClearTailAtCursor);
+            Widget widget;
+
+
+XpwMClearCharAtCursor                                        [XpwMethod]
+        See REF * XpwScrollText/XpwClearCharAtCursor  for a  description
+        of this method and the Pop-11 convenience procedure that is used
+        to call this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMClearCharAtCursor);
+            Widget widget;
+
+
+XpwMWrite                                                    [XpwMethod]
+        See  REF * XpwScrollText/XpwWrite  for  a  description  of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMWrite, col, row, index, lines,
+                          strs, off, len, clr);
+            Widget widget;
+            String strs[];
+            Boolean clr;
+            Int col, row, index, lines, off, len;
+
+
+XpwMWriteLine                                                [XpwMethod]
+        See REF * XpwScrollText/XpwWriteLine for  a description of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMWriteLine, col, row, str, len, clr);
+            Widget widget;
+            String str;
+            Boolean clr;
+            Int col, row, len;
+
+
+XpwMWriteLines                                               [XpwMethod]
+        See REF * XpwScrollText/XpwWriteLines for a description of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMWriteLines, col, row, index, lines,
+                         strs, len, clr);
+            Widget widget;
+            String strs[];
+            Boolean clr;
+            Int col, row, len, index, lines;
+
+
+XpwMWriteSubstr                                              [XpwMethod]
+        See REF * XpwScrollText/XpwWriteSubstr for a description of this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget, XpwMWriteSubstr, col, row, str, off,
+                      len, clr);
+            Widget widget;
+            String str;
+            Boolean clr;
+            Int col, row, len, off;
+
+
+XpwMWriteAtCursor                                            [XpwMethod]
+        See REF * XpwScrollText/XpwWriteAtCursor  for a  description  of
+        this method and the Pop-11 convenience procedure that is used to
+        call this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMWriteAtCursor, str, len);
+            Widget widget;
+            String str;
+            Int len;
+
+
+XpwMInsert                                                   [XpwMethod]
+        See REF * XpwScrollText/XpwInsert  for  a  description  of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMInsert, col, row, str, len);
+            Widget widget;
+            String str;
+            Int col, row, len;
+
+
+XpwMInsertAtCursor                                           [XpwMethod]
+        See REF * XpwScrollText/XpwInsertAtCursor for  a description  of
+        this method and the Pop-11 convenience procedure that is used to
+        call this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMInsertAtCursor, str, len);
+            Widget widget;
+            String str;
+            Int len;
+
+
+XpwMCursorTo                                                 [XpwMethod]
+        See REF * XpwScrollText/XpwCursorTo  for a  description of  this
+        method and the Pop-11 convenience procedure that is used to call
+        this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMCursorTo, col,row);
+            Widget widget;
+            Int col, row;
+
+
+XpwMCursorUp                                                 [XpwMethod]
+XpwMCursorDown                                               [XpwMethod]
+XpwMCursorLeft                                               [XpwMethod]
+XpwMCursorRight                                              [XpwMethod]
+        See
+
+            # REF * XpwScrollText/XpwCursorUp
+            # REF * XpwScrollText/XpwCursorDown
+            # REF * XpwScrollText/XpwCursorLeft
+            # REF * XpwScrollText/XpwCursorRight
+
+        for a  description of  this method  and the  Pop-11  convenience
+        procedure that is used to call this method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMCursorUp);
+            XpwCallMethod(widget,XpwMCursorDown);
+            XpwCallMethod(widget,XpwMCursorLeft);
+            XpwCallMethod(widget,XpwMCursorRight);
+            Widget widget;
+
+
+XpwMBell                                                     [XpwMethod]
+        See REF * XpwScrollText/XpwBell for a description of this method
+        and the Pop-11 convenience procedure  that is used to call  this
+        method.
+
+            #include <X11/Xpw/XpwScrollText.h>
+            XpwCallMethod(widget,XpwMBell, volume);
+            Widget widget;
+            Int volume;
+
+
+
+
+--- C.x/x/pop/ref/XpwCallMethod
+--- Copyright University of Sussex 1990. All rights reserved.

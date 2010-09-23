@@ -1,0 +1,120 @@
+CHANGES recommended by Brent Fulgham 14/03/05
+Slightly modified versions of
+    pop-mode.el
+    pop-help-mode.el
+        Both have (require 'cl) added
+
+CHANGES in version 2.3, released 01/09/99
+
+1. Revised the documentation (see the file emacs in this directory).
+
+2. Added the process communication commands (pop-send-define,
+   pop-send-region, pop-send-buffer and pop-load-file) to the pop-help-mode
+   keymap.  This is useful when reading TEACH files, which need to be
+   compiled.
+
+3. Added two new functions, pop-delchar-or-maybe-eof and pop-send-eof.  The
+   comint-mode for XEmacs 19.15 is broken: killing the process leaves an
+   extent after the process mark with closed ends.  As a result any final
+   output from the process or from a subsequent process run in the same
+   buffer appears in comint-input-face.  This doesn't catch all the ways the
+   process can be killed without cleaning up the extent in the inferior pop
+   buffer, but it fixes the most common problem.
+
+4. Revised font-lock regular expressions to handle class, method and rule
+   declarations.
+
+5. Added two new functions, pop-insert-file-header and
+   pop-add-revision-log-entry, for adding file headers and maintaining
+   revision logs in the `standard' Sussex/Birmingham format.
+
+6. Fixed the C-h pop-help-mode bindings for XEmacs (thanks to Lieven
+   Marchand <mal@bewoner.dma.be>).
+
+
+CHANGES in version 2.2, released 20/12/96
+
+1. Fixed a bug in pop-end-of-sexp that caused it to go into an infinite loop
+   when trying to find the end of an unclosed syntactic structure at the end
+   of a buffer.  The bug was probably introduced when I optimised rjc's
+   version.
+
+2. Added a new variable to inferior-pop-mode to control initialisation of
+   the inferior Poplog process.  If the variable inferior-pop-initialisation
+   is nil, Emacs will assume that Poplog will do the necessary
+   initialisation itself, e.g. in the user's init.p file.  The default value
+   is t.  If you do set this to nil in your .emacs file, you *must* include
+   the code in the file example-init.p for the Emacs/Poplog communication to
+   work properly.
+
+3. Fixed a bug that resulted in compilation output appearing at the wrong
+   place in the inferior pop buffer (output appeared at point rather than at
+   the process mark).
+
+4. Revised pop-help-mode to cope with most of the new formatting and graphics
+   characters which appear in the Poplog v15.5 help files.
+
+5. Other minor fixes and revisions to pop-help-mode (thanks to Stephen Eglen
+   <stephene@cogs.susx.ac.uk> for code and suggestions).
+
+
+CHANGES in version 2.1, released 30/10/96
+
+1. pop-mode now uses an up to date version of comint mode and as a result no
+   longer breaks shell mode and other modes that depend on comint mode.
+
+2. Much of the code that handles the inferior pop process has been rewritten
+   in an attempt to eliminate problems caused by sending requests to pop
+   when it is not a top level.  As a result, when compiling pop code, Emacs
+   will lock up until pop is back at top level or generates some output.
+   This can occasionally be a problem on a slow machine when compiling very
+   large files from an Emacs buffer or compiling files that load a large
+   number of libraries (compiling files by issuing commands to pop in the
+   inferior pop buffer, e.g. typing "lib popvision;" at the prompt in the
+   inferior pop buffer is not a problem).  To avoid this, set the variable
+   inferior-pop-timeout to nil.  Note however that this disables all of
+   pop-mode's pre-compilation checks and can result in text being dumped
+   onto the stack if you try and compile something (or ask for help or
+   completions) while your pop program is executing.
+
+3. inferior-pop-mode now handles multiple windows onto the inferior pop
+   buffer correctly: point no longer jumps to the end of the buffer when
+   compiling pop code from emacs.
+
+4. If the variable pop-compilation-messages is nil, inferior-pop-mode no
+   longer writes the `;;; Compiling procedure from foo.p' comments in the
+   inferior pop buffer (it writes a message in the minibuffer instead).
+
+5. pop-mode and inferior pop mode buffers now add menus to the menubar (this
+   is only available if you are running under X).
+
+6. pop-mode now defines default regexps for font-lock.
+
+7. pop-help-mode has been largely rewritten and the interaction model has
+   changed.  By default pop-help-mode creates one buffer for each type of
+   help file HELP, TEACH etc.  Making pop-help-always-create-buffer non nil
+   creates a new buffer for each file and it is up to the user to manage the
+   resulting buffers.
+
+8. pop-help-mode now searches the REF indices if it can't find a help file
+   for a keyword.
+
+9. pop-help-mode now copes with `modern' Poplog help files: it (should)
+   understand the new numeric syntax for file indices as well as the old `--'
+   form.  It also removes the control characters that Ved uses for
+   formatting before displaying the help buffer.
+
+10.Like Ved, pop-help-mode now uses the Poplog searchlists to decide
+   which directories to search for help files.  This is generally a Good
+   Thing but a) it can be slow and b) it won't find help files which are not
+   in the default searchlists and where the corresponding library hasn't been
+   loaded.  If you don't like this behaviour, you can set
+   pop-help-always-use-defaults to t and redefine the default searchlists in
+   your .emacs to include the help directories for the libraries you use.
+
+11.For XEmacs users the variable pop-use-pl1-comments is gone, since XEmacs
+   can understand both comment styles.
+
+--
+     Brian Logan,  School of Computer Science, University of Birmingham
+Email: b.s.logan@cs.bham.ac.uk, Phone: +44 121 414 3712, Fax: +44 121 414 4281

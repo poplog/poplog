@@ -1,0 +1,93 @@
+TEACH MAKE_XWD                                  Aaron Sloman March 1999
+
+How to make your sim_agent program dump a succession of images
+using the unix xwd command. See MAN XWD
+
+The following items of information were extracted from TEACH SIM_DEMO
+
+As a step towards making a movie of your your sim_agent program running
+you can modify the program so as frequently to take a snapshot of the
+state of the window in which you are displaying the simulated world.
+This is done by using xwd to create a sequence of image files, which
+might be called something like pic1.xwd, pic2.xwd, pic3.xwd, ....
+
+WARNING: this can use up many megabytes of file space, especially if
+your window is a large one.
+
+After that other tools may be used to combine these image files into
+a movie file, e.g. mpeg_encode (if that is available). Alternatively you
+may be able to view the xwd files directly by giving the file names
+to the "xv" program. See MAN XV
+
+For examples of movies created in this way see:
+
+    http://www.cs.bham.ac.uk/~axs/cog_affect/sim_demo
+
+You can also access those demos from the overview web page
+        http://www.cs.bham.ac.uk/~axs/cog_affect/sim_agent.html
+
+
+HOW TO DUMP THE IMAGE FILES
+
+1. Create some global variables to control how images are dumped
+
+global vars
+    ;;; This variable should hold the name of window to be dumped
+    ;;; in a pop-11 string. It will be given as argument to xwd
+    graphic_window = 'MYWINDOW',
+
+    ;;; A variable which is false or integer, to control frequency
+    ;;; of dumping. If the value is N, the dumping should happen
+    ;;; every N cycles of the scheduler. If it is false, don't do any
+    ;;; image dumping
+    image_dump_frequency = 5,
+    ;;; or
+    image_dump_frequency = false,
+
+    ;;; names of image files will be created from this word via
+    ;;; gensym and the suffix '.xwd', e.g. mysim1.xwd, mysim2.xwd...
+    imagefile = "mysim";
+
+
+2. Create a version of one of the trace procedures or methods in
+SIM_AGENT which will be invoked at regular intervals. Make it decide,
+under the control of the variable image_dump_frequency whether or not
+to create a dump of the current window.
+
+A suitable procedure  to use for this purpose would be
+     sim_scheduler_pausing_trace(objects, cycle);
+
+which is called at the end of every time slice, with the list of objects
+and the cycle number. See
+    HELP SIM_AGENT/sim_scheduler_pausing_trace
+    HELP SIM_HARNESS/sim_scheduler_pausing_trace
+    LIB SIM_HARNESS/sim_scheduler_pausing_trace
+
+define vars procedure sim_scheduler_pausing_trace(objects, cycle);
+    ;;; user definable
+
+    ;;; code for dumping a snapshot every N cycles
+    if isinteger(image_dump_frequency)
+    and cycle mod image_dump_frequency == 0 then
+        sysobey('xwd -name ' >< graphic_window >< ' > '
+            ><
+                gensym(imagefile)><'.xwd');
+    endif;
+
+    Now add other trace commands, e.g. copied from
+    LIB SIM_HARNESS
+
+enddefine;
+
+
+See HELP SIM_HARNESS for more information on tracing methods.
+
+3. Run the demo and let it create image files using xwd. This will
+use up huge amounts of disk space, so beware.
+
+4. At the end combine the image files into a movie, or simply use
+them as they are.
+
+
+--- $poplocal/local/sim/teach/make_xwd
+--- Copyright University of Birmingham 1999. All rights reserved. ------

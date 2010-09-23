@@ -1,0 +1,887 @@
+TEACH RIVER                         Max Clowes Revised A.Sloman Oct 1988
+                                               Revised A.Sloman Feb 1995
+
+
+CONTENTS
+
+ -- Introduction
+ -- The puzzle: "HOW TO CROSS A RIVER"
+ -- First exercise: describe the solution in English
+ -- Second exercise: Playing with LIB RIVER
+ -- The procedures provided by LIB RIVER
+ -- Producing 'mishaps'
+ -- How things are represented in the database
+ -- Changing the display format
+ -- Trying other illegal moves: more "mishap messages"
+ -- Third exercise: solving the problem
+ -- Defining a procedure that solves the puzzle
+ -- Testing your procedure
+ -- Defining new sub-procedures
+ -- Testing cross
+ -- Fourth exercise: shorten the solve procedure
+ -- Moving up to a higher level of structure
+ -- Using TRACE to expose what's happening [optional]
+ -- Turning off "river" displays [optional]
+ -- Turning off trace printout [optional]
+ -- Exercise five: the final solution
+ -- If you log out and log in again
+ -- Changing a previously defined procedure
+ -- Work to do now
+ -- Further reading
+
+-- Introduction -------------------------------------------------------
+
+The object of this exercise is to introduce the idea of building new
+procedures out of old ones. The Pop-11 library package, LIB RIVER, will
+provide you with a collection of procedures that you can use to solve a
+puzzle. You can then use them as building blocks to create new
+procedures of your own. You will also learn how to replace a collection
+of slightly different procedures by a single one that accepts different
+inputs. To do this you will need to learn to use a "variable".
+
+The procedures you construct from those provided can also subsequently
+be used as building blocks for still more powerful procedures.
+
+You will learn how breaking a program into sub-procedures that can be
+re-used will simplify and clarify the program, making it much easier to
+understand, test, and modify. The end result is a far more elegant
+solution to the puzzle than one that simply uses the basic building
+blocks provided.
+
+This teach file takes you through a series of exercises, which will help
+you understand some very basic programming concepts, and also enable you
+to have fun.
+
+It is assumed below that you are familiar with the use of VED to create
+files, and have learnt how to move between VED and Pop-11 as explained in
+TEACH VEDPOP. You will also need to know how to "mark" a range in the
+editor, as explained in TEACH MARK and TEACH LMR.
+
+The library package you'll be using is built up from the Pop-11
+"database" package. For now you should not try to understand how
+that works. You will be introduced to it later on, in TEACH DATABASE
+and TEACH MATCHES.
+
+
+-- The puzzle: "HOW TO CROSS A RIVER" ---------------------------------
+
+A man is on the left bank of a river, with a fox, a chicken and a bag of
+grain, which he wishes to get to the right bank.
+
+There is a boat with which you may move the man plus at most ONE of
+these items at a time to the opposite bank. So you may put the fox and
+the man into the boat and cross, but you cannot put in the fox and the
+chicken. The following diagram represents the initial situation.
+
+
+    [chicken fox grain man ---\ \_ _/ _________________ /--------]
+            Left bank            boat                   Right bank
+
+You must find a sequence of actions which will eventually move all three
+items from the left to the right bank, to achieve the following state of
+affairs:
+    [-------\ _________________ \_ _/ /--- chicken fox grain man]
+
+The catch is that you have to be careful about what is left with what
+when you get into the boat. So you must not leave the fox alone with the
+chicken or the chicken with the grain. There are obvious gastronomic
+reasons for this stipulation. Note that the fox is not particularly
+partial to grain, and may be left alone with it.
+
+So if you put the fox into the boat and row off, the chicken will
+eat the grain. In fact, when you run the programs, if you make this
+kind of mistake the computer will print out:
+
+    ;;; MISHAP - DISASTER
+    ;;; INVOLVING:  chicken has eaten grain TOO BAD
+
+showing that something has gone wrong.
+
+-- First exercise: describe the solution in English -------------------
+
+Take a few minutes to think about the puzzle, and try to find a
+solution. You may find it helpful to make a 'mock up' of the riverworld
+with such objects e.g. coins, pencils, etc. as are to hand.
+
+When you think you know how to get everything across, write down your
+plan in English. It may be useful to type it into a file on the
+computer, to get practice using the editor VED. Later you will be asked
+to compare your English solution with your Pop-11 solution.
+
+
+-- Second exercise: Playing with LIB RIVER ----------------------------
+
+The next thing to do is learn to use the LIB RIVER system, by playing
+with it. You can then make it solve the river puzzle by writing a
+Pop-11 program, which you will store in a file.
+
+Playing comes first.
+
+LIB RIVER is a Pop-11 library program which enables you to simulate the
+world of the puzzle, though instead of using physical tokens like coins
+or pencils it uses structures inside the computer, namely lists of words
+describing the world. This is called a database.
+
+To play with programs which simulate the world, you first have to get
+them from the Pop-11 library of programs. To do this give the command:
+
+   lib river
+
+which will "load" the library program, making available commands to
+simulate actions in the river world. You can give that command by
+marking it in this file, and then giving the "load marked range"
+command as described in TEACH LMR. However, it is a good idea
+first to copy or re-type  the command in a file of your own called
+'output', along with other commands, to be described later.
+
+Having put the command in your file, mark it and load it. That will
+compile the LIB RIVER package. This library program provides a number of
+procedures which the computer can be asked to run. When you compile it
+(i.e. load it by means of the "lib river" command) it will print out:
+
+    ** Here is the state of the river-world:
+    ** [chicken fox grain man ---\ \_ _/ _________________ /---]
+    Please type
+        intro();
+
+You can then put the
+    intro();
+
+command into your output file, and mark and load that. It will remind
+you of the rules of the puzzle and tell you about commands that are
+available.
+
+The first command you give should be
+
+   start();
+
+This tells the computer to set up an internal representation of the
+river scene using what is called the "database", of which you'll learn
+more later.
+
+If you type
+
+    database==>
+
+It will print out the following "description" of the initial state:
+
+    ** [[boat isat left]
+        [chicken isat left]
+        [fox isat left]
+        [grain isat left]
+        [man isat left]]
+
+NB the words in this description may mean something to you, but they
+don't mean anything to the computer (at present!). It simply manipulates
+them blindly as instructed.
+
+Instead of the verbal description you can get a pictorial display of the
+contents of the database (the state of the world), by giving the
+command:
+
+   view();
+
+Which prints out:
+
+    ** [chicken fox grain man ---\ \_ _/ _________________ /---]
+
+showing the man, chicken, fox and grain on the left bank, the empty boat
+at the left, a stretch of river, then the right bank. The two asterisks
+on the left will always be used to show that something has been printed
+out by the program.
+
+The "database==>" command gives a more accurate representation of how
+the state of the world is represented in the computer, namely as a list
+of sentences, where each sentence is a list of words. However, for now
+you should not try to understand how these lists are manipulated, any
+more than someone learning to drive a car should worry about how
+carburettors work. That can come later.
+
+A few words about Pop-11 syntax:
+The commands "intro();" and "view();" both require the use of 'do-it'
+brackets, "()". These tell the Pop-11 system that the procedure named
+by the preceding word is to be RUN (or "called", or "executed" -
+terminology for this varies). The semi-colon says the command is
+complete.
+
+The "database==>" command has a different form, telling the computer
+that the object called "database" is to be printed out neatly. The word
+"database" is not followed by the "doit" parentheses because it is the
+name of a "passive" object, not a procedure that can be made to do
+something.
+
+For these commands, there is nothing between the doit parentheses "()",
+since the procedures require no "inputs", as later examples will.
+
+These apparently silly bits of syntax (parentheses, semi-colon) may seem
+fiddly now. Later you will see that their use is important in telling a
+powerful language like Pop-11 EXACTLY what you mean.
+
+
+-- The procedures provided by LIB RIVER -------------------------------
+
+If you have not already done so, put the
+    intro();
+command into your file called 'output' (<ENTER> ved output <RETURN>)
+then mark and do it. Then do the
+    start();
+
+command which sets up the Pop-11 database to represent the starting
+state for the problem. It also automatically causes the "view();"
+command to be run, showing the state graphically.
+
+The other commands allow the computer to simulate changes in the world
+of the puzzle. Several other commands are available. The complete set,
+including the three you have already seen is:
+
+  start();
+  database ==>
+  view();
+  getin();
+  getout();
+  putin(grain);
+  putin(chicken);
+  putin(fox);
+  takeout(fox);       <and variants of this, with chicken and grain>
+  crossriver();
+
+Try typing "start()" then various combinations of the other commands to
+see what happens. Each command will cause the new state of the world
+to be displayed.
+
+The commands can be marked then loaded as in TEACH LMR. In VED you can
+re-do commands without re-typing them if you simply mark them and do
+them again. Similarly you can do a sequence of commands by marking them.
+
+Remember that each command (apart from the one using "==>") needs doit
+parentheses and ends with a semi-colon. Some commands have empty "doit"
+brackets, whereas some specify an object, between the brackets, on which
+the command is to act. The latter are said to have parameters, or
+inputs, sometimes also called "arguments" (nothing to do with quarrels).
+
+
+-- Producing 'mishaps' ------------------------------------------------
+
+The world has constraints, or laws. If your actions don't take account
+of them, disaster can follow. Fortunately, it is only an imaginary
+disaster -- don't feel worried! Try an "illegal" sequence of commands:
+
+   start();
+   putin(fox);
+   getin();
+
+    ;;; MISHAP - DISASTER
+    ;;; INVOLVING:  chicken has eaten grain TOO BAD
+    ;;; DOING    :  eat checkeat getin
+
+After such an error message you can survey the damage:
+
+   view();
+** [chicken ---\ \_ man fox _/ _________________ /---]
+
+Try typing in and loading different combinations of commands, varying
+them to get a feel for how the system works.
+
+Be very careful about all the punctuation. Pop-11 is a rather fussy
+language in some ways. The computer will print out appropriate
+responses.
+
+
+-- How things are represented in the database -------------------------
+
+The VIEW(); command gives a graphical representation of the world. But
+inside the computer the world is represented by means of a database
+which is a list of lists. You can, at any time, print out the database
+thus:
+
+   database ==>
+
+and you will then see what the computer thinks the current state of
+the world is. After each action, the database is changed. E.g.
+
+    start();
+    putin(chicken);
+
+    This prints out the state:
+    ** [fox grain man ---\ \_ chicken _/ _________________ /---]
+
+Compare that with the command
+    database ==>
+
+    ** [[chicken isat boat]
+        [boat isat left]
+        [fox isat left]
+        [grain isat left]
+        [man isat left]]
+
+Next try
+
+    getin();
+
+which will then print out:
+    ** [fox grain ---\ \_ man chicken _/ _________________ /---]
+
+You can again print out the database to compare it with the picture.
+
+
+-- Changing the display format ----------------------------------------
+
+If you prefer the commands to print out the database instead of the
+list of the pictorial display you can do (mark and load) the following:
+
+    "database" -> show_style;
+
+To make it use the pictorial method, do
+
+    "view" -> show_style;
+
+
+-- Trying other illegal moves: more "mishap messages" -----------------
+
+The river procedures, like GETIN and PUTIN use the database to check
+whether the move is 'legal', and if not, they print out a mishap
+message.
+
+I.e. they look to see what information about the current state of the
+world is stored in database. They also alter database, if necessary, so
+that the new version represents the state of the world after performing
+the action.
+
+Now try a different sequence of illegal commands, but first use the
+procedure START to set up the initial database.
+
+   start();
+   crossriver();
+
+   ;;; MISHAP - BOAT NOT SELF PROPELLING: MAN NOT IN BOAT
+   ;;; DOING    :  crossriver
+
+You can print out the database to check the error message.
+
+Try some other commands, involving GETIN, PUTIN, and TAKEOUT. After
+each, print out the database, as above. Remember that some of these
+procedures require the name of something as input, e.g. fox, chicken or
+grain.
+
+How would you expect the program to respond if you try
+
+   putin(money);
+
+Try it. Is the response reasonable?
+
+What about trying this when there is no fox in the boat?
+
+   takeout(fox);
+
+What about
+
+    putin(man);
+
+When you make a mistake, a well designed computer system should produce
+a clear "error" message that helps you to understand what has gone
+wrong. Many don't. Better still, it should help you to get things right.
+That requires advances in Artificial Intelligence.
+
+After each "mishap", you can use the "start();" command to re-initialise
+the database, and play around with some more commands. E.g.
+
+   start();
+   putin(grain);
+   getin();
+   takeout(grain);
+
+
+You can also experiment to see what happens if you leave out a
+semi-colon ";" or a left or right parenthesis. Also see what happens
+if you do
+
+    start ==>
+    database();
+
+(The former prints out the value of the variable "start" and the latter
+attempts to run a non-existent procedure.)
+
+
+-- Third exercise: solving the problem --------------------------------
+
+You should now be ready to type in a sequence of commands, beginning
+with "start();" followed by whatever is needed to get everything safely
+to the right bank. Using VED put the commands in a file called 'solve.p'.
+(The '.p' tells the Poplog system that it is a Pop-11 program file).
+
+Having got your complete solution ready, mark all the commands and use
+the <ENTER> lmr command to load the whole range. A record of all the
+actions should then go into the 'output' file.
+
+If you don't get it right first time, don't worry: work on it till
+the problem is solved. If you really get stuck ask for help.
+
+Compare your file with your original English description. Which is
+clearer?
+
+-- Defining a procedure that solves the puzzle ------------------------
+
+You can now combine all your instructions into one big procedure
+called "solve" by putting the following at the beginning
+of the set of commands in your file solve.p
+
+    define solve();
+
+and putting the following at the end
+
+    enddefine;
+
+Do that. Your procedure definition will have the form:
+
+    define solve();
+        start();
+        .......
+        .......
+    enddefine;
+
+Make sure that the word "define" starts in the first column of the file.
+I.e. don't type it with any preceding spaces. That will make it easy for
+VED to find the beginning of the procedure. You can show that VED
+has done this if you put the cursor somewhere in the middle of the
+procedure and do
+
+    <ENTER> mcp
+
+"Mark the Current Procedure". See how it marks the whole procedure
+for you. If you don't have "define" starting on the left, this won't
+work.
+
+You can also make it indent the middle of the procedure, a technique
+that will be very useful for making procedure definitions readable when
+they are more compilcated. Do
+
+    <ENTER> jcp
+
+This means "Justify Current Procedure". ("Justify" is here a technical
+term referring to the format). See how it indents everything between
+the first and last lines of the procedure, and makes the "enddefine;"
+start at the beginning of the line.
+
+Then do
+    <ENTER> lcp
+
+which means "Load Current Procedure". VED will then ask Pop-11 to
+compile or load the procedure. This is much quicker than marking and
+loading it yourself. You don't have to precede this with the "mcp"
+command.
+
+-- Testing your procedure ---------------------------------------------
+
+Now that you have loaded the procedure you can RUN it by putting the
+following command in your 'output' file:
+
+    solve();
+
+Mark and load that command. Any time you want your solution program
+to run, you can repeat that command -- provided that the definition of
+"solve" has previously been loaded in the current LOGIN session. If you
+log in and log out again, you will have to re-load it.
+
+It will also be helpful if your file 'solve.p' includes the command 'lib
+river'. This will mean that if you log out and then log in again that
+command is in the file and if you load the whole file it will make lib
+river available, so that the definition of "solve" works.
+
+Notice that you have been advised to put a definition of a procedure
+into a special file ('solve.p') and to give the commands to test it
+in a different file ('output'). That is generally a good strategy: i.e.
+keep your procedure definitions in a separate file from test commands.
+
+
+-- Defining new sub-procedures ----------------------------------------
+
+The sequence of successful commands in the definition of "solve" is long
+and repetitive. You can abbreviate it by replacing some of the repeated
+sub-sequences by commands to obey your own procedures.
+
+One of the repeated sub-sequences consists of the sequence of actions
+       getin();
+       crossriver();
+       getout();
+
+This sequence can be replaced by a single command
+
+        cross();
+
+PROVIDED that you first define a procedure called "cross". E.g. start a
+new file called 'cross.p' and define the procedure thus:
+
+    define cross();
+       getin();
+       crossriver();
+       getout();
+     enddefine;
+
+Make sure, as before, that "define" starts on the left. You can then
+do "<ENTER> jcp" to format it and "<ENTER> lcp" (or <ESC> c) to load it.
+
+The final line "enddefine" does not have doit parentheses "()" because
+"enddefine" is not the name of a procedure to be run, but a "syntax"
+word that tells Pop-11 where your procedure definition ends.
+
+When you have completed the definition save the file on disk
+
+    <ENTER> w
+i.e. "write" the file to disk. It will write all the files you have
+in the editor which belong to you (not TEACH files like this one.)
+
+
+-- Testing cross ------------------------------------------------------
+
+Check that you understand how CROSS works by using it in your 'output'
+file e.g.
+
+    start();
+    putin(chicken);
+    cross();
+    database ==>
+    cross();
+
+
+-- Fourth exercise: shorten the solve procedure ------------------------
+
+When you are sure you understand how the procedure CROSS works,
+create a new file with a shorter solution. Call the file 'shortsolve.p'
+and in it define a procedure called "shortsolve". Because the file
+uses lib river and uses the procedure defined in the file
+called 'cross.p' your file 'shortsolve.p' should start as follows:
+
+    lib river;          ;;; this loads the river library
+
+    load cross.p        ;;; this loads my cross procedure
+
+    define shortsolve();
+        start();
+
+etc. etc. Don't forget the "enddefine;" at the end. You could start by
+copying in the middle bit of procedure SOLVE, using either the "ti"
+(transcribe in) or the "to" (transcribe out) command described in
+ TEACH MARK. But having copied the whole procedure, replace as much of
+it as you can by means of the command "cross();", i.e. wherever there is
+a sequence of instructions using GETIN CROSSRIVER and GETOUT.
+
+When you have completed typing in the definition make sure the file
+is saved on the disk, by giving the command
+
+    <ENTER> w
+
+Then load the procedure SHORTSOLVE and check that it actually works, by
+giving the command  (in your 'output' file)
+    shortsolve();
+
+    database ==>
+
+Write down an explanation of how using the new procedure called "short"
+enables you to define a procedure using fewer instructions.
+
+
+-- Moving up to a higher level of structure ---------------------------
+
+There is still another repetition of more or less the same form -
+
+    putin(thing);
+    cross();
+    takeout(thing);
+
+Define a new procedure called MOVE containing that sequence, and put it
+in a file called 'move.p'.
+
+    define move (thing);
+        putin(thing);
+        cross();
+        takeout(thing);
+    enddefine;
+
+This is the first time you have defined a procedure with an "input
+variable", namely "thing". It is called a variable because it can be
+given different values, e.g. fox, river, or grain, when the procedure
+MOVE is run.
+
+When you have defined the procedure, write the file to disk
+
+    <ENTER> w
+
+Test the procedure MOVE just as you tested CROSS, in the 'output' file,
+as follows. To use it you must give it a "value" for "thing" by typing
+the value (sometimes called the argument, or input, or parameter) in the
+doit parentheses after the procedure name. E.g. put the following in
+your 'output' file and mark and load it.
+
+    start();
+    move(fox);
+
+or move(chicken), etc.
+
+The procedure is DEFINED with a variable for its input, but when it is
+RUN it is given an "actual" parameter. By contrast the variable in the
+procedure definition is sometimes referred to as the "formal" parameter.
+
+After defining the procedure, if you give the command
+
+    move(grain);
+
+then the instructions in MOVE are obeyed, but with "thing" referring to
+the grain.
+
+This is known as "calling" or "invoking" the procedure with an "input",
+or "argument" (which are alternative terms for "actual parameter").
+
+
+-- Using TRACE to expose what's happening [optional] ------------------
+
+[This section is optional. If you are far behind, skip it and the next
+two sections also marked "optional".]
+
+To see what is happening when move works, TRACE it and the other
+procedures. Do this in your 'output' file:
+
+    trace move cross crossriver putin takeout getin getout;
+
+This changes the procedures so that when they are next run they
+print out information showing you when they start and when they
+end.
+    start();
+    move(chicken);
+
+This prints out the same sort of information as before interspersed
+with things like these:
+    > move chicken
+This means that the MOVE procedure is starting, with CHICKEN as input.
+    !> putin chicken
+
+This means that the PUTIN procedure is starting, also with CHICKEN as
+input.
+    !< putin
+
+This means that PUTIN has finished. I.e. ">" means starting, or going
+into, and "<" means finishing, or coming out.
+    !> cross
+i.e. starting CROSS
+    !!> getin
+starting GETIN
+    !!< getin
+leaving GETIN
+
+and so on. The exclamation marks "!" tell you how "deeply nested" the
+traced procedures are. The first bit of trace printing
+    > move chicken
+had no exclamation marks because that was produced by a direct command.
+
+    !> putin chicken
+Had one exclamation mark because when PUTIN was invoked only ONE
+traced procedure was already running (i.e. MOVE).
+
+Similarly
+    !> cross
+However, when GETIN is invoked, there are TWO traced procedures running,
+namely MOVE, and CROSS, hence the "!!" in
+    !!> getin
+
+So MOVE calls CROSS and CROSS calls GETIN.
+
+The same number of exclamation marks is used when each procedure
+finishes.
+
+-- Turning off "river" displays [optional] ----------------------------
+
+If you want to see only the TRACE printing without all the displays
+of the state of the river you can turn off river displays
+with the command
+
+    false -> show_style;
+
+Then the commands
+    start();
+    move(chicken);
+
+Will simply produce the following in the 'output' file:
+    > move chicken
+    !> putin chicken
+    !< putin
+    !> cross
+    !!> getin
+    !!< getin
+    !!> crossriver
+    !!< crossriver
+    !!> getout
+    !!< getout
+    !< cross
+    !> takeout chicken
+    !< takeout
+    < move
+
+Notice how it starts with MOVE and ends with MOVE. Only MOVE, PUTIN and
+TAKEOUT take arguments, i.e. the CHICKEN specified in the original
+move command.
+
+You can restore the river display with
+
+    "view" -> show_style;
+
+-- Turning off trace printout [optional] ------------------------------
+[Read this if you have read the section on TRACE, otherwise don't]
+
+You can suppress all the "trace" printout by giving the command
+
+    untrace move cross crossriver putin takeout getin getout;
+
+Test the effect with
+
+    start();
+    move(chicken);
+
+-- Exercise five: the final solution ----------------------------------
+
+By now you will have lots of junk in your 'output' file. You can
+empty it by doing
+    <ENTER> clear.
+
+(Don't do that in your other files, e.g. move.p or you will lose
+your definition of 'move').
+
+Using -move- and -cross-, write out a complete sequence, in a procedure
+called "tinysolve", say and store it in a file called 'tinysolve.p'.
+
+The file should start as follows:
+
+    lib river;          ;;; load the river package
+    load cross.p;       ;;; load the cross procedure
+    load move.p;        ;;; load the move procedure
+
+    define tinysolve();
+        start();
+
+etc.
+
+-- If you log out and log in again ------------------------------------
+
+The first three lines will be useful if you log out then log in again
+later and want to load the TINYSOLVE procedure, which needs the other
+procedures. You can get everything ready by loading the LIB RIVER
+package then the procedure CROSS which uses the library procedures, then
+the procedure MOVE which uses CROSS and other library procedures. When
+they are all loaded, you can load tinysolve. If you log out, then the
+Pop-11 process you are running is terminated, and the computer
+effectively forgets all these procedure definitions (though they remain
+available on the magnetic disk for you to re-load another time).
+
+As before, when you have typed in the definition use JCP to justify
+it, LCP to load it, W to write the files, and then test the procedure
+in the output file.
+
+-- Changing a previously defined procedure ----------------------------
+
+The procedure MOVE defined above included only three commands.
+Go back to your file move.p and try altering the definition to
+include the following additional printing commands, using "==>"
+
+    define move (thing);
+        [Putting in ^thing] ==>
+        putin(thing);
+        [Crossing river] ==>
+        cross();
+        [Taking out ^thing]==>
+        takeout(thing);
+    enddefine;
+
+The command
+    [Putting in ^thing] ==>
+
+has two components. The first part, between square brackets makes
+a list of words, and the second part "==>" prints it out.
+
+The first part actually says
+    Make a list containing the words "Putting", "in" and the
+    value of the variable THING.
+
+I.e. the "^" before "thing" stops it putting in the word "thing"
+itself. The same applies to the occurrence of "^" in the third list.
+
+Now compile that (<ENTER> lcp) then re-try your short solution procedure
+    tinysolve();
+
+in the output file. Look carefully to see how the printing now includes
+more information about the actions being performed.
+
+If you had wanted to change your original "solve" procedure to do this,
+you would have had to put in many extra printing commands (how many?).
+
+Because TINYSOLVE uses the procedure called MOVE over and over again,
+all you need to do is put the changes in MOVE, and then they take effect
+whereever it is used. This is an example of an important general
+principle: make your programs "modular". I.e. build them out of
+re-usable modules.
+
+-- Work to do now -----------------------------------------------------
+
+Doing the following will give you good practice in preparation for later
+project reports, especially your end of course project report. It will
+also help you to check whether you have understood what you have done.
+
+If you have completed all the above exercises you should write a little
+report, in a VED file called 'river.report'. You don't need to hand in
+this report unless your tutor asks you to. If you are in doubt about
+anything, show the report to a demonstrator and ask for comments. You
+could also get together with another student and compare your reports.
+
+1. Start by describing the problem, in a few lines.
+
+2. Show how your original procedure SOLVE works. Include the program.
+
+3. Describe how your procedures MOVE, CROSS and TINYSOLVE work and
+enable the solution to be much shorter. Include the printout produced
+when TINYSOLVE runs.
+
+Using the VED commands to copy ranges from one file to another, as
+described in TEACH MARK, you can copy the relevant procedure definitions
+into the report file.
+
+Copy part of the 'output' file showing what happens when your
+'tinysolve' procedure runs (with tracing switched on, if you did the
+section on tracing).
+
+
+-- Further reading ----------------------------------------------------
+
+If you are well ahead in your work, compared with the course timetable,
+you can read some of the following teach files. If you are barely
+keeping up, move on to the next recommended teach file rather than
+reading the following. You can read them later.
+
+If you want to find out how the river library programs work, you will
+need to find out how the database works. This is explained in
+TEACH * DATABASE
+
+The database package makes use of the Pop-11 matcher. That is described
+in TEACH * MATCHES
+
+There are also explanations in books on Pop-11 (see the reading list).
+
+When you know how the database and matcher work, you can look at
+the LIB RIVER programs in VED by giving the command
+    <ENTER> showlib river
+
+
+You may find it helpful to read through TEACH * DEFINE, to revise and
+extend some of the material in this file.
+
+If you have had previous experience of programming and would like to
+accelerate your learning of Pop-11 you could try TEACH * GSTART, which
+will teach you more about Pop-11 syntax, and introduce you to some of
+the graphical facilities in Pop-11 (i.e. procedures for drawing
+pictures). People who have had no previousy experience of programming
+may find it a bit difficult, and will probably do better to work through
+the remaining gradually progressive teach files.
+
+A good thing to try soon (whether you do GSTART or not) is
+    TEACH * RESPOND
+This will introduce you to a richer subset of Pop-11 in the context of
+designing a conversational program.
+
+--- $poplocal/local/teach/river
+--- Copyright University of Birmingham 1998. All rights reserved. ------

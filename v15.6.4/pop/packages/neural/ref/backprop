@@ -1,0 +1,263 @@
+REF BACKPROP                                      David Young  Sep 1990
+                                           Updated J. Clinton  Aug 1992
+
+       Copyright University of Sussex and Integral Solutions Ltd.
+                           All Rights Reserved
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<    FUNCTIONS & VARIABLES    >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<      IN LIB BACKPROP        >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Before Loading The Library
+ -- Creating A Network
+ -- Network Parameters
+ -- Network Response
+ -- Training Networks
+ -- Checking Array Consistency
+ -- Printing Information
+ -- Saving And Loading Networks
+
+-- Before Loading The Library -----------------------------------------
+
+All the libraries available in Poplog-Neural make use of a number of
+environment variables. These are:
+
+1. HOST_TYPE
+
+Set to be the name of the machine being used e.g. sun3, sun4, bobcat,
+vax etc.
+
+2. NEURAL_F77
+
+Specifies whether a Fortran 77 compiler is available. This should be set
+accordingly to "yes" or "no".
+
+
+These should be defined in your .login (UNIX) or LOGIN.COM (VMS) file.
+
+
+-- Creating A Network -------------------------------------------------
+
+make_bpnet(NIN, NUNITS, WTRANGE, ET, AL) -> NETWORK          [procedure]
+        This sets up a back propagation network for subsequent use. Here
+        NIN is the no of input units,  NUNITS is a vector giving the  no
+        of units  in each  layer above  that, starting  with the  lowest
+        hidden layer (if  there is  one) and finishing  with the  output
+        layer, WTRANGE  is  the  range over  which  the  random  initial
+        weights are to be distributed, ET is the learning rate  (roughly
+        eta in R & McC) and AL is the momentum term (alpha in R &  McC).
+        For example
+
+            make_bpnet(30, {15 5}, 2.0, 0.05, 0.9) -> network;
+
+        will return  a network  with 30  input units,  one layer  of  15
+        hidden  units,  5  output  units,  initial  weights  distributed
+        between -1.0 and 1.0, a learning rate of 0.05 and a momentum  of
+        0.9. You can change eta and alpha later if you want, e.g.
+
+            0.1s0 -> network.bpeta;
+            0.8s0 -> network.bpalpha;
+
+
+-- Network Parameters -------------------------------------------------
+
+
+bpeta                                                        [procedure]
+        This accessor  can be  used  to change  the learning  rate  of a
+        network. The value  assigned should be a single precision  real.
+        For example
+
+            0.1s0 -> network.bpeta;
+
+
+bpalpha                                                      [procedure]
+        This accessor  is  used to  change  the learning  momentum  of a
+        network. Like -bpeta-, the value must be a single precision real
+        e.g.
+
+            0.8s0 -> network.bpalpha;
+
+
+bpweights                                                    [procedure]
+bpwtchange                                                   [procedure]
+bpbiases                                                     [procedure]
+bpbschange                                                   [procedure]
+bpactivs                                                     [procedure]
+        These all take a network as argument and return lists of  arrays
+        (one  array  for   each  level  of   the  network)   containing,
+        respectively:
+
+            the current weights
+            the last change to the weights
+            the current biases
+            the last change to the biases
+            the current activations  (if the last  updating call was  to
+                -bp_response-) or  the  current  error  signals  (if  the
+                last updating call was to -bp_learn- or -bp_learn_set-).
+
+
+
+You cannot use the updaters of  these procedures to change the  network,
+nor  can  you  update  the  lists  they  return.  The  results  will  be
+meaningless if you try.
+
+To change the  weights and  biases in the  network, you  can update  the
+elements of the arrays individually.
+
+
+-- Network Response ---------------------------------------------------
+
+bp_response(INVEC, NETWORK, OUTVEC)                          [procedure]
+        This forward propagates  an input through  the network,  without
+        doing any learning. Here INVEC  is the input vector, MACHINE  is
+        something returned by -make_bpnet-,  and OUTVEC receives a  copy
+        of the output vector.  INVEC and OUTVEC must  be arrays of  real
+        numbers,   created    using   ARRAY_OF_REAL,    not    NEWARRAY.
+        (ARRAY_OF_REAL  takes  the  same   arguments  as  NEWARRAY   - a
+        boundslist and an  optional initialiser  - but  makes a  Fortran
+        compatible array.) INVEC must  be at least as  big as the no  of
+        input units stated for the network, and OUTVEC must be at  least
+        as big as the no of output units.
+
+
+bp_response_set(INPUT_SET, NETWORK, OUTVECS)                 [procedure]
+bp_response_set(STEPSIZE, INPUT_SET, NETWORK, OUTVECS)       [procedure]
+        This forward propagates  a set  of inputs  through the  machine,
+        without doing any learning, and stores the results. INPUT_SET is
+        the set of input vectors or stimuli.
+
+        If there are  3 arguments, INPUT_SET  must be a  two-dimensional
+        array  of  separate   stimuli,  with  one   column  (in   matrix
+        convention) for each stimulus.  In this case,  if there are  NIN
+        input units and you want  to have NSTIM different stimuli,  then
+        the boundslist should be [1 ^NIN 1 ^NSTIM] and INPUT_SET(I,J) is
+        the I'th element of the J'th stimulus.
+
+        In the  second  form,  with 4  arguments,  INPUT_SET  must  be a
+        one-dimensional  array   of  stimuli,   which  may   be   stored
+        successively,  with  spaces  in  between,  or  overlapping   one
+        another. STEPSIZE gives the separation between the start  points
+        of the individual  stimuli. Each stimulus  must be a  contiguous
+        set of NIN values in the array, starting at element 1 +  (I-1) *
+        STEPSIZE for  the I'th  stimulus in  the array.  If STEPSIZE  is
+        equal to NIN, then  the stimuli do not  overlap and there is  no
+        real difference from  the first  way to call  the procedure.  If
+        STEPSIZE is 1, then the input  is treated as a time series  onto
+        which the  network  has  a moving  window  which  samples  every
+        possible sub-sequence.
+
+        OUTVECS is an array such that OUTVECS(I,J) will receive the I'th
+        element of the J'th output vector, and its boundslist will be [1
+        ^NOUT 1 ^NSTIM] if  there are NOUT output  units in the  network
+        and NSTIM stimuli to process.
+
+        If the procedure is called with a 2-dimensional INPUT_SET,  then
+        the second dimensions of INPUT_SET and OUTPUT_SET must match. If
+        the procedure is called with a 1-dimensional INPUT_SET, then the
+        length of INPUT_SET  must be  at least  (NSTIMS-1) *  STEPSIZE +
+        NIN, where NSTIMS is obtained from the boundslist of OUTVECS.
+
+
+-- Training Networks --------------------------------------------------
+
+bp_learn(INVEC, TARGVEC, NETWORK)                            [procedure]
+        This does the learning bit:  it updates the weights in  MACHINE.
+        It must follow a call to -bp_response-. TARGVEC must be an array
+        of reals (created  using -array_of_real-), at  least as long  as
+        the no of output units,  giving the target vector  corresponding
+        to the input vector used in the last call to -bp_response-,  and
+        INVEC must be that input vector.
+
+
+bp_learn_set(STIMS, TARGS, NITER, CYCLE, NETWORK, OUTVEC)    [procedure]
+bp_learn_set(STEPSIZE, STIMS, TARGS,                         [procedure]
+                NITER, CYCLE, NETWORK, OUTVEC)
+        This  allows  a  number  of  cycles  of  forward  and   backward
+        propagation to be done  in one call (it  is more efficient  than
+        repeated alternate calls to -bp_response- and -bp_learn-,  which
+        is effectively what it does).
+
+        In the first form, STIMS is a 2-dimensional array of stimuli; if
+        there are NIN input units and  you want to have NSTIM  different
+        stimuli, then its  boundslist should  be [1 ^NIN  1 ^NSTIM]  and
+        STIMS(I,J) is the I'th element  of the J'th stimulus.  Similarly
+        TARGS is an array  such that TARGS(I,J) is  the I'th element  of
+        the J'th target, and its boundslist  will be [1 ^NOUT 1  ^NSTIM]
+        if there are NOUT output units. NITER is the no of iterations to
+        carry out; it can be greater or  less than the no of stimuli  in
+        the array.  If CYCLE  is true,  then the  stimuli are  presented
+        cyclically,  going  through  the  STIMS  and  TARGS  arrays   in
+        sequence; if it is false the  stimuli are picked out at  random.
+        MACHINE is a  network set  up as before,  and OUTVEC  receives a
+        copy of its output vector, and so must be an array with at least
+        NOUT elements. (OUTVEC is  not a lot of  use - it's  effectively
+        workspace for  the  program  and for  compatibility.)  It's  not
+        necessary to call -bp_checkvecs- before calling -bp_learn_set-.
+
+        In the second form, STIMS  is a 1-dimensional array of  stimuli,
+        useful for when the inputs are  to be treated as a time  series.
+        See -bp_response_set- for  a description  of how  this works  in
+        conjunction with STEPSIZE.
+
+
+bp_backinvec(NETWORK, INVEC)                                 [procedure]
+        This is a rather arcane procedure that can be useful in  unusual
+        architectures. If  two machines  are  'stacked', one  above  the
+        other  (for  instance  if  you  need  to  mess  about  with  the
+        intermediate  representation,  or  you  want  several  low-level
+        machines to  feed one  higher level  one), then  it is  easy  to
+        forward propagate  by using  the output  vector from  the  lower
+        network as the input vector  for the higher one.  -bp_backinvec-
+        allows you to back-propagate across the gap: it  back-propagates
+        the error signal into  the input vector in  such a way that  the
+        latter may be used as the target vector in a call to  -bp_learn-
+        with a lower network.
+
+        The procedure  must  be  used  after a  call  to  -bp_learn-  on
+        MACHINE, and INVEC must be the input vector used in that call to
+        -bp_learn- and  the  preceding  call  to  -bp_response-.  It  is
+        updated to provide the new target vector for a lower network.
+
+
+-- Checking Array Consistency -----------------------------------------
+
+bp_checkvecs(NETWORK, INVEC, OUTVEC, TARG)                   [procedure]
+        This is a routine that simply  mishaps if INVEC, OUTVEC or  TARG
+        isn't big enough to be  compatible with MACHINE. It is  sensible
+        to call it before calling -bp_response- and -bp_learn-.
+
+
+-- Printing Information -----------------------------------------------
+
+pr_bpweights(NETWORK)                                        [procedure]
+        This simply prints out all the weights of a network.
+
+
+pr_bpactivs(NETWORK)                                         [procedure]
+        After a call to -bp_response- or -bp_learn_set-, this prints out
+        all the activations of a network. After a call to -bp_learn-, it
+        prints out all the error signals.
+
+
+-- Saving And Loading Networks ----------------------------------------
+
+bp_save(FILENAME, NETWORK) -> RESULT                         [procedure]
+        Saves NETWORK (a back propagation  network record) to disk.  The
+        filename should  have a  '.net' suffix.  Returns <true>  if  the
+        network was saved ok or false otherwise.
+
+
+bp_load(FILENAME) -> NETWORK                                 [procedure]
+        This procedure takes a filename (a string) or a device and reads
+        the file  from  that  file/device. A  back  propagation  network
+        record is returned if the  file was successfully read  otherwise
+        <false> is returned.
+
+
+--- $popneural/ref/backprop
+--- Copyright University of Sussex 1990. All rights reserved. ----------

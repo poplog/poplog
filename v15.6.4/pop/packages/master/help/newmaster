@@ -1,0 +1,576 @@
+HELP NEWMASTER                               Robert Duncan, January 1989
+                                                   Updated December 1990
+
+NEWMASTER is a VED command for managing files in the Poplog master tree.
+
+See HELP * TRANSPORT for instructions on how to install files in the
+Poplog local tree.
+
+
+    CONTENTS - (Use <ENTER> g to access required sections)
+
+ -- Introduction
+ -- The GET function
+ -- The EDIT function
+ -- The INSTALL function
+ -- The DELETE function
+ -- The RECOVER function
+ -- Accessing alternative master trees
+ -- Bug fixing procedure
+ -- Summary of NEWMASTER options
+ -- Setting up NEWMASTER
+ -- Summary of files used
+ -- RELATED DOCUMENTATION
+
+
+-- Introduction -------------------------------------------------------
+
+Using NEWMASTER is the recommended method for all additions and changes
+made to the POPLOG master tree. The general format of the NEWMASTER
+command is:
+
+    <ENTER> newmaster [options]
+
+With an appropriate choice of options, this command provides for five
+separate functions to be performed on master files, namely:
+
+    - the "get" function, which extracts files from the master tree;
+
+    - the "edit" function, which adds a header to a new file or a
+      revision note to an existing file;
+
+    - the "install" function, which installs new files in the master
+      tree or writes back changed copies;
+
+    - the "delete" function, which removes a file from the master tree;
+
+    - the "recover" function, which recovers previous versions of files.
+
+The advantages of using NEWMASTER for these functions, rather than
+editing master files directly, are that
+
+    - it encourages a particular style of working common to all
+      programmers;
+
+    - it applies some (fairly rudimentary) consistency checking to cut
+      down the possibility of accidental damage being done to the master
+      files;
+
+    - it keeps a comprehensive record of all additions and modifications
+      to the masters, including "diff" records for program files, so
+      that the history of the master tree can be traced.
+
+It can also support multiple master versions.
+
+
+-- The GET function ---------------------------------------------------
+
+The command:
+
+    <ENTER> newmaster g <filename>
+
+reads the named file from the master tree into a read-only VED buffer.
+The file name may be given relative to the current master directory or
+as an absolute pathname (in which case it need not be in the master tree
+at all).
+
+For example:
+
+    <ENTER> newmaster g C.all/src/errors.p
+
+reads the source file 'errors.p' from the current master tree.
+
+If you wish merely to examine the file, this command on its own should be
+sufficient. If you plan to edit the file, you should consider "locking"
+it by giving the extra "lock" option to the command, as in:
+
+    <ENTER> newmaster g C.all/src/errors.p l
+
+Locking the file prevents anyone else from installing changes to it.
+
+
+-- The EDIT function --------------------------------------------------
+
+The command:
+
+    <ENTER> newmaster
+
+operates on the contents of the current VED buffer, adding a standard
+format header or footer to identify the file as a master file and to
+indicate any modifications made to it.
+
+When used on a new file, the command will assume that the file is a
+program file and add a header which gives the name of the file, its
+author and its creation date. The header for the VED buffer 'temp.p'
+might appear as:
+
+    /* --- Copyright University of Sussex 1989. All rights reserved. --
+     > File:            C.??????/temp.p
+     > Purpose:
+     > Author:          Robert Duncan, Jan 19 1989
+     > Documentation:
+     > Related Files:
+     */
+
+The comment brackets are determined by the file extension: a '.p' file
+gets POP-11-style comments, a '.pl' file gets Prolog-style comments and
+so on.
+
+The file name is constructed from the base name of the file, prefixed
+with the skeleton directory 'C.??????': this must be filled in with the
+correct pathname before the file can be installed into the masters.
+Files in 'C.' or 'S.' directories (the usual case) should be left as
+relative pathnames; anything else must be given a full pathname.
+
+The empty fields in the header are never looked at again by NEWMASTER so
+may be filled in or deleted as appropriate, although the more
+information placed in the file header the better: you may insert extra
+lines as necessary.
+
+When properly filled in the above header would appear as:
+
+    /* --- Copyright University of Sussex 1989. All rights reserved. --
+     > File:            C.all/src/temp.p
+     > Purpose:         Demonstration of NEWMASTER
+     > Author:          Robert Duncan, Jan 19 1989
+     > Documentation:   HELP * NEWMASTER
+     */
+
+If invoked on a file which already has a header, the edit function
+assumes that the file has been modified in some way and adds a skeleton
+"revision note" at the end of the file, something like:
+
+    /* --- Revision History -------------------------------------------
+    --- Robert Duncan, Jan 19 1989
+     */
+
+You should add to this as much comment as necessary to describe what
+changes have been made to the file, and why. For example:
+
+    /* --- Revision History -------------------------------------------
+    --- Robert Duncan, Jan 19 1989
+        Added this revision note to demonstrate further properties of
+        NEWMASTER
+     */
+
+
+If the file is a documentation file rather than a program file, you
+must indicate this to NEWMASTER by supplying the "doc" option to the
+command, as in:
+
+    <ENTER> newmaster d
+
+This is only relevant when the file is new: the standard program header
+is inappropriate for documentation files and so is replaced by two lines
+at the *end* of the file
+
+    --- C.??????/newmaster
+    --- Copyright University of Sussex 1989. All rights reserved. -----
+
+Again, the skeleton path name must be properly filled in before the file
+can be installed. Subsequent invocations of the "edit" function will
+leave the file unchanged since revision notes aren't added to
+documentation files.
+
+
+-- The INSTALL function -----------------------------------------------
+
+The command:
+
+    <ENTER> newmaster i
+
+installs a new or changed file into the master tree. The command
+operates on the current VED buffer, ultimately writing it out to the
+appropriate place in the master tree. The master pathname for the file
+is determined from the file header (or footer, if it's a documentation
+file).
+
+The installation procedure is quite complex and may take a noticeable
+amount of time. The sequence of events goes roughly as follows:
+
+    - check for access permission on the target pathname, log file etc.;
+    - lock the target file;
+    - lock the log file (this acts as a crude exclusion mechanism,
+      preventing different users from installing files at the same time);
+    - tabify the file (program files only, to save space);
+    - spool the contents of the VED buffer;
+    - run a shell-script job as user POP to update the master tree;
+    - unlock the log and target files.
+
+The shell script ensures that the correct links are established between
+'C.' and 'S.' directories, and keeps "diff" style records of
+modifications to program files.
+
+If any step in this procedure fails, then the installation fails and an
+error message will be printed on the VED status line. Any error messages
+from the installation script are displayed in a temporary VED buffer.
+
+Installation cannot normally proceed unless the file has the right
+header or footer, and a modification to a program file must have a
+revision note added too. There are ways around this: the option "force"
+added to the command line, as in:
+
+    <ENTER> newmaster i f
+
+forces the installation regardless of whether or not the file has been
+changed, and the "name" option with a filename argument can be used to
+provide a name for a file without a header or footer. (This is not a
+normal practice, but may be required for files which contain `data' of
+some kind, rather than programs or text.)
+
+If you have the file locked, the lock is normally removed automatically
+when the file is installed. If you want to keep the file locked because
+you intend to keep working on it, include the "lock" option on the
+install command line:
+
+    <ENTER> newmaster i l
+
+
+-- The DELETE function ------------------------------------------------
+
+The command:
+
+    <ENTER> newmaster del <filename>
+
+is used to delete a file from the master tree. The <filename> argument
+can be given relative to the master root directory, so that the command:
+
+    <ENTER> newmaster del C.all/src/oldfile.p
+
+will delete the file 'C.all/src/oldfile.p' from the current master tree.
+The command will prompt you with the full name of the file to be deleted
+before anything irrevocable has been done, and you can stop the command
+at this stage just by typing 'n'.
+
+As with installations, most of the work is done by a shell-script run as
+user POP. Although the file is deleted from the master tree, a copy is
+kept in a special directory from where it can be recovered later if a
+mistake has been made.
+
+The option "rm" is an alternative to "del".
+
+
+-- The RECOVER function -----------------------------------------------
+
+The command:
+
+    <ENTER> newmaster r <filename>
+
+can be used to recover an earlier version of a program file. When a
+modification to a program file is installed, a "diff" record of the
+changes is kept in a log file. The format of the "diff" is suitable for
+recreating the previous version of the file with the UNIX `ed(1)'
+command. This is done automatically by the "recover" function.
+
+For example:
+
+    <ENTER> newmaster r C.all/src/errors.p
+
+will read into a VED buffer a copy of the 'errors.p' file as it was
+before the last modification. The buffer is a temporary one, and has an
+extra first line added to identify which revision it is: the above
+command would add to the recovered file a line something like
+
+    newmaster recover 1 /pop/csuna/master/C.all/src/errors.p
+
+Earlier versions than the previous one can be recovered by adding an
+extra integer argument to the command, as in:
+
+    <ENTER> newmaster r 2 C.all/src/errors.p
+
+This will recover the version *before* the previous one.
+
+The recover function will complain if there's no "diff" record for the
+requested file, or if it doesn't go back far enough for the requested
+version number.
+
+
+-- Accessing alternative master trees ---------------------------------
+
+NEWMASTER can support parallel versions of the master tree. Each version
+has a name identifying it, and each NEWMASTER command is assumed
+to operate on a particular named version. The default name assumed for
+all the commands is 'default'; this will normally be set up to define
+the current (development) master tree. To indicate that a command is to
+be executed relative to some other master version, add the "version"
+option to the command.
+
+For example: suppose there is a parallel (release) version of the master
+tree denoted by the name 'frozen'; the command
+
+    <ENTER> newmaster g C.all/src/errors.p v frozen
+
+will read the file 'errors.p' from the release version rather than the
+development version.
+
+Similarly, the commands
+
+    <ENTER> newmaster v frozen
+    <ENTER> newmaster i v frozen
+    <ENTER> newmaster del <filename> v frozen
+    <ENTER> newmaster r <filename> v frozen
+
+would be used to edit, install, delete and recover files in the frozen
+masters.
+
+The "get" function makes a record of which version each file was read
+from. The "install" function uses this record to check that each file
+installed is being written back to the same tree that it came from, and
+will ask for confirmation before installing a file into a different
+tree. This is to prevent the accidental installation of a more recent
+version of a file into an older system.
+
+The association between master directories and their version names is
+set up in the table -newmaster_versions- in LIB * NEWMASTER_PARAMS.
+
+
+-- Bug fixing procedure -----------------------------------------------
+
+This is a summary of the procedure for installing a simple bug fix using
+NEWMASTER and serves as a worked example.
+
+Suppose that a bug has been tracked down which requires an amendment to
+the master source file
+
+    C.all/src/vdinsert.p
+
+The procedure for installing the fix is as follows:
+
+    1. Log on to any machine with access to the masters, and run VED
+
+    2. Type the command
+
+            <ENTER> newmaster g C.all/src/vdinsert.p l
+
+       to get the current master version of the file into VED. The "l"
+       option locks the file to prevent anyone else from installing
+       their own amendments to the file at the same time
+
+    3. The file is now read-only. Unless the fix is a quick one, you
+       should rename the VED buffer to something in your own directory to
+       lessen the danger of losing work
+
+    4. Make the changes to the file
+
+    5. Type the command
+
+            <ENTER> newmaster
+
+       to add a revision note to the end of the file. You should fill in
+       the revision note to describe which procedures have been changed
+       and why; where applicable you should include a reference to the
+       bug report ID
+
+    6. Type the command
+
+            <ENTER> newmaster i
+
+       to install the change. Watch the messages on the VED status line
+       and wait for the message 'File installed' to appear before
+       assuming that everything is OK.
+
+This example leaves aside the obvious requirement for testing the fix -
+this is beyond the scope of NEWMASTER.
+
+If the fix is to a file in a different master version, version 'frozen'
+say, then the commands at steps 2, 5, and 6 should be augmented with the
+option
+
+    v frozen
+
+
+-- Summary of NEWMASTER options ---------------------------------------
+
+The general format of a NEWMASTER command is
+
+    <ENTER> newmaster [options]
+
+The available options are described below; all may be abbreviated to an
+unambiguous prefix (one character is sufficient in most cases) and a
+leading "-" character is allowed. Options and their arguments are read
+as sequences of characters delimited by white space; as a special case,
+anything enclosed in POP-11 string quotes (') is read as a POP-11
+string.
+
+Note that only one of the options "get", "install", "delete" and
+"recover" can be specified in any one command.
+
+
+comment <style>
+    This specifies the comment style which should be assumed when
+    reading or inserting the header in a source file. Comment styles are
+    denoted by strings which usually correspond to the file extension of
+    the associated source language (e.g. style 'p' implies POP-11
+    comments, 'com' implies DCL comments etc) and by default the style
+    is deduced from the extension of the current file. The standard
+    styles are defined in the table -newmaster_comments- in LIB *
+    NEWMASTER_PARAMS.
+
+    Examples:
+
+        <ENTER> newmaster c ''
+
+    forces shell-type comments (the default for a file with no extension)
+
+        <ENTER> newmaster c ;;;
+
+    uses POPLOG end-of-line comments.
+
+delete <filename>
+    Deletes the named file from the master tree. The filename may be
+    relative, in which case it is interpreted relative to the specified
+    master root directory; an absolute filename must denote a file
+    within a known master tree. To abbreviate this option, use "del" to
+    avoid confusion with the "doc" option (below).
+
+doc
+    When used with the "edit" function, identifies the current file as a
+    document file; necessary if the file is new, or has an old-style
+    footer which needs changing.
+
+force
+    When used with the "install" function, forces an installation
+    regardless of whether or not the file has been changed.
+
+get <filename>
+    Reads the named file into VED. The file is made read-only. If the
+    filename argument is not a full path name it is interpreted relative
+    to the master root directory; a particular root directory can be
+    specified using the "version" option (q.v.).
+
+install
+    Installs the current file into the master tree. The file name is
+    taken from the file header (or for document files, the file footer).
+
+local
+LOCAL
+    Causes the file to be treated as a local rather than a master file.
+    (See HELP * TRANSPORT). To abbreviate this option, use the upper case
+    version ("L" etc.) to avoid conflict with option "lock".
+
+lock
+    When used with the "get" function, this causes NEWMASTER to try to
+    lock the file: the locking will fail if the file is already locked
+    by somebody else. When used with the "install" function, it instructs
+    the installation procedure to leave the file locked after it has
+    been installed.
+
+name <filename>
+    When used with the "edit" function on a new file, provides the
+    pathname to be inserted in the file header or footer. When used with
+    the "install" function, provides a pathname to install to if this is
+    not available from the file header or footer.
+
+recover [backnumber] <filename>
+    Recovers a back version of a source file. The optional argument
+    "backnumber" is an integer specifying which back version of the file
+    is to be recovered and defaults to 1 (the previous version).
+
+rm <filename>
+    Same as "delete".
+
+transport
+    For use with local files only. Causes the file to be copied to
+    remote machines. Option "transport" implies option "install". See
+    HELP * TRANSPORT.
+
+user <username>
+    Uses 'username' in place of the programmer's name in any header or
+    revision note added to the file.
+
+version <version_id>
+    Causes the current command to be executed relative to master version
+    'version_id'. Versions are defined by LIB * NEWMASTER_PARAMS; the
+    default version name if this option is not given is 'default'.
+
+
+-- Setting up NEWMASTER -----------------------------------------------
+
+At the top level of each master tree known to NEWMASTER there must be a
+directory named "install"; this is the NEWMASTER working directory. It
+should be owned by the POPLOG administrator and be writeable by everyone
+who is allowed to install changes to the masters.
+
+In the "install" directory NEWMASTER will create a log file called,
+simply enough, LOG, as well as two files NEWSRC and NEWDOC which record
+all new files added to the system. If a file called DIFF-IN-LOG is
+placed here, each amendment to a source file has its "diff" recorded in
+LOG; if a file called DIFF-IN-DIR is placed here, the "diffs" are
+written into directories called DIFFS distributed around the master
+tree.
+
+Parallel to the "install" directory there should be a directory called
+"deletions" which is used for copies of old files deleted from the
+master tree. Deleted files are copied to the files RM1, RM2, ... etc. in
+this directory. To maintain a counter for the file names, there should
+be a file called "fileid" containing the integer number of the last file
+written; it should be initialised to "0". A record of deletions (mapping
+original names to RM* names) is kept in the "install" directory in a
+file called DELETED.
+
+In order for NEWMASTER to be able to maintain the links between 'S.' and
+'C.' directories, there must be at the top level of each 'S.' directory
+a file called CDIRS which simply lists all of the 'C.' directories on
+which it depends.
+
+The association between master version names and the master directories
+they denote is set up by -newmaster_versions- in LIB * NEWMASTER_PARAMS:
+this records a master machine name and root directory for each master
+version. New entries in this table can most easily be copied from the
+existing ones.
+
+
+-- Summary of files used ----------------------------------------------
+
+POPLOG library files (should be autoloadable, probably from POPLOCALAUTO)
+
+    LIB * NEWMASTER_DELETE
+    LIB * NEWMASTER_GET
+    LIB * NEWMASTER_HEADER
+    LIB * NEWMASTER_INSTALL
+    LIB * NEWMASTER_PARAMS
+    LIB * NEWMASTER_RECOVER
+    LIB * NEWMASTER_UTILS
+    LIB * VED_NEWMASTER
+
+Other files:
+
+    Absolute pathnames:
+    $poplocal/local/com/newmaster/deletemaster
+                            - the deletion script
+    $poplocal/local/com/newmaster/installmaster
+                            - the installation script
+
+    Pathnames rooted in the master directory (e.g. $popmaster)
+    install/LOG             - the log file
+    install/NEWSRC          - record of new source files
+    install/NEWDOC          - record of new documentation files
+    install/DELETED         - record of deleted files
+    install/DIFF-IN-DIR     - distributes "diffs" around the master tree
+    install/DIFF-IN-LOG     - writes "diffs" into the log
+    install/*.install       - message files for the installation script
+    install/*.delete        - message files for the deletion script
+    install/*               - spool files for the "install" option
+    deletions/fileid        - counter for next deleted file
+    deletions/RM*           - copies of deleted files
+    S.*/CDIRS               - lists of 'C.' dependencies
+    S.*/TRANSLATE_NAME      - filename translation program
+
+    Directories at the leaves of each 'C.' directory
+    DIFFS                   - contains "diff" output files
+
+
+-- RELATED DOCUMENTATION ----------------------------------------------
+
+HELP * TRANSPORT
+    Describes the installation procedure for local POPLOG files.
+
+HELP * RMMASTER
+    Shell command for removing files from POPLOG master directories.
+
+HELP * GETMASTER
+    Describes the "get" function in more detail
+
+
+--- $poplocal/local/help/newmaster
+--- Copyright University of Sussex 1992. All rights reserved. ----------

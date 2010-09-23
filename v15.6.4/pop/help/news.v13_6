@@ -1,0 +1,917 @@
+HELP NEWS.V13_6                                        A.Sloman Nov 1989
+
+For most recent news please see HELP * NEWS
+
+Oct 20 1988
+    POPLOG VERSION 13.6
+
+    The file HELP * V13_6.CHANGES summarises the changes listed in the
+    rest of this news file and organises the material by topic.
+
+    --- ****POPLOG IS NOW AVAILABLE ON SUN-4 (SPARC)****
+
+    --- ****POPLOG IS NOW AVAILABLE ON SEQUENT SYMMETRY****
+
+    Both provide the new "mmap" system call mentioned below in conection
+    with SunOS-4. This allows saved images (e.g. prolog lisp) to be
+    shared between processes.
+
+Oct 18 (Aaron Sloman)
+    --- New pop11 compiler procedure made available to users.
+
+    pop11_comp_procedure(CLOSER, P_NAME, PROPS) -> P;
+        Compiles a procedure from just before the argument list up to
+        CLOSER (a word or list of words e.g. "end" "enddefine"
+        "endprocedure"). P_NAME is the name of the procedure or false,
+        PROPS is the item to be inserted in the *pdprops, or false.
+        PROPS can be over-ridden by with_props in the header. The result
+        returned is the procedure record created or a procedure
+        compilation structure.
+        See REF * POPCOMPILE/pop11_comp_procedure
+
+
+    --- *VEDGETSYSFILE fixed so that use of apostrophe in the same line
+    as a cross reference in HELP files, TEACH files, etc. no longer
+    causes an error when <ESC> h is used.
+
+
+    --- [Unix only] Another EMACS-like facility added, loosely modelled
+        on dired in EMACS.
+        The VED-based dired allows you to browse through directories,
+        seeing what files are available, looking at some, deleting some,
+        copying some, moving, etc. It is also user extendable. There's
+        a full help file HELP *DIRED and a short one HELP * DIRED.SHORT.
+
+Oct 16 (Aaron Sloman)
+    --- Extensions to VED: appending a range to a file
+        <ENTER> wappr <file>
+            Write and append current range to file. Much faster than
+            ved_mo or ved_to, since it uses discappend and not VED.
+        <ENTER> wappdr <file>
+            Writes the range, appending it to file, and deletes it from
+            the current file.
+
+        These facilities use * DISCAPPEND
+
+Oct 14 (Roger Evans)
+    --- [BSD Unix only] New handlers for 'suspend' and 'continue'
+        signals, so that a keyboard suspend, <enter> stop and the macro
+        -stop- all do the same thing. User hook -popsuspend- which gets
+        called during suspend/continue. See HELP *STOP, REF *SIGNALS
+        ('Built-in Signal Handlers')
+
+    --- -syssleep- modified so that it only exits in response to the
+        timer or ctrl-C interrupts, not other signals.
+
+Oct 13 (Aaron Sloman)
+    --- New "overview" file HELP * DICTIONARY.
+
+Oct 13 (John Williams)
+    --- Bug in -vedappfiles- fixed: it now correctly restores the
+        original VED environment if an error occurs during execution.
+
+Oct 10 (Roger Evans)
+    --- New 'external-type' keys allowing the creation of 'external
+        class' data objects, containing references to external
+        (non-Poplog) data structures and treated specially by
+        -external_apply-.
+        See REF *EXTERNAL, REF *KEYS, HELP *RECORDCLASS
+
+    --- New VM instructions sysSUBSCR and sysUSUBSCR for planting fast
+        in-line vector subscriptor code (for arbitrary vector types).
+        Also sysEXT_FIELDVAL, sysUEXT_FIELD_VAL, sysEXT_SUBSCR,
+        sysUEXT_SUBSCR, for planting accesses to data pointed to by
+        external class data objects.
+        See REF *VMCODE, REF *EXTERNAL
+
+Oct 8  (Aaron Sloman)
+    --- LIB TIME did not work with LMR if final semi-colon was left
+        out. This is now fixed. See HELP *TIME
+
+    --- Three VED system procedures concerned with refreshing bits of
+        the screen are now made available to users:
+
+    vedrefreshtail(boolean, wline, wcol, index, string)
+        Refresh line to right of window line wline column wcol
+            For details see HELP * VEDCOMMS/vedrefreshtail
+
+    vedrefreshline(boolean, wline, string, <boolean or char>)
+        Refresh whole of window line wline
+            For details see HELP * VEDCOMMS/vedrefreshline
+
+    vedrefreshstatus()
+        Refresh status line (previously a library file)
+            See HELP * VEDCOMMS/vedrefreshstatus
+
+    Incorrect entry for VEDMARKED corrected in HELP * VEDPROCS/vedmarked
+    and ved_?? data file
+
+Oct 6  (John Williams)
+    --- Three new active variables added:
+        -pop_charin_device-  -pop_charout_device-  -pop_charerr_device-
+        See REF * SYSIO.
+
+    --- New procedure -is_ved_lmr_stream- added (for recognising
+    character repeaters given to -popcompiler- by -ved_lmr-).
+
+Sep 27 (Aaron Sloman)
+    --- The procedure ved_sourcefile (see HELP * SOURCEFILE) has been
+    altered so that <ENTER> sourcefile without an argument causes the
+    word to the right of the cursor to be the argument. The expanded
+    command is inserted in the VED command line buffer in the line
+    before the current command.
+
+Sep 27 (Roger Evans)
+    --- A new general interrupt handling facility is now available,
+    documented in REF *SIGNALS. The user can control the handling of
+    most of the asynchronous interrupts ('signals' in Unix terminology)
+    defined by the operating system (how many, and exactly which,
+    varies from system to system - see REF *SIGNALS) and add new
+    synchronous interrupts. Principal new procedures are:
+
+        sys_signal_handler  -   access to handler procedures for signals
+        sys_signal_flag     -   access to enable flags for signals
+        sys_raise_signal    -   invoking a signal handler
+        sys_signal_queue    -   queue of yet to be handled signals
+        sys_max_signal      -   largest currently defined signal
+
+    A user library LIB SIGDEFS defines constants for the operating-
+    system-defined signals available in the current system.
+
+    --- A new library LIB SYSDEFS defines constants useful for
+    identifying local system dependencies in #_IF control statements.
+    (eg UNIX, VMS as used in #_IF DEF UNIX). See HELP *SYSDEFS,
+    HELP *DEF
+
+Sep 17 (Ian Rogers)
+    --- -sysfileok- now has the ability to translate environment UNIX
+    variables no matter where they appear in the argument string. It
+    also can use curly brackets to delimit variable names eg. if $foo is
+    FOO then:
+
+        sysfileok('foo${foo}baz') =>
+        ** fooFOObaz
+
+    NB this mechanism is not yet available for VMS logical variables.
+
+Sep 16 (Aaron Sloman)
+    --- Printing with non-standard value for *POP_PR_RADIX is now
+    easy with RADIX_APPLY. See REF * PRINT/radix_apply
+
+    --- The teach file TEACH * RIVER and associated library package
+    LIB * RIVER have been cleaned up and improved.
+
+Sep 8 (John Williams)
+    --- The variables -popfilename- and -poplinenum- are now set
+    correctly during non-interactive compilation from a VED buffer.
+    This means that error messages resulting from 'lmr' compilation
+    will now display source file name and line number.
+
+Aug 28 (Aaron Sloman)
+    --- VED interactive search and substitute mechanism fixed:
+            <ENTER> s/string1/string2/
+        sometimes offered the same substitution twice. Now fixed.
+
+    --- <ENTER> @ options extended to allow all the following, described
+        in HELP * VEDCOMMS
+        <argument>  <line to go to>
+          a         first line of file
+          z         last line of file
+          m         marked range start
+          e         end of marked range
+        <integer>   go to line number <integer>
+        +<integer>  go forward by <integer> lines
+        -<integer>  go back by <integer> lines
+
+    --- HELP * VEDCOMMS reorganised and clarified. Now includes
+        information on VED command line processing.
+
+    --- VEDEXPAND file name option modified. ^f will now expand to
+        file name EXCLUDING trailing comma or period.
+        See TEACH * VEDEXPAND
+
+    --- VED debugging aid * VEDDEBUG altered so that it makes the cursor
+        wiggle at the current line and column, and if popready is
+        invoked it now restores the screen properly. Entries in
+        HELP * VEDPROCS and VED_?? files corrected.
+
+    --- Added entries for *SYSPARSE_STRING to REF * STRINGS and
+        HELP * POPPROCS
+
+Aug 27 (John Gibson)
+    --- (Sun only) Availability of new "mmap" system call in SunOS-4
+    means that the constant parts of Poplog saved images created with
+    -sys_lock_system- can be shared among all users (e.g. implies that
+    most of the Common LISP and PROLOG images will be shared).
+
+    --- A new procedure -sysconslist_onto- tidies up the way trailing ^^
+    is dealt with in POP-11 list constructors (same as -sysconslist- but
+    takes an argument list, which the list of items off the stack is
+    concatenated onto -- see REF * LISTS).
+
+Aug 24 (Aaron Sloman)
+    --- Bug in VED search fixed: no longer confused by occurrence
+        of a tab immediately after character matching first character
+        of search string.
+
+Aug 19 (Roger Evans)
+    --- New facility -sys_destroy_action- allows users to assign a
+    procedure to be run when a data object becomes garbage. See
+    REF *PROPS
+
+Aug 9 (Aaron Sloman)
+    --- HELP * VEDVARS substantially improved. Broken down into
+    different sections, with clearer information for anyone tailoring
+    VED to a new terminal.
+
+    --- LIB VEDEMACS no longer produces an error message if compiled
+    under VMS (though not all the facilities will work with VMS).
+
+Aug 8 (John Williams)
+    The macro -uses- now plants a call to a new procedure -useslib-,
+    rather than executing immediately. See REF * LIBRARY/uses
+
+Aug 8 (Aaron Sloman)
+    Online HELP and VED_?? documentation on *FILL, *DL and *EXPLODE did
+    not mention that FILL could take records as well as vectors, and
+    that DL and EXPLODE now have updaters.
+
+    A number of HELP files have been improved, with cross references
+    brought up to date:
+      *DEVICE *DEVNAME *HELPFILES *INPUT *INPUTOUT *IO *NEXTCHAR
+      *OUTPUT *POPDEVRAW *POPRAWDEVIN *POPRAWDEVOUT *RAWOUTFLUSH
+      *SYSTRMDEV
+
+Aug 8 (Aaron Sloman)
+    New user-assignable variable VEDSTATUSBUFFERLIMIT, default 60,
+    controls maximum number of lines saved in the VED "status" (command
+    line) buffer. Assigning a bigger number will save more VED commands.
+    Assigning a smaller number will save space.
+
+Aug 8 (Aaron Sloman)
+    UNIX ONLY: A new collection of autoloadable facilities for running
+    Unix commands and reading the output back through a pipe is
+    described in HELP * PIPEUTILS. This includes VED commands for
+    running processes and reading the output into a temporary VED
+    buffer. The new procedures and VED commands include:
+
+    pipein(C,A,B) -> R
+        run a command with specified arguments and return a device or
+        repeater to access the pipe.
+    vedpipein(C,A,F,P,B,H)
+        run a command and read the output into a temporary ved file F
+        with header and formatting controlled by P, B, and H.
+    vedgenshell(C,H)
+        Run a shell command, read output into a VED file with header H.
+    <ENTER> sh <command>
+    <ENTER> csh <command>
+    <ENTER> rsh <machine> <command>
+    <ENTER> rved <machine> <file>
+    Compile and run C or Fortran programs using <ENTER> ccomp and
+        <ENTER> fcomp
+
+Aug 7 (Aaron Sloman)
+    Fixed bug in ved_heading (it did not cope with leading spaces,
+    with -vedstatic- true). (See HELP * ENTER_G/HEADING)
+
+Aug 6 (John Gibson)
+    Discovered and fixed a serious bug in concatenating words with the
+    <> operator. When one or other word was empty (i.e. 0 length), the
+    result returned was garbage, and the heap was corrupted. (This bug
+    has been in the system for a long time, certainly since before
+    Version 12.)
+
+July 31 (Aaron Sloman)
+    New extensions to -wordswith- defined in HELP * WORDSWITH.
+    -match_wordswith- takes a string and matching procedure, or else
+    a string pattern and returns a sorted list of all matching
+    words in the Poplog dictionary.
+
+    In VED, <ENTER> wordswith <string pattern>
+    produces a temporary VED file containing all the words that match
+    <string pattern>
+
+July 27 (Roger Evans)
+    Bug fixes:
+        (1) -pwm_window_label- and -pwm_icon_label- now update internal
+        representations of label (used by event printing routines etc.)
+        (2) LIB EXTERNAL now returns a ddecimal when given a ddecimal in
+        call-by-references using an identifier.
+
+July 26 (Ian Rogers)
+    Flavours bug fix:
+        Trapped attempts to make ivars or divars declarations inside a
+    method definition.
+
+July 26 (John Williams)
+    Two bug fixes:
+        (1) -newanyarray- now checks that the arrayvector is big enough
+            for the maximum arrayvector bound
+        (2) -arrayvector- now has an updater
+
+July 25 (Ian Rogers)
+    Fixed a bug in vanilla_flavour.p which clobbered any attempt to
+    to find the print string of an instance. It was caused by using the
+    form of printf: printf(<arg1> .... <string>). A stronger warning has
+    been placed in HELP *PRINTF to warn against this sort of thing.
+
+July 16 (Aaron Sloman)
+    LIB NCREV speeded up by a factor of about 4 on non-dynamic lists.
+    See HELP NCREV
+
+July 16 (John Gibson)
+    Fixed bug in the operators / and // which meant that dividing the
+    largest negative simple integer (-536870912) by -1 gave the wrong
+    result (it produced the original value instead of its biginteger
+    negation).
+
+July 11 (Aaron Sloman)
+    --- * DESTLIST speeded up.
+
+    --- VED searching mechanism substantially improved:
+    There were various long standing bugs and deficiences in the
+    VED search mechanism that have now been removed.
+
+    Backward search (-ved_backsearch-) now works with strings
+        containing pattern elements and control character
+        specifications, e.g. @a, @z, @?, @@, @/, \^A
+        If there are no pattern elements it works as before, but
+        if there are pattern elements it uses a slower but more
+        general search mechanism.
+
+    Backward non-embedded search can be specified using
+        <ENTER> `<string>`
+
+    <ESC> \  and <ESC> /  (re-search) now no longer merely
+        remember the last search string used, they also remember
+        whether the search was embedded or not. The full state of
+        the last search is represented by the following global
+        variables.
+            vvedanywhere
+                - search not constrained to item boundaries
+            vvedoldsrchdisplay
+                - original search string, including patterns etc.
+            vvedsrchstring
+                - copy of vvedoldsrchdisplay modified for efficient
+                matching
+            vvedsrchsize
+                - length of vvedoldsrchdisplay
+
+    <ENTER> s  no longer inserts leading spaces when lines become
+        too long. I.e. it behaves like <ENTER> gs.
+
+    <ENTER> s no longer calls -vedscreenbell- at the end of the
+        search.
+
+    Some bugs concerned with searches including patterns and
+        starting beyond the end of the file have been fixed.
+
+    The help file, HELP * VEDSEARCH has been updated and clarified.
+
+July 11 (Aaron Sloman)
+    --- Bug in -vedcharinsert- fixed. With -vedbreak- true and
+        -veddelspaces- false, inserting a character in a long line used
+        to cause a leading space to be inserted at the break. This also
+        happened with the interactive search and substitute. This has
+        now been fixed.
+
+July 8 (Aaron Sloman)
+    --- Improved facilities for defining new syntactic forms.
+        The syntax for "define" has been extended to allow users to
+        define new syntactic forms enclosed by "define" and "enddefine".
+        For full details see HELP * DEFINE_FORM.
+
+July 6 (John Williams)
+    --- The procedure -copy- now copies properties properly.
+    See REF * PROPS.
+
+July 6 (Aaron Sloman)
+    --- The quoted word syntax has been extended to allow a string
+    between the word quotes. Thus the following are now legal Pop-11:
+        vars s1 = "'a string !!'";
+
+        if pdprops(proc) == "'foo/3'" then
+
+    --- The syntax words that can occur between "define" and a procedure
+    name have been listed in the list -define_headers-, and those which
+    can occur after the procedure call pattern in the header are in the
+    list -define_terminators-. Both are used by ved_f and the former
+    by -ved_tidy-.
+
+    --- ved_f (HELP * VEDCOMMS/ved_f) fixed so as not to alter globally
+    the VED search variables vvedsrchstring, vvedsrchsize. So it does
+    not interfere with VED's use of <ESC> / to re-search for the last
+    search string. ved_f now uses the two lists -define_headers- and
+    -define_terminators-
+    It also now copes with section pathnames in procedure headers, e.g.
+            <ENTER> f grum
+    will now find
+            define $-foo$-baz$-grum(x,y);
+
+    It also now works with new "define:" formats, e.g.
+        define : <type> name
+
+    --- ved_mep (HELP * VEDCOMMS/ved_mep) the "mark to end of current
+    procedure" facility has been improved. It handles things like
+    "nonsyntax define()" properly, and no longer gives an error if
+    called in the middle of a procedure. It can still be fooled if the
+    cursor starts within a nested procedure definition.
+
+    --- The VED search mechanism sets a variable vvedoldsrchdisplay,
+    which remembers the actual search string last used, including
+    any pattern elements. This used not to be exported, but is now,
+    along with vvedsrchstring and vvedsrchsize.
+    See HELP * VEDVARS/vvedoldsrchdisplay
+
+July 4 (Aaron Sloman et. al)
+
+    --- Fixes to documentation files:
+        HELP * DOCUMENTATION, * VEDSYSFILE, * VEDGETSYSFILE
+        HELP * LISPNEWS has been updated.
+
+June 24 (John Gibson)
+    --- Changes to the handling of O/S process arguments by Poplog
+    (see REF *SYSTEM for full details):
+
+        1. A new variable -poparglist0- contains a complete list of the
+    arguments passed to Poplog, starting with the name under which the
+    process was invoked. -poparglist- is effectively unchanged, but will
+    now be a trailing sublist of -poparglist0- (i.e. excluding those
+    arguments processed by the system on startup).
+
+        2. The character `+` can now be used to flag a saved image to
+    restore, in both Unix and VMS systems. The characters `-` in Unix
+    and `/` in VMS are recognised as before, but not AFTER `+` has been
+    used, i.e.
+
+                pop11 -prolog -mysave
+                pop11 -prolog +mysave
+                pop11 +prolog +mysave
+
+    will all restore "prolog" and then "mysave", but
+
+                pop11 +prolog -mysave
+
+    will only restore "prolog". This allows programs based on saved
+    images to take Unix-style arguments beginning with `-`.
+
+        3. (VMS only) The translation of the DCL foreign command line to
+    arguments in -poparglist0- is now the same to that performed by VMS
+    C programs (see REF *SYSTEM). In particular, arguments containing
+    uppercase letters, spaces etc can be quoted with double quotes ",
+    which are then stripped off. For this reason, " at the beginning of
+    the first argument to flag POP-11 code to compile is now replaced by
+    : (colon) as in Unix. Note that since DCL recognises : immediately
+    after the command name as flagging a label, this will normally need
+    quoting (also as in Unix), e.g.
+
+                pop11 ":3+4=>"
+
+
+June 20 (Ian Rogers)
+    --- Flavours bug fixes (Instrument flavours and global flavour
+        records)
+        1. Instrument flavours now border themselves when first made as
+        well as when they are refreshed. Bordering is controlled by the
+        variable -bordering- which defaults to true.
+        2. Flavour records are now declared as vars global in the manner
+        that is indicated in the documentation.
+
+June 17 (John Williams)
+    --- Improvements to tracing:    (see HELP * TRACE)
+            1.  Abnormal exits due to -setpop- are not displayed
+            2.  Abnormal exit tracing can be turned on/off
+
+June 15 (Roger Evans)
+    --- Bug in -pwmcycleitem- fixed - it now actually calls the
+        procedure provided whenever the item is selected.
+
+June 8 (John Williams)
+    --- VMS only.
+        The file USEPOP:[POP.LIB.DEMO]DEMO.COM has been removed.
+            (It never worked anyway!)
+        The file USEPOP:[POP.LIB.DEMO]DEMO.P now works under VMS.
+
+June 1 (Aaron Sloman)
+    --- Fixed -vedcapword- in VED and VEDEMACS so that after
+        capitalising initial letter it changes the rest to lower case.
+        Added -ved_capword- for convenient invocation in VED
+        <ENTER> capword N  will capitalise N words.
+        See HELP * VEDEMACS/Capitalise, HELP * VEDPROCS/vedcapword,
+            HELP * VEDCOMMS/ved_capword
+
+May 27 (John Gibson)
+    --- Added new procedures -sys_file_move- and -sys_file_copy-. See
+        REF *SYSUTIL
+
+May 8  (Aaron Sloman)
+    --- The following documentation files have been updated.
+        TEACH * PERCENT
+        HELP * PARTAPPLY, * PERCENT, * CLOSURES
+
+May 6  (Aaron Sloman)
+    --- ISSUBSTRING has been altered: the second argument (integer)
+        is now optional and defaults to 1.
+
+    --- VEDWRITERANGE can now accept a device instead of a file name.
+
+    --- Tab conversion (with VEDNOTABS false) is now done for all VED
+        files read or written, whether a disk file is involved or some
+        other device.
+        See HELP * VEDPROCS/vedwriterange *VEDVARS/vedreadintabs
+
+    --- <ENTER> ??
+        with no argument, no longer puts the default argument (next
+        item in VED buffer) onto the command line. Instead it puts the
+        expanded command on the previous line in the command line
+        buffer. See HELP * VED_WHAT
+
+May 4  (Aaron Sloman)
+    --- Corrected entries for ved_bc in HELP * VEDCOMMS and the
+    ved_?? file.
+
+May 1  (John Gibson)
+    --- Added new procedure -consclosure- which constructs closures
+    without requiring the frozvals to be in a list. Format is
+
+        consclosure(P, FROZ_1, FROZ_2, ..., FROZ_N, N)
+
+    -partapply- has been moved out of the system to the autoloadable
+    library; it is now just
+
+        consclosure(P, destlist(FROZ_LIST))
+
+Apr 28 (Aaron Sloman)
+    --- *FOR now checks for missing loop variable.
+
+Apr 22 (John Gibson)
+    --- POPLOG on MC68020 systems (i.e. Sun-3 and Bobcat) now uses the
+    extended arithmetic facilities of that processor. This implies a
+    general speedup in both simple and big integer multiplication
+    and division operations.
+
+Apr 12 (John Gibson)
+    --- The procedure sys_= now returns true for two closures if their
+    pdparts are =, they have the same number of frozvals, and
+    their corresponding frozvals are =.
+
+Apr 9 (Aaron Sloman)
+
+    --- Two new string procedures in library * ISMIDSTRING(s1,s2),
+        * HASMIDSTRING(s2,s1). See REF * STRINGS
+
+        The procedure * ISSTARTSTRING has been moved from the library
+        into the system and re-defined to be more efficient.
+
+        * HASSUBSTRING has been modified so that it accepts an
+        optional integer argument analogous to * ISSUBSTRING
+
+        HELP * STRINGS updated
+
+    --- VED_W (<ENTER> w) and VEDWRITEFILES altered so that empty VED
+        files will be written if they already exist on disk. I.e. the
+        existing disk file will be overwritten with an empty file. This
+        is not done if the file does not exist. (To force VED to write
+        an empty file use VED_W1). See HELP * VEDCOMMS/ved_w
+
+Apr 2 (Aaron Sloman)
+    --- SYSREPEAT(<number>,<procedure>) now checks whether <number>
+    is an integer, and if so uses a much faster loop, going up to five
+    or six times as fast. SHOWLIB * SYSREPEAT
+
+    --- New VED procedure VEDENDRANGE jumps to end of marked range,
+    just as VEDMARKFIND jumps to beginning. SHOWLIB * VEDENDRANGE
+    Documentation added in HELP * VEDPROCS and VED_?? files
+
+    --- UNIX ONLY. Fixed a problem with LIB VED_MAIL. It used to check
+    sys_os_type(3) = 4.2 instead of sys_os_type(2) = "bsd". Made the
+    procedures VED_MAIL_WAITING and VED_MAIL_FILE available to users,
+    and introduced user-assignable variable SYS_MAIL_DIR.
+    See HELP * VED_MAIL
+
+Apr 1 (John Gibson)
+    --- Added -fast_frozval-, non-checking version of -frozval-.
+
+Mar 25 (John Gibson)
+    --- A new procedure -property_active- allows the active default
+    procedure for a property to be accessed or updated (in particular,
+    the updater can be used to give an active default to a property
+    constructed with -newproperty-).
+
+Mar 14 (John Williams)
+    -- The procedure -sysfileparse-, on Unix POPLOG systems only,
+    can be given an optional second argument specifying the host
+    name delimiter character. See HELP * SYSFILEPARSE
+
+    -- The library procedure -datafile- can now save ordinary
+    -newproperty- style properties. See HELP * DATAFILE.
+
+Mar 14 (John Gibson)
+    --- A new procedure -ident_declare- declares permanent variables.
+    This is basically the same as -sysSYNTAX- (with the same arguments),
+    except that -ident_declare- has no interaction with lexical
+    declarations.
+    See REF * IDENT, REF * VMCODE.
+
+    --- The operators -fi_div- and -fi_rem- are now in the core system
+    rather than the autoloadable library. Files for VED_?? updated.
+    See REF * FASTPROCS
+
+    --- When VED reads in files it now sets -popmemlim- locally to
+    popmemused + 1000000. This should largely cure the "run out of
+    memroy" mishap problem when reading a large file.
+
+    --- New POP-11 syntax -fast_repeat-, analagous to -fast_for- etc
+    (no difference between -repeat- and -fast_repeat- unless -times-
+    specified).
+
+
+Feb 14 (John Gibson)
+    --- The standard empty string previously called -vednullstring- is
+    now called -nullstring- (the old name remains as an autoloadable
+    synonym).
+
+Feb 12 (John Williams)
+    -- LIB INSPECT now defines -inspect1-, a procedure that displays
+    an object in the standard -inspect- format, without entering an
+    interactive loop.
+
+Feb 6 (Aaron Sloman)
+    --- (UNIX ONLY) Extended LIB VED_SEND as follows (see HELP * SEND):
+    User definable variable -vedinsert_From- (default TRUE) controls
+    insertion of Unix-like "From" line above message sent.
+
+    User defineable variable -vedmailrc- allows mail aliases to be
+    read from a different place from Unix mail. Default is value of
+    environment variable $MAILRC if set, otherwise $HOME/.mailrc.
+
+    Various minor bugs fixed. E.g. if message starts with a space or
+    tab it no longer gets confused with the header.
+
+Jan 31 (David Young)
+    --- Installed LIB SHOWARRAY for easy printing of arrays as tables of
+    values or blocks of 'grey-level' characters, and LIB READARRAY to
+    allow files of characters or turtle pictures such as LIB GREYPIC to
+    be read into ordinary arrays.
+    See TEACH * SHOWARRAY and TEACH * READARRAY.
+
+Jan 29 (A Sloman)
+    --- UNIX only. Fixed ved_stop so that on returning to a window that
+    was previously the upper window it makes it the right size for the
+    lower window.
+
+Jan 23 (A Sloman)
+    --- Fixed VEDWORDCOUNT_TEXT so that it (and VED_WC) copes
+    properly with underlined words. See HELP * WC
+
+Jan 7 (John Gibson)
+    --- A new integer variable -popminmemlim- controls the minimum
+    number of words at which the system should maintain the combined
+    heap/user stack memory area (cf -popmemlim- for the maximum value).
+    See REF *SYSTEM for details.
+
+Jan 5 (John Williams)
+    --- Tracing facilities extended as follows.
+    1. Trace output is printed even if the procedure is entered or
+    exitted in an 'abnormal' fashion. These abnormal entry/exit statuses
+    are indicated by replacing the `>` and `<` that occur in normal
+    trace output by one of the following characters:
+        R       entry due to process resume
+        S       exit due to process suspend
+        X       any other abnormal exit
+
+    2. The new variable POPMAXTRACEINDENT (default 40) controls whether
+    trace printing uses rows of exclamation marks to indicate depth of
+    procedure calls or a number in brackets. The latter can be forced in
+    all contexts by assigning 0 to POPMAXTRACEINDENT, producing trace
+    printing of the form:
+        [   3]> addup 1         ;;; depth of recursive call is 3
+        [   4]> addup 0         ;;; depth is 4
+        [   4]< addup 0         ;;; exiting call of depth 4
+        [   3]< addup 1
+
+    For full details see HELP * TRACE.
+    HELP * POPVARS updated
+
+Jan 5 (Aled Morris)
+    --- Added vars procedure -vedvedquitfile- which is called when a
+    file is quit. HELP * VEDPROCS updated.
+
+Jan 3 (Aaron Sloman)
+    --- LIB * VEDEMACS has been extensively revised, as described in
+    HELP * VEDEMACS. The main changes are
+    a. A useable version is available for VMS with alternatives to the
+    control characters ^S, ^Q, ^Y
+    b. Several discrepancies between LIB VEDEMACS and standard UNIX
+    EMACS have been removed. E.g. capitalisation of initial letter of
+    words, tracking end of line, etc. work. Other discrepancies remain,
+    however. Other changes are listed in the HELP file.
+
+    --- LIB * VEDCAPWORD
+    This procedure, required for LIB VEDEMACS, capitalises the initial
+    letter of the current word, then moves right to next word. It can
+    be assigned to a key if required.
+
+Jan 2 (Aaron Sloman)
+    --- LIB * VEDCONVERTWORD fixed so that it can move to left or to
+    right (changing case). So <ENTER> ucw, and <ENTER> lcw can now be
+    given negative arguments. E.g. to convert last three words to upper
+    case, do
+        <ENTER> ucw -3
+
+1987
+Dec 23 (Aaron Sloman)
+    --- NEWS items introduced between V12 and V13 have been moved
+    to HELP * NEWS.V13
+
+    --- POPLOG VM procedures that previously had updaters that were
+    not alterable by users have been changed to call the corresponding
+    user-definable procedures. So the updater of sysPUSH now calls
+    sysPOP, the updater of sysCALLQ calls sysUCALLQ the updater of
+    sysCALL calls sysUCALL, the updater of sysCALLS calls sysUCALLS, the
+    updater of sysPASSIGN calls sysUPASSIGN. See REF* VMCODE
+
+Dec 8 (Aled Morris)
+    --- New autoloadable -DEF- installed - see HELP *DEF
+
+Nov 30 (John Gibson)
+    --- The procedure -section_pathname- returns the full pathname of a
+    section, as a string. See REF *SECTIONS.
+
+Nov 24 (John Gibson)
+    --- The procedure -identof- now has an updater, enabling (permanent)
+    identifiers to be attached directly to words. Since -syssynonym- can
+    now be defined simply as
+
+            identof(word2) -> identof(word1)
+
+    it has been moved out of the system into the autoloadable library.
+
+Nov 20 (John Gibson)
+    --- (Version 13.2004) Enhancements and bug fixes to the section
+    mechanism (see REF *SECTIONS):
+
+        1. Imports and exports specified in a -section- statement now
+    take effect in all intermediate sections specified in a pathname,
+    e.g.
+
+            section $-tom$-dick$-harry xxx => yyy;
+                ...
+            endsection
+
+    imports  -xxx- from  top-level down  through -tom-  and -dick-  into
+    -harry-, and exports -yyy- from -harry- up through them to top-level
+
+        2. -word_identifier- has been enhanced so that it can return
+    'undeclared' word identifiers
+
+            word_identifier(WORD, SECT, "undef") -> WORD_ID
+
+    when WORD is not currently declared in SECT. The WORD_ID returned
+    then will act as a vehicle for declaring WORD in SECT, in the sense
+    that any later attachment of  an identifier to WORD_ID (e.g. with
+    -sysSYNTAX-, -syssynonym-, etc), will simultaneously attach that
+    identifier to WORD in section SECT (conversely, a later declaration
+    of WORD in SECT will cause the new identifier to become attached to
+    WORD_ID also).
+        The new facility is now used by the procedure that reads
+    identifier pathnames in POP-11 (-sys_read_path-), and this means
+    that new sectioned identifiers can be declared or defined by
+    pathname reference alone. For example,
+
+        define $-foo$-xxx(); ... enddefine;
+
+    previously produced a mishap unless -xxx- was already declared in
+    section -foo-, but works in the new system (but note however that
+    this mechanism will NOT create new sections -- any sections involved
+    must have been created first by a -section- statement).
+        The -cancel- syntax word now also uses -sys_read_path-, and so
+    can be used to cancel sectioned identifiers.
+
+Nov 13 (John Williams)
+    --- New procedures that operate on lists added: -fast_subscrl- and
+    -initl-. Also, -fast_ncdelete- moved from library to system. See
+    REF * LISTS
+
+Nov 12 (John Gibson)
+    --- (Version 13.2003) In the interests of greater flexibility (and
+    in particular the requirements of a PWM for VMS Poplog), -popdevraw-
+    has now been replaced with two active variables containing separate
+    read and write devices: -poprawdevin- and -poprawdevout- (when
+    neither standard input nor output is a terminal, they both contain
+    undef records).
+        -popdevraw- is now just an autoloadable synonym for
+    -poprawdevin-, but to maintain upward compatibility, output
+    operations with -syswrite- and -sysflush- done on the device in
+    -poprawdevin- will be automatically redirected to the device in
+    -poprawdevout- (however, existing programs should be changed so as
+    not to rely on this kludge).
+        Also to maintain compatibility in Unix systems, a new procedure
+    -sys_link_tty_params- is run on the two devices to make them share
+    terminal characteristics, so that existing calls of -sys_io_control-
+    on -popdevraw- will affect both devices simultaneously.
+        This change will be retrofitted to Version 13. See REF *SYSIO
+    for full details.
+
+    -- The procedure -sys_purge_terminal- is now an autoloadable synonym
+    for the new, more general, procedure -sys_clear_input-. See REF
+    *SYSIO.
+
+Nov 10 (Aaron Sloman)
+    --- HELP * DEFINE had seriously misleading information about
+    definitions specifying negative precedence. This has been corrected.
+
+Nov 5 (Aaron Sloman)
+    --- New versions of the following TEACH files have been installed.
+        BUFFERS  DATABASE  DEFINE  LMR   MARK   MATCHES   MOREVED RIVER
+        RESPOND  SWITCHWINDOW   TEACH   TEACHFILES   VARS   VED  VEDPOP
+
+    The main change is that these files are now TERMINAL INDEPENDENT:
+    It is assumed that the learner has a keyboard map and VED keys are
+    referred to by logical names as in the VED User Guide. In addition
+    The files make use of "load marked range" rather than <ENTER> x (i.e
+    all compilation is now done from the edit buffer). The recommended
+    initial teaching sequence is therefore:
+        TEACH, WINDOW, MARK, SWITCHWINDOW, BUFFERS, LMR, VEDPOP,
+        MATCHES, RESPOND, DEFINE, VARS, MOREMATCHES, DATABASE, MOREVED.
+    TEACH * TEACHFILES adds more information.
+
+Nov 4 (John Williams)
+    --- New syntax words -returnif- and -returnunless- added.
+    See REF * SYNTAX and REF * POPSYNTAX
+
+Nov 4 (Roger Evans)
+    --- A new PWM help file *PWMWINIO has been added, discussing how to
+        achieve character-stream I/O on PWM user windows.
+
+Nov 2 (John Williams)
+    --- The routine that signals a RECURSION LEVEL EXCEEDED error
+        now locally assigns -setpop- to -interrupt-. This means
+        that user-defined interrupt handlers no longer run the risk
+        of crashing POPLOG by exceeding operating system stack space
+        limits.
+
+Nov 1 (John Gibson)
+    --- A new macro
+
+        #_INCLUDE 'filename'
+
+    enables the stream of items from a file to be 'included' in (spliced
+    into) the current -proglist-. See REF * PROGLIST.
+
+Nov 1  (John Williams)
+    --- A bug in -newanyarray- has been fixed - it is now possible to
+    create 0-dimensional arrays by specifying an empty -boundslist-.
+    However, this means that is no longer possible to directly specify
+    -nil- as the initial element of an array, because -nil- will
+    now be interpreted as a -boundslist-.
+
+Oct 28 (Roger Evans)
+    --- A bug which caused VED commands qhelp, qref, etc. to mishap
+    sometimes if they could not find the requested file has been removed
+    --- VED's strategy for deciding what file to edit after a quit has
+    been simplified - it now simply goes back to the previous file
+    edited.
+
+Sept 29 (John Williams)
+    --- New VM flag -VM_NO_CHECK_GO_ON_INT- added.
+    See REF * VMCODE/sysGO_ON
+
+    --- The macros -cd- and -pwd- now plant code in -proglist-, rather
+    than executing immediately.
+
+Sept 28 (John Gibson)
+    --- Version 13.2. The garbage collector now has an alternate
+    algorithm, which comes into play when there is insufficient memory
+    for the normal copying algorithm to operate (and which can also be
+    selected explicitly by assigning false to -pop_gc_copy-). As a
+    result, the system can no longer die with the mishap 'CANNOT
+    ALLOCATE GC WORKSPACE', and -popmemlim- can be set as large as
+    desired. (There is also now a clear distinction in mishap messages
+    between merely exceeding -popmemlim- and actually running out of
+    memory -- the latter can still happen, of course.) See REF *SYSTEM.
+
+    -- The new (active) variable -pop_pr_level- controls the depth to
+    which components of datastructures are printed. See REF *PRINT.
+
+Aug 17  (Aled Morris)
+    --- Short (16 bit signed) vectors ("shortvec") added to
+    complement "intvec". See REF *INTVEC.
+    --- A set of ``fast'' procedures for accessing integer vectors in a
+    consistent way has been added - see REF *FASTPROCS.
+
+Aug 17  (John Gibson)
+    --- Version 13.1 of POPLOG for Unix systems has the segmented heap
+    and garbage collector already in Version 13.0 of VMS POPLOG.
+        This means that the system now copes with the segmentation of
+    its heap space that results when external procedures allocate
+    dynamic memory at run-time (e.g. through -sbrk- or -malloc- etc).
+    External procedures can now allocate memory freely, and no prior
+    provision need be made for this (as a result, the optional 4th
+    argument to -external_load- that previously specified the amount of
+    memory required is now redundant -- and, if given, is ignored).
+
+    ********** FOR EARLIER NEWS ITEMS SEE HELP * NEWS.V13 **********
+
+--- C.all/help/news.v13_6
+--- Copyright University of Sussex 1989. All rights reserved. ----------

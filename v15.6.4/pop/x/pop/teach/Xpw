@@ -1,0 +1,263 @@
+/*TEACH Xpw                                   Jonathan Meyer Sept 1990
+                                       Updated Julian Clinton Jan 1994
+
+This file contains some sample code to illustrate how to create and use
+the graphics facilities provided by the Poplog Widget Set. It is
+written so that it can be loaded as a program file.
+
+The examples given here assume that you have some knowledge of the X
+Toolkit and the Poplog Widget Set.
+
+         CONTENTS - (Use <ENTER> g to access required sections)
+
+ --  Load Widgets
+ --  Start Toolkit
+ --  Create A New Shell
+ --  Creating Children
+ --  Make Window
+ --  A Simple Button
+ --  Callbacks - A First Example
+ --  A Label With Some Callbacks
+ --  A Drawing Callback
+
+Load Widgets
+------------
+To load some widgets from eg. the Poplog Widget Set, you need to
+instruct Poplog to get the relevant libraries and define the widget
+constants:
+
+*/
+    uses popxlib;   ;;; using X
+    max(popmemlim, 400000) -> popmemlim; ;;; give us some space.
+
+    uses xt_widget;
+    uses xt_callback;
+    uses xt_event;
+    uses XpwGraphic;
+    uses XpwPixmap;
+    uses xpwGraphicWidget;
+    uses xpwCompositeWidget;
+    uses xtApplicationShellWidget;
+
+/*
+
+Start Toolkit
+-------------
+
+After loading some widgets, you need to initialize the toolkit. This
+connects your Poplog process to the X Window Server process, the name of
+which should be held in the environment variable DISPLAY. You can check
+this environment variable using
+
+    systranslate('DISPLAY') =>
+
+Typical display names are ':0.0', 'unix:0.0', 'suna:0.0' etc.
+
+Starting up an X connection:
+*/
+
+    XptDefaultSetup();
+
+/*
+Create A New Shell
+------------------
+Now, create a new shell window, which is the basic top level container
+window for other widgets:
+*/
+
+    vars shell = XtAppCreateShell('xpw', 'Xpw',
+                            xtApplicationShellWidget,
+                            XptDefaultDisplay,
+                            XptArgList([]) );
+
+/*
+Creating Children
+-----------------
+
+A shell widget can have only one child. We want to create several
+different children, so we will make a "Composite" widget inside the
+shell. Composite widgets manage more than one child widgets, which we
+will add at a later stage.
+
+*/
+
+    vars composite = XtCreateManagedWidget('composite',
+                        xpwCompositeWidget, shell,
+                        XptArgList([ {width 300} {height 200} ]) );
+
+/*
+Now, lets put a graphics widget within the composite widget - this
+can be used to draw on.
+*/
+
+    vars graphic = XtCreateManagedWidget('graphic',
+                        xpwGraphicWidget, composite,
+                        ;;; make it same size as parent.
+                        XptArgList([ {width 300} {height 200} ]) );
+
+/*
+Make Window
+-----------
+In order to make the window appear, we must "Realize" it. Realizing
+means telling the X server to create a new window. In this case, we want
+to realize the top level window, held in the -shell- variable.
+
+*/
+
+    XtRealizeWidget(shell);
+
+
+/*
+A Simple Button
+---------------
+
+First, draw a label for the button ( See REF *XpwPixmap for a full list of
+graphics operations in Xpw).
+
+*/
+
+    XpwDrawImageString(graphic, 10,10, 'Button: ');
+
+/*
+
+Now create a new widget which we will use to detect button events. We
+will put this widget in the composite widget we created earlier:
+
+*/
+
+    vars button = XtCreateManagedWidget('button',
+                            xpwGraphicWidget, composite,
+                            XptArgList([
+                                {width 10} {height 10}
+                                {x 75} {y 2}
+                            ]));
+
+
+/*
+Callbacks - A First Example
+---------------------------
+We will use the buttonEvent callback to detect button events within the
+small button widget we made above.
+
+The button callback will use *XptValue to set the foreground of
+the button to one of three values, according to which button was
+pressed.
+
+The button number must be determined using exacc to convert an
+external pointer into an integer.
+*/
+    vars colors;
+
+    if XptValue(shell, XtN depth) > 1 then
+        ;;; give each button a different colour
+        ['red' 'green' 'yellow'];
+    else
+        ;;; all buttons are black
+        ['black' 'black' 'black']
+    endif -> colors;
+
+    ;;; our button event callback:
+    define button_callback(w, client, call);
+        lvars w, client, call, button;
+        exacc ^int call -> button;  ;;; get button number as integer
+        if button > 0 then
+            ;;; button going down (negative number when button goes up)
+
+            ;;; set the window colour
+            XpwSetColor(w, colors(button))->;
+            XpwFillRectangle(w, 0,0,10,10);
+        else
+            ;;; button going up
+            XpwSetColor(w, 'white')->;
+            XpwFillRectangle(w, 0,0,10,10);
+        endif;
+    enddefine;
+
+    ;;; register our button event handler by adding a callback:
+    XtAddCallback(button, XtN buttonEvent, button_callback, false);
+
+    ;;; TRY:
+    ;;; click on the button with each mouse button
+
+/*
+A Label With Some Callbacks
+---------------------------
+Now lets make a window with a label in it, which gets inverted each
+time the button is clicked on the window. Clicking on the label
+also switches a global variable on and off.
+*/
+
+    ;;; load graphic operations as permanent identfiers
+    loadinclude xpt_xgcvalues;
+
+    vars label = XtCreateManagedWidget('label',
+                        xpwGraphicWidget, composite,
+                        XptArgList([
+                            {width 100} {height 12}
+                            {x 50} {y 70}
+                        ]));
+
+    ;;; write in the label:
+    XpwDrawImageString(label, 10, 9, '    Draw');
+
+    ;;; set the label graphics function to exclusive or:
+    GXxor -> XptValue(label, XtN function);
+
+    ;;; define a callback procedure:
+
+    vars drawing = false;
+    define label_callback(w, client, call);
+        lvars w, client, call, button;
+
+        exacc ^int call -> button;  ;;; get button as integer
+
+        if button == 1 then
+            ;;; reverse label
+            not(drawing) -> drawing;
+            XpwFillRectangle(label,0,0,100,12);
+        endif;
+    enddefine;
+
+
+    ;;; register callback
+    XtAddCallback(label, XtN buttonEvent, label_callback, false);
+
+    ;;; TRY:
+    ;;; click on the label marked draw, and also print out
+    ;;; the value of drawing after clicks
+
+/*
+A Drawing Callback
+------------------
+This final callback tracks the mouse motion events within the "graphic"
+widget, leaving a trail showing where the mouse has been. It uses
+the global variable "drawing" defined above to determine whether the
+trail should be visible. This means clicking on the label widget will
+turn drawing on and off.
+*/
+
+    vars old_x = false, old_y;
+
+    define motion_callback(w, client, call);
+        lvars w, client, call, x, y;
+
+        returnunless(drawing);
+
+        ;;; get mouse location:
+        XptValue(w, XtN mouseX) -> x;
+        XptValue(w, XtN mouseY) -> y;
+        ;;; draw from old mouse location to current mouse location
+        if old_x then
+            XpwDrawLine(w, x,y, old_x, old_y);
+        endif;
+        x -> old_x; y -> old_y;
+    enddefine;
+
+    XtAddCallback(graphic, XtN motionEvent, motion_callback, false);
+
+    ;;; TRY:
+    ;;; click on the "Draw" label to turn on drawing,
+    ;;; then drag the mouse around
+/*
+--- C.x/x/pop/teach/Xpw
+--- Copyright University of Sussex 1990. All rights reserved. ---------- */

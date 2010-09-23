@@ -1,0 +1,545 @@
+/*
+TEACH PRBWINE                                      Aaron Sloman Nov 1995
+                                  Revised for new syntax, and reoranised
+                                                              April 1996
+                         Based on
+                               Mike Sharple's example in TEACH * PRODSYS
+                         Derived from
+                            a Teknowledge Tutorial on production systems
+
+
+         CONTENTS - (Use ENTER g to access required sections)
+
+ -- Introduction
+ -- Trying out the basic wine adviser
+ -- Some optional control commands.
+ -- How it works
+ -- The rules for the wine adviser
+ -- -- Set some global variables to control trace printing
+ -- -- Define the rules, in the ruleset called prb_rules
+ -- Define the procedure wine_expert, to run the rules
+ -- Exercises on the wine adviser
+ -- SEE ALSO
+
+-- Introduction -------------------------------------------------------
+
+TEACH * RULEBASE gives an introduction to rule-based programming using
+a set of forward chaining condition-action rules (i.e. a production
+system), and introduces LIB * POPRULEBASE, a library implemented in
+Pop-11. A more detailed overview can be found in TEACH * POPRULEBASE.
+Experts may wish to read the comprehensive summary in HELP * POPRULEBASE.
+
+This teach file, which is derived from an example in TEACH * PRODSYS,
+introduces a simple expert system to help you choose whether to have a
+red wine or a white wine with your meal.
+
+It finds out what you are going to eat, finds out what your preferences
+are, and then uses a simple algorithm to compute the degree of certainty
+with which it can make a recommendation on the colour.
+
+-- Trying out the basic wine adviser ----------------------------------
+
+This file has all the main text `commented out', so that you can compile
+it with the VED command:
+
+    ENTER l1
+
+Then run it by marking and loading this line (ESC d):
+
+    wine_expert();
+
+If you do that, it will ask you a series of questions, giving you
+options, from which you select by typing one in. If you type something
+not included in its current list of options, it will complain, by
+printing something like this:
+
+** [[eggs] does not match [OR fish meat poultry dunno]]
+
+and will wait for you to re-type one of the items in the list (without
+the square brackets). If you don't know what the main dish will by, type
+in "dunno" as your answer.
+
+If you want to know why it is asking you a question, then instead
+of answering type
+
+    .why
+
+(include the ".") and press RETURN.
+
+Eventually, after collecting your answers and digesting them, it will
+tell you its recommendation and the degree of certainty. Don't expect
+high quality advice from this toy program.
+
+
+-- Some optional control commands.
+
+You can try running the wine_expert program again after compiling one or
+more of the following commands to make it give more information about
+what's going on:
+
+;;; Make it pause repeatedly, each time waiting till you press RETURN
+true -> prb_walk;
+
+;;; Make it print out more detailed trace information.
+
+2*3*5*7*11*13 -> prb_chatty;    ;;; See HELP * POPRULEBASE/prb_chatty
+
+;;; Turn off the trace printing compilete
+false -> prb_chatty;
+
+;;; turn off all but the bare minimum of trace printing
+
+true -> prb_chatty;
+
+;;; re_run the program
+wine_expert();
+
+-- How it works -------------------------------------------------------
+
+The remainder of this file defines the following rules, using the syntax
+of poprulebase:
+
+rule get_dish
+    This asks the user whether the dish is fish, meat, or poultry,
+    and allows the option "dunno", when the dish is unknown.
+    A possible extension would be to add new main dish options.
+
+rule colourforfish
+rule colourforpoultry
+rule colourformeat
+    These rules assign default weights for red and white depending on
+    the dish specified.
+
+rule dish_unknown
+    This rule gives equal weight to both colours, if no dish has been
+    specified.
+
+rule find_colour
+    This rule finds out if the user has a preference between red and
+    white, allowing "dunno" to express indecision.
+
+rule no_preference
+    If the user has no preference, this rule gives red and white equal
+    weights.
+
+rule red_chosen
+rule white_chosen
+    If one colour is chosen by the user (certainty 1.0) then the other
+    one is given the default weight of 0.0.
+
+rule merge_weights
+    This rule combines the information obtained from the main dish, with
+    the information about the user's preference to give a final weight
+    for each of red and white. The algorithm used is explained below,
+    and you may wish to change it, by changing the POP11 action in the
+    rule.
+
+rule print_recommendation
+    This rule sees if there's a clear winner, and if so prints
+    out a recommendation and makes the interpreter stop.
+
+rule either
+    This rule copes with a tie between red and white, saying that
+    either will do.
+
+The procedure wine_expert, defined at the end, runs the rule
+interpreter, prb_run, with the list of rules and an initial database.
+
+prb_run repeatedly tries to find a rule whose conditions are satisfied,
+and then it runs the actions of that rule, until a STOP action is
+performed.
+
+
+-- The rules for the wine adviser -------------------------------------
+
+The program follows.
+
+*/
+
+;;; To run the wine advisor you need to load lib poprulebase
+
+uses poprulebase
+
+/*
+-- -- Set some global variables to control trace printing
+*/
+
+;;; Prevent the program pausing too often
+false -> prb_walk;
+
+;;; Make it do some trace printing
+true -> prb_chatty;
+
+/*
+-- -- Define the rules, in the ruleset called prb_rules
+*/
+
+/*
+Rule get_dish is the first rule to run, after wine_expert sets up
+the initial database.
+
+This rule asks the user what the main dish is and adds that inforation
+to the database.
+
+It has only one condition, that the main dish is not yet known.
+
+There are two actions: one to prompt the user and get a response, and
+one to remove the information that the main dish is unknown.
+
+Note: the ruleset definition starts here, and ends a long way down
+the file with "enddefine". The individual rules cannot be compiled
+separately: they have to be compiled in the whole ruleset, when this
+notation is used. If you edit a rule, you can recompile the whole
+ruleset using
+    ENTER lcp RETURN
+
+or the "ESC c" character sequence.
+
+*/
+
+define :ruleset prb_rules;
+
+  RULE get_dish
+    [main_dish is unknown]
+
+    ==>
+
+    ;;; First remove the condition that triggered this rule
+    [NOT main_dish is unknown]
+
+    ;;; The READ action includes a question to be printed out,
+    ;;; a constraint on possible answers, an assertion about the
+    ;;; main_dish to be stored after the answer is read in, and an
+    ;;; explanation to give if the user types: .why
+    [READ 'Is the main dish fish, meat, poultry, or dunno'
+        [OR fish meat poultry dunno]    ;;; constraints on answer
+        [main_dish is ANSWER]           ;;; add to database
+        {'Because the best colour depends on the dish'}]
+
+
+  /* The next three rules determine the colour of the wine, by assigning
+  certainty levels to the colour depending on the main dish. Try altering
+  the numbers and see what happens after recompiling.
+  */
+
+  RULE colourforfish
+    [main_dish is fish]
+    ==>
+    [dish_based_colour is white certainty 0.9]
+    [dish_based_colour is red certainty 0.1]
+
+  RULE colourforpoultry
+    [main_dish is poultry]
+    ==>
+    [dish_based_colour is white certainty 0.8]
+    [dish_based_colour is red certainty 0.3]
+
+  RULE colourformeat
+    [main_dish is meat]
+    ==>
+    [dish_based_colour is red certainty 0.8]
+    [dish_based_colour is white certainty 0.2]
+
+  /* This rule is fired if the user does not know the main dish */
+
+  RULE dish_unknown
+    [main_dish is dunno]
+    ==>
+    [dish_based_colour is red certainty 0.5]
+    [dish_based_colour is white certainty 0.5]
+
+  /* Discover which colour of wine the user prefers */
+
+  RULE find_colour
+    [user_choice is unknown]
+    ==>
+    [NOT user_choice is unknown]
+
+    [READ 'Do you prefer red or white wine, or dunno'
+        [OR red white dunno]  ;;; possible answers
+        [user_choice is ANSWER  certainty 1.0]
+        {'Because your preference should be taken into account'}]
+
+
+  /*
+  This rule is fired if the user does not express a preference.
+  Give each option equal weight.
+  */
+
+  RULE no_preference
+    [user_choice is dunno certainty 1.0]
+    ==>
+    [NOT user_choice is dunno == ]
+    [user_choice is red certainty 0.5 ]
+    [user_choice is white certainty 0.5]
+
+  /*
+  Now fill in gaps for the wine not chosen by the user. Infer from the
+  user's choice that the weight for the other wine is 0.0
+  */
+
+  RULE red_chosen
+    [user_choice is red certainty 1.0]
+    ==>
+    [user_choice is white certainty 0.0]
+
+  RULE white_chosen
+    [user_choice is white certainty 1.0]
+    ==>
+    [user_choice is red certainty 0.0]
+
+
+  /*
+  The next rule combines the user's expressed preference for wine colour
+  with the program's selection based on the choice of main dish, giving
+  the user's preference a weighting of 0.6 and the program's selection a
+  weighting of 0.4.
+
+  Is that sensible? Even if the user's preference was definite?
+
+  Note that this rule will be run twice, once for each colour.
+  */
+
+  vars colour, cert1, cert2;
+
+  RULE merge_weights
+    [user_choice is ?colour certainty ?cert1 ]
+    [dish_based_colour is ?colour certainty ?cert2]
+
+    ==>
+
+    ;;; Use a DEL action equivalent to two [NOT actions]
+    [DEL 1 2]
+    ;;; Introduce a new variable for use in actions below
+    [VARS total_cert]
+    ;;; Run a POP11 instruction to give the variable a value
+    [POP11 0.6*cert1 + 0.4*cert2 -> total_cert]
+    ;;; Use the value computed to store a new assertion.
+    [final_colour is ?colour certainty ?total_cert]
+
+  /*
+  Note the last three actions could be replaced with
+
+    [final_colour is ?colour certainty [$$ 0.6*cert1 + 0.4*cert2]]
+
+  but this would be less efficient because the [$$ ...] will have to be
+  compiled and run every time the rule is activated, whereas the POP11
+  action is compiled once when the rule is read in.
+  */
+
+
+  /* Print out the suggested wine colour.
+
+  The special condition beginning with "WHERE" specifies that this rule
+  only applies if cert2 is greater than cert1. This ensures that the
+  colour with the greater certainty is printed out. A "WHERE condition"
+  can be included in any rule. It consists of a list starting with the
+  word "WHERE", followed by any POP-11 expression, which ends at the end
+  of the list. The expression must return true or false, and the rule is
+  only fired if in addition to all the patterns being present, the "WHERE"
+  expression returns true.
+
+  */
+
+  vars cert1, cert2, colour1, colour2;
+
+  RULE print_recommendation
+         [final_colour is ?colour1 certainty ?cert1]
+         [final_colour is ?colour2 certainty ?cert2]
+         [WHERE cert2 > cert1]
+    ==>
+    [SAY I would suggest a ?colour2 wine with a certainty of ?cert2]
+    [STOP 'Have a nice meal']
+
+
+  /* Default rule, fired if certainties for red and white are equal.
+   Again, a "where clause" is used to check part of the condition,
+   namely that colour1 and colour2 are different.
+  */
+
+  vars colour1, colour2, cert1;
+
+  RULE either
+         [final_colour is ?colour1 certainty ?cert1]
+         [final_colour is ?colour2 certainty ?cert1]
+         [WHERE colour1 /= colour2]
+    ==>
+    ;;; remove the information triggering the rule
+    [NOT final_colour is ?colour1 certainty ?cert1]
+    [NOT final_colour is ?colour1 certainty ?cert2]
+    [SAY 'Either a red or a white wine would be appropriate']
+    [STOP 'Sorry I cannot be more specific']
+enddefine;
+
+/*
+
+-- Define the procedure wine_expert, to run the rules -----------------
+
+*/
+
+define wine_expert();
+
+    ;;; Make it never run the same rule twice on the same conditions.
+    dlocal prb_repeating = false;
+
+    [START wine_expert] =>
+
+    ;;; run prb_run with the rules, and an initial database
+    prb_run(
+        prb_rules,
+            [[main_dish is unknown] [user_choice is unknown]]);
+
+    [END wine_expert] =>
+enddefine;
+
+
+pr('\nTo run the program type\n\twine_expert();\n');
+
+/*
+-- Exercises on the wine adviser --------------------------------------
+
+After playing with the adviser and seeing what recommendations it makes
+in response to various answers you give to questions, you could try one
+or more of the following exercises.
+
+First make a copy of the rules below in your own file called
+
+    prbwine.p
+
+Add a comment at the top between the /* ... */ comment brackets, saying
+what the file is about, and giving an example of how to run the program.
+
+Then study the rules.
+
+1. Find and remove any bugs. If you think there are any ways in which
+the advice given is wrong, or the calculation of weights is wrong,
+change them and see if the advice improves.
+
+How could you decide whether the advice given is good? I.e. how could
+you evaluate this program?
+
+2. Draw a decision tree corresponding to the rules, showing what the
+program does. (The same decision tree could be implemented in different
+ways: so it expresses WHAT the program does, not HOW it does it.)
+
+3. The use of READ actions in the rules requires the user to type in a
+whole word. This can lead to mistakes. It is possible instead to use
+a MENU action of the form
+
+    [MENU <menu> <action list> <explanation>]
+
+as described in HELP * POPRULEBASE. This allows a user to select an
+option by typing a number, instead of typing in a whole word. That can
+make the system easier and quicker to use.
+
+E.g. the first rule get_dish is defined above as follows:
+
+  RULE get_dish
+    [main_dish is unknown]
+    ==>
+    ;;; First remove the condition that triggered this rule
+    [NOT main_dish is unknown]
+    ;;; See the explanation of the READ action, above
+    [READ 'Is the main dish fish, meat, poultry, or dunno'
+        [OR fish meat poultry dunno]    ;;; constraints on answer
+        [main_dish is ANSWER]           ;;; add to database
+        {'Because the best colour depends on the dish'}]
+
+It could be re-written thus, replacing the READ action with a MENU
+action:
+
+RULE get_dish
+    [main_dish is unknown]
+    ==>
+    ;;; First remove the condition that triggered this rule
+    [NOT main_dish is unknown]
+    ;;; Now get information from the user.
+    [MENU
+        {['What is the main course?']
+         ;;; Options list
+         [[1 fish] [2 meat] [3 poultry] [4 'I do not know']]
+         ;;; Mappings list
+         [1 fish 2 meat 3 poultry 4 dunno]}
+         [[main_dish is ANSWER]]
+         ;;; Possible answer to .why
+        {'Because the best colour depends on the dish'}]
+
+;;; end of rule.
+
+Try translating the other READ action, in rule find_colour, so as to use
+a MENU action instead of a READ action. I.e. complete the following:
+
+RULE find_colour
+    [user_choice is unknown]
+    ==>
+    [NOT user_choice is unknown]
+
+    ;;; complete this incomplete specification
+    [MENU
+        { <question list>
+          <options list>
+          <mappings list>
+        }
+        [<action>]
+        { <explanation string>}]
+
+3. Try extending the rules to recommend rose wine for lobster or
+vegetarian food. This could be done by adding extra rules, though the
+existing rules would also have to be changed.
+
+In fact the format of the rules is not well chosen to allow extensions.
+Adding extra food options and extra wine options requires tedious
+addition of extra rules. It is possible, using some of the more advanced
+facilities of poprulebase, described in HELP * POPRULEBASE, and
+illustrated in TEACH * PRBRIVER. In particular the use of conditions of
+the form [ALL ...] and actions of the form [DOALL ...] can allow you to
+create sophisticated meta-rules that get their conditions and their
+actions from the database, making the programs more economical and also
+more able to modify themselves. However, exploring this technique is not
+recommended for people without a lot of programming experience.
+
+4. Is it possible to improve the handling of weights by starting with
+some low equal set of weights for all options, and then allowing some
+evidence to increase the weight of a recommendation and other
+evidence to decrease it, until no more evidence is available, and then a
+decision has to be made? Which factors besides the main dish and the
+user's preference might be used to increase or decrease the weight
+associated with a particular type of wine?
+
+5. Try changing the rules so that after they have given advice they
+ask if someone else wishes to get advice. If you type "no" the program
+should perform a STOP action. Otherwise it should restart. How could you
+do this? One way would be to have a [restart] action instead of the
+current STOP actions, and a rule which reacts to [restart] in the
+database by restoring it to the initial set. You may be able to think of
+a different method.
+
+6. (Harder). Try getting the program to modify its calculations by
+asking if the user is happy with the recommendation made, and if not,
+make the program change itself, e.g. by adding extra information in the
+database. E.g. it could print out
+    I recommend a red wine with certainty 0.64, but
+    some people would definitely prefer a red wine.
+
+
+
+*/
+
+
+/*
+-- SEE ALSO -----------------------------------------------------------
+TEACH * PRBZOO
+    A simple expert system to identify animals
+TEACH * RULEBASE
+    A more general introductory overview
+TEACH * POPRULEBASE
+    More examples of what poprulebase can do
+TEACH * PRBRIVER
+    An expert system to make plans to get man, fox, chicken and grain
+    across the river, subject to constraints.
+HELP * POPRULEBASE
+    A more detailed overview of the facilities available.
+
+--- $poplocal/local/prb/teach/prbwine
+--- The University of Birmingham 1995.  --------------------------------
+*/

@@ -1,0 +1,1976 @@
+HELP RULESYSTEMS                                 Aaron Sloman June 1996
+                                       Updated for version 5: July 1999
+
+Latest change: 18 Aug 2000
+
+This file is accessible on the internet at
+
+    http://www.cs.bham.ac.uk/research/poplog/newkit/prb/help/rulesystems
+
+There were some major changes for Version 5 of the toolkit. See
+    HELP NEWKIT
+
+The main change is that the specifications for an agent's rulesystem and
+the individual rulesets and rulefamilies are now transferred to the
+agent's database when sim_setup is run. Another change is that in
+addition to the use of cycle limits to control resource allocation,
+agents can have an interval specified, so that they only run
+occasionally, e.g. every N time slices, or daily, weekly, etc.
+
+NEW TERMINOLOGY
+The word "rulecluster" is now used as neutral between rulefamilies and
+rulesets. In other words, interpret "rulecluster" as an abbreviation
+for "ruleset or rulefamily".
+
+This file describes the role of a rulesystem which is composed of
+ruleclusters, where a rulecluster may be either a ruleset or a
+rulefamily. A rulefamily is a collection of alternative rulesets only
+one of which is current at any time.
+
+Each agent in the sim_agent toolkit has a rulesystem, which defines its
+internal processing mechanisms. The rulesystem should be thought of as
+consisting of a number of different mechanisms (ruleclusters) which run
+in parallel. I.e. each is able to do a little work in each simulated
+time slice, under the control of the sim_agent scheduler. So in each
+time slice each internal sub-mechanism of each agent is allowed to do
+some running.
+
+Thus not only do we have parallelism between agents we also have
+parallelism between mechanisms within agents. Moreover, a rulesystem can
+specify the relative resource allocations between sub-mechanisms in an
+agent. Thus it is easy to experiment with varying relative speeds of
+components such as perception, motive generation, motive selection,
+planning, etc.
+
+The mechanisms described here are intended to be general enough to
+support both low level automatic (neural, or behaviour-based) reactive
+systems and also higher level deliberative systems, within a single
+agent architecture. However, the choice is up to the designer: purely
+reactive or purely deliberative agents are also possible.
+
+[This file is still a draft. Substantial reorganisation will follow
+later.]
+
+See also
+    HELP * SIM_AGENT
+    or ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/sim/help/sim_agent
+
+An introductory overview is in
+    http://www.cs.bham.ac.uk/~axs/cog_affect/sim_agent.html
+
+    HELP * POPRULEBASE
+    or ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/prb/help/poprulebase
+
+    This describes the main condition-action rule interpreter and shows
+    how symbolic and non-symbolic mechanisms can be interfaced.
+
+If you have the sim_agent toolkit installed, a tutorial file is
+available:
+    TEACH * SIM_DEMO
+    or ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/sim/teach/sim_demo
+This includes both explanatory text and executable code, for a simple
+demonstration of groups of interacting agents.
+
+
+=======================================================================
+
+                                CONTENTS
+
+ -- Introduction
+ -- Version 5 (July 1999)
+ -- Version 4 (June 1996)
+ -- New hierarchy of rule-based program structures
+ -- Pattern variable "environments"
+ -- -- The "basic" use of pattern variables
+ -- -- [VARS ...] and [LVARS ...] conditions and actions
+ -- -- Notes on scoping of variables
+ -- Cycle limits and activation intervals
+ -- -- Stop actions for prb_run
+ -- -- Cycle limits for prb_run
+ -- -- cycle_limit, with_limit, with_interval
+ -- -- The sim_cycle_limit slot in sim_agent
+ -- -- The sim_interval slot in sim_agent
+ -- -- The sim_speed slot in a sim_agent class
+ -- Compile time control of options
+ -- -- prb_tracing_on (default true)
+ -- -- prb_use_sections (default false)
+ -- Lexical scoping of pattern variables
+ -- -- -- Lexical blocks
+ -- -- prb_force_lvars (global variable default true)
+ -- -- -- Trace printing of patterns
+ -- -- [popval ...] or [$$ ... ] forms
+ -- New control options: prb_allrules, and prb_sortrules
+ -- Additional control facilities STOPIF QUIT QUITIF STOPAGENT STOPAGENTIF
+ -- New [ADD ...] action form and prb_auto_add (default true)
+ -- New [TESTADD ...] action form
+ -- -- Debug options
+ -- -- Associating sections with rulesystems, rulefamilies or rulesets
+ -- New tracing and profiling facilities
+ -- Syntax for rulesets, rulefamilies and rulesystems
+ -- -- Define :ruleset
+ -- -- define :rulefamily
+ -- -- define :rulesystem
+ -- [DO conditions]
+ -- Improved error detecting and tracing
+ -- New top level ruleset interpreter
+ -- RULESYSTEMS: Background
+ -- Overview of rulesets and rulefamilies
+ -- What is a ruleset?
+ -- What is a rulefamily?
+ -- -- Examples of uses for rulefamilies
+ -- Why use rulefamilies?
+ -- Compound and simple rulefamilies
+ -- Cycle limits control resource allocations
+ -- Coexisting rulefamilies within an agent
+ -- Setting up a rulesystem in the SIM_AGENT toolkit
+ -- A rulesystem specification
+ -- Actions for switching rulesets
+ -- -- How the ruleset manipulating actions are defined
+ -- -- Replacing the above with your own actions
+ -- More on [DLOCAL ...] forms
+ -- Relative resources (speeds) of rulefamilies
+ -- How to use the mechanism.
+ -- prb_consrulefamily (create a rulefamily)
+ -- Specification for the Pop-11 record class prb_rulefamily
+ -- WARNING Use of prb_repeating set false is not recommended
+
+-- Introduction -------------------------------------------------------
+
+This file describes mechanisms suitable for implementing the internal
+processing of a simulated agent or a model, in connection with the
+SIM_AGENT toolkit, though some of the mechanisms can be used
+independently of that. See
+    ftp://ftp.cs.bham.ac.uk/pub/dist/poplog/sim/help/sim_agent
+
+Each agent agent has a rulesystem, which is a collection of mechanisms
+communicating via that agent's internal database (representing both
+short term and long term memory). The rulesystem is implemented as a
+list of components that can be given to the poprulebase interpreter. The
+components are ruleclusters, where each rulecluster is a rulefamily or a
+rulesets.
+
+A rulefamily is a collection of rulesets of which at most one is active
+at any time. A ruleset is a collection of condition-action rules, and
+when a ruleset is active the interpreter repeatedly tries to find which
+rules are runnable, and then runs their actions, subject to whatever
+"conflict resolution" mechanism the user has specified (which may be
+different for different rulesets, or rulefamilies). The scheduler works
+in simulated time, and in each time-slice it goes through each of the
+agents, running all their rulesystems and managing their sensors and
+actions.
+
+WARNING: if you have had experience of other rule-based systems please
+do not assume anything from previous systems generalises to poprulebase.
+This system is very general and flexible, and the defaults are probably
+not what you expect, though you can probably make it do what you want,
+e.g. emulate another system!
+
+-- Version 5 (July 1999) ----------------------------------------------
+
+Described in HELP NEWKIT
+
+o Ruleclusters in the agent's database.
+o Interval specifications allowed
+o SIM_HARNESS introduced and demonstrated in TEACH SIM_FEELINGS,
+    along with other new libraries to make the toolkit easier for
+    beginners.
+
+-- Version 4 (June 1996) ----------------------------------------------
+
+Version 4 of the Sim_agent toolkit, including Poprulebase, had a
+number of significant changes mainly implemented between January and
+June 1996. These are listed here for the convenience of users of the
+previous versions. Later, these notes will be reorganised and moved to
+where they really belong in comprehensive HELP files.
+
+The main changes include the following, all described in more detail
+below.
+
+o Allowing a new hierarchy of rule-based programming structures, i.e.
+rules, rulesets, rulefamilies and rulesystems
+
+o New syntax for defining rulesets, rulefamilies and rulesystems
+
+o Lexical scoping of pattern variables in Poprulebase
+
+o Provision of [LVARS ...] forms to make new lexical variables
+accessible in patterns or actions.
+
+o Provision of [DLOCAL ...] forms for more general control of the
+environment of a rule, ruleset, rulefamily or rulesystem. Described
+further below.
+
+o A more principled way of specifying cycle limits for the rule
+interpreter.
+
+o [DO ..] conditions, allowing actions to be interleaved with
+conditions.
+
+o Considerable efficiency improvements, e.g. if prb_sortrules is false,
+so that there's no user-specified conflict resolution procedure, and
+where prb_allrules is true. In these cases the actions of rules are run
+without first creating a list of rule instances.
+
+o New profiling and tracing options
+
+o POP11 and WHERE conditions could previously cause obscure errors. The
+previously anonymous procedures now have names, so that they will show
+up in the calling chain in error messages, making it much easier to
+localise bugs.
+
+o There is now far more stack checking, so that stack errors will be
+more easily localised.
+
+o Several new forms of actions are provided, giving users more control.
+    [ADD ...]
+    [TESTADD ...]
+    [STOPIF ...]
+    [QUIT ...]
+    [QUITIF ...]
+    [STOPAGENT ...]
+    [STOPAGENTIF ...]
+
+o A new variable prb_auto_add (default true) which can be made false, in
+which case actions adding information to the database MUST have the form
+    [ADD ...]
+This will avoid obscure bugs due to mis-typing other action keywords.
+
+o A facility for detecting that an agent had no runnable rules in a time
+slice, or that no agents had any runnable rules. See
+    HELP * SIM_AGENT/sim_agent_terminated_trace
+    HELP * SIM_AGENT/no_objects_runnable_trace
+
+o A new method sim_setup is provided, used in connection with a new slot
+for sim_object instances, sim_setup_done. The main default use of this
+is to ensure that rulefamilies in an agent's rulesystem are copied so
+that they are not shared between agents.
+
+o New facilities for adding or removing objects from the scheduler's
+list. See
+    HELP * SIM_AGENT/sim_edit_object_list
+
+o LIB * VEDDISCOUT allows different agents or different rules to send
+their trace output to different VED buffers.
+    (See HELP SIM_AGENT/veddiscout )
+
+o There are other debugging aids, such as the new global variable
+prb_ruleset_name, described in HELP POPRULEBASE
+
+Other new features are outlined below. See also
+    HELP * PRB_NEWS
+    HELP * SIM_AGENT_NEWS
+
+Some of the changes will require old programs to be modified. In
+particular, the "define :rulesystem" format described below allows
+collections of rules in a rulesystem to be defined as one unit,
+producing a list of rules. Although the old notation for defining
+individual rules remains available it is strongly recommended that that
+be dropped, as new options will be associated only with the new
+notation.
+
+To help with conversion, a VED program is provided which converts a rule
+to the new format. See HELP * VED_FIXRULE
+
+
+The main changes are now described in more detail.
+
+-- New hierarchy of rule-based program structures ---------------------
+
+The combination of Poprulebase and the Sim_agent toolkit supports the
+following four levels of mechanism, using syntax forms explained more
+fully in a later section. The levels are described from the lowest to
+the highest: rules, rulesets, rulefamilies, rulesystems. Each agent can
+have its own collection of these.
+
+    1. A rule (a set of conditions and actions, and possibly
+        other features, e.g. a name, and perhaps a weight).
+        The conditions may include patterns which are matched against
+        an agent's database, and actions which can change the database.
+        Both conditions and actions may also access arbitrary
+        Pop-11 datastructures and procedures, or files, sockets,
+        etc.
+
+       [A rule is an instance of a Pop-11 recordclass prb_rule.
+        Rules are now defined only as parts of rulesets. So the
+        old syntax for individual rules is now redundant:
+            define :rule .... enddefine
+
+        However the old format remains available, as does the procedure
+        prb_new_rule(name, weight, conditions, actions, type, rulevars);
+        for run-time construction of rules.]
+
+    2. A ruleset  (an ordered collection of things of type 1).
+        A ruleset is a set of rules capable of being given to the rule
+        interpreter, which repeatedly chooses one or more rules to run
+        on the basis of whether their conditions are satisfied.
+
+        The order is significant. A ruleset is implemented as a list,
+        with optional initial information about predefined variables,
+        and which section to use, followed by the rules in the ruleset.
+
+        The syntax for defining a ruleset uses the format:
+
+            define :ruleset <name>
+                ....
+            enddefine;
+
+    3.  A rulefamily. This is a collection of rulesets.
+
+        A rulefamily has a "current" ruleset and an unordered collection
+        of other rulesets. Any of them can become current for a while.
+        Conceptually this is like a ruleset that has been broken
+        down into a group of rulesets only one of which is current
+        at any time, but between which control can be transferred
+        including options for "pushing" and "popping" rulesets.
+
+        Each rulefamily is implemented as an instance of of the POP-11
+        record class prb_rulefamily. (See LIB * RULEFAMILY).
+
+        The syntax for defining a rulefamily uses the following
+        framework:
+
+            define :rulefamily <name>;
+                ....
+                ruleset: RS1
+                ruleset: RS2
+                ....
+            enddefine;
+
+        The header of the ruleset can provide additional information.
+
+        New action keywords are provided for changing the current
+        ruleset, e.g.
+
+            RESTORERULESET, PUSHRULESET, POPRULESET
+
+        A rulefamily can be given to prb_run, or prb_run_with_matchvars
+        as its first argument. Between such activations of the rule
+        interpreter a rulefamily remembers its current ruleset. For
+        examples see
+
+            TEACH PRBRIVER
+            TEACH SIM_DEMO
+                (***This is still being extended***)
+
+        A ruleset can be used as a simple type of rulefamily containing
+        only one ruleset which is always the current one.
+
+    4.  A rulesystem. This is a list containing rulesets and
+        rulefamilies (ruleclusters), defined using the form
+
+            define :rulesystem <name>;
+                ....
+                include:  <name1>
+                include:  <name2>
+                ....
+            enddefine;
+
+        where <name1>, <name2>, etc. are names of rulefamilies or rulesets.
+        (A more detailed specification is given below.)
+
+        A rulesystem defines all the internal processing in an agent in
+        the sim_agent library. Outside that library rulesets have no
+        significance, though users may define their own applications.
+
+        The different elements in a rulesystem run in parallel
+        (simulated parallelism). Each has some number of cycles of the
+        rule interpreter allocated to it when it runs in a time slice.
+
+        They may all inherit a default number of cycles, or they may
+        have different cycle limits, giving them different resource
+        allocations (different running speeds in simulated time).
+
+        The same rulecluster can occur more than once in a rulesystem.
+        If the same rulecluster is repeated in a rulesystem, that gives
+        it a chance to run more than the non-repeated elements. E.g. it
+        can do monitoring of effects of the others, or cleaning up
+        between them.
+
+        Resources allocated to individual ruleclusters can vary
+        dynamically (as attention switches within an agent).
+
+        Some ruleclusters may have an "interval" specification which
+        means that they run only whenever the specified interval has
+        elapsed since last time. The interval specification for a
+        rulecluster can also include a cycle limit. I.e. after the
+        specified interval run the rulecluster the cycle limit number
+        of times.
+
+
+-- Pattern variable "environments" ------------------------------------
+
+Poprulebase (which is part of the sim_agent toolkit) makes use of the
+Pop-11 pattern matcher, allowing the prefixes "?" and "??" to be used
+with pattern variables. "?v" matches the variable v against individual
+items in a list and "??v" turns v into a segment variable, matching
+sub-lists of arbitrary length (as shown in TEACH ELIZA).
+
+See also HELP * MATCHES, HELP * SYSMATCH
+
+In version 4 of the toolkit the user has far more control over which
+variables are accessible when. This is provided by the [VARS ...] and
+[LVARS ...] constructs. There is also a related new [DLOCAL ...]
+construct, described later. Moreover, by default pattern variables
+in the toolkit are lexically scoped rather than dynamically scoped
+(as in the standard uses of of the Pop-11 pattern matcher). Lexical
+scoping considerably reduces the risk of bugs due to unexpected
+interactions between rules, and also provides a marginal efficiency
+gain.
+
+First, a reminder of some of the basic facts about pattern variables.
+
+-- -- The "basic" use of pattern variables
+
+The normal use of pattern variables is as follows:
+
+The first time a pattern variable occurs in a condition its value can be
+set by the matcher, when it attempts to match the condition against
+database items. If it occurs in subsequent conditions (in the same rule)
+the matcher will not reset the value (the variable is then already in
+the list popmatchvars) and will instead use the value found in the
+earlier match.
+
+Similarly if a pattern variable is used in an action its value MUST
+previously have been set in a condition in the same rule.
+
+For example if one of the rules is of the form
+
+    RULE
+        [father ?x ?y]                      ;;; C1
+        [mother ?y ?z]                      ;;; C2
+        ==>
+        [ADD maternal_grandfather ?x ?z]    ;;; A1
+
+Then both x and y can have their values set when condition C1 is
+matched against a database item. When C2 is matched the previously
+assigned value for y will be used, and only z can acquire a new value.
+When the action A1 is performed, the existing values of x and y will be
+used.
+
+(Note: if a variable v is given a value using "??v" then its value must
+be a list. Subsequent uses of the variable can use the format "?v",
+which is then equivalent to "[??v]" but more efficient, or "??v".
+Similarly if a variable in the format "?v" is given a list as value,
+then it can subsequently be used in the format "??v" to match a list
+segment in a condition or to insert a list segment into a list in an
+action.)
+
+There are two additional constructs for controlling the use of pattern
+variables, [VARS ...] and [LVARS....]. The former existed prior to
+version 4 of the toolkit. The latter was introduced to allow control of
+lexically scoped pattern variables. Some of the following points are
+amplified in the section on lexical scoping below.
+
+(Readers who do not understand the difference between lexical and
+non-lexical variables may find HELP * LVARS and HELP * LEXICAL useful.)
+
+-- -- [VARS ...] and [LVARS ...] conditions and actions
+
+There are two formats for conditions and actions that introduce new
+variables that can subsequently be used as pattern variables preceded by
+"?" or "??" in conditions and actions.
+
+    [VARS v1 v2 v3 ....]
+and
+    [LVARS v1 v2 v3 ...]
+
+If some of the variables are to be initialised with new values, use the
+formats:
+
+    [VARS v1 v2  [v3 = <expression1>] v4 [[v5 v6] = <expression2>] v7]
+    [LVARS v1 v2 [v3 = <expression1>] v4 [[v5 v6] = <expression2>] v7]
+
+where expression1 should produce one result, to be assigned to v3, and
+expression2 should produce two results to be assigned to v5 and v6.
+
+The [VARS ...] form is used to allow patterns to access non-lexical
+(global) variables that are meant to be accessible from anywhere. It can
+be used to introduce non lexical pattern variables in an individual rule
+(as a condition or an action) or in a ruleset, in which case the
+variables are accessible in all rules in the ruleset.
+
+The [LVARS ...] form is for pattern variables that are lexically scoped.
+The scope can be restricted to a rule, a ruleset, or the whole file.
+Where "lvars" has been used to declare a lexical variable as global to a
+file, then it can also be made accessible in a rulecluster by means of
+the [LVARS ...] format.
+
+Rulefamilies and rulesystems CANNOT include a [VARS ...] specification.
+
+Any variable introduced in one of these declarations within a rule may
+be used as a pattern variable in subsequent conditions or actions in the
+same rule.
+
+Note that if [VARS ...] or [LVARS ...] is used to introduce a variable v
+to the current environment, then occurrences of "?v" in a condition
+within the scope of the environment cannot give v a new value. I.e. the
+value it already has will be substituted. E.g. if a rule contains
+
+    [LVARS v ]
+    [father ?v ?x]
+
+then when the second condition is matched it will use the pre-existing
+value of "v", and cannot give "v" a new value, whereas "x" can be given
+a new value, provided that it has not been bound by an earlier condition
+or [VARS ...] or [LVARS ...] form. This is because [LVARS...] and
+[VARS...] declarations add their variables to the list popmatchvars,
+which the matcher assumes contains variables that have already been
+matched and therefore should not have their values changed.
+
+Thus you should use these formats only for variables that somehow
+already have values, or else use the initialising formats.
+
+-- -- Notes on scoping of variables
+
+Outside a ruleset definition, by default the scope of a lexical variable
+is the current file or compilation stream, or smallest enclosing lblock,
+if there is one.
+
+Within a ruleset definition the scope of a pattern variable is, by
+default, restricted to the rule containing the variable, unless the
+variable has previously been declared as lexical before the beginning of
+the rule and is still within scope when the rule starts.
+
+If the ruleset has an [LVARS ...] form introducing the variable v before
+the rule definitions start, then the scope of the variable is the whole
+ruleset, not individual rules in which it occurs as a pattern variable.
+
+If the variable had already been declared in a global lvars declaration
+in the same file, then the scope is the whole of the rest of the file,
+and initialisations can be performed in a rulefamily or rulesystem
+definition occurring in the same file, before or after the ruleset
+definition.
+
+-- Cycle limits and activation intervals ------------------------------
+
+-- -- Stop actions for prb_run
+
+When a rulecluster is given to the procedure prb_run or to
+prb_run_with_matchvars, and no cycle limit is specified, then the
+interpreter repeatedly tries to find rules with conditions that are
+satisfied and to run them, until either
+
+(a) there are no more runnable rules
+
+or
+
+(b) an interpreter termination action is performed, i.e. an action of
+one of these forms
+    [STOP ...]
+    [STOPIF ...]
+    [STOPAGENT ...]
+    [STOPAGENTIF ...]
+
+
+-- -- Cycle limits for prb_run
+
+A third possibility is that prb_run or prb_run_with_matchvars is run
+with an integer as its third argument, in which case the integer is
+interpreted as a cycle limit, namely the number of times the interpreter
+should attempt to find out whether any rules are runnable. When the
+limit is reached the interpreter exits.
+
+If this limit is false or 0 the interpreter continues until one of the
+actions listed in (b) causes termination.
+
+The use of these limits makes it possible for a complex system to have a
+lot of different rulesets, each of which is repeatedly given a small
+number of cycles of the interpreter in turn, so that the running of
+different rulesets can be interleaved, simulating parallel activation.
+
+-- -- cycle_limit, with_limit, with_interval
+
+When a rulecluster is used in a rulesystem, the rulesystem can specify
+the cycle limits for the different rulesets or rulefamilies. This allows
+different sub-mechanisms within an agent to be given different relative
+speeds in different agents.
+
+The rulesystem can also specify intervals between runs, using the
+with_interval specification.
+
+The only places you can specify cycle limits or activation intervals are
+as follows, where <rulecluster> means <ruleset or rulefamily>:
+
+    (i) A cycle limit can occur as explicit third argument to prb_run or
+        prb_run-with_matchvars
+
+   (ii) A cycle limit or activation interval can be specified inside
+        define :rulesystem <name> .... enddefine;
+
+            cycle_limit = <integer> ;
+                This limit will by default apply to all ruleclusters
+                in the rulesystem. Previously this could occur ANYWHERE
+                within the rulesystem definition. Now it can occur only
+                before the first "include".
+
+            with_interval = <sysinterval>;
+                This can occur once, before the "include" statements,
+                after other rulesystem header elements.
+                The sysinterval can be a number or something else, such
+                as "day", "minute", etc. which will be interpreted by
+                the user-definable procedure
+                sim_interval_test(sysinterval, cycle_number) -> boole;
+                If boole is true, then run the rulesystem!
+                Note: in this context the <sysinterval> must be ONE
+                item (word or number). Contrast with_interval after
+                "include", below.
+
+            include: <rulecluster> with_limit = <integer>
+                This limit applies only to the named rulecluster, within
+                this rulesystem. In other rulesystems the cycle limit
+                for this rulecluster may be different.
+
+            include: <rulecluster> with_interval = <interval>
+                This interval applies only to the named rulecluster,
+                within this rulesystem.
+                The interval can be a number or word, such as "hour",
+                optionally followed by a colon then an integer,
+                indicating a cycle limit. If the interval is a word,
+                it will be interpreted by the user-definable procedure
+                sim_interval_test(interval, cycle_number) -> boole;
+                If boole is true, then run the rulecluster (using
+                either the current default cycle limit, or one
+                specified after the colon.
+
+  (iii) In a sim_agent class or object instance specification:
+
+            slot sim_cycle_limit == <integer>
+                This slot value is used as the default cycle limit, but
+                can be overridden by specifications in the rulesystem.
+                The default value is 1.
+
+            slot sim_interval == <interval>
+                This slot value is used as the default activation
+                interval, and can be overridden by specifications in the
+                rulesystem. The default value is 1.
+
+Example: a rulesystem specification may include cycle limit and
+activation interval specifications like this
+
+define :rulesystem <name> ;
+    ....
+
+    cycle_limit = <integer> ;       ;;; default cycle limit (optional)
+
+    with_interval = <sysinterval> ;    ;;; default interval (optional)
+
+    include: <rulefamily name>;
+    include: <ruleset name>;
+    include: <rulefamily name>;
+    include: <ruleset name>;
+    ......
+    include: <ruleset name> with_limit = <integer>; ;;; override default
+    ......
+    include: <rulefamily name> with_limit = <integer>;
+    ......
+    include: <ruleset name> with_interval = <interval>;
+    ......
+    include: <rulefamily name> with_interval = <interval>;
+    ......
+
+enddefine;
+
+NOTES:
+o <sysinterval> must be a number or word
+
+o <interval> can be an integer or decimal number or word optionally
+  followed by a colon and additional number: e.g.
+    include ... with_interval 3;
+    include ... with_interval day;  ;;; run every day
+    include ... with_interval 3 : 4 ;   ;;; interval and cycle limit
+    include ... with_interval day : 4; ;;; run everyday with limit 4
+
+  If the <interval> is a decimal number D rather than an integer, it
+  will be interpreted probabilistically: run the rulecluster with a
+  probability D. E.g. if the specification is
+
+    include ... with_interval 0.3;
+
+  the rulecluster will run with probability 0.3 on each cycle.
+
+  The (optional) integer after the colon specifies a cycle limit
+  for the rulecluster when it runs.
+
+  NB: where two numbers are given make sure the colon is preceded
+    by a space, e.g. "3 : 2" NOT "3:2" since the latter will be
+    interpreted as a single number (or a label).
+
+Another way to give a rulecluster additional cycles in a rulesystem is
+to include it several times in the same rulesystem.
+
+E.g.
+    include foo;
+    include cleanup;
+    include baz;
+    include cleanup;
+    include grum;
+    include cleanup;
+
+NOTE: a cycle limit or activation interval cannot be specified in a
+ruleset or rulefamily definition.
+
+NOTE: earlier versions of the toolkit had a property sim_ruleset_limit
+associating rulesets with cycle limits. This is now withdrawn.
+
+
+-- -- The sim_cycle_limit slot in sim_agent
+
+Instances of the top level class in the sim_agent toolkit have an
+integer valued slot sim_cycle_limit, whose default value is 1. The
+slot value in instances will be used as cycle limit by default, unless
+overridden in the rulesystem definition for that agent.
+
+-- -- The sim_interval slot in sim_agent
+
+Instances of the top level class in the sim_agent toolkit have an
+integer valued slot sim_interval, whose default value is 1, meaning
+that the object's rulesystem is run in every time slice. This can be
+overridden in the rulesystem, using "with_interval".
+
+-- -- The sim_speed slot in a sim_agent class
+
+The integer valued sim_speed slot for agents has a different role. It
+determines how many times the WHOLE rulesystem is run in each time
+slice. That can be used to vary the relative internal processing speed
+between agents.
+
+It does not directly affect the cycle limits used. However if the
+sim_speed value is an integer N then that effectively multiplies all the
+cycle_limits by N, since they run in sequence N times in each time
+slice, using whatever cycle_limits they have on each run.
+
+The value of the sim_speed slot is a sort of inverse to the sim_interval
+slot. It may or may not be useful to use both of them.
+
+-- Compile time control of options ------------------------------------
+
+-- -- prb_tracing_on (default true)
+
+If prb_tracing_on is false at compile time then many of the tracing
+options in poprulebase are disabled at compile time, in particular
+
+    prb_chatty, prb_show_conditions, prb_istraced, prb_trace
+
+The code which looks at these is simply not compiled. So it cannot
+be turned on again by making prb_tracing_on true, without recompiling
+poprulebase. The default is true.
+
+-- -- prb_use_sections (default false)
+
+If this is false, the code for switching sections is disabled at compile
+time. If you wish to use section-related options described below, make
+this variable true before compiling LIB poprulebase.
+
+
+-- Lexical scoping of pattern variables -------------------------------
+
+Readers who are unfamiliar with the difference between lexically scoped
+identifiers declared with "lvars" and permanently scoped identifiers
+declared with "vars" should read HELP * LVARS. This explains the
+differences and the trade-offs. For most purposes lexical scoping should
+be used to minimise the risk of unwanted interference between different
+parts of a complex program.
+
+In the past the pattern variables could not be lexically scoped because
+the Pop-11 pattern matcher uses "valof" to access or update the value of
+a pattern variable, represented as a word preceded by "?" or "??". Since
+Poplog version 15, "valof" has been extended so that it and its updater
+can be applied to idents, i.e. the identifier record associated with a
+word at the time it is compiled, which may be a lexical identifier.
+(For full gory details, spend a month or so reading:
+    REF * IDENT, REF * WORDS, REF * SECTIONS,
+    and eventually REF * VMCODE and REF * POPCOMPILE)
+
+Since version 4 of Poprulebase, the pattern variables in all rules now
+DEFAULT to being lexically scoped, unless previously declared
+non-lexical in a [VARS ...] condition or action, in the same rule or
+ruleset.
+
+When the Poprulebase syntax procedures read in conditions and actions,
+they (normally) replace the WORD following "?" or "??" in a pattern with
+an IDENTIFIER after declaring the word as a lexical variable in the
+current lexical scope, unless it has already been declared (as lvars),
+in which case the existing identifier is used. Thus a ruleset can share
+lexical variables with an enclosing lexical block or a whole file.
+
+It is possible to override this default. If you wish to allow a pattern
+variable v to be left as non-lexical in order to access the value of a
+global variable (e.g. one of the system globals such as interrupt or
+cucharout, or prmishap, or a dynamically scoped user variable) you must
+include a [VARS v] among the preceding conditions or actions in the
+same rule, or at the head of the ruleset definition.
+
+NB:
+Previous uses of the [VARS ...] construct should now be replaced with
+[LVARS ....] to allow the variables to be properly lexically scoped,
+unless you are sure that the variables need to be dynamically scoped
+(e.g. because it's a standard Pop-11 variable).
+
+-- -- -- Lexical blocks
+
+Each ruleset is now by default a lexical block, as is each rule within
+the ruleset. I.e. it is as if the ruleset, and each rule, starts with
+"lblock" and ends with "endlblock". (See HELP * LEXICAL)
+
+Thus normally nothing defined outside a ruleset can possibly access a
+pattern variable occurring in that ruleset. However if the variable is
+pre-declared globally as a file-local lexical using lvars, e.g. before a
+procedure that uses it non-locally, then that lexical variable will be
+used for patterns in any rule using that variable within the scope of
+that variable. The scope can be restricted in the normal way using using
+lblock ... endlblock. E.g.
+
+    lblock
+
+    lvars xxx;
+
+    code using xxx
+
+    define :ruleset RRR....
+
+        .....
+
+        RULE yyy
+            ...
+            [... ?xxx ...]
+            ...
+
+        RULE zzz
+            ...
+
+    enddefine;
+
+    endlblock
+
+Any ruleset defined outside the block starting "lblock" and ending
+"endlblock" will not be able to access the identifier xxx.
+
+It is also possible to use "vars" or "lvars" to declare variables
+between rules in a ruleset.
+
+If "lvars" is used then any identifiers declared will be accessible
+only in the rules following the declaration, within the same file (or
+lexical block).
+
+-- -- prb_force_lvars (global variable default true)
+
+If this is false, then any query pattern variable (preceded by "?" or
+"??") that is already declared as a non-lexical global will NOT be
+replaced by a lexical identifier in the pattern. I.e. it will be left as
+a word. If it is true, the default, then, as explained below, all
+pattern variables will normally be replaced by lexical identifiers.
+
+prb_force_lvars is probably redundant, given the availability of [VARS
+...] conditions in rulesets and rules.
+
+
+-- -- -- Trace printing of patterns
+
+Because patterns now include identifiers as well as words, trace
+printing of conditions will look different. In fact instead of just
+
+    [contains ?x ?y ?z]
+
+you may see something like
+
+    [contains <ID x box> <ID y [bat ball]> <ID z undef> ]
+
+I.e. the printing of an identifier is changed to show both its name and
+its current value. This will make debugging much easier in some cases,
+as unexpected matches will show up clearly, though trace output can
+now be far more bulky than when the pattern was merely printed as
+    [contains ?x ?y ?z]
+
+If you wish to change the way identifiers print their values, modify the
+following code (extracted from LIB poprulebase).
+
+    define print_ident(id);
+        dlocal pop_pr_level = 3, pop_oc_print_level = 1;
+
+        lvars word;
+
+        if isproperty(word_of_ident) and (word_of_ident(id)->>word) then
+            printf('<ID %P %P>', [%word, idval(id)%])
+        else
+            printf('<ident %P>', [%idval(id)%])
+        endif
+    enddefine;
+
+Redefine this AFTER compiling Poprulebase, not before.
+
+
+-- -- [popval ...] or [$$ ... ] forms
+
+The introduction of lexical scoping for the main variables means that
+the original mechanism for coping with these forms, i.e. to compile the
+list at run time, will no longer work, since the lexical variables will
+no longer be in scope. This means that the code following "popval" or
+"$$" is now compiled into a procedure when the conditions and actions
+are compiled. The procedure is stored as the second element of the list,
+and at run time, when the list is to be instantiated, the procedure is
+run and its value used to replace the list. The [apply ...] or [$: ...]
+form is unchanged except that any variables contained in it, indicated
+by "?" or "??", will by default lexically scoped.
+
+
+-- New control options: prb_allrules, and prb_sortrules ---------------
+
+The procedure prb_sortrules is definable by users to sort instances of
+rules which have been found to be runnable. The default value is false.
+If the user does not define prb_sortrules to be a procedure, i.e. if it
+is left as false, then the following new behaviour occurs:
+
+o When a rule is found to have all its conditions satisfied the actions
+are immediately executed. I.e. there is no longer construction of a rule
+instance, to be put into a list and given to prb_sortrules for sorting
+or filtering. This means that actions are performed immediately. This
+can reduce store turnover, because there is no need to create
+rule-instances.
+
+o If prb_allrules is true then for each rule all possible ways of
+satisfying its conditions will be found, and the actions of the rule
+will be run.
+
+This means that if prb_sortrules is false, and prb_allrules is true,
+then it is possible, in a single cycle of the rule-interpreter to run
+all the rules in a ruleset, e.g. if each rule ensures that conditions
+are set up for the next rule.
+
+If prb_allrules is false then on each cycle of the interpreter only the
+FIRST applicable rule is run, and to ensure that subsequent rules are
+run in following cycles, it is necessary to change the database so as no
+longer to satisfy the conditions of the first rule. This can require a
+lot of adding and removing of database items to control rule firing.
+
+If, however, prb_allrules is true, then on each cycle of the interpreter
+all applicable rules are run, and if some rules have conditions that can
+be satisfied in different ways, then for each way of satisfying the
+conditions the actions will be run.
+
+Thus whether prb_allrules is true or not can make a large difference to
+the behaviour of a program.
+
+In addition, whether prb_sortrules is a procedure or not will affect
+whether an explicit list of the runnable rule instances is created
+before they are run.
+
+-- Additional control facilities STOPIF QUIT QUITIF STOPAGENT STOPAGENTIF
+
+The following new action types are provided in Poprulebase version 4,
+extending the [STOP...] action:
+
+    [STOPIF ?var <message>]
+    [QUIT <message>]
+    [QUITIF ?var <message>]
+    [STOPAGENT <message>]
+    [STOPAGENTIF ?var <message>]
+
+<message> is optional in all cases, and can be any sequence of list
+elements. If present, the <message> is printed out before the action is
+taken.
+
+The action of STOPIF is controlled by whether the value of the variable
+var is false or not. If it is not false, the behaviour is then the same
+as for the [STOP ...] action, i.e. the current invocation of the rule
+interpreter (prb_run, or prb_run_with_matchvars) ends.
+
+The [QUIT...] and [QUITIF ...] actions are used to prevent succeeding
+actions in the current rule being performed, without terminating the
+call of the interpreter. If <message> is present it is printed out.
+However, in the case of QUITIF, if the variable has the value false, no
+message is printed, and the action does nothing. If it has a non-false
+value, then the rule instance is aborted, but the rule interpreter
+continues cycling round the current ruleset.
+
+The [STOPAGENT...] and [STOPAGENTIF ...] actions are used in connection
+with the SIM_AGENT library. Their purpose is to terminate execution of
+the current agent's rulesystem in the current time-slice. If <message>
+is present it is printed out. In the case of STOPAGENTIF, if the
+variable has the value false, no message is printed, and the action does
+nothing. If it has a non-false value, then the rule instance is aborted,
+and the current agent has no more internal processing until the next
+time slice.
+
+-- New [ADD ...] action form and prb_auto_add (default true)
+
+A new action type [ADD ...] is provided. The effect is to add [...] to
+the database. This is useful only in conjunction with the global
+variable prb_auto_add. Making the variable false turns off the previous
+default interpretation of actions without recognised keywords, namely,
+to add the action list to the database.
+
+If prb_auto_add is made false then the ONLY way to add items to the
+database is to use an explicit [ADD ...] or [ADDALL ...] action or
+to call prb_add in a POP11 action. If it is false, then any action that
+does not start with a recognised keyword will produce an error message.
+
+Making prb_auto_add false is a useful guard against accidentally
+mistyping a keyword, which could cause unwanted items to be added to the
+database, leading to mysterious bugs. The disadvantage is that the
+[ADD ...] format must always be used for additions to the database.
+
+-- New [TESTADD ...] action form
+
+The keyword "TESTADD" can be used for database items that should be
+added only if the item is not already in the database. It is assumed
+that by the time the action is evaluated all variables used in the
+action will have been instantiated, so that a fully instantiated list
+can be used for a fast search of database items to determine whether an
+equivalent list already exists in the database. The search uses
+"member", so that the "=" test is used rather than the pattern matcher.
+
+
+-- -- Debug options
+
+Individual rulesets, rulefamilies or rulesystems can be compiled in
+debug mode or not. If not in debug mode, then it may be possible to
+introduce certain optimisations. The mode is specified as
+
+    debug = <boolean> ;
+
+among the header elements of a ruleset, rulefamily or rulesystem.
+
+-- -- Associating sections with rulesystems, rulefamilies or rulesets
+
+The syntax described below can be used to associate a rulesystem,
+or rulecluster with a section. (See HELP SECTIONS). This means
+that any non-lexical variables used in the rules (e.g. in WHERE
+conditions, POP11 conditions or actions, or in expressions initialising
+variables) will be interpreted as referring to their values in the
+section specified. Whether this works or not, will depend on whether the
+variable prb_use_sections has been set false (the default) before
+poprulebase is compiled.
+
+If it is set false in advance, then the code for handling sections is
+left out at compile time. (This is the default.)
+
+The usefulness of this option is now limited because many of the
+benefits of sections can be achieved using lexical variables.
+
+-- New tracing and profiling facilities -------------------------------
+
+If you compile
+
+    lib prb_profile
+
+then the "profile" command (as defined in HELP PROFILE) is changed so as
+to display a table showing which rules were active most often, after
+displaying the list of procedures found to be running most often.
+
+The time associated with rules is most likely to be taken up with
+checking conditions. The facilities described in HELP PRB_TRACE_PROCS
+build up records of which rules are tested, how many times the various
+conditions are satisfied, how many times the tests fail, etc. This makes
+it possible to find out in more detail which conditions are taking up
+most time. For example this profiler can be with the rules in one of the
+teach files, inside a procedure in which cucharout is set to be erase,
+to reduce time spent on printing.
+
+    uses prb_profile
+    teach prbrunriver.p
+    false -> prb_pausing;
+
+    profile procedure();dlocal cucharout = erase; go2(); endprocedure();
+    ;;; CPU Time taken: 0.76 seconds.  Number of interrupts: 12
+    ;;; PERCENTAGES OF TOTAL TIME:-
+        33.33   syspr
+        25.00   prb_forevery_sub
+         8.33   prb_check_stack
+         8.33   listlength
+         8.33   rev
+         8.33   sysEXECUTE
+         8.33   prb_in_data
+    ;;; Number of times rules active: 12
+    ;;; PERCENTAGES OF TOTAL:-
+        41.67   move_thing
+        25.00   complete_move
+        16.67   undo
+        16.67   check_constraints
+
+
+If no runnable rule is found for a given rulecluster by prb_run or
+prb_run-with_matchvars, then the following user-definable procedure is
+invoked:
+
+    prb_no_rule_found_trace(rules, data);
+
+The first argument is the current ruleset. The second is the current
+database.
+
+The following new user-definable procedure is invoked at the end of each
+rulesystem:
+
+sim_agent_terminated_trace(
+    object:sim_object, prb_actions_run, runs, maxruns);
+
+where the first argument is the object or agent, the second is the
+number of non-trivial actions run, and the third is the number of runs
+so far through the rulesystem in this time slice, and maxruns is the
+maximum possible number (from the sim_speed slot of the agent).
+
+If prb_actions_run is zero that means no non-trivial actions were run.
+If runs = maxruns, then there are no more runs of this rulesystem in
+this timeslice.
+
+
+-- Syntax for rulesets, rulefamilies and rulesystems ------------------
+
+-- -- Define :ruleset
+
+The format for defining a ruleset is as follows. The items after the
+header at the beginning can occur in any order and any of them may be
+omitted. If the <name> is omitted it defaults to "prb_rules". (This is
+not recommended.)
+
+  define :ruleset <name>;
+
+    [VARS <popmatchvar spec>];      ;;; optional
+    [LVARS <popmatchvar spec>];     ;;; optional
+    use_sections = <boolean> ;      ;;; optional [see note below]
+    debug = <boolean> ;             ;;; optional
+
+     RULE <name>
+         <conditions>
+             ==>
+         <actions>
+
+    vars .... ;                     ;;; optional
+
+     RULE <name>
+         <conditions>
+             ==>
+         <actions>
+
+     ....
+   enddefine;
+
+Note 1: instead of "RULE" for rule headers "rule" is acceptable. Instead
+of the separator "==>" between conditions and actions, any word in the
+list prb_condition_terminators is acceptable. The permitted formats for
+conditions and actions are listed in HELP * POPRULEBASE and other help
+files referred to therein.
+
+For examples see
+    TEACH * PRBRUNRIVER.P, * PRBRIVER
+The latter introduces rulefamilies as well as rulesets. In the context
+of the SIM_AGENT toolkit further examples are in
+    TEACH * SIM_FEELINGS
+    TEACH * SIM_DEMO
+    TEACH * ARMYSIM.P
+    TEACH * SIM_SHEEP.P
+
+Note 2: Since version 4, "vars" declarations can NO LONGER be
+interspersed between rules, where appropriate, e.g. for variables used
+in WHERE conditions, or POP11 actions. They can be declared using
+[VARS ...] conditions or actions. See HELP POPRULEBASE.
+
+Note 3: The original syntax for defining individual rules is now
+redundant, but remains available in case it is needed, i.e.
+    define :rule in <ruleset> <conditions> ; <actions> enddefine;
+
+Note 4: If a ruleset definition has the word "define" fully left
+adjusted, then, in VED, "<ESC> c", or ENTER lcp, will compile the whole
+ruleset. In the current notation it is not possible to recompile an
+individual rule: rulesets are the smallest compilable unit.
+
+Note 4: The use_section option is available only if the variable
+prb_use_sections is set true BEFORE lib poprulebase is compiled.
+Otherwise all the code for handling sections is not included in the
+run time system. This is false by default.
+
+-- -- define :rulefamily
+
+The syntax is as follows, where the first ruleset named is the default
+current ruleset, and the others may be run in any order, depending on
+how control is transferred between the rulesets using actions like:
+
+   SAVERULESET RESTORERULESET SWITCHRULESET PUSHRULESET POPRULESET
+
+described below. There is no default order. I.e. if the first ruleset
+executes a STOP action, or has no rules with satisfied conditions, it
+remains the current ruleset in this rulefamily next time the rulefamily
+is run. There is no implicit or automatic transfer of control between
+rulesets within a rulefamily.
+
+define :rulefamily <name> ;
+
+    [LVARS <popmatchvar spec>];         ;;; optional
+    debug = <boolean>;                  ;;; optional
+    use_section = <boolean or name>;    ;;; optional
+
+    ruleset: <ruleset name>
+    ruleset: <ruleset name>
+    ......
+enddefine;
+
+As before the first four items can occur in any order, and any of them
+can be omitted. Note that a [VARS ...] environment specification may not
+be used. (That is because the rulesets may already have been compiled
+with the pattern variables defaulting to lexical.)
+
+The first named ruleset will start as the current ruleset for the
+rulefamily. It may transfer control to other rulesets after doing some
+initialisation of the database, or checking the initial database
+contents.
+
+If a rule-family is to be used repeatedly on different tasks then it
+is essential for rulesets that complete a task to restore the ruleset
+that gets things moving.
+
+-- -- define :rulesystem
+
+define :rulesystem <name> ;
+    [DLOCAL <var spec>]             ;;; optional
+    cycle_limit = <integer> ;       ;;; optional
+    [LVARS <popmatchvar spec>];     ;;; optional
+    [VARS <popmatchvar spec>];      ;;; optional
+    debug = <boolean>;              ;;; optional
+
+    with_interval = <sysinterval> ; ;;; optional
+
+    include: <rulefamily name>
+    include: <ruleset name>
+    ......
+    include: <ruleset name> with_limit = <integer>
+    ......
+    include: <rulefamily name> with_limit = <integer>
+    ......
+    include: <ruleset name> with_interval = <interval>
+    ......
+    include: <rulefamily name> with_interval = <interval>
+    ......
+
+enddefine;
+
+The difference between <sysinterval> and <interval> is explained above.
+    <sysinterval> must be an integer, decimal or word
+    <interval>    must be an integer, decimal or word optionally
+                  followed by a colon and an integer
+
+The rulesystem defined above is a Pop-11 list, starting with some
+initialisation information and followed by a list of rulesets or
+rulefamilies.
+
+Rulesystems are used in LIB SIM_AGENT. A rulesystem can be stored in the
+sim_rulesystem slot of an agent. A rulesystem may be specified as the
+default for a whole class, or merely allocated to each instance as it is
+created.
+
+Since version 5.0 of Sim_agent, when an agent or object is first run,
+its rulesystem is analysed and transferred to its database, permitting a
+kind of self-awareness: the mechanisms which operate on the database are
+themselves in the database, and can therefore easily be checked or
+modified while the system is running.
+
+(The previous "sim_rulesets" slot no longer exists. "sim_rulesets" was
+kept as a synonym for "sim_rulesystem" for a while, but is now
+withdrawn.)
+
+In each time slice each agent gets a turn to run. The elements of its
+rulesystem are run N times, where N represents the agent's relative speed
+of internal processing. Each rulecluster may also be run K times where K
+is the cycle_limit specified in the rulesystem definition. Also a
+rulecluster may occur several times in a ruleset, giving it more
+resources.
+
+Finally if an activation interval is specified, either using the agent's
+sim_interval slot, or using "with_interval" in a rulesystem definition,
+then all of the above happens only once during every activation
+interval, e.g. once every I time-slices, if the interval is the integer
+I or with a probability 1/D if the interval is the decimal D.
+
+-- [DO conditions] ----------------------------------------------------
+
+As an experiment which may be useful for new types of programming, it is
+possible to interleave actions and conditions in a rule, so that in
+principle there need be no separate actions after the separator between
+conditions and actions. The [DO ...] form achieves this, generalising
+the existing [POP11 ....] condition form.
+
+(At present I cannot guarantee that all actions will work as expected in
+this context. Please report any that do not.)
+
+The syntax is very simple: for any action form that is permitted simply
+insert "DO" at the head of the list to produce a condition that will run
+the action. E.g. the condition
+
+    [DO is_on ?x ?y]
+
+will be equivalent to an action
+    [is_on ?x ?y]
+
+except that the former can be followed by additional conditions.
+
+This means that a rule can be a sort of pipeline of conditions and
+actions, where some of the actions can be achieved even if only a subset
+of the conditions are satisfied.
+
+If the conditions preceding a [DO ...] condition can be satisfied in
+different ways, i.e. with different bindings of the variables, then the
+action in the [DO ...] condition will be performed for each combination
+of values.  Using the [CUT] condition can prevent backtracking to find
+more combinations.
+
+Making prb_allrules == 1, or making it false, can also be used to
+prevent back-tracking. It will function as a [CUT] at the end of the set
+of conditions.
+
+An implication is that for rules which have only normal conditions and
+[DO ..] conditions, but no actions, there is no creation of a rule
+instance. This means that there need be no list of rule instances to
+give to the user-definable procedure prb_sortrules.
+
+If a rule has no actions prb_sortrules will then not be run, even if the
+user has defined it.
+
+If prb_sortrules is false, the actions will all be run as soon as
+conditions are satisfied, without first creating rule instances. For
+some programs this achieves a significant speedup, compared with the
+mechanism which allows all the rules in a ruleset to be checked, then a
+list of runnable rule instances given to prb_sortrules to act as a
+filter or conflict resolver, after which the instances are run, checking
+for each one that its conditions are still valid.
+
+My impression is that hardly anyone uses the prb_sortrules mechanism:
+i.e. the order of rules, plus assertions in the database, are used to
+control which rules fire when.
+
+
+-- Improved error detecting and tracing -------------------------------
+
+Experience with debugging faulty WHERE conditions has shown a need for
+more stack tracing facilities, so extra checks have been put in to
+enable procedures which unexpectedly remove items from the stack or add
+items to be checked be identified in the DOING list of a mishap message,
+instead of producing obscure errors long after the procedure has
+finished.
+
+Also the previously anonymous WHERE and POP11 procedures now have names
+in their pdprops field, which means they show up in the doing list
+in error messages and can figure in profiling. (See HELP *PROFILE)
+
+The names are constructed so as to identify the rule, whether it is a
+WHERE or POP11 form. The name ends with an integer indicating precisely
+which form it is in the rule.
+
+-- New top level ruleset interpreter ----------------------------------
+
+Although prb_run remains the normal interface to poprulebase, the
+sim_agent library uses
+
+    prb_run_with_matchvars(prb_rules, database, limit);
+
+which does not set popmatchvars to []. This allows popmatchvars to be
+initialised by an agent.
+
+This can be done by explicitly redefining the sim_run_agent method for
+each class to do something like
+
+    dlocal popmatchvars = [......];
+    <code to set up values>
+
+    ;;; then run the generic version
+    call_next_method(agent, agents);
+
+It is also possible, using the "define :rulesystem" notation, described
+above, to use [VARS....] and [LVARS....] forms to specify that all the
+rulesets in a rulesystem should be run with certain variables
+initialised for easy accessibility in rules.
+
+Warning: having an extended popmatchvars list can add to the time
+required for pattern matching, so it may be best to do this within
+individual rules or rulesets, unless certain identifiers are required in
+the vast majority of rules used by an agent, in which case it can be
+done at the level of a rulefamily or rulesystem.
+
+prb_run is now redefined to be a "wrapper" which sets popmatchvars to []
+then calls the new procedure, which does all the work. This is mainly
+for use outside the sim_agent toolkit. It can also be used in actions to
+run a rule-based subsystem.
+
+Both prb_run and prb_run_with_matchvars can be given as their first
+argument either a ruleset (list of rules) or a rulefamily record,
+described below.
+
+
+-- RULESYSTEMS: Background --------------------------------------------
+
+The following sections explain the rationale for having the hierarchy of
+rules, rulesets, rulefamilies and rulesystems.
+
+It is assumed that the reader is familiar with the general idea of
+condition-action rules, the idea of a ruleset (set of condition-action
+rules) as described in
+
+    TEACH * RULEBASE
+    HELP  * POPRULEBASE
+
+Reminder: the poprulebase library provides a rule interpreter
+procedure prb_run, which takes two or three arguments:
+
+1.  A ruleset or rulefamily
+
+2.  A database (or list to be converted to a database)
+    as described in the above TEACH and HELP FILES.
+
+3.  FALSE, or an integer specifying the maximum number of cycles
+    allowed to the interpreter. This is referred to as the "cycle
+    limit". If no third argument is provided it defaults to
+    FALSE, which means there is no cycle limit, and processing will
+    continue until a "STOP" rule-action is executed. In the sim_agent
+    toolkit the default limit used is 1.
+
+This file describes rulesets and rulefamilies and how to create them
+and control their use, and how to combine them into rulesystems
+for use in the sim_agent toolkit.
+
+-- Overview of rulesets and rulefamilies ------------------------------
+
+A rulefamily is a generalisation of a ruleset. A ruleset is a list of
+condition-action rules, such as may be given to prb_run, the poprulebase
+rule-interpreter. Rulesets may have additional information, as described
+below.
+
+A rulefamily is a collection of rulesets only one of which is active at
+any one time. A rulefamily may also be given to prb_run, in place of a
+ruleset, where a task requires switching between several different
+rulesets. (Examples are given below.)
+
+-- What is a ruleset? -------------------------------------------------
+
+At its simplest a ruleset is simply a list of condition-action rules,
+usually defined using the define :rule .... enddefine format.
+
+It is possible to associate a ruleset with the following:
+
+o a [DLOCAL ...] specification, implemented as a two element vector,
+  containing a list of identifiers for lexical variables, and an
+  initialisation procedure. This can be used to change the environment
+  within which rules are run. This should be the first element of the
+  ruleset if it occurs at all.
+
+o a [VARS ...] specification, implemented as a two element vector,
+  containing a list of words and an initialisation procedure. This
+  creates an environment in which the variables can be accessed in rule
+  conditions and actions using the "?" and "??" syntax. This action
+  and the next will change popmatchvars.
+    (The procedure defaults to identfn)
+
+o a [LVARS ...] specification, implemented as a two element vector,
+  containing a list of identifiers for lexical variables, and an
+  initialisation procedure.
+
+o a section specification. This is a Pop-11 section record, and the
+  section will be made current when the ruleset is interpreted.
+  This is possible only if the variable prb_use_sections is set true
+  before poprulebase is compiled. The default is false.
+
+  This mechanism is probably now redundant since lexical scoping
+  is supported. However it may be useful in some contexts, though
+  it should not be used heavily as, switching sections is expensive.
+    See HELP * SECTIONS
+
+These items should come, in any order, at the beginning of the ruleset
+list. All the remaining items should be rules.
+
+-- What is a rulefamily? ----------------------------------------------
+
+A ruleset is a set of condition-action rules of the type described in
+the poprulebase TEACH and HELP files, possibly starting with an
+integer or vector or both (as described below).
+
+A rulefamily is a structure containing a set of cooperative rulesets,
+one of which can be active at a time. The active ruleset may change from
+time to time, and the rulefamily record contains a field specifying
+which one is active, so that if the rulefamily is used again as an
+argument for prb_run, the last active ruleset will resume control.
+
+Like an individual ruleset a rulefamily may be associated with a two
+element vector containing a list of matcher variables and a procedure to
+initialise them.
+
+It may also contain a section to be made current when the rulefamily is
+run.
+
+Switching between rulesets in a rulefamily is achieved by a special
+class of actions, described below, using these keywords:
+
+   SAVERULESET RESTORERULESET SWITCHRULESET PUSHRULESET POPRULESET
+
+Rulefamilies are represented by instances of the record class
+prb_rulefamily, which includes a property mapping ruleset names to
+rulesets and a "current" ruleset. These and the other components are
+described more fully below.
+
+-- -- Examples of uses for rulefamilies
+
+For example a game-playing program might use a rulefamily containing two
+rulesets, one to choose a move to be made by the machine, and one to
+process a move made by the user, Each ruleset could run for a while then
+hand control over to the other.
+
+A planning system for achieving goals might have three rulesets in one
+rulefamily, with different tasks, such as:
+
+    ruleset1 (goal_analyser_rules):
+        Analyse the goal, the constraints and criteria for success and
+        set up a database of information. Then transfer control to the
+        ruleset2.
+    ruleset2 (plan_creator_rules):
+        Create one or more possible plans. Then transfer control to
+        ruleset3.
+    ruleset3: (plan_selector_rules):
+        Evaluate the plans plans, choose one, reinstate the first
+        ruleset, and then stop.
+
+A realistic planning component of an intelligent agent might need more
+than three rulesets.
+
+
+-- Why use rulefamilies? -----------------------------------------------
+
+There are (at least) three main reasons for supporting rulefamilies.
+
+(a) Efficiency: By allowing a complex mechanism to be divided into
+separate rule-families we can ensure that at any one time the number of
+sets of conditions to be tested for satisfaction is minimised. This can
+improve speed of execution, since checking large numbers of
+condition-action rules can be very time-consuming. It would be possible
+instead to reduce the time required by using sophisticated indexing
+mechanisms, but this is hard to do with rules that include a
+sophisticated variety of types of conditions, such as poprulebase
+allows, including user-defined types of conditions.
+
+(b) Modularity: By increasing the modularity of the design, and
+separating out different rulesets, so that only relatively small
+rulesets are active at any one time we may improve the maintainability
+of the system, the re-usability of components.
+
+(c) Cognitive modelling and control of resources: By using the cycle
+limit mechanism described below, we can allow resource allocation
+between different sub-mechanisms to be controlled finely.
+
+The last point is particularly important in the context of mechanisms
+containing concurrent interacting subfamilies, if we wish to optimise
+behaviour by specifying resource limits of different mechanisms, or if
+we wish to study the effects of different relative speeds of operation,
+
+-- Compound and simple rulefamilies ------------------------------------
+
+Rulefamilies can either be simple, containing one ruleset, or compound,
+containing several.
+
+The game-playing and planning examples described above are compound
+rulefamilies: each consists of two rulesets.
+
+A simple rulefamily which consists of one ruleset does not need a
+mechanism for recording which ruleset is current. A simple rulefamily,
+therefore, can be represented by a list of rules, i.e. a ruleset,
+without requiring a prb_rulefamily record to be constructed.
+
+-- Cycle limits control resource allocations --------------------------
+
+When a compound or simple rulefamily is given to the rule-interpreter, a
+cycle limit may be provided, determining the maximum number of cycles
+prb_run is allowed before it stops (unless terminated earlier by a
+STOP-type action in a rule).
+
+Within a rulesystem it is possible to associate different limits with
+different rulesets or rulefamilies, as explained above.
+
+For example, if the game-playing program outlined above has a rulesystem
+containing two rulesets, one for managing the machine's moves and for
+managing the user's moves, the former might be given a larger limit than
+the latter, to allow it to do more work on each timeslice.
+
+In a different sort of toolkit, these cycle limits could be replaced by
+real-time constraints, but we are deliberately using only simulated time,
+because we do not wish to penalise processes that are inherently slow on
+current computers, e.g. simulated neural net subsystems.
+
+(Poprulebase allows either the conditions or the actions of a rule to
+invoke a neural net or other "sub-symbolic" mechanism, as explained in
+HELP * PRB_FILTER.)
+
+If programs run fast enough it is possible to specify a time-interval
+for each time-cycle in the sim_agent scheduler. Then in each time-slice
+all the agents and objects could have their actions run, after which the
+scheduler waits until it is time to start the next cycle. This would
+mean that when computers are fast enough this mechanism can be used for
+real-time systems with different amounts of processing allocated to
+different sub-mechanisms. One way to do this would be to put an
+appropriate ruleset at the end of a rulesystem. The ruleset could
+contain a rule which checks the time and if necessary waits before
+continuing.
+
+
+-- Coexisting rulefamilies within an agent -----------------------------
+
+A single agent might contain several coexisting, interacting, simple or
+compound, rulefamilies, each working on the agent's internal database of
+information. For example, there might be rulefamilies for perception, for
+processing incoming messages, for generating new goals, for evaluating
+goals, for making plans, for selecting between alternative plans, for
+executing plans, etc.
+
+Within the SIM_AGENT library it is assumed that normally one database
+exists in each agent, with all the different rulefamilies of that agent
+operating on it. Conceptually, however, there could be different
+databases, some shared between rulefamilies, some not. Moreover some of
+the sub-databases might be used as long-term relatively static memories,
+and others as short term workspaces.
+
+Thus the mechanism described here can be used to implement either:
+
+(a) a global shared "blackboard" accessible by a collection of different
+    sub-experts, or
+
+(b) a collection of different interacting mechanisms each with its own
+    private memory, or
+
+(c) a mixture of shared and private memories.
+
+
+-- Setting up a rulesystem in the SIM_AGENT toolkit -------------------
+
+The main use of the rulesystem mechanism is expected to be in
+conjunction with the SIM_AGENT library, although it can be used without
+that library in contexts where prb_run is to be applied repeatedly to
+different rulefamilies.
+
+In the SIM_AGENT library each object has a sim_rulesystem slot. The
+value of this slot is a rulesystem, implemented as a list composed
+mainly of simple or compound rulefamilies. The list can include other
+information specifying the environment and cycle limits. See the format
+for define :rulesystem.
+
+-- A rulesystem specification -----------------------------------------
+
+Suppose there are six rulesets
+
+    rs1 containing rules rs1a rs1b rs1c
+
+    rs2 containing rules rs2a rs2b rs2c rs2d
+    rs3 containing rules rs3a rs3b
+
+    rs4 containing rules rs4a rs4b rs4c
+    rs5 containing rules rs5a rs5b rs5c rs5d
+
+    rs6 containing rules rs6a rs6b
+
+where rulesets rs2 and rs3 are to form one rulefamily and rulesets rs4
+and rs5 are to form another.
+
+So two rulefamilies can be defined RF1, containing rs2 and rs3, and RF2
+containing rs4 and rs5.
+
+I.e. some of the rules in rulesets rs2 and rs3 contain actions which
+transfer control to the other rule, and similarly with the rulesets rs4
+and rs5.
+
+Then the following might define a rulesystem:
+
+    define :rulesystem RS1;
+
+        include: rs1
+        include: RF1
+        include: RF2
+        include: rs6
+
+    enddefine;
+
+This specifies a rulesystem composed of a set of four rulefamilies,
+
+    1. a simple rulefamily containing the ruleset rs1,
+    2. a compound rulefamily RF1 containing rs2 and rs3
+    3. a compound rulefamily RF2 containing rs4 and rs5
+    4. a simple rulefamily containing rs6
+
+An agent containing this rulesystem will have each of the rulefamilies
+run some number of times in each simulated time-slice. Each rulefamily
+or rulesystem runs until either a STOP action is performed, or the cycle
+limit is reached.
+
+If desired the same ruleset can occur more than once in the list, e.g.
+if rs0 is a special rulefamily for checking out dangers, then the
+following rulesystem specification can be used to ensure that the rules
+in rs0 are re-run between all the other rulefamilies, within an agent
+using this rulesystem.
+
+    define :rulesystem RS2;
+
+        include: rs0
+        include: rs1
+        include: rs0
+        include: RF1
+        include: rs0
+        include: RF2
+        include: rs0
+        include: rs6
+        include: rs0
+
+    enddefine;
+
+
+-- Actions for switching rulesets -------------------------------------
+
+Within a rulefamily, one ruleset is active at a time, and on each cycle
+of prb_run attempts are made to select one or more "runnable" rules from
+the ruleset whose actions should be carried out. There is a special
+class of actions for switching between rulesets within a rulefamily. If
+one of these actions is executed then at the beginning of the next cycle
+of prb_run, control is transferred to the next ruleset specified.
+
+The actions provided for this purpose have the following forms, which
+are explained in more detail below. The names are all names of rulesets.
+
+    [SAVERULESET <name>]
+    [RESTORERULESET <name>]
+    [SWITCHRULESET <name1> <name2>]
+    [PUSHRULESET <name>]
+    [POPRULESET]
+
+NOTE 1.
+You can use these actions ONLY in a rule that is a ruleset that
+is part of a rulefamily. For examples see TEACH * SIM_DEMO.
+
+NOTE 2.
+If you are not using the SIM_AGENT library and wish to have a collection
+of rulesets accessible via global variables or datastructures rather
+than stored in a rulefamily record, then you can use the LIB PRB_EXTRA
+facilities described in HELP * PRB_EXTRA for switching between rulesets.
+
+NOTE 3.
+With the PRB_EXTRA facilities it is possible for actions to have complex
+expressions for rulesets. E.g. it is possible to say things like
+
+    [RESTORERULES special_rules("emergency")]
+
+This sort of complex expression is not directly supported in the
+RESTORERULESET action and other actions described above, since it is
+assumed that the rulesets within a rulefamily are accessible in the
+rulefamily record via their names. For more complex switching of
+rulesets, e.g. to add a new ruleset to a rulefamily at run time, use a
+POP11 action, as described below.
+
+
+-- -- How the ruleset manipulating actions are defined
+
+This section explains in more detail what the actions for manipulating
+rulesets do.
+
+Note that the global variable prb_current_family holds the current
+rulefamily in the case where prb_rules is a rulefamily. Otherwise
+prb_current_family is false. The variable prb_rules holds the
+current ruleset, whether or not a rulefamily is currently being used.
+
+The following are approximate definitions. The details are in
+LIB * POPRULEBASE:
+
+    [SAVERULESET <name>]
+        This will associate the current ruleset with the <name> in the
+        property, e.g.
+            prb_rules -> prb_family_prop(prb_current_family)(<name>);
+
+        If the ruleset is already in the rulefamily property this
+        action achieves nothing.
+
+    [RESTORERULESET <name>]
+        This makes the ruleset associated with <name> the current
+        ruleset. Roughly Equivalent to:
+
+            prb_family_prop(prb_current_family)(<name>) -> prb_rules;
+            <name> -> prb_next_ruleset(prb_current_family);
+
+    [SWITCHRULESET <name1> <name2>]
+        Equivalent to [SAVERULESET <name1>] [RESTORERULESET <name2>]
+
+    [PUSHRULESET <name>]
+        Save current ruleset on the current rulefamily stack, and then
+        make the named ruleset current. Equivalent to
+
+            conspair(prb_rules, prb_family_stack(prb_current_family))
+                                -> prb_family_stack(prb_current_family);
+
+            prb_family_prop(prb_current_family)(<name>) -> prb_rules;
+            <name> -> prb_next_ruleset(prb_current_family);
+
+    [POPRULESET]
+        Restores previously stacked ruleset. Equivalent to something
+        like:
+            destpair(prb_family_stack(prb_current_family))
+                    -> (prb_rules, prb_family_stack(prb_current_family));
+
+            prb_rules -> prb_next_ruleset(prb_current_family);
+
+
+NOTE: the above definitions may be varied slightly. Do not assume that
+the code given is exactly what will be used by the library.
+
+
+-- -- Replacing the above with your own actions
+
+Users who wish to have action types not covered by the above can look at
+LIB * RULEFAMILY and search for 'SAVERULESET' to see how the above are
+defined, namely by associating the action name with a procedure in the
+property prb_action_type (see HELP * POPRULEBASE/prb_action_type). The
+definitions of these actions can easily be over-ridden or extended with
+additional actions for manipulating rulesets.
+
+It is also possible to manipulate the current ruleset directly in a
+POP11 action. For example, since you cannot do
+
+    [RESTORERULESET special_rules("emergency")]
+
+such an action would have to be expressed as something like:
+
+    [POP11
+        special_rules("emergency")
+            ->> prb_rules -> prb_next_ruleset(prb_current_family)]
+
+(For efficiency, POP11 actions are compiled when the rule definitions
+are compiled, i.e. not when the actions are run.)
+
+-- More on [DLOCAL ...] forms -----------------------------------------
+
+[DLOCAL...] for rulesystems, rulefamilies, rulesets
+
+This is very important and useful for debugging and other purposes.
+
+It is sometimes useful to allow a global variable to be given a certain
+value only while a particular rulesystem(agent), or ruleset, or rule, is
+active. [DLOCAL ...] form makes that possible, generalising POP-11's
+dlocal mechanism.
+
+A rule, ruleset, rulefamily, or rulesystem can start with this sort
+of thing
+
+    [DLOCAL [prb_walk = true][prb_show_conditions = true]];
+
+or to change the mode of interpretation of a particular ruleset
+    [DLOCAL [prb_allrules = true]];
+
+This is more useful than a [POP11...] action or condition because it
+guarantees restoration of the environment after exit from the rule,
+ruleset, etc. So truly *local* changes are possible.
+
+One particularly useful application is to run the toolkit in a procedure
+that locally makes cucharout = erase, so that nothing gets printed. Then
+in a particular rule, or ruleset or rulesystem you can reassign
+cucharout so that only trace printing in that context is visible.
+
+Alternatively it can be used to redirect output from different rulesets
+to different VED buffers, using veddiscout
+
+-- Relative resources (speeds) of rulefamilies -------------------------
+
+In the context of discrete simulations in which there are time-slices in
+which things happen, we can represent differences in speed between
+sub-mechanisms by giving different cycle limits to different
+rulefamilies or rulesystems.
+
+Thus if we increase the cycle limit of RF1 then we allow RF1 more cycles
+of the rule-interpreter in each time-slice. This means that in simulated
+time the RF1 system gets more work done per time interval. I.e. its
+speed is increased relative to other rulefamilies.
+
+Similar comments apply if real-time is used and agents are implemented
+in a distributed system, with their time-slices synchronised (e.g. 100
+milliseconds per time-slice). By allowing a certain rulefamily more
+cycles at a time, it may be able to get more work done in each
+time-slice, as long as those extra cycles do not consume more time than
+can fit into the actual time-slice.
+
+Thus manipulation of cycle limits for rulesets can be used as a
+mechanism for varying relative speeds (relative computational resources)
+of different subsystems whether simulated time or real time is used.
+
+E.g. if planning is a long and complex process, then one agent, which
+plans relatively quickly, may have a higher (simulated) speed associated
+with its planning rulefamily than another agent, which plans more slowly
+in simulated time. What this means is that in each time-slice the call
+of prb_run with the planning rulefamily will have a higher cycle limit
+for the first agent than for the second. I.e. it will not really run
+faster: it will simply be allocated more processor time.
+
+-- How to use the mechanism. ------------------------------------------
+
+The syntax forms for defining rulesets, rulefamilies and rulesystems are
+all autoloadable. They automatically become accessible if poprulebase is
+compiled.
+
+The user should define condition-action rules and rulesets or
+rulefamilies as as described in:
+
+    TEACH * RULEBASE, TEACH * PRBWINE
+    HELP * POPRULEBASE
+
+
+In TEACH SIM_DEMO (available after the command "uses simlib") there are
+also examples of rulesystem definitions.
+
+
+-- prb_consrulefamily (create a rulefamily) ---------------------------
+
+This is a lower level procedure used to create rulefamilies.
+
+prb_consrulefamily(name, rulesets, next, lim, sect, debug, vec) -> family;
+
+INPUTS:
+1.  A word -- name of a rule family
+2.  A list of rulesets (each of form defined below)
+3.  A ruleset (list of rules) or name of ruleset(word) to be run first
+4.  The number of times to cycle with this rulefamily in prb_run (or false)
+5.  False or a section in which to run the rules
+6.  A boolean to determine whether rulesets should be recompileable
+        (they are represented by identifier and accessed via idval
+        if debug is true)
+7.  False or a two element vector containing a list of words to add to
+    popmatchvars and a procedure to be run to initialise the matcher
+    variables.
+
+RESULT: a prb_rulefamily record.
+
+
+-- Specification for the Pop-11 record class prb_rulefamily -----------
+
+These are the fields of a prb_rulefamily record:
+
+    prb_rulefamily_name,
+        A word
+
+    prb_family_prop,
+        A property in which names (words) are associated with rulesets,
+
+    prb_next_ruleset,
+        The name of the ruleset to be run next, or the ruleset itself.
+
+    prb_family_stack,
+        A (possibly empty stack) of rulesets waiting to be restored.
+
+    prb_family_limit,
+        False or an integer specifying how many cycles this rulefamily
+        should be allowed in each time-slice.
+
+    prb_family_section,
+        False or a section to be used if prb_use_sections is true
+
+    prb_family_matchvars,
+        A two element vector, containing a list of words to be added to
+        popmatchvars and a procedure to run after that to initialise the
+        variables. See setup_matchvars in LIB POPRULEBASE
+
+
+-- WARNING Use of prb_repeating set false is not recommended ----------
+
+In Poprulebase the global variable prb_repeating may be set false to
+prevent the same rule being run twice on the same data. This should not
+be done in connection with SIM_AGENT because of complications caused by
+switching between agents. Instead use entries in the database and
+barrier conditions to implement refractoriness. (Support for this may be
+provided later.)
+
+
+
+--- $poplocal/local/prb/help/rulesystems
+--- Copyright University of Birmingham 2000. All rights reserved. ------

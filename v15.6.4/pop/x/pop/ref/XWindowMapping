@@ -1,0 +1,97 @@
+REF XWindowMapping                               A. Schoter, August 1991
+
+        COPYRIGHT University of Sussex 1991. All Rights Reserved.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<        X WINDOW MAPPING     >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<                             >>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+The procedures described  in this  REF file  implement the  equivalent C
+functions for (un)mapping windows.
+
+
+
+---------------------
+1  List of procedures
+---------------------
+
+The procedures below are made available by doing:
+
+        uses xlib;
+        uses XWindowMapping;
+
+For details see:
+
+                     Xlib - C Language X Interface,
+                       MIT X Consortium Standard,
+                         X Version 11, Release 4
+
+        Copyright (C) 1985, 1986, 1987, 1988, 1989 Massachusetts
+        Institute of Technology,  Cambridge, Massachusetts,  and
+        Digital Equipment Corporation, Maynard, Massachusetts.
+
+
+XMapWindow(DspPtr,xid)                                       [procedure]
+        Maps the window specified by xid  and raises the window and  all
+        of its subwindows which have had map requests to the top of  the
+        stack of windows. A subwindow will appear on the screen so  long
+        as all of its ancestors are mapped. Mapping a window that has an
+        unmapped ancestor does not display  the window, but marks it  as
+        eligible for display when  the ancestor becomes mapped.  Mapping
+        an already  mapped window  has  no effect  (it is  NOT  raised).
+        XMapWindow generates `ExposeWindow' events  on each window  that
+        it causes  to become  displayed. If  the client  first maps  the
+        window, then  paints the  window, then  begins processing  input
+        events, the window  will be  painted twice. To  avoid this,  the
+        client should either
+
+            1.  First Map, then call XSelectInput for exposure events,
+                then repaint the window(s) explicitly, or
+
+            2.  First call XSelectInput for exposure events, then map,
+                then process input events normally.
+
+        The event list  will include ExposeWindow  for each window  that
+        has appeared on the screen;  the client's normal response to  an
+        ExposeWindow should  be to  repaint the  window. Method  (b)  is
+        preferred as it usually leads to simpler programs.
+
+
+XMapSubwindows(DspPtr,xid)                                   [procedure]
+        Maps all  subwindows  of  the  window specified  by  xid  in  an
+        unpredictable order. It also generates an ExposeWindow event  on
+        each newly  displayed  window.  Note  that  this  is  MUCH  more
+        efficient than mapping many  windows one at a  time, as much  of
+        the work need  only be  performed once  for all  of the  windows
+        rather than for each window.
+
+
+XUnmapSubwindows(DspPtr,xid)                                 [procedure]
+        Unmaps all subwindows of the window specified specified by  xid.
+        It also generates  an UnmapWindow  event on  each subwindow  and
+        generates Exposure  events on  formerly obscured  windows.  Note
+        that this is MUCH more efficient than unmapping many windows one
+        at a time, as much of the  work need only be performed once  for
+        all of the windows rather than for each window.
+
+
+XUnmapWindow(DspPtr,xid)                                     [procedure]
+        Unmaps the window  specified by  xid. Any child  window will  no
+        longer be visible until another map call is made on the  parent.
+        (Another words, the subwindows are still mapped, but not visible
+        until the parent is mapped.) It generates an `UnmapWindow' event
+        for the  window. Child  windows will  NOT receive  `UnmapWindow'
+        events. Unmapping  a window  will  generate exposure  events  on
+        windows that were formerly obscured by it and its children.
+
+
+XMapRaised(DspPtr,xid)                                       [procedure]
+        This procedure implements the equivalent C function.
+
+
+
+
+--- C.x/x/pop/ref/XWindowMapping
+--- Copyright University of Sussex 1991. All rights reserved.

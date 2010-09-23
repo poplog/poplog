@@ -1,0 +1,462 @@
+HELP UNIX.COMMANDS                                 Aaron Sloman Nov 1995
+                                                      Updated March 1996
+
+
+CONTENTS
+
+ -- Introduction
+ -- Files and directories
+ -- Changing file protection
+ -- -- Using numeric spcifications
+ -- -- Using symbolic specifications
+ -- -- Using umask
+ -- Deleting and purging files
+ -- Deleting files via editor commands
+ -- Deleting files from Emacs
+ -- Searching files
+ -- Printing
+ -- Displaying and killing your processes
+ -- Ways of running commands
+ -- Checking disk usage and quotas
+ -- Miscellaneous
+ -- -- Note on defining aliases, for "bash" and "ksh" users:
+ -- Filename Patterns
+ -- Online Unix manuals
+ -- Online "unixhelp" tutor
+ -- Tips directory and "advice" email list
+ -- Other email lists
+ -- Acknowledgements
+
+-- Introduction -------------------------------------------------------
+
+The file HELP * SHELL gives an overview of some of the important
+features of Unix that most people need to know about.
+
+Here a few of the standard Unix commands are listed. This file will
+grow. Note that some commands are different on different Unix systems.
+In particular SunOS and Berkeley Unix systems are slightly different
+from Solaris and DIGITAL Unix.
+
+Note: When a shell pattern is to be used, which may contain things
+like "*" and "?" the examples below use the word PATTERN.
+
+Note: In some cases the brackets "<" and ">" are used below to indicate
+a type of argument to a command, e.g. ENTER man <name>. This should not
+be confused with the use of "<" and ">" in a unix command to indicate
+files to be used for input and output, as explaned in the section on
+ways of running Unix commands.
+
+-- Files and directories ----------------------------------------------
+
+display list of files             ls
+                                  ls -l     (long listing)
+                                  ls -lt    (reverse chronological order)
+
+Show all files, including         ls -a
+"dot" files                       ls -la
+
+Show ONLY "dot" files             ls .??*
+
+display contents of file          cat file
+
+concatenate files                 cat file1 file2 file3 > bigfile
+append to file                    cat file1 file2 file3 >> bigfile
+
+display file with pauses          more file1
+    Press space to continue
+    Press B to go back, Q to quit
+
+copy file                         cp file1 file2
+                                  cp file1 file2 file... directory
+
+compare files                     diff file1 file2
+
+rename file                       mv file1 file2
+move files                        mv file1 file2 file... directory
+
+change file protection            chmod   (See MAN chmod)
+
+create directory                  mkdir directory
+
+change working directory          cd directory
+                                  cd
+
+
+-- Changing file protection -------------------------------------------
+
+The command is "chmod" for "change mode". It is followed by some
+flags, then a list of file names and directory names. The flags
+can include "-R" meaning do it recursively including all sub
+directories of directories specified.
+
+The main type of flag indicates what sort of protection level you
+want to set. The three man categories are
+
+    r = file is readable
+    w = file is writable or erasable
+    x = file is executable
+
+Each of these types of access can be given to three categories of users,
+
+    u = the user (i.e. the person who owns the file, namely you)
+    g = all people in the group the file belongs to
+        (groups are not explained here)
+    o = all others
+
+Thus you can combine a specification of the people by using one or
+more of the letters "u", "g", "o" and a specification of the type
+of access by combining the letters "r", "w" "x", with a "+" or "-"
+sign indicating whether access is to be allowed or removed. There are
+also numeric codes specifying all these varieties of accessibility.
+
+See MAN CHMOD for full details. Here are a few special cases
+
+-- -- Using numeric spcifications
+Make files readable and writeable by
+you and only readable by others         chmod 644 file1 file2 file3...
+    Not to be used for directories
+    or executable files.
+
+Make executable files or directories
+accessible by others, but writable only
+by you                                  chmod 755 file1 file2 dir1 dir2 ...
+
+
+-- -- Using symbolic specifications
+
+Make sure file or directory is not
+accidentally writeable by you or
+anyone else                             chmod ugo-w  file1 file2 dir1 ...
+
+Make files readable by you and members
+of your group, but not anyone else
+                                        chmod ug+r,o-r file2 file2 ...
+
+Make files non-writeable by others      chmod go-w file1 file2 ...
+
+Make all files in current directory
+and its subdirectories non-writeable
+by others                              chmod -R go-w  .
+
+-- -- Using umask
+In your .login or .csh file you can use a "umask" command to provide
+a default set of permissions for all new files you create. The most
+generally useful default is this
+
+Let others read, but not alter files    umask 22
+
+If you do that it is a good idea to have a protected directory, e.g.
+your Mail directory into which you put things that you don't want others
+to read. Then you don't need to remember to protect those files
+individually. However you should never assume that anything on a unix
+system is totally private. E.g. the system managers need to be able to
+read everything.
+
+If you are on a course with an assessed project you may have to ensure
+that your top level diretory and your project directory are readable by
+others, so that your code can be run by examiners.
+
+
+-- Deleting and purging files -----------------------------------------
+
+You should always delete old files that you no longer need, e.g. files
+from old courses, and also "backup" files created by editors. E.g. VED
+creates backup files whose names end in "-", and Emacs creates backup
+files whose names end in "~". Leaving unwanted files for long periods
+causes inconvenience for other users (and yourself) when disk fill up
+and people cannot create new files, and can add to the costs of running
+the school by requiring us to purchase more disks than would otherwise
+be necessary.
+
+The following commands for removing files and directories should all be
+used with extreme care. This is particularly the case where instead of a
+specific file NAME you use a file PATTERN (see the section on filename
+patterns below). The default Unix commands for deleting files do not
+allow you to un-delete afterwards, though in some cases a file that you
+accidentally delete can be retrieved from a backup tape. In this school
+all files on the central file server are automatically backed up every
+night. If you lose a file by accident, and wish to request that it be
+retrieved, use the "support" command to log your request.
+
+delete files                      rm file1 file2 ...
+delete asking for confirmation    rm -i file1 file2 ...
+
+delete a whole directory          rm -r directory
+   (including all contents)
+
+delete empty directory            rmdir directory
+
+Note: for many users the "rm" command is set up so that it is equivalent
+to "rm -i" i.e. you are asked to confirm for each file that it should be
+deleted by typing "y" when prompted. You can bypass this by using the
+command in the form "/bin/rm" which directly runs the rm (remove)
+program so that it does not check. This can be much quicker, when you
+are deleting lots of files, but it also can be dangerous.
+
+-- Deleting files via editor commands ---------------------------------
+
+Note: for VED users, there are some commands for deleting files directly
+from the editor. See HELP * VED_PURGEFILES
+
+    ENTER purgefiles PATTERN
+        Lets you see a list of all files matching the pattern and then
+        decide whether they should be deleted - all or none.
+
+    ENTER purgefiles
+        Equivalent to "ENTER purgefiles *-" for removing backup files.
+
+    ENTER deletefile
+        deletes the file you are currently looking at, removing it
+        from both the VED buffer and the disk.
+
+    ENTER purge
+        This offers a range of options described in HELP * PURGE
+
+
+-- Deleting files from Emacs ------------------------------------------
+
+For Emacs users, there are also some commands for deleting files
+directly from the editor. See M-x info dired
+
+If you visit a directory (in the same way as you visit any other
+file), then the command d marks files for deletion. You can v (view)
+them first. The command x deletes files marked for deletion. There are
+also lots of other commands. Do C-h m (help-mode) while visiting a
+directory.
+
+
+-- Searching files ----------------------------------------------------
+
+find string in file(s)            grep string file1 file2 file3 ...
+                                  egrep PATTERN file1 file2 file3 ...
+
+    Where PATTERN may include pattern elements of the sort described
+    in  MAN ED
+
+-- Printing -----------------------------------------------------------
+
+In these examples, replace the
+word "printer" with the name of your
+printer, e.g. lw22
+
+print file                        lpr -Pprinter file
+display print queue               lpq -Pprinter
+delete file from print queue      lprm jobnumber
+    See TEACH * PRINTING
+
+-- Displaying and killing your processes ------------------------------
+
+show my processes
+    On SunOS                      ps -ux
+    On Solaris etc.               /usr/ucb/ps -ux
+
+The PID column printed out shows the PID, i.e. the Process IDentifier
+for each process (a number). You need this to kill the process.
+
+Kill a process                    kill pid
+Send hangup signal                kill -1 pid
+Irresistable kill                 kill -9 pid
+
+Show top most active processes    top
+    Type Q to quit
+
+-- Ways of running commands -------------------------------------------
+
+run a command in the background   command &
+
+run background command with low   nice command &
+    priority
+To specify niceness 15,
+using sh or bash or ksh           nice -15 command &
+using csh, or tcsh                nice +15 command &
+
+change priority of process
+    with PID <pid>                renice -15 <pid>
+
+run command with timing           time command arg1 arg2 ...
+
+run command saving output in file command arg1 arg2 ... > file
+run command with input from file  command arg1 arg2 ... < file
+run command with intput and
+    output files                  command > outfile < infile
+
+feed output of one command        command1 arg1 arg2 ... | command2 ...
+  through a pipe to another
+
+
+-- Checking disk usage and quotas -------------------------------------
+
+The "df" disk free command shows how much space is available and used
+on various disks. On Solaris add the "-k" flag as shown below, to get a
+nicer format and to get usage in kilobytes, which is more useful than
+a measure in terms of disk blocks used.
+
+display free disk space           df
+                                  df -k     (nicer format on Solaris)
+
+The "du" command shows disk usage of files or directories. On Solaris
+it shows the amount of space in 0.5 Kbyte blocks, which is not very
+useful. So by adding "-k" to the command, you get more useful
+information.
+
+show size (in MB) of a file or directory
+    SunOS version:                du -s FILE
+    Solaris version:              du -ks FILE
+
+show size of (disk space taken up by) all your top-level directories
+    SunOS                         du -s ~/*
+    Solaris                       du -ks ~/*
+
+
+find out your current disk quota and total usage:
+                                  quota -v
+
+
+-- Miscellaneous ------------------------------------------------------
+
+display date and time             date
+
+
+start a new xterm window          xterm &
+                                  xterm -geometry 80x34+400+400 &
+
+start a new xterm on gromit       xon gromit -access
+
+define alias                      alias name 'command1; command2....'
+
+-- -- Note on defining aliases, for "bash" and "ksh" users:
+
+In the "ksh" and "bash" shells, aliases are defined in the format
+
+    name=string
+
+and run in the format $name
+e.g.
+
+    myprocs='/usr/ucb/ps -ux'
+
+then
+    $myprocs
+
+For full details see MAN ksh, and MAN bash
+
+
+-- Filename Patterns --------------------------------------------------
+
+The following pattern elements may occur as PART of a file name
+argument to a Unix shell command (e.g. grep, ls).
+
+Unix will then find all files whose names match the patterns.
+
+    *       match any sequence of characters
+    ?       match only one character
+    [0-3]   match one character, namely 0, 1, 2, 3
+    [A-Z]   match any uppercase character
+    [a-z]   match any lowercase character
+
+Example 1. remove old VED backup files
+
+    rm *-
+
+Remove without asking questions
+
+    /bin/rm *-
+
+(If any of the files are write protected, you will be asked to
+confirm that they should be deleted by typing "y"). To suppress such
+questions (at your own risk) use the "-f" flag.
+
+    /bin/rm -f *-
+
+However, in a write-protected directory removal is impossible without
+first changing the protection of the file or the directory.
+
+Example 2. List all files ending in .p, showing latest first
+
+    ls -lt *.p
+
+
+-- Online Unix manuals ------------------------------------------------
+
+get online Unix documentation     man name
+                                  apropos string
+
+    Where name is the name of some command, e.g. "ls", or "ps"
+    and string can be any keyword.
+
+report a problem or make a
+   request to system manager.     support   (then follow instructions)
+
+In VED, if you wish to see a comprehensive list of MAN files (depending
+on your current setting for $MANPATH) you can do
+
+    ENTER vman
+
+And then when it invites you to choose from options press "*". You will
+then get a list of directories and then a list of the MAN files in each
+directory. You can view one by putting the VED cursor on the name and
+then doing "ENTER vman" again. This is one way to browse to find out
+what is available on the unix system, without ever leaving the editor.
+(If it doesn't work, for some examples, just try "ENTER man <name>",
+where <name> is the name of the file you are interested it, leaving
+out any suffix like ".5" or ".3x"
+
+-- Online "unixhelp" tutor --------------------------------------------
+
+There is a very useful online Unix tutor, developed at Edinburgh
+University, which can be used with a World Wide Web browser, e.g.
+netscape, or xmosaic or lynx. On the School of Computer Science network,
+you can access it by using the file name as the URL, to start up the
+browser, e.g.
+
+    lynx /bham/doc/unixhelp.html
+
+The simplest and fastest browser is lynx, which displays no pictures,
+and does not use the mouse, and can be used over a dial-up line as it
+does not require the X window system. If you start lynx, you use the
+space bar to read the next screenful of the current file, the "b"
+character to go back a screenful. Use the UP and DOWN arrows to move
+to the next or previous link. Use the RIGHT arrow to follow a link and
+the LEFT arrow to return to the previous file. Use "q" to quit.
+
+Warning: do not believe everything you read in the tutor. There are some
+mistakes, which I assume will be corrected eventually.
+
+-- Tips directory and "advice" email list -----------------------------
+
+    /bham/doc/tips/
+        At Birmingham this directory has a number of files contributed
+        by users, some of which have tips regarding Unix commands and
+        "shell" scripts. On the CS Unix network only.
+
+If you have problems about unix commands email "advice" for help. Do not
+email "support" simply to ask for advice. If you would like to have
+yourself added to the 'advice' email list, so that you see the questions
+that get asked and the answers given, send an email message
+
+    To: majordomo
+
+Containing just the line
+
+    subscribe advice
+
+-- Other email lists --------------------------------------------------
+
+Many email aliases are used in the school, some of while are for
+management purposes only and should never be used by students, e.g.
+all-users. (Students sending email to all-users or to staff lists will
+be regarded as mischievous and are likely to have their accounts
+suspended. See /bham/doc/warnings/email
+
+More information about local email lists can be found in
+
+    /bham/doc/aliases/README
+
+-- Acknowledgements ---------------------------------------------------
+
+Thanks to Mark Ryan and Brian Logan for checking the first draft of this
+file and suggesting improvements and additions.
+
+
+--- $poplocal/local/help/unix.commands
+--- Copyright University of Birmingham 1996. All rights reserved. ------

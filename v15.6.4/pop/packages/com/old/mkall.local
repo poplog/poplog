@@ -1,0 +1,97 @@
+#!/bin/csh
+### --- The University of Birmingham 2001. --------------------------------
+### $poplocal/local/com/mkall.local
+# Aaron Sloman 23 Aug 2001
+
+# Create local saved images, including startup.psv in a temporary
+# version of poplocalbin, with objectclass rc_graphic and other things
+# precompiled. Later the file can be moved to $poplocalbin
+
+# Items marked ESSENTIAL are those that correspond to items in
+# $popsavelib (official poplog saved images)
+
+## Set things up for images to go into a temporary version of poplocalbin
+
+### Change this if you want to create the new images in a different
+### place
+setenv tempdir $usepop/templocalbin
+echo usepop $usepop
+echo "Creating $tempdir"
+mkdir $tempdir
+
+## Save the old version of $poplocalbin for message at end
+setenv oldlocalbin $poplocalbin
+
+### Set the new version of poplocalbin
+setenv  poplocalbin $tempdir
+echo "Creating new saved images in $poplocalbin"
+
+### Prevent interaction with user's $poplib files
+unsetenv poplib
+
+## Make sure that the pop11 command gets interpreted to use the right
+## startup saved image, after hit has been created
+setenv pop_pop11 "-$poplocalbin/startup.psv"
+
+    date
+    echo "Building startup.psv"
+    echo mkstartup.local
+    mkstartup.local #1 ESSENTIAL (Make pop11)
+    echo "================================================"
+
+    date
+    echo mkplog.local
+    mkplog.local  #2 ESSENTIAL (Make prolog)
+    echo "================================================"
+    date
+    echo mklogic.local
+    mklogic.local #3 OPTIONAL (logic tutor for prolog)
+    echo "================================================"
+    date
+    echo mkclisp.local
+    echo "IGNORE WARNING MESSAGES"
+    mkclisp.local #4 ESSENTIAL (Make Common Lisp)
+    echo "================================================"
+    date
+    echo mkxvedlisp
+    mkxvedlisp    #5 OPTIONAL (Xved command starting in clisp mode)
+    echo "================================================"
+    date
+    echo "Building pml.psv"
+    mkpml.local   #6 ESSENTIAL (Make Poplog ML)
+    echo "================================================"
+    date
+    echo "Building xved.psv"
+    mkxved.local  #7 ESSENITAL (Make Xved starting in pop11 mode)
+    echo "================================================"
+    date
+    echo "Building xvedpro.psv"
+    mkxvedpro     #8 OPTIONAL (Xved command starting in prolog mode)
+    echo "================================================"
+    date
+#    echo "Building eliza.psv"
+ #   mkeliza.local #9 OPTIONAL
+    echo "================================================"
+    date
+    echo "Building gblocks.psv"
+    mkgblocks     #10 OPTIONAL (SHRLDU-type demo simplified)
+    echo "================================================"
+    date
+#    echo "Building boole.psv"
+#    mkboole       #11 OPTIONAL (Propositional logic tutor)
+    echo "================================================"
+    date
+    echo "Building kitchen.psv"
+    mkgram.local  #12 OPTIONAL See SHOWLIB gramdemo
+                  ## creates kitchen.psv, for parsing sentences
+                  ## about what went on in the kitchen
+    echo "================================================"
+    date
+    echo "Building poly.psv"
+    mkrc_poly   #13  OPTIONAL Poly-spiral demo
+    echo "================================================"
+    date
+    echo "DONE"
+
+    echo "The saved images are in $poplocalbin"
+    echo "After testing move them to $oldlocalbin"

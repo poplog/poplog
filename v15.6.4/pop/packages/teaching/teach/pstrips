@@ -1,0 +1,515 @@
+TEACH PSTRIPS                             Allan Ramsay, October 17 1985
+
+-- Contents -----------------------------------------------------------
+-- Background
+-- Representations
+-- Variables and operator schemas
+-- Implementation in PROLOG
+-- Exercises
+-- References
+
+-- Background ---------------------------------------------------------
+
+This file indicates how you might write a simple means-end (goal
+reducing, backward chaining) problem solver in PROLOG. A lot of
+difficult problems with such programs will be left open - see TEACH
+STRIPS and TEACH SOLVER for a more sophisticated (but almost
+incomprehensible) version written in POP-11.
+
+The sort of problem solver described here is useful when you have a
+repertoire of primitive actions which are described in terms of the
+situations in which they may be applied and the changes they will bring
+about in those situations when they are applied. The classic use for
+such operations is the domain of robot planning in the blocks world,
+where sequences of movements of a (simulated) robot hand and arm are
+constructed for moving (simulated) toy blocks around in a (simulated)
+world. These blocks world programs appear to have little to do with the
+real world, but in fact any robot which is (really) going to move around
+in the (real) world, picking (real) things up and moving them around
+will have to construct its plans about what to do in some simulated
+world first, so blocks world planners do have some serious applications.
+Similar planning systems, with different basic operators but the same
+planning algorithms, have been used in areas as diverse as speech act
+understanding (where what a person says is interpreted in terms of what
+effects on the world it might be designed to bring about [Allen &
+Perrault]) and genetic engineering (where the effects of different
+sequences of laboratory operations are investigated in order to come up
+with some sequence which produces the desired substance [Stefik]). The
+examples in this file will all be to do with blocks world manipulations.
+
+The basic ideas behind most current means-end problem solvers were first
+presented in [Fikes & Nilsson]. Since then a number of people have
+proposed various elaborations, e.g. [Sacerdoti], [Waldinger], [Warren].
+[Nilsson pp.275 - 361] gives a good (but very technical) overview of
+nearly everything that has been done on planning - a program that
+embodied everything he discusses there would be an achievement indeed.
+
+-- Representations ----------------------------------------------------
+
+We start by thinking about the structure of a fairly simple operation,
+namely the act of picking up a single block. We have a rather primitive
+robot, which can only pick blocks up if there is nothing on top of them.
+Our description of the operations performed by this robot is fairly
+coarse grained: it does not involve any specifications of absolute
+positions, so the only things we know about the world are relations
+between blocks, the table and the robot's hand. Everything in our world
+has a name - blocks are called by single letter names , e.g. "a", "b",
+"c", ..., the table is called "table" and the robot's hand is called
+"hand". We can thus describe the action of picking up the block "a" in
+English as follows -
+
+    The block a may be picked up if it is clear and the robot's hand is
+    empty. When it has been picked up, then the robot's hand will be
+    holding it. The block a will no longer be on the surface it was on
+    before the action was performed.
+
+We see that the description may be split into three parts - things that
+must be true for the action to be performed, things which were not true
+before it was performed and are afterwards, and things that were true
+before but are not after. Note that there are a large number of
+statements about the world which are not mentioned in this description.
+For some, such as "My first name is Allan", or "The first means-end
+analysis program was written by Aristotle" the actions of the robot seem
+to be irrelevant. For others, such as "A may now be lowered onto C", or
+"The table is now clear", performing the action may well change their
+truth value. What to do about these other statements is a difficult
+problem, known as the "frame problem" - not to be confused with Minsky's
+notion of "frames" as a means of chunking knowledge. One solution, which
+is reasonably straightforward to implement in PROLOG, is to say that we
+will regard a statement as true if either (i) we have it explicitly
+stated, or (ii) we can infer it from things which are explicitly stated.
+This will do as a first approximation, though there are a number of
+problems with it.
+
+We can try to rewrite the English description above in a more formal
+way, grouping the three types of statement together and writing each
+statement as a PROLOG fact.
+
+    operation:      pickup(a)
+    preconditions:  clear(a), empty(hand)
+    newly_true:     holding(hand, a)
+    newly_false:    empty(hand)
+
+We have captured here the notion of an action call PICKUP(A), which may
+be performed if A is CLEAR and HAND is EMPTY. When the action has been
+performed HAND will be holding A, and HAND is EMPTY will have become
+false. There are quite a number of things wrong with this
+characterisation of the action of picking something up. We will note
+here simply that if we rely on PROLOG facts, i.e. expressions without
+any variables in, we will (i) have to have a different operation for
+picking up A, picking up B, picking up C, ..., and (ii) that we will
+have great difficulty in stating the other obvious, immediate
+consequence of picking up A, namely that A is no longer on the surface
+it used to be on (which may or not itself now be clear, depending on
+what else it had on it when A was picked up - this is the frame problem
+again).
+
+For the moment we will see what we can do with the above description.
+Suppose that HAND was EMPTY, and that (for some reason) we wanted it to
+be holding A. It is clear that if we were to perform the operation
+specified above the situation would be as we wanted it to be. This is
+the basic idea behind means-end problem solving - if there is something
+about the world that you would like changed, find some performable
+action that will change it appropriately. The description of actions in
+terms of facts that they will make true or false is exceptionally well
+suited to this process - our model of the world consists of a set of
+statements of facts which are currently true or false, so to change it
+so that it is the way we want it, all (!!!) we have to do is find some
+set of actions which adds the facts we want and removes the ones we
+don't want.
+
+But wait a minute. What if HAND was not EMPTY, if it was holding B ?
+Then we can't apply our action, since its preconditions were not
+satisfied. We now have a subsidiary problem - making HAND is EMPTY true.
+This is exactly the same sort of problem as the first one, namely there
+is a statement about the world which is not true but which we would like
+to make true. Suppose we had another action, say
+
+    operation:      putdown(b)
+    preconditions:  holding(hand, b)
+    newly_true:     on(b, table), empty(hand)
+    newly_false:    holding(hand, b)
+
+Then the same approach - find an action which makes the desired
+statement true - will enable us to achieve this goal. Once we have
+achieved it we can go back to our original goal. The action which
+achieves that is now performable, so the job is done. We have a plan
+{putdown(b), pickup(a)} which transforms a world in which [holding(hand,
+b), clear(a), ...] are all true into one in which [on(b, table),
+holding(a), clear(a), ...] are true. Note that both sets of statements
+contain various things which were unaffected by the actions in the plan.
+These include a statement about what A was on before we picked it up -
+we still haven't worked out how to get rid of this one. We have
+nonetheless got the outline of the basic planning algorithm, which is as
+follows
+
+(i)     Choose a goal statement which is not true in the current world
+(ii)    Find an action which would make it true if performed
+(iii)   Add the currently unsatisfied preconditions of this action to the
+        list of goals
+(iv)    Goto (i)
+
+We can refine this basic algorithm in many, many ways, but it will
+always be the basis of what we do.
+
+-- Variables And Operator Schemas -------------------------------------
+
+The first thing to do is to allow operators to contain variables. This
+will enable us to replace our collection of operators for picking things
+up (i.e. pickup(a), pickup(b), pickup(c), ...) by a single operator
+schema pickup(X) (a,b,c are names of individuals, X, Y, Z are
+variables). It will also enable us to give a reasonable specification of
+facts such as "a" no longer being on the surface it started on. Here's
+our new version of pickup
+
+    operation:      pickup(X)
+    preconditions:  empty(hand), clear(X), on(X,Y)
+    newly_true:     holding(hand, X)
+    newly_false:    empty(hand), on(X,Y)
+
+This is a bit better. Now whenever we want the HAND to be holding some
+individual, say "a", we simply instantiate the variable X to the
+individual "a" throughout this schema to get
+
+    operation:      pickup(a)
+    preconditions:  empty(hand), clear(a), on(a,Y)
+    newly_true:     holding(hand, a)
+    newly_false:    empty(hand), on(a,Y)
+
+We cannot actually perform this action as it stands, since we don't know
+what Y is. But before we try to perform an action we have to check its
+preconditions. If we have a complete description of the world, we are
+(or should be) guaranteed to have a statement saying that "a" is on
+something (since if we are not holding it and it is not on anything then
+it must be suspended in mid-air), and examination of this statement will
+tell us WHAT it is that "a" is on. Suppose it's on "b". Then we can
+instantiate Y to "b" throughout the partially instantiated schema to get
+
+    operation:      pickup(a)
+    preconditions:  empty(hand), clear(a), on(a,b)
+    newly_true:     holding(hand, a)
+    newly_false:    empty(hand), on(a,b)
+
+This is a perfectly performable action, which we can include in our
+plan. It has been constructed from our single schema for picking things
+up, and it includes a statement to the effect that after the action has
+been performed "a" will not be on "b". It does not, however, enable us
+to tell whether "b" will be clear - we will have to infer that (if we
+want to know it) by looking to see if anything else is on "b". This
+leads us to the idea that clearness is not a primitive notion - that it
+might have been better if the original had been
+
+    operation:      pickup(X)
+    preconditions:  empty(hand), not(on(Z,X)), on(X,Y)
+    newly_true:     holding(hand, X)
+    newly_false:    empty(hand), on(X,Y)
+
+or even, by similar reasoning,
+
+    operation:      pickup(X)
+    preconditions:  not(holding(hand,W)), not(on(Z,X)), on(X,Y)
+    newly_true:     holding(hand, X)
+    newly_false:    on(X,Y)
+
+Finally we observe that, if we are prepared to allow negated statements
+to appear in our operators we no longer really need to distinguish
+between newly_true and newly_false, so we could rewrite our last version
+of pickup as
+
+    operation:      pickup(X)
+    preconditions:  not(holding(hand,W)), not(on(Z,X)), on(X,Y)
+    changes:        holding(hand, X), not(on(X,Y))
+
+-- Implementation in PROLOG -------------------------------------------
+
+How are we going to make use of these notions in a PROLOG problem
+solver? We have three major questions to answer - how are we going to
+represent the operations, how are we going to represent the world, and
+how are we going to construct a plan?
+
+The first of these is easy. We simply include in our program statements
+like
+
+operator(pickup(X),
+        [not(holding(hand, _1)), not(on(_2, X)), on(X,Y)],
+        [holding(hand, X), not(on(X,Y))]).
+
+Try consulting a PROLOG file containing this, and then typing
+
+?- listing(operator).
+
+and
+
+?- operator(Op, Preconditions, Changes).
+
+Try typing
+
+?- operator(Op, Preconditions, [holding(hand,a) | Other_effects]).
+
+We see that PROLOG has not only retrieved the operator, it has also
+instantiated quite a lot of its variables. If we tell PROLOG about the
+operators that are available, we have a very simple mechanism for
+retrieving and instantiating all the operators that might achieve a
+given goal. This mechanism is not in fact good enough to be used in
+practice, since it assumes that the first statement in the list of the
+operator's effects is the only one that will ever be required as a goal,
+but it is not difficult to upgrade so that it can be used to achieve any
+of its effects.
+
+How are we to represent the current state of the world? At first sight
+it might seem convenient to use the ordinary PROLOG database, putting
+statements like ON(A,B), HOLDING(HAND,C), ... in it. It turns out that
+this can be a bit awkward, because we may want to do more complicated
+things with our description of this state than just inspecting and
+updating it. Most people prefer to use a list of known facts, with
+changes being made by adding and deleting elements of the list. We would
+thus expect to have some predicates like
+
+    new_fact(not(Fact), Oldstate, Newstate) :-
+        !, remove(Fact, Oldstate, Newstate).
+    new_fact(Fact, Oldstate, [Fact | Oldstate]).
+
+and
+
+    true(not(Fact), State) :- !, not(member(Fact, State)).
+    true(Fact, State) :- member(Fact, State).
+
+for maintaining and inspecting the current state of the world. Note that
+both these predicates have an initial clause for dealing with negative
+facts, and that this clause is immediately cut - a negated statement is
+TRUE if and only if the unnegated statement is not explicitly known. The
+cut is essential, since without it we might attempt to backtrack through
+a call of TRUE for a negated fact. It may be necessary in general to
+elaborate these predicates - what, for instance, should we do about
+facts that are inferrable from known facts, about doubly negated facts,
+... ? We will not come back to this, but you should bear it in mind when
+you write your implementation.
+
+You may decide that it would in fact be easier to use the PROLOG
+database for recording the current state of the world. It will certainly
+make it easier to check things which can be inferred from facts which
+are explicitly stated. If you do want to use the PROLOG database, you
+will probably need to use "reversible" database operations, since you
+may need to undo changes that you made while developing some plan which
+subsequently turned out not to work. The following may be useful:
+
+    soft_assert(Fact) :- asserta(Fact).
+    soft_assert(Fact) :- retract(Fact).
+
+    soft_retract(Fact) :- retract(Fact).
+    soft_retract(Fact) :- asserta(Fact).
+
+We now have some idea how to represent operators and world states. How
+are we going to construct a plan to turn a given world state into one in
+which some list of goals is satisfied ? Recalling our outline plan
+algorithm above, we might start with something like
+
+(i)     plan(World, [], []).
+(ii)    plan(World, [Goal | Goals], Plan) :-
+            true(Goal, World),
+            plan(World, Goals, Plan).
+(iii)   plan(World, [Goal | Goals], [Action | Plan]) :-
+            achieves(Action, Goal),
+            perform(Action, World, Newworld),
+            plan(Newworld, Goals, Plan).
+
+These three clauses say (i) if there's nothing left to do, you needn't
+do anything, (ii) if your first goal is already true in the current
+world, all you need to do is find some plan which achieves the others,
+(iii) otherwise you'll have to find some action which achieves your
+first goal, construct the world that results from performing that plan,
+and then find some other plan to achieve the rest of your goals in this
+new world.
+
+The main problem with this simple-minded planner is that it doesn't
+check that the action it has chosen to achieve the given goal is
+actually performable in the current world. It doesn't check its
+preconditions. If it did, we might find that we had to add them in to
+our list of goals to be achieved before we could perform the chosen
+action, so the program would look rather more like
+
+(i)     plan(World, [], []).
+(ii)    plan(World, [Goal | Goals], Plan) :-
+            true(Goal, World),
+            plan(World, Goals, Plan).
+(iii)   plan(World, [Goal | Goals], [Op | Plan]) :-
+            achieves(operator(Op, Preconditions, Changes), Goal),
+            sub_plan(World, Preconditions, Sub_plan, Intermed_world),
+            make_changes(Changes, Intermed_world, Newworld),
+            plan(Newworld, Goals, Rest_plan),
+            append(Sub_plan, Rest_plan, Plan).
+
+The only changes are in clause (iii). Firstly (this is fairly minor) we
+are now taking the chosen operation apart into its components as soon as
+we get it (in the call on ACHIEVES). The big change is that we now
+demand a whole new plan to achieve the preconditions of this chosen
+operation. The call on SUB_PLAN is extremely similar to the original
+call on PLAN, save that SUB_PLAN has to return the resulting
+(intermediate) state of the world as well as the plan that produced it.
+Finally we perform the action (with MAKE_CHANGES), which certainly OUGHT
+to be possible, since we just constructed a plan to achieve all its
+preconditions; construct a new plan to achieve the remainder of our
+goals; and join our current chosen action, the intermediate plan that
+made it performable, and the plan that achieved all the outstanding
+goals, into a single plan which is the result of the planner.
+
+The difference between the clauses PLAN and SUB_PLAN is irritating and
+inessential - it would be better to add the extra parameter to PLAN as
+well, which would lead us to
+
+(i)     plan(World, [], [], World).
+(ii)    plan(World, [Goal | Goals], Plan, New_world) :-
+            true(Goal, World),
+            plan(World, Goals, Plan, New_world).
+(iii)   plan(World, [Goal | Goals], Plan, New_world) :-
+            achieves(operator(Op, Preconditions, Changes), Goal),
+            plan(World, Preconditions, Sub_plan, Intermed_world),
+            make_changes(Changes, Intermed_world, Next_world),
+            plan(Next_world, Goals, Rest_plan, New_world),
+            append(Sub_plan, [Op | Rest_plan], Plan).
+
+This is becoming more like something which would work. There are still
+several important predicates to be defined - notably TRUE, ACHIEVES and
+MAKE_CHANGES - but there is nothing terribly difficult about any of
+them, so we will not develop them in detail here. The main immediate
+problem with the program as it stands is that it is possible for later
+actions to undo the effects of earlier ones, either in the top-level
+call of PLAN or in the recursive calls which are trying to achieve
+preconditions of required actions. Because of this we have to keep
+checking ALL our goals, and replanning to achieve things which we have
+already done if they are subsequently undone. Probably the easiest way
+to do this is to use a predicate (say NEXT_UNTRUE_GOAL) which will
+select the next goal to be achieved from our original list, rather than
+assuming that we can get away with simply walking down the list goal by
+goal. So the next version of our program is
+
+(i)     plan(World, Goals, Plan, New_world) :-
+            next_untrue_goal(Goals, Goal, World),
+            achieves(operator(Op, Preconditions, Changes), Goal),
+            plan(World, Preconditions, Sub_plan, Intermed_world),
+            make_changes(Changes, Intermed_world, Next_world),
+            plan(Next_world, Goals, Rest_plan, New_world),
+            append(Sub_plan, [Op | Rest_plan], Plan).
+(ii)    plan(World, Goals, [], World).
+
+This is very close to working. There is still a rather subtle problem
+with it. We are using NEXT_UNTRUE_GOAL in clause (i) to enumerate the
+goals which are untrue in the current state, so that if we get stuck
+trying to find a plan for the first untrue goal we can try again, from
+the same position, with another one. With this use of NEXT_UNTRUE_GOAL,
+we see that when we have enumerated all of them without successfully
+completing our plan, we should conclude that there is no way of getting
+from the current state to the desired state. So we should FAIL. But we
+are also using NEXT_UNTRUE_GOAL to tell us when we have got a state in
+which there are no untrue goals - if NEXT_UNTRUE_GOAL fails, we conclude
+that everything has been achieved and we fall through to clause (ii),
+which says that an empty plan will be sufficient if all our goals are
+currently satisfied (which we are inferring from the fact that
+NEXT_UNTRUE_GOAL failed). Unfortunately NEXT_UNTRUE_GOAL won't carry the
+burden of performing both tasks at once. It can EITHER be used to tell
+us that all our goals are currently satisfied, OR for enumerating all
+the ones that aren't. Our final version of the program uses it in both
+clauses, once to see if anything needs to be done, and once to enumerate
+possible subgoals.
+
+(i)     plan(World, Goals, [], World) :-
+            not(next_untrue_goal(Goals, _, World)), !.
+(ii)    plan(World, Goals, Plan, New_world) :-
+            next_untrue_goal(Goals, Goal, World),
+            achieves(operator(Op, Preconditions, Changes), Goal),
+            plan(World, Preconditions, Sub_plan, Intermed_world),
+            make_changes(Changes, Intermed_world, Next_world),
+            plan(Next_world, Goals, Rest_plan, New_world),
+            append(Sub_plan, [Op | Rest_plan], Plan).
+
+The cut in clause (i) is for efficiency rather than to affect the
+overall behaviour of the program. If we have checked that
+NEXT_UNTRUE_GOAL is false, there is no possible point in going into
+clause (i), which will immediately try to prove NEXT_UNTRUE_GOAL and
+will inevitably fail.
+
+This final version of the program works if you have simple operators,
+simple initial worlds, and simple sets of goals. It needs to be
+substantially extended in a variety of ways if it is to be any use in
+more complex situations. The exercises below outline some of the things
+that you might want to do to improve it. It would not be surprising if
+some of these required radical reimplementation of the basic algorithm,
+but some at least should be possible simply by extending it in
+reasonably straightforward ways.
+
+-- Exercises ----------------------------------------------------------
+
+(1) Fill in the missing bits in the final version of the planner above
+(i.e. the predicates NEXT_UNTRUE_GOAL, ACHIEVES, MAKE_CHANGES). Test
+your program on a simple set of blocks world operations.
+
+(2) As the program stands, operations are specified in terms of
+preconditions and effects. It may try to find a plan to achieve any
+unsatisfied precondition of any operation, even if it is clear (to us)
+that there is no possibility of finding such a plan (e.g. if one of the
+preconditions of the operation was that BLOCK(TABLE) should hold, and
+there are no operations which can possibly turn something into a block
+unless it is already known to be one). The program may also choose to
+use some operation to achieve a goal when the goal of that operation is
+more like a side-effect than a major reason for using it. See if
+changing the basic representation of operations so that they have the
+form
+
+    operation(OP,
+              UNACHIEVABLE_PRECONDITIONS,
+              ACHIEVEABLE_PRECONDITIONS,
+              PRIMARY_EFFECTS,
+              SIDE_EFFECTS).
+
+makes your program perform better (or worse?).
+
+(3) Make your program check that its plans do not contain moves whose
+effects are undone by later moves. You will have to distinguish between
+undoing the effects of a move AFTER they have been used (i.e. if move M1
+was performed to achieve some precondition of move M2, then it doesn't
+matter if M2 undoes the effects of M1. But if both M1 and M2 are
+intended to achieve preconditions of M3, then M2 should not undo the
+effects of M1).
+
+(4) Make your program check that it is not getting into an infinite
+loop. It is quite possible for a means-end planner like this to do
+something like decide it would like to perform action A1; in order to
+perform action A1, it has to achieve precondition P1; it sees that A2
+will achieve this precondition, so it decides to do this; A2 has a
+precondition P2, which can be achieved by A1, so the program decides to
+perform A1; in order to do this it needs to achieve P1, which leads it
+to choose to do A2, which ... Dealing with loops of this sort requires
+you to keep track not only of what goals are outstanding, but also why
+you wanted to achieve them in the first place.
+
+(5) Make your program plan hierarchically. A (fairly) simple way to do
+this is to have levels of preconditions. You start by constructing a
+plan which achieves all the initial goals using actions whose top level
+preconditions are satisfied. Once you have this plan, you take each step
+in it and treat this as a new problem and try to find a plan that
+achieves this step with all the next level preconditions satisfied, and
+so on until the lowest level preconditions of all steps in the plan are
+satisfied.
+
+If you do all the above, (i) feel pleased with yourself, (ii) think of
+ways in which your program is unsatisfactory (if you can't to this bit,
+have a look in [Nilsson]), (iii) solve them and go to (i).
+
+-- References ---------------------------------------------------------
+
+Allen JF & Perrault CR "Analyzing intention in utterances", AI 15 (1980)
+
+Fikes RE & Nilsson NJ "STRIPS: a new approach to the application of theorem
+proving to problem solving" AI 2 (1971)
+
+Nilsson NJ "Principles of artifical intelligence" Springer-Verlag (1982)
+
+Sacerdoti ED "Planning in a hierarchy of abstraction spaces" AI 5 (1974)
+
+Stefik M "MOLGEN I & II" AI 16 (1980)
+
+Waldinger RJ "Achieving several goals simultaneously"
+Machine Intelligence 8 (1977)
+
+Warren DHD "WARPLAN: a system for generating plans" Dept of Computational
+Logic Memo 76, Univ. of Edinburgh (1974)

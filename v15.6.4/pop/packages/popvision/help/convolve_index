@@ -1,0 +1,118 @@
+HELP CONVOLVE_INDEX                             David Young
+                                                November 1992
+
+Carries out an indexed convolution on an array of any number of
+dimensions, using single precision floats.
+
+The main procedure
+
+    convolve_index(ARRIN, WEIGHTS, OFFSETS, ARROUT, REGION) -> ARROUT
+
+convolves ARRIN with the convolution mask effectively specified by
+WEIGHTS and OFFSETS. For efficiency, the input and output arrays should
+be constructed using *NEWSFLOATARRAY, or any other procedure that gives a
+packed arrayvector of single floats. The last two arguments may be given
+as <false> for straightforward use.
+
+The formula is:
+
+    ARROUT (x1, ... xk, ... xz)  =
+
+     SUM  ARRIN(x1-OFFi(1), ... xk-OFFi(k), ... xz-OFFi(z)) * WEIGHTS(i)
+    i=1,N
+
+where N is the number of weights and the number of offsets, and OFFi is
+shorthand for the i'th element of OFFSET.  The array may have any number
+of dimensions greater than 0.
+
+For example, suppose the arrays are 2-D, WEIGHTS is
+
+    [   4      -1      -1      -1       -1  ]
+
+and OFFSETS is
+
+    [{ 0  0} {-1  1} {-1 -1} { 1 -1} { 1  1}]
+
+then the convolution is with a centre-surround operator, which would
+look like this if laid out as a 2-D array:
+
+                        -1
+                    -1   4  -1
+                        -1
+
+That is, you can imagine constructing a mask array, storing the number
+in WEIGHTS(I) at the position specified by the elements of OFFSETS(I),
+and zeroes everywhere else. Then the result is equivalent to convolving
+this mask array with the input array. (No such array is in fact
+constructed.) Note that the subtraction used to get the indices into the
+input array is correct for such a convolution.
+
+Another way to think of the process is to imagine multiplying every
+element of ARRIN by WEIGHTS(1), and storing each result in a new array,
+in a position shifted by the vector OFFSETS(1). Repeat this for all the
+other weights and offsets, and add up all these new arrays element by
+element to get ARROUT. (No such intermediate arrays are actually created
+in practice, of course.)
+
+
+The simplest way to call the procedure is:
+
+    convolve_index(ARRIN, WEIGHTS, OFFSETS, false, false) -> ARROUT
+
+A new array will be created and returned. The convolution will be run
+over the whole of ARRIN, and ARROUT will be smaller than ARRIN by an
+amount depending on the maximum offsets, to allow for the fact that the
+mask has to be wholly within ARRIN all the time. E.g. if OFFSETS is
+boundslist [{-2 -2} {2 2}] and ARRIN has bounds [1 100 1 100], then
+ARROUT will have bounds [3 98 3 98]. See the code for the general case,
+or figure it out from the formula above.
+
+WEIGHTS may be an array, vector or list containing the weight values (it
+must only contain numbers). There will be a slight efficiency advantage
+if it is an array created with *NEWSFLOATARRAY.
+
+OFFSETS must be a list, with as many elements as there are weights. Each
+element of the list may be a vector or list containing integers,
+specifying an offset into the mask.
+
+If the more general form
+
+    convolve_index(ARRIN, WEIGHTS, OFFSETS, ARROUT, REGION) -> ARROUT
+
+then the ARROUT argument may be used to pass in an array which is to be
+filled with results, in order to avoid creating a new array. This array
+should be created with *NEWSFLOATARRAY (or a similar constructor),
+otherwise it will get copied. One easy way to get a suitable output
+array is to use an array produced as a result of a previous call to
+-convolve_index-.
+
+If ARROUT is supplied, and REGION is <false>, then as much of ARROUT as
+possible will be filled. Parts of ARROUT which cannot be filled, because
+to do so would take the mask off the edge of the input array, are left
+untouched. Equally, parts of the input array not needed to fill ARROUT
+are left unreferenced.
+
+If ARROUT is a list, it must specify a boundslist with which to create a
+new array, together with a value with which to initialise the array. The
+intialising value is given as the head of the list, the boundslist as
+the tail. The behaviour will then be as if this array had been passed in
+- i.e. as much as possible of it is filled. Any parts that cannot be
+filled will be left as the initial value. So the call
+
+    convolve_2d(ARRIN, MASK, 0 :: boundslist(ARRIN), false) -> ARROUT;
+
+will return an array the same size as ARRIN but with a border of zeroes
+corresponding to the region where the mask would have gone off the edge.
+
+The last argument, REGION, can be used to specify a part of the output
+array to fill. If it is not <false>, REGION should have the structure of
+a boundslist. Only the part of ARROUT specified by REGION is then
+filled: the rest of the output array is left unchanged. REGION must be
+wholly contained within the output array's bounds, and must not require
+the mask to cross the input array's boundaries.
+
+If REGION is specified and ARROUT is <false> on entry, then the array
+returned has REGION as its boundslist.
+
+--- $popvision/help/convolve_index
+--- Copyright University of Sussex 1992. All rights reserved. ----------

@@ -1,0 +1,185 @@
+#!/bin/bash
+##
+## $local/com/CHECK_LINUX_FACILITIES
+## http://www.cs.bham.ac.uk/research/poplog/com/CHECK_LINUX_FACILITIES
+## To be run before installing Poplog
+##
+##  Aaron Sloman 30 Nov 2004
+##  http://www.cs.bham.ac.uk/~axs/
+##
+##  6 Jan 2007: changed for new xorg library locations
+##
+##  13 Jan 2005: reduced the amount of print-out
+## ###########################################################
+## Check for libraries required for X11 stuff in poplog and
+## put links in where necessary.
+## 17 Jan 2005
+## Fixed minor syntactic bugs detected by Andreas Eder
+##  resulting from commenting out 'echo' commands
+
+## First make sure C compiler/linker available
+
+gccloc=`which gcc`
+
+if [ ! -x "$gccloc" ]
+then
+    echo "WARNING: gcc not found."
+    echo "So it will not be possible to link poplog on this machine."
+    echo "  You should either take steps to get gcc installed,"
+    echo "  or try installing a pre-linked version of poplog"
+    echo "  as described in PRE_LINKED_LINUX_POPLOG.txt"
+fi
+
+echo ""
+echo "-----------------------------------"
+echo "Checking for X11 libraries"
+
+
+## Now check out X window libraries and Motif
+
+
+## Test whether file $1 exists. Used several times below
+## each time this is run $1 will have a different value
+## (Note 'lib' prefix is added for each file)
+##
+check_only()
+{
+    echo ""
+    ## echo "Checking for  $1..."
+    echo looking for "`pwd`/lib${1}.so"
+
+    if [ ! -f "lib$1.so" ]
+    then
+        echo "not here"
+        ##echo "`pwd`/lib${1}.so does not exist"
+        ##echo "   --- will look elsewhere."
+    else
+        echo "Found `pwd`/lib${1}.so -- Good"
+
+        if [ $1 == "X11" ]
+        then
+            X11="`pwd`"
+            ##echo X11 $X11
+        elif [ $1 == "Xext" ]
+        then
+            Xext="`pwd`"
+            ##echo Xext $Xext
+        elif [ $1 == "Xt" ]
+        then
+            Xt="`pwd`"
+            ##echo Xt $Xt
+        elif [ $1 == "Xm" ]
+        then
+            Xm="`pwd`"
+            ##echo Xm $Xm
+        fi
+    fi
+
+}
+
+## set default values of variables.
+
+Xusable="true"
+X11="notfound"
+Xt="notfound"
+Xext="notfound"
+Xm="notfound"
+
+# check location for XFree86 libraries
+cd /usr/X11R6/lib
+
+check_only "X11"
+check_only "Xt"
+check_only "Xext"
+check_only "Xm"
+
+##echo "X11 $X11 -- Xt $Xt -- Xext $Xext -- Xm $Xm"
+
+
+# check location for X.org libraries
+cd /usr/lib
+
+if [ $X11 == "notfound" ]
+then
+    check_only "X11"
+fi
+if [ $Xt == "notfound" ]
+then
+    check_only "Xt"
+fi
+if [ $Xext == "notfound" ]
+then
+    check_only "Xext"
+fi
+if [ $Xm == "notfound" ]
+then
+    check_only "Xm"
+fi
+
+
+if [ $X11 == "notfound" ] || [ $Xt == "notfound" ] || [ $Xext == "notfound" ]
+then
+    echo "Not all essential X11 libraries are present"
+    echo "  so you will not be able to use poplog with graphics"
+    echo "  and you will not be able to use Xved"
+
+    Xusable="false"
+
+elif [ $Xm == "notfound" ]
+then
+    echo "The main X11 libraries are present"
+    echo "  so most graphical facilites of poplog will work."
+    echo "  But there is no sign of motif or lesstif,"
+    echo "  so you will need to install motif AND motif-devel packages"
+    echo "  or lesstif AND lesstif-devel packages"
+    echo "  if you want Xved to have menu buttons and scrollbar"
+    echo "  or you wish to use 'propsheet'."
+    echo "However the RCLIB graphical tools work without motif or lesstif"
+    echo "  and XVed will work without menu buttons and scrollbar "
+else
+    echo ""
+    echo "Good: All the main X11 libraries and Motif or Lesstif present"
+fi
+
+
+echo "Results of looking for locations of X11 libraries:"
+echo "X11 $X11 -- Xt $Xt -- Xext $Xext -- Xm $Xm"
+
+
+echo ""
+echo "-----------------------------------"
+
+
+if [ $Xm == "notfound" ]
+then
+    echo "Could not find Motif (or Lesstif)"
+    echo "Cannot run poplog with Motif even if X libraries installed"
+else
+    echo "Motif Found"
+    echo ""
+    if [ $Xusable == "false" ]
+    then
+        echo "But other X libraries missing -- so cannot use Motif"
+    else
+        echo "Poplog should link OK with X and Motif"
+        exit 0
+    fi
+fi
+
+## indicate failure
+## status == 1 if core X11 stuff present and Motif not
+## status == 2 if core X11 stuff not present
+
+if [ $Xusable == "false" ]
+then
+    echo "exit 2"
+    exit 2
+elif [ $Xm == "notfound" ]
+then
+    echo "exit 1"
+    exit 1
+
+fi
+
+echo exit 0
+exit 0
