@@ -6,6 +6,21 @@
 # Documentation:
 # Related Files:   C.unix/com/popenv.sh, $poplocal/local/com/poplog.sh
 
+if [ -z "$usepop" ] ; then
+	# if usepop is not set then presume it's 2 directories above the directory of this file
+	# this is suprisingly hard to work out!
+	SCRIPT_PATH="${BASH_SOURCE[0]}";
+	if([ -h "${SCRIPT_PATH}" ]) then
+ 		while([ -h "${SCRIPT_PATH}" ]) do SCRIPT_PATH=`readlink "${SCRIPT_PATH}"`; done
+	fi
+	pushd . > /dev/null
+	cd `dirname ${SCRIPT_PATH}` > /dev/null
+	SCRIPT_PATH=`pwd`;
+	popd  > /dev/null
+	d=`dirname $SCRIPT_PATH`
+	usepop=`dirname $d`
+fi 
+
 if [ -f $usepop/pop/help/message.login -a ! -f $HOME/.hushlogin ]
 then
 	cat $usepop/pop/help/message.login
