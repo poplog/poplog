@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. ../pop/com/poplog.sh
+. `dirname $0`/../pop/com/poplog.sh
 
 T=/tmp/test_uses_compile.$$
 
