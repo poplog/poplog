@@ -1,11 +1,8 @@
 #!/bin/bash
 
-# export usepop=$(readlink `dirname $0`/..)
-export usepop=/usr/share/poplog/current-poplog
-. $usepop/bin/poplog.sh
+. ../pop/com/poplog.sh
 
-mkdir -p /mnt/tmp
-T=/mnt/tmp/test_uses_compile.$$
+T=/tmp/test_uses_compile.$$
 
 echo '<?xml version="1.0"?>'
 echo '<testsuite name="test_uses_compile">'
