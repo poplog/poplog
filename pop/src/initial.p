@@ -23,7 +23,7 @@ constant
 	;;; know about new versions. Used as the version number in the string
 	;;; popversion.
 	;;; (See declaration in declare.ph -- in AIX this is a vars.)
-	156400 -> pop_internal_version;
+	157001 -> pop_internal_version;
 
 
 	;;; Initialise variables
@@ -85,6 +85,8 @@ define_extern_name
 
 
 /* --- Revision History ---------------------------------------------------
+--- Ian Rogers, 27 Sep 2010
+		pop_internal_version = 156401
 --- Aaron Sloman, 12 Aug 2010
 		pop_internal_version = 156400
 
