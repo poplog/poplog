@@ -19,6 +19,7 @@ if [ -z "$usepop" ] ; then
 	popd  > /dev/null
 	d=`dirname $SCRIPT_PATH`
 	usepop=`dirname $d`
+	export usepop
 fi 
 
 if [ -f $usepop/pop/help/message.login -a ! -f $HOME/.hushlogin ]
