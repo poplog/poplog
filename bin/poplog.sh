@@ -33,31 +33,19 @@
 ## In the second mode, invoke this as something like this:
 ##    . $usepop/bin/poplog.sh
 
+# auto-detects the location for usepop if it's not set
+. `dirname $0`/../pop/com/poplog.sh > /dev/null
+
 # setup local directory tree for poplog root
 # may be a symbolic link to something else
-poplogroot=/usr/share/poplog
-export poplogroot
-#
-# The rest of this file is derived from $usepop/INSTALL/poplog2.sh
-## THIS MAY NEED TO BE EDITED
-## Last changed: 2 Dec 2008
-##      use of setarch no longer necessary
-## Last changed: 5 Nov 2008
-## Last changed: 11 Sep 2007
-usepop=$poplogroot/current-poplog
-export usepop
+# poplogroot=/usr/share/poplog
+# export poplogroot
 
 # Set the poplocal variables
 
 ## THIS MAY ALSO NEED TO BE EDITED
-poplocal=$poplogroot
-local=$poplocal/local
-export poplocal local
-
-# Run the initialisation files to set up additional environment
-# variables, extend $PATH, etc.
-# THIS IS THE "STANDARD" poplog "login" file. It sources several others
-. $usepop/pop/com/poplog.sh
+poplocal=$usepop/local
+export poplocal
 
 # (Optional)
 # Set $EDITOR and $VISUAL, unless set by users. Users can undo this.
