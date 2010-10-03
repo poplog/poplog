@@ -1,7 +1,7 @@
 
 include config/make
 
-POPSRC := pop/src/*.p
+POPSRC = pop/src/*.p
 
 all: pop/lib/psv/startup.psv
 
