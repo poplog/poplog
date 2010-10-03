@@ -34,7 +34,7 @@
 ##    . $usepop/bin/poplog.sh
 
 # auto-detects the location for usepop if it's not set
-. `dirname $0`/../pop/com/poplog.sh > /dev/null
+. `pwd`/`dirname $0`/pop/com/poplog.sh > /dev/null
 
 # setup local directory tree for poplog root
 # may be a symbolic link to something else
