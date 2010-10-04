@@ -33,8 +33,16 @@
 ## In the second mode, invoke this as something like this:
 ##    . $usepop/bin/poplog.sh
 
+if [ -z "${BASH_SOURCE[0]}" ] ; then
+	# run as a command
+	NYNAME=$0
+else 
+	# sourced in bash
+	MYNAME=${BASH_SOURCE[0]}
+fi
+
 # auto-detects the location for usepop if it's not set
-. `pwd`/`dirname $0`/pop/com/poplog.sh > /dev/null
+. `pwd`/`dirname $MYNAME`/../pop/com/poplog.sh > /dev/null
 
 # setup local directory tree for poplog root
 # may be a symbolic link to something else
