@@ -5,21 +5,25 @@ include config/make
 POPSRC = pop/src/*.p
 
 # first target is default
-all: env pop/lib/psv/startup.psv
-.PHONY : all
+all: pop/lib/psv/startup.psv
 
-env:
-#	ifndef $(usepop)
-#		exec ( . bin/poplog.sh ; $(MAKE) )
-#	endif
-#.PHONY:env
+# many build scripts need the environment set
+#ifndef $(usepop)
+#	$(exec  . bin/poplog.sh ; $(MAKE) )
+#endif
 
-pop/lib/psv/startup.psv: env pop/pop/basepop11 $(POPSRC)
+pop/lib/psv/startup.psv: pop/pop/basepop11 $(POPSRC)
 	pop/com/mkstartup
-	INSTALL/LINK_USING_NEWPOP $(POP_LINK_ARGS)
 
-pop/pop/basepop11: env pop/pop/newpop11
-	cd pop/pop && $(MAKE) basepop11
+pop/pop/basepop11: 
+	$(MAKE) -C pop/pop basepop11
 
-pop/pop/newpop11: env
-	cd pop/pop && $(MAKE) newpop11
+# see http://www.cs.bham.ac.uk/research/projects/poplog/tools/relinking.linux.poplog
+# compare with INSTALL/LINK_USING_NEWPOP
+install: pop/lib/psv/startup.psv
+	pop/src/newpop $(POP_LINK_ARGS) -norsv
+
+clean:
+	# rm -f *.o basepop11* newpop11* corepop poplink_cmnd
+	$(MAKE) -C pop/pop clean
+
