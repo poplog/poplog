@@ -30,8 +30,10 @@ execute_test () {
 	name=$2
 	cmd=$3
 	shift; shift; shift
-	$cmd "$*" < /dev/null > $T 2>&1
-	if [[ `grep -c MISHAP $T` -gt 0 ]] ; then
+	if ! $cmd "$*" < /dev/null > $T 2>&1
+        then
+		print_case $class $name 'failure'
+	elif [[ `grep -c MISHAP $T` -gt 0 ]] ; then
 		print_case $class $name 'failure' 
 	else 
 		print_case $class $name 'info' 
@@ -44,7 +46,7 @@ for d in $poplocalauto $popautolib $popvedlib $usepop/pop/lib/database $poplocal
 		for f in $d/*.p ; do
 			f=$(basename $f)
 			f=${f%.*}
-			execute_test $d $f pop11 ":uses $f"
+			execute_test $d $f $popsys/basepop11 ":uses $f"
 		done
 	fi
 done

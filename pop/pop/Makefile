@@ -1,22 +1,24 @@
 
 include ../../config/make
 
+TPATH := $(PATH)
+PATH = $(CURDIR):$(TPATH)
 all: basepop11
 
 
 basepop11: newpop11.map newpop11.stb
 	./copybasepop11
 
-newpop11.map: newpop11
-	# see the different nm commands in pglink
-	nm newpop11 > newpop11.map
+# newpop11.map: newpop11
+# 	# see the different nm commands in pglink
+# 	nm newpop11 > newpop11.map
 
 newpop11.stb:
 	touch newpop11.stb
 
 # see also http://www.cs.bham.ac.uk/research/projects/poplog/tools/relinking.linux.poplog
-newpop11:
-	./pglink $(POP_LINK_ARGS)
+newpop11 newpop11.map: poplink poplink.psv
+	./pglink $(POP_LINK_ARGS) -map
 
 newpop.psv: corepop11
 	$(popsrc)/mknewpop 
