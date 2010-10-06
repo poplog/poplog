@@ -6,8 +6,10 @@ PATH = $(CURDIR):$(TPATH)
 all: basepop11
 
 
-basepop11: newpop11.map newpop11.stb
-	./copybasepop11
+basepop11: newpop11 newpop11.map newpop11.stb
+	cp -p newpop11 basepop11
+	cp -p newpop11.map basepop11.map
+	cp -p newpop11.stb basepop11.stb
 
 # newpop11.map: newpop11
 # 	# see the different nm commands in pglink
