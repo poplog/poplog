@@ -19,8 +19,12 @@ newpop11.stb:
 	touch newpop11.stb
 
 # see also http://www.cs.bham.ac.uk/research/projects/poplog/tools/relinking.linux.poplog
-newpop11 newpop11.map: poplink poplink.psv
+newpop11 newpop11.map: poplink poplink.psv ../extern/lib/libpop.a
 	./pglink $(POP_LINK_ARGS) -map
+
+# add the depends?
+../extern/lib/libpop.a: 
+	make -C ../extern/lib libpop.a
 
 newpop.psv: corepop11
 	$(popsrc)/mknewpop 
