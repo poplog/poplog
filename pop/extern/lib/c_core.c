@@ -7,6 +7,7 @@
  * http://www.math.uni.wroc.pl/~hebisch/poplog/c_core.c
  */
 
+#include "../../../config/config.h"
 #include "c_core.h"
 
 

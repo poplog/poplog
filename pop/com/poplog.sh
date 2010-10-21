@@ -7,17 +7,19 @@
 # Related Files:   C.unix/com/popenv.sh, $poplocal/local/com/poplog.sh
 
 if [ -z "$usepop" ] ; then
-	# if usepop is not set then presume it's 2 directories above the directory of this file
-	# this is suprisingly hard to work out!
-	SCRIPT_PATH="${BASH_SOURCE[0]}";
-	if([ -h "${SCRIPT_PATH}" ]) then
- 		while([ -h "${SCRIPT_PATH}" ]) do SCRIPT_PATH=`readlink "${SCRIPT_PATH}"`; done
+	if [ -z "${BASH_SOURCE[0]}" ] ; then
+        	# run as a command
+        	MYNAME=$0
+	else
+        	# sourced in bash
+        	MYNAME=${BASH_SOURCE[0]}
 	fi
-	pushd . > /dev/null
-	cd `dirname ${SCRIPT_PATH}` > /dev/null
-	SCRIPT_PATH=`pwd`;
-	popd  > /dev/null
-	d=`dirname $SCRIPT_PATH`
+
+	# find the directory of this script. Should work for absolute and relative
+	pushd `dirname $MYNAME` > /dev/null
+	MYDIR=`pwd`
+	popd > /dev/null
+	d=`dirname $MYDIR`
 	usepop=`dirname $d`
 	export usepop
 fi 

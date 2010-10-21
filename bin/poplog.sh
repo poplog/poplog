@@ -35,14 +35,19 @@
 
 if [ -z "${BASH_SOURCE[0]}" ] ; then
 	# run as a command
-	NYNAME=$0
+	MYNAME=$0
 else 
 	# sourced in bash
 	MYNAME=${BASH_SOURCE[0]}
 fi
 
+# find the directory of this script. Should work for absolute and relative
+pushd `dirname $MYNAME` > /dev/null
+MYDIR=`pwd`
+popd > /dev/null
+
 # auto-detects the location for usepop if it's not set
-. `pwd`/`dirname $MYNAME`/../pop/com/poplog.sh > /dev/null
+. $MYDIR/../pop/com/poplog.sh > /dev/null
 
 # setup local directory tree for poplog root
 # may be a symbolic link to something else
