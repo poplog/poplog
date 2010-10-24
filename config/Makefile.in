@@ -1,5 +1,4 @@
 
-include make
 
 all: Makefile make configure.ac config.h system.ph
 
