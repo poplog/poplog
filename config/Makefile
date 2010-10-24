@@ -1,16 +1,13 @@
 
 include make
 
-all: config make configure.ac config.h system.ph
+all: Makefile make configure.ac config.h system.ph
 
 clean:
 	rm -f config make configure.ac
 	rm -rf autom4te.cache
 	rm -f config.log config.sample config.status configure config.h
 
-# TODO config will be made by configure in the root directory
-config: config.sample
-	ln -s config.sample config
 
 system.ph: config.h Makefile
 	echo "\n;;; This file created automatically by make. Don't edit by hand!\n\n" > system.ph
